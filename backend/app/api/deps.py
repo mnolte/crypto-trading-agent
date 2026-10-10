@@ -113,9 +113,7 @@ def get_session(request: Request) -> Session:
     return get_state(request).session_factory()
 
 
-def require_token(
-    request: Request, x_local_token: str | None = Header(default=None)
-) -> None:
+def require_token(request: Request, x_local_token: str | None = Header(default=None)) -> None:
     state = get_state(request)
     if x_local_token is None or not secrets.compare_digest(x_local_token, state.local_token):
         raise HTTPException(status_code=403, detail="missing or invalid X-Local-Token")

@@ -26,9 +26,7 @@ def test_settings_put_and_reload(client: TestClient, env_paths: object) -> None:
     current = client.get("/api/settings").json()
     current["model"]["decider"] = "rules"
     current["risk"]["min_rr"] = 2.5
-    response = client.put(
-        "/api/settings", json=current, headers={"X-Local-Token": token}
-    )
+    response = client.put("/api/settings", json=current, headers={"X-Local-Token": token})
     assert response.status_code == 200
 
     # Reload straight from the database: the document survived persistence.
@@ -67,9 +65,7 @@ def test_settings_invalid_rejected(client: TestClient) -> None:
     token = client.get("/api/session").json()["token"]
     body = client.get("/api/settings").json()
     body["execution_mode"] = "yolo"
-    response = client.put(
-        "/api/settings", json=body, headers={"X-Local-Token": token}
-    )
+    response = client.put("/api/settings", json=body, headers={"X-Local-Token": token})
     assert response.status_code == 422
 
 

@@ -27,9 +27,7 @@ LOCAL_HOSTS = frozenset({"127.0.0.1", "localhost"})
 class EnvConfig(BaseSettings):
     """Where the app runs. Field names map to TA_* environment variables."""
 
-    model_config = SettingsConfigDict(
-        env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore")
 
     ta_host: str = "127.0.0.1"
     ta_port: int = 8000

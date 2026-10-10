@@ -1,4 +1,4 @@
-.PHONY: dev run test test-backend test-frontend test-e2e openapi openapi-check
+.PHONY: dev run test test-backend test-frontend test-e2e openapi openapi-check ci ci-backend ci-frontend ci-api-types ci-e2e
 
 UV := uv
 # corepack must run inside frontend/ so it honours the pinned packageManager.
@@ -37,3 +37,29 @@ openapi-check: ## fail when committed openapi.json drifts from the app
 	@$(UV) run python -c "import json; from app.main import app; print(json.dumps(app.openapi(), indent=2, sort_keys=True))" \
 		| diff -u openapi.json - \
 		&& echo "openapi.json is up to date"
+
+ci: ci-backend ci-frontend ci-api-types ci-e2e ## run the same checks as CI jobs 1-4, in order
+
+ci-backend:
+	$(UV) sync --frozen
+	$(UV) run ruff check .
+	$(UV) run ruff format --check .
+	$(UV) run mypy .
+	$(UV) run pytest
+
+ci-frontend:
+	$(FE) install --frozen-lockfile
+	$(FE) lint
+	$(FE) typecheck
+	$(FE) test:run
+	$(FE) build
+
+ci-api-types:
+	@$(MAKE) openapi
+	@git status --porcelain -- openapi.json frontend/src/api/schema.d.ts
+	@git diff --exit-code -- openapi.json frontend/src/api/schema.d.ts \
+		&& echo "api types are up to date"
+
+ci-e2e:
+	$(FE) exec playwright install chromium
+	$(FE) e2e
