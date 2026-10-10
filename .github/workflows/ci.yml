@@ -46,9 +46,16 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
       - run: corepack enable
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "dir=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm lint
       - run: corepack pnpm typecheck
@@ -70,10 +77,19 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
       - run: uv sync --frozen
-      - run: corepack enable && corepack pnpm --dir frontend install --frozen-lockfile
+      - run: corepack enable
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "dir=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+        working-directory: frontend
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - run: (cd frontend && corepack pnpm install --frozen-lockfile)
       # Regenerate both artifacts, then fail if the tree changed.
       - name: Regenerate openapi.json and schema.d.ts
         run: |
@@ -102,11 +118,18 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
       - run: uv sync --frozen
         working-directory: .
       - run: corepack enable
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "dir=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm exec playwright install --with-deps chromium
       - run: corepack pnpm e2e
