@@ -13,15 +13,14 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  TA_DATA_DIR: ${{ runner.temp }}/ta-data
-  TA_DB_PATH: ${{ runner.temp }}/ta-data/agent.db
-
 jobs:
   backend:
     name: backend
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      TA_DATA_DIR: ${{ runner.temp }}/ta-data
+      TA_DB_PATH: ${{ runner.temp }}/ta-data/agent.db
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
@@ -60,6 +59,9 @@ jobs:
     name: api-types
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      TA_DATA_DIR: ${{ runner.temp }}/ta-data
+      TA_DB_PATH: ${{ runner.temp }}/ta-data/agent.db
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
@@ -86,6 +88,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [backend, frontend]
+    env:
+      TA_DATA_DIR: ${{ runner.temp }}/ta-data
+      TA_DB_PATH: ${{ runner.temp }}/ta-data/agent.db
     defaults:
       run:
         working-directory: frontend
