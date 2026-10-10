@@ -1,5 +1,6 @@
-"""Alembic environment. The database URL comes from config (TA_DB_PATH),
-overridable with -x db=... for scripts."""
+"""Alembic environment. The database URL comes from the app settings
+(TA_DB_PATH); ``-x db=...`` or a programmatically set ``sqlalchemy.url``
+wins for scripts and tests. The value in alembic.ini is a placeholder."""
 
 from __future__ import annotations
 
@@ -22,6 +23,9 @@ def _url() -> str:
     db = context.get_x_argument(as_dictionary=True).get("db")
     if db:
         return f"sqlite:///{db}"
+    configured = config.get_main_option("sqlalchemy.url")
+    if configured:
+        return configured
     from app.config import get_env
 
     return f"sqlite:///{get_env().ta_db_path}"
