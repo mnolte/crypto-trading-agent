@@ -42,7 +42,8 @@ def test_missing_required_key_disables_not_errors(client: TestClient) -> None:
 
 def test_secret_set_shows_last4_only(client: TestClient) -> None:
     token = _token(client)
-    key = "sk-test-abcdef1234567890wxyz"
+    # Deliberately key-shaped so the last4 assertion is meaningful.
+    key = "sk-test-abcdef1234567890wxyz"  # gitleaks:allow
     resp = client.put("/api/secrets/openai", json={"key": key}, headers={"X-Local-Token": token})
     assert resp.status_code == 200
     openai = next(s for s in client.get("/api/sources").json() if s["id"] == "openai")

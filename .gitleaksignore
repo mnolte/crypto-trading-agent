@@ -1,0 +1,5 @@
+# Deliberately fake, key-shaped fixture in test_sources.py — the test asserts
+# only its last4 is ever exposed by the API. Suppressed inline with
+# gitleaks:allow in new commits; this entry covers the older commit where the
+# literal first appeared.
+a24fac41abf8329c890889b290a84926e7b06c28:backend/tests/test_sources.py:generic-api-key:43
