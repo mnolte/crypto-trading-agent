@@ -912,3 +912,4 @@ Add one group at a time, starting with funding, open interest and options data, 
 - [x] Exposure cap 100% (spot, no leverage): cash and the 2.5% open-risk cap are the real limits.
 - [x] Cycles are fixed at 15 minutes in v0.1.
 - [x] A pending approval expires at the pair's next cycle or after a 0.5% move; R/R, size and gates are recomputed at the fill price.
+
