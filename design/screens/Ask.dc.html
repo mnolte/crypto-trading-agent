@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trading Agent — Ask the agent</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#F2B94B}a:hover{color:#FFD58A}
+button,select,input{font-family:inherit}
+</style>
+</helmet>
+<div style="min-height: 1000px; background: #0B0E13; color: #E7EAEE; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <aside aria-label="Sidebar" style="{{nav.aside}}">
+    <div style="{{nav.brandRow}}">
+      <div style="width: 36px; height: 36px; flex: 0 0 36px; border-radius: 8px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px">TA</div>
+      <sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+          <div style="font-weight: 600; font-size: 16px; white-space: nowrap">Trading Agent</div>
+          <div style="font-size: 12px; color: #98A2AF; white-space: nowrap">Paper · local · v0.1</div>
+        </div>
+      </sc-if>
+    </div>
+    <a href="Ask.dc.html" aria-current="{{nav.c.ask}}" aria-label="Ask the agent" title="Ask the agent" style="{{nav.ask}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Ask the agent</span></sc-if></a>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+      <div style="{{nav.group}}">Monitor</div>
+      <a href="Main.dc.html" aria-current="{{nav.c.dash}}" aria-label="Dashboard" title="Dashboard" style="{{nav.s.dash}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Dashboard</span></sc-if></a>
+      <a href="Indicators.dc.html" aria-current="{{nav.c.ind}}" aria-label="Indicators" title="Indicators" style="{{nav.s.ind}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><polyline points="3 17 9 11 13 15 21 7"></polyline><line x1="3" y1="21" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Indicators</span></sc-if></a>
+      <a href="Performance.dc.html" aria-current="{{nav.c.perf}}" aria-label="Performance" title="Performance" style="{{nav.s.perf}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="6" y1="20" x2="6" y2="14"></line><line x1="12" y1="20" x2="12" y2="9"></line><line x1="18" y1="20" x2="18" y2="4"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Performance</span></sc-if></a>
+      <div style="{{nav.group}}">Learn</div>
+      <a href="Insights.dc.html" aria-current="{{nav.c.ins}}" aria-label="Insights" title="Insights" style="{{nav.s.ins}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M9 18h6"></path><path d="M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Insights</span></sc-if></a>
+      <a href="WhatIf.dc.html" aria-current="{{nav.c.what}}" aria-label="What-if" title="What-if" style="{{nav.s.what}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="9" r="2"></circle><path d="M6 8v8"></path><path d="M6 13c0-3 3-4 6-4h4"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>What-if</span></sc-if></a>
+      <a href="Reviews.dc.html" aria-current="{{nav.c.rev}}" aria-label="Reviews" title="Reviews" style="{{nav.s.rev}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Reviews</span></sc-if></a>
+      <a href="Inspector.dc.html" aria-current="{{nav.c.insp}}" aria-label="LLM inspector" title="LLM inspector" style="{{nav.s.insp}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="11" cy="11" r="6"></circle><line x1="16" y1="16" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>LLM inspector</span></sc-if></a>
+      <div style="{{nav.group}}">Control</div>
+      <a href="Readiness.dc.html" aria-current="{{nav.c.ready}}" aria-label="Readiness" title="Readiness" style="{{nav.s.ready}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><polyline points="9 12 11 14 15 10"></polyline></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Readiness</span></sc-if></a>
+      <a href="Settings.dc.html" aria-current="{{nav.c.set}}" aria-label="Settings" title="Settings" style="{{nav.s.set}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line><circle cx="9" cy="6" r="2" fill="#0F131A"></circle><circle cx="15" cy="12" r="2" fill="#0F131A"></circle><circle cx="7" cy="18" r="2" fill="#0F131A"></circle></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Settings</span></sc-if></a>
+    </nav>
+    <div style="flex: 1"></div>
+    <div style="{{nav.status}}"><span style="{{nav.dot}}"></span><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>{{nav.statusText}}</span></sc-if></div>
+    <button type="button" onClick="{{nav.toggle}}" aria-label="{{nav.toggleLabel}}" aria-expanded="{{nav.expandedStr}}" title="{{nav.toggleLabel}}" style="{{nav.toggleStyle}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Collapse</span></sc-if></button>
+  </aside>
+
+  <div style="flex: 999 1 560px; min-width: 0; position: relative; min-height: 1000px; overflow: hidden">
+    <div aria-hidden="true" style="position: absolute; inset: 0; display: flex; flex-direction: column; opacity: 0.35; pointer-events: none">
+      <div style="min-height: 76px; border-bottom: 1px solid #232A35; background: #0F131A; display: flex; align-items: center; padding: 0 24px; font-size: 18px; font-weight: 600">Dashboard</div>
+      <div style="padding: 20px 24px; display: flex; flex-direction: column; gap: 16px">
+        <div style="height: 44px; border-radius: 10px; background: #12161D; border: 1px solid #232A35"></div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px"><div style="height: 96px; border-radius: 10px; background: #12161D"></div><div style="height: 96px; border-radius: 10px; background: #12161D"></div><div style="height: 96px; border-radius: 10px; background: #12161D"></div><div style="height: 96px; border-radius: 10px; background: #12161D"></div></div>
+        <div style="height: 420px; border-radius: 10px; background: #12161D; border: 1px solid #232A35"></div>
+        <div style="height: 220px; border-radius: 10px; background: #12161D; border: 1px solid #232A35"></div>
+      </div>
+    </div>
+    <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(5,7,10,0.55)"></div>
+
+    <aside role="dialog" aria-label="Ask the agent" style="position: absolute; top: 0; right: 0; bottom: 0; width: 520px; max-width: 100%; box-sizing: border-box; background: #0F131A; border-left: 1px solid #2E3643; box-shadow: -16px 0 40px rgba(0,0,0,0.45); display: flex; flex-direction: column">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid #232A35; min-height: 64px; box-sizing: border-box">
+        <h1 style="margin: 0; font-size: 16px; font-weight: 600; flex: 1">Ask the agent</h1>
+        <select aria-label="Conversation" style="height: 36px; padding: 0 8px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; max-width: 170px"><option>New conversation</option><option>Thu · SOL entries</option><option>Mon · weekly review</option></select>
+        <button type="button" aria-label="Close" style="width: 44px; height: 44px; border-radius: 8px; border: 1px solid #2E3643; background: transparent; color: #98A2AF; cursor: pointer; font-size: 18px">×</button>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 16px; border-bottom: 1px solid #232A35; font-size: 12px; color: #98A2AF">
+        <span>Looking at</span>
+        <span style="display: inline-flex; align-items: center; height: 26px; padding: 0 8px; border-radius: 6px; background: #171C24; border: 1px solid #2E3643; color: #C9CFD6; font-family: 'IBM Plex Mono', monospace">Dashboard · SOL-EUR</span>
+        <span style="margin-left: auto">Read-only · {{used}} of 100 today</span>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 18px">
+        <div style="align-self: flex-end; max-width: 80%; padding: 10px 14px; border-radius: 12px 12px 2px 12px; background: #2A2312; border: 1px solid #4A3A16; line-height: 1.5">{{question}}</div>
+
+          <div style="display: flex; gap: 12px; align-items: flex-start; max-width: 92%">
+            <div style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 6px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 11px">TA</div>
+            <div style="display: flex; flex-direction: column; gap: 12px; line-height: 1.6; min-width: 0">
+              <p style="margin: 0">Mostly because SOL never gave a valid setup yesterday, and the one time it came close, the risk rules said no.</p>
+              <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px">
+                <li>Between 00:00 and 13:45 the rules engine found no setup on SOL-EUR (price under the 1h EMA 50, RSI between 41 and 48), so the model wasn't asked. <a href="Indicators.dc.html">See indicators</a></li>
+                <li>At 14:15 the model proposed a BUY at €141.20 with a stop at €138.60 and a target at €145.90. That is a reward/risk of 1.81, below the 2.0 minimum, so the risk gate rejected it. <a href="Decision.dc.html">Decision #4812</a></li>
+                <li>From 16:00 the 6-hour cooldown after the XRP stop-out didn't apply to SOL, but total open risk was already 2.4% of the 2.5% limit until the ETH position closed at 21:30. <a href="Inspector.dc.html">Inspector record</a></li>
+              </ul>
+              <p style="margin: 0">In hindsight: SOL closed the day at €143.05. The rejected trade would not have hit its target or its stop within 24 hours.</p>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px">
+                <sc-for list="{{cites}}" as="c" hint-placeholder-count="4">
+                  <a href="{{c.href}}" style="display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 6px; background: #171C24; border: 1px solid #2E3643; color: #C9CFD6; font-size: 12px; font-family: 'IBM Plex Mono', monospace; text-decoration: none">{{c.label}}</a>
+                </sc-for>
+              </div>
+              <div style="font-size: 12px; color: #6B7480">Answered from 14 stored records · every number above comes from those records, not from the model · gpt-4o-mini · 3 calls · €0.0011</div>
+            </div>
+          </div>
+      </div>
+
+      <div style="padding: 10px 16px 0; display: flex; flex-wrap: wrap; gap: 6px">
+        <sc-for list="{{suggestions}}" as="q" hint-placeholder-count="4">
+          <button type="button" onClick="{{q.pick}}" style="min-height: 36px; padding: 6px 10px; text-align: left; border-radius: 999px; border: 1px solid #2E3643; background: #171C24; color: #C9CFD6; font-size: 12px; cursor: pointer">{{q.text}}</button>
+        </sc-for>
+      </div>
+      <form style="padding: 12px 16px 16px; display: flex; gap: 8px" onSubmit="{{noop}}">
+        <label for="ask-input" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Your question</label>
+        <input id="ask-input" type="text" placeholder="Ask about a trade, coin, decision or term…" style="flex: 1; min-width: 0; height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid #2E3643; background: #12161D; color: #E7EAEE; font-size: 14px">
+        <button type="submit" style="height: 44px; padding: 0 18px; border-radius: 8px; border: 0; background: #F2B94B; color: #0B0E13; font-weight: 600; font-size: 14px; cursor: pointer">Ask</button>
+      </form>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { navCollapsed: false, q: "Why didn't you buy SOL yesterday?" };
+  }
+  renderVals() {
+    var self = this;
+    var PAGE = 'ask';
+    var navCollapsed = !!this.state.navCollapsed;
+    var navBase = 'height:44px;display:flex;align-items:center;gap:12px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;box-sizing:border-box;' + (navCollapsed ? 'justify-content:center;padding:0;' : 'padding:0 12px;');
+    var s = {}, c = {};
+    ['dash', 'ind', 'perf', 'ins', 'what', 'rev', 'insp', 'ready', 'set', 'ask'].forEach(function (k) { s[k] = navBase + (k === PAGE ? 'background:#1C222C;color:#E7EAEE' : 'color:#98A2AF'); c[k] = k === PAGE ? 'page' : undefined; });
+    var nav = {
+      expanded: !navCollapsed, expandedStr: String(!navCollapsed), s: s, c: c,
+      toggle: function () { self.setState({ navCollapsed: !navCollapsed }); },
+      toggleLabel: navCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      aside: 'flex:0 0 ' + (navCollapsed ? '72px' : '232px') + ';box-sizing:border-box;display:flex;flex-direction:column;gap:12px;padding:16px ' + (navCollapsed ? '12px' : '16px') + ';background:#0F131A;border-right:1px solid #232A35',
+      brandRow: 'display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid #232A35;' + (navCollapsed ? 'justify-content:center' : ''),
+      status: 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#171C24;border:1px solid #232A35;font-size:13px;' + (navCollapsed ? 'justify-content:center' : ''),
+      dot: 'width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#3DD68C',
+      statusText: 'Running · paper',
+      toggleStyle: navBase + 'width:100%;border:1px solid #232A35;background:transparent;color:#98A2AF;cursor:pointer;font-family:inherit',
+      group: navCollapsed ? 'height:1px;background:#232A35;margin:8px 4px;overflow:hidden;color:transparent;font-size:0' : 'font-size:11px;font-weight:600;color:#8A94A1;text-transform:uppercase;letter-spacing:0.08em;padding:12px 12px 4px',
+      ask: navBase + (PAGE === 'ask' ? 'color:#0B0E13;background:#F2B94B;border:1px solid #F2B94B' : 'color:#F2B94B;background:#211C10;border:1px solid #4A3A16')
+    };
+    var SUG = [
+      'Why is the agent so quiet today?',
+      'What was my worst trade this week and why?',
+      'How close am I to the daily loss limit?',
+      
+      
+      'What does "fee gate" mean?'
+    ];
+    return {
+      nav: nav,
+      used: '12',
+      question: this.state.q,
+      noop: function (e) { if (e && e.preventDefault) e.preventDefault(); },
+      cites: [
+        { label: 'decision #4812', href: 'Decision.dc.html' },
+        { label: 'risk gate · R/R 1.81', href: 'Inspector.dc.html' },
+        { label: 'SOL-EUR 1h · 08 Oct', href: 'Indicators.dc.html' },
+        { label: 'open risk 2.4%', href: 'Main.dc.html' }
+      ],
+      suggestions: SUG.map(function (t) { return { text: t, pick: function () { self.setState({ q: t }); } }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

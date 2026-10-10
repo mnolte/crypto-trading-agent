@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trading Agent — Indicators</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#F2B94B}a:hover{color:#FFD58A}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="min-height: 1160px; background: #0B0E13; color: #E7EAEE; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <aside aria-label="Sidebar" style="{{nav.aside}}">
+    <div style="{{nav.brandRow}}">
+      <div style="width: 36px; height: 36px; flex: 0 0 36px; border-radius: 8px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px">TA</div>
+      <sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+          <div style="font-weight: 600; font-size: 16px; white-space: nowrap">Trading Agent</div>
+          <div style="font-size: 12px; color: #98A2AF; white-space: nowrap">Paper · local · v0.1</div>
+        </div>
+      </sc-if>
+    </div>
+    <a href="Ask.dc.html" aria-label="Ask the agent" title="Ask the agent" style="{{nav.ask}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Ask the agent</span></sc-if></a>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+      <div style="{{nav.group}}">Monitor</div>
+      <a href="Main.dc.html" aria-label="Dashboard" title="Dashboard" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Dashboard</span></sc-if></a>
+      <a href="Indicators.dc.html" aria-current="page" aria-label="Indicators" title="Indicators" style="{{nav.active}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><polyline points="3 17 9 11 13 15 21 7"></polyline><line x1="3" y1="21" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Indicators</span></sc-if></a>
+      <a href="Performance.dc.html" aria-label="Performance" title="Performance" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="6" y1="20" x2="6" y2="14"></line><line x1="12" y1="20" x2="12" y2="9"></line><line x1="18" y1="20" x2="18" y2="4"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Performance</span></sc-if></a>
+      <div style="{{nav.group}}">Learn</div>
+      <a href="Insights.dc.html" aria-label="Insights" title="Insights" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M9 18h6"></path><path d="M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Insights</span></sc-if></a>
+      <a href="WhatIf.dc.html" aria-label="What-if" title="What-if" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="9" r="2"></circle><path d="M6 8v8"></path><path d="M6 13c0-3 3-4 6-4h4"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>What-if</span></sc-if></a>
+      <a href="Reviews.dc.html" aria-label="Reviews" title="Reviews" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Reviews</span></sc-if></a>
+      <a href="Inspector.dc.html" aria-label="LLM inspector" title="LLM inspector" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="11" cy="11" r="6"></circle><line x1="16" y1="16" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>LLM inspector</span></sc-if></a>
+      <div style="{{nav.group}}">Control</div>
+      <a href="Readiness.dc.html" aria-label="Readiness" title="Readiness" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><polyline points="9 12 11 14 15 10"></polyline></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Readiness</span></sc-if></a>
+      <a href="Settings.dc.html" aria-label="Settings" title="Settings" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line><circle cx="9" cy="6" r="2" fill="#0F131A"></circle><circle cx="15" cy="12" r="2" fill="#0F131A"></circle><circle cx="7" cy="18" r="2" fill="#0F131A"></circle></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Settings</span></sc-if></a>
+    </nav>
+    <div style="flex: 1"></div>
+    <div style="{{nav.status}}"><span style="{{nav.dot}}"></span><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>{{nav.statusText}}</span></sc-if></div>
+    <button type="button" onClick="{{nav.toggle}}" aria-label="{{nav.toggleLabel}}" aria-expanded="{{nav.expandedStr}}" title="{{nav.toggleLabel}}" style="{{nav.toggleStyle}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Collapse</span></sc-if></button>
+  </aside>
+
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 16px 24px; border-bottom: 1px solid #232A35; background: #0F131A; min-height: 76px; box-sizing: border-box">
+    <h1 style="margin: 0; font-size: 18px; font-weight: 600">Indicators</h1>
+  </header>
+
+  <sc-if value="{{frozen}}" hint-placeholder-val="{{ false }}">
+    <div style="padding: 10px 24px; background: #3A2A0E; border-bottom: 1px solid #6B4E17; color: #FFD58A; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>
+      <span style="flex: 1 1 300px">Viewing {{sel.id}} as the model saw it · cycle #728 · 12:30:00. Values are from the stored brief, not live.</span>
+      <button type="button" onClick="{{goLive}}" style="height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid #6B4E17; background: transparent; color: #FFD58A; font-size: 13px; font-weight: 600; cursor: pointer">Back to live</button>
+    </div>
+  </sc-if>
+
+  <main style="max-width: 1440px; margin: 0 auto; padding: 20px 24px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+        <div style="position: relative; display: flex; flex-wrap: wrap; gap: 6px">
+          <div role="tablist" aria-label="Pairs" style="display: flex; flex-wrap: wrap; gap: 6px">
+            <sc-for list="{{pairsMain}}" as="p" hint-placeholder-count="6">
+              <button type="button" role="tab" onClick="{{p.pick}}" style="{{p.tabStyle}}">{{p.id}}</button>
+            </sc-for>
+          </div>
+          <button type="button" aria-haspopup="listbox" aria-expanded="{{more.openStr}}" onClick="{{more.toggle}}" style="{{more.btnStyle}}">
+            <span>{{more.label}}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <sc-if value="{{more.open}}" hint-placeholder-val="{{ false }}">
+            <div role="listbox" aria-label="More pairs" style="position: absolute; top: 46px; left: 0; z-index: 5; width: 220px; padding: 8px; background: #171C24; border: 1px solid #2E3643; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); display: flex; flex-direction: column; gap: 4px">
+              <input type="search" aria-label="Search pairs" placeholder="Search pairs" style="height: 36px; padding: 0 10px; box-sizing: border-box; border-radius: 6px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 13px; margin-bottom: 4px">
+              <sc-for list="{{pairsMore}}" as="p" hint-placeholder-count="3">
+                <button type="button" role="option" onClick="{{p.pick}}" style="{{p.rowStyle}}">{{p.id}}</button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+        <div role="group" aria-label="Timeframe" style="display: flex; padding: 3px; background: #171C24; border: 1px solid #232A35; border-radius: 8px">
+          <sc-for list="{{tfs}}" as="t" hint-placeholder-count="3">
+            <button type="button" onClick="{{t.pick}}" style="{{t.style}}">{{t.id}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+        <span style="font-size: 12px; color: #98A2AF; margin-right: 2px">Overlays</span>
+        <button type="button" aria-pressed="{{ov.ema}}" onClick="{{toggleEma}}" style="{{ov.emaStyle}}">EMA 20 / 50 / 200</button>
+        <button type="button" aria-pressed="{{ov.vwap}}" onClick="{{toggleVwap}}" style="{{ov.vwapStyle}}">VWAP</button>
+        <button type="button" aria-pressed="{{ov.levels}}" onClick="{{toggleLevels}}" style="{{ov.levelsStyle}}">Levels</button>
+        <span style="width: 1px; height: 28px; background: #232A35; margin: 0 4px"></span>
+        <button type="button" onClick="{{freeze}}" style="height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; cursor: pointer">Last decision view</button>
+        <button type="button" style="height: 36px; padding: 0 12px; display: flex; align-items: center; gap: 6px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; cursor: pointer">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="5" y1="20" x2="19" y2="20"></line></svg>
+          <span>Export CSV</span>
+        </button>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+
+      <section aria-label="Charts" style="flex: 999 1 640px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px">
+          <div style="font-weight: 600; font-size: 16px">{{sel.id}} · {{tf}}</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 22px">{{sel.last}}</div>
+          <div style="font-size: 12px; color: #98A2AF">last 120 of 300 bars · sample data</div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: #98A2AF">
+          <span>Regime</span>
+          <span style="{{reg.pair.style}}" title="Trend from 4h and daily EMAs with 4h ADX ≥ 25; volatility from the 1h ATR percentile; age in closed 4h bars">{{reg.pair.text}}</span>
+          <sc-if value="{{reg.showBtc}}" hint-placeholder-val="{{ true }}"><span style="{{reg.btc.style}}">{{reg.btc.text}}</span></sc-if>
+          <span>{{reg.rule}}</span>
+        </div>
+
+        <div style="position: relative">
+          <div style="{{cross.line}}"></div>
+          <sc-if value="{{frozen}}" hint-placeholder-val="{{ false }}">
+            <div style="{{cross.band}}"></div>
+          </sc-if>
+
+          <div style="position: relative; height: 360px">
+            <svg viewBox="0 0 1000 360" preserveAspectRatio="none" width="100%" height="360" aria-hidden="true" style="display: block">
+              <line x1="0" y1="90" x2="1000" y2="90" stroke="#1C222C"></line>
+              <line x1="0" y1="180" x2="1000" y2="180" stroke="#1C222C"></line>
+              <line x1="0" y1="270" x2="1000" y2="270" stroke="#1C222C"></line>
+              <g opacity="{{ov.levelsOpacity}}">
+                <path d="{{c.resLines}}" stroke="#FF8A8F" stroke-width="1" stroke-dasharray="6 6" vector-effect="non-scaling-stroke" fill="none"></path>
+                <path d="{{c.supLines}}" stroke="#3DD68C" stroke-width="1" stroke-dasharray="6 6" vector-effect="non-scaling-stroke" fill="none"></path>
+                <path d="{{c.pdLines}}" stroke="#98A2AF" stroke-width="1" stroke-dasharray="2 4" vector-effect="non-scaling-stroke" fill="none"></path>
+              </g>
+              <path d="{{c.upWick}}" stroke="#3DD68C" stroke-width="1" vector-effect="non-scaling-stroke" fill="none"></path>
+              <path d="{{c.downWick}}" stroke="#FF6369" stroke-width="1" vector-effect="non-scaling-stroke" fill="none"></path>
+              <path d="{{c.upBody}}" fill="#3DD68C"></path>
+              <path d="{{c.downBody}}" fill="#FF6369"></path>
+              <g opacity="{{ov.vwapOpacity}}">
+                <polyline points="{{c.vwap}}" fill="none" stroke="#B48CFF" stroke-width="1.5" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"></polyline>
+              </g>
+              <g opacity="{{ov.emaOpacity}}">
+                <polyline points="{{c.ema20}}" fill="none" stroke="#F2B94B" stroke-width="1.5" vector-effect="non-scaling-stroke"></polyline>
+                <polyline points="{{c.ema50}}" fill="none" stroke="#5AA9FF" stroke-width="1.5" vector-effect="non-scaling-stroke"></polyline>
+                <polyline points="{{c.ema200}}" fill="none" stroke="#E7EAEE" stroke-width="1.5" stroke-opacity="0.6" vector-effect="non-scaling-stroke"></polyline>
+              </g>
+            </svg>
+            <sc-for list="{{c.axis}}" as="a" hint-placeholder-count="4">
+              <div style="{{a.style}}">{{a.text}}</div>
+            </sc-for>
+            <sc-for list="{{c.levelLabels}}" as="lv" hint-placeholder-count="6">
+              <div style="{{lv.style}}">{{lv.text}}</div>
+            </sc-for>
+            <sc-for list="{{c.markers}}" as="m" hint-placeholder-count="3">
+              <div style="{{m.style}}" title="{{m.label}}">{{m.letter}}</div>
+            </sc-for>
+            <div style="{{tip.box}}">
+              <div style="font-family: 'IBM Plex Mono', monospace; color: #98A2AF; font-size: 11px">{{tip.when}}</div>
+              <sc-for list="{{tip.rows}}" as="r" hint-placeholder-count="10">
+                <div style="display: flex; justify-content: space-between; gap: 12px"><span style="color: #98A2AF">{{r.k}}</span><span style="{{r.style}}">{{r.v}}</span></div>
+              </sc-for>
+            </div>
+            <div style="position: absolute; left: 8px; top: 8px; display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: #98A2AF; background: rgba(18,22,29,0.85); padding: 4px 8px; border-radius: 6px">
+              <span style="color: #F2B94B">EMA 20</span><span style="color: #5AA9FF">EMA 50</span><span style="color: #C9CFD6">EMA 200</span><span style="color: #B48CFF">VWAP</span><span>dashed: levels · dotted: prev. day H/L</span>
+            </div>
+          </div>
+          <div role="img" aria-label="Trend regime per bar" style="display: flex; height: 8px; margin-top: 4px; border-radius: 2px; overflow: hidden">
+            <sc-for list="{{reg.band}}" as="b" hint-placeholder-count="4"><span title="{{b.title}}" style="{{b.style}}"></span></sc-for>
+          </div>
+          <div style="display: flex; gap: 14px; font-size: 11px; color: #98A2AF; margin-top: 2px"><span><span style="color: #3DD68C">■</span> up</span><span><span style="color: #9FB4CC">■</span> sideways</span><span><span style="color: #FF8A8F">■</span> down</span><span>trend regime per bar</span></div>
+
+          <div style="position: relative; height: 112px; border-top: 1px solid #232A35; margin-top: 6px">
+            <div style="position: absolute; left: 8px; top: 6px; font-size: 12px; color: #98A2AF">RSI 14 · <span style="{{now.rsiStyle}}">{{now.rsi}}</span> · bands 45 / 55</div>
+            <svg viewBox="0 0 1000 112" preserveAspectRatio="none" width="100%" height="112" aria-hidden="true" style="display: block">
+              <rect x="0" y="{{c.rsiBandY}}" width="1000" height="{{c.rsiBandH}}" fill="#E7EAEE" fill-opacity="0.05"></rect>
+              <path d="{{c.rsiGuides}}" stroke="#2E3643" stroke-dasharray="3 4" vector-effect="non-scaling-stroke" fill="none"></path>
+              <polyline points="{{c.rsi}}" fill="none" stroke="#F2B94B" stroke-width="1.5" vector-effect="non-scaling-stroke"></polyline>
+            </svg>
+          </div>
+
+          <div style="position: relative; height: 84px; border-top: 1px solid #232A35">
+            <div style="position: absolute; left: 8px; top: 6px; font-size: 12px; color: #98A2AF">ADX 14 · <span style="color: #E7EAEE; font-family: 'IBM Plex Mono', monospace">{{now.adx}}</span> · above 25 = trending</div>
+            <svg viewBox="0 0 1000 84" preserveAspectRatio="none" width="100%" height="84" aria-hidden="true" style="display: block">
+              <path d="{{c.adxGuide}}" stroke="#2E3643" stroke-dasharray="3 4" vector-effect="non-scaling-stroke" fill="none"></path>
+              <polyline points="{{c.adx}}" fill="none" stroke="#5AA9FF" stroke-width="1.5" vector-effect="non-scaling-stroke"></polyline>
+            </svg>
+          </div>
+
+          <div style="position: relative; height: 84px; border-top: 1px solid #232A35">
+            <div style="position: absolute; left: 8px; top: 6px; font-size: 12px; color: #98A2AF">OBV · trend <span style="{{now.obvStyle}}">{{now.obv}}</span></div>
+            <svg viewBox="0 0 1000 84" preserveAspectRatio="none" width="100%" height="84" aria-hidden="true" style="display: block">
+              <polyline points="{{c.obv}}" fill="none" stroke="#B48CFF" stroke-width="1.5" vector-effect="non-scaling-stroke"></polyline>
+            </svg>
+          </div>
+
+          <div style="position: relative; height: 84px; border-top: 1px solid #232A35">
+            <div style="position: absolute; left: 8px; top: 6px; font-size: 12px; color: #98A2AF">ATR 14 · <span style="color: #E7EAEE; font-family: 'IBM Plex Mono', monospace">{{now.atr}}</span> of price · {{now.atrPct}} percentile (30 d)</div>
+            <svg viewBox="0 0 1000 84" preserveAspectRatio="none" width="100%" height="84" aria-hidden="true" style="display: block">
+              <polyline points="{{c.atr}}" fill="none" stroke="#C9CFD6" stroke-width="1.5" vector-effect="non-scaling-stroke"></polyline>
+            </svg>
+          </div>
+
+          <div style="position: relative; height: 84px; border-top: 1px solid #232A35">
+            <div style="position: absolute; left: 8px; top: 6px; font-size: 12px; color: #98A2AF">Volume · <span style="color: #E7EAEE; font-family: 'IBM Plex Mono', monospace">{{now.vol}}</span> its 20-bar average</div>
+            <svg viewBox="0 0 1000 84" preserveAspectRatio="none" width="100%" height="84" aria-hidden="true" style="display: block">
+              <path d="{{c.volUp}}" fill="#3DD68C" fill-opacity="0.45"></path>
+              <path d="{{c.volDown}}" fill="#FF6369" fill-opacity="0.45"></path>
+              <polyline points="{{c.volAvg}}" fill="none" stroke="#E7EAEE" stroke-width="1" stroke-opacity="0.7" vector-effect="non-scaling-stroke"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #98A2AF">Crosshair shown at {{tip.when}}. Hover any bar to read every value at that bar.</div>
+      </section>
+
+      <aside style="flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+        <section aria-label="Current values" style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <h2 style="margin: 0; font-size: 14px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Current values</h2>
+          <div style="overflow-x: auto">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px">
+              <thead>
+                <tr style="color: #98A2AF; text-align: left">
+                  <th style="padding: 6px 6px 6px 0; font-weight: 500">Indicator</th>
+                  <th style="padding: 6px; font-weight: 500; text-align: right">1h</th>
+                  <th style="padding: 6px; font-weight: 500; text-align: right">4h</th>
+                  <th style="padding: 6px 0 6px 6px; font-weight: 500; text-align: right">1d</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{table}}" as="row" hint-placeholder-count="8">
+                  <tr style="border-top: 1px solid #232A35">
+                    <td style="padding: 8px 6px 8px 0">{{row.name}}</td>
+                    <td style="{{row.c1.style}}">{{row.c1.text}}</td>
+                    <td style="{{row.c2.style}}">{{row.c2.text}}</td>
+                    <td style="{{row.c3.style}}">{{row.c3.text}}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.5">Reads: RSI above 55 bullish, below 45 bearish · VWAP and EMA 200 distance beyond ±0.1% · OBV trend beyond ±0.1 · EMA 20 vs 50 crossover · ADX above 25 trending.</p>
+        </section>
+
+        <section aria-label="Context" style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+          <h2 style="margin: 0; font-size: 14px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Structure &amp; levels</h2>
+          <p style="margin: 0; line-height: 1.5; color: #C9CFD6">{{ctx.summary}}</p>
+          <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; font-size: 13px">
+            <sc-for list="{{ctx.levels}}" as="l" hint-placeholder-count="6">
+              <li style="display: flex; gap: 8px; padding: 7px 0; border-top: 1px solid #232A35"><span style="{{l.tagStyle}}">{{l.tag}}</span><span style="flex: 1; font-family: 'IBM Plex Mono', monospace">{{l.price}}</span><span style="font-family: 'IBM Plex Mono', monospace; color: #98A2AF">{{l.dist}}</span></li>
+            </sc-for>
+          </ul>
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: #0F131A; border: 1px solid #232A35; border-radius: 8px; font-size: 13px">
+            <div style="display: flex; justify-content: space-between; gap: 12px"><span style="color: #98A2AF">BTC market context</span><span>{{ctx.btc}}</span></div>
+            <div style="display: flex; justify-content: space-between; gap: 12px"><span style="color: #98A2AF">Spread</span><span style="font-family: 'IBM Plex Mono', monospace">{{ctx.spread}}</span></div>
+            <div style="display: flex; justify-content: space-between; gap: 12px"><span style="color: #98A2AF">Depth ±0.5%</span><span style="font-family: 'IBM Plex Mono', monospace">{{ctx.depth}}</span></div>
+            <div style="display: flex; justify-content: space-between; gap: 12px"><span style="color: #98A2AF">24h volume vs 30 d</span><span style="font-family: 'IBM Plex Mono', monospace">{{ctx.vol24}}</span></div>
+          </div>
+        </section>
+
+        <section aria-label="Data health" style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+          <h2 style="margin: 0 0 4px; font-size: 14px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Data health</h2>
+          <div style="display: flex; justify-content: space-between; gap: 12px"><span style="color: #98A2AF">Bars loaded</span><span style="font-family: 'IBM Plex Mono', monospace">300 / 300</span></div>
+          <div style="display: flex; justify-content: space-between; gap: 12px"><span style="color: #98A2AF">Newest closed candle</span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">{{health.age}}</span></div>
+          <div style="display: flex; justify-content: space-between; gap: 12px"><span style="color: #98A2AF">Missing bars</span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">0</span></div>
+          <div style="display: flex; justify-content: space-between; gap: 12px"><span style="color: #98A2AF">Source</span><span>Bitvavo public API</span></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1160}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { pair: 'BTC-EUR', tf: '1h', ema: true, vwap: true, levels: true, frozen: false };
+  }
+  renderVals() {
+    var self = this;
+    var st = this.state;
+    var PAIRS = { 'BTC-EUR': { base: 61240, dp: 2, seed: 3 }, 'ETH-EUR': { base: 2384, dp: 2, seed: 7 }, 'SOL-EUR': { base: 141.7, dp: 2, seed: 11 }, 'XRP-EUR': { base: 0.5321, dp: 4, seed: 19 }, 'ADA-EUR': { base: 0.2126, dp: 4, seed: 23 }, 'LINK-EUR': { base: 11.47, dp: 2, seed: 29 }, 'AVAX-EUR': { base: 9.13, dp: 2, seed: 31 }, 'DOGE-EUR': { base: 0.07576, dp: 5, seed: 37 }, 'LTC-EUR': { base: 56.78, dp: 2, seed: 41 } };
+    var VOL = { '1h': 0.006, '4h': 0.012, '1d': 0.026 };
+    var TFI = { '1h': 0, '4h': 1, '1d': 2 };
+    var LIQ = { 'BTC-EUR': ['0.02%', '€412k', '1.12×'], 'ETH-EUR': ['0.03%', '€186k', '0.94×'], 'SOL-EUR': ['0.05%', '€71k', '1.31×'], 'XRP-EUR': ['0.06%', '€58k', '0.88×'], 'ADA-EUR': ['0.02%', '€96k', '1.04×'], 'LINK-EUR': ['0.06%', '€44k', '1.21×'], 'AVAX-EUR': ['0.03%', '€31k', '0.92×'], 'DOGE-EUR': ['0.01%', '€27k', '0.97×'], 'LTC-EUR': ['0.02%', '€22k', '1.03×'] };
+    var TOTAL = 320, N = 120;
+
+    function fmt(n, dp) { return n.toLocaleString('en-GB', { minimumFractionDigits: dp, maximumFractionDigits: dp }); }
+
+    function gen(seed, base, vol) {
+      var s = seed, out = [], p = base * 0.94;
+      function rnd() { s = (s * 9301 + 49297) % 233280; return s / 233280; }
+      for (var i = 0; i < TOTAL; i++) {
+        var r = (rnd() - 0.485) * vol + Math.sin(i / 22) * vol * 0.18;
+        var o = p, c = o * (1 + r);
+        var h = Math.max(o, c) * (1 + rnd() * vol * 0.5), l = Math.min(o, c) * (1 - rnd() * vol * 0.5);
+        out.push({ o: o, h: h, l: l, c: c, v: 60 + rnd() * 90 + Math.abs(r) / vol * 60 });
+        p = c;
+      }
+      var k = base / out[TOTAL - 1].c;
+      out.forEach(function (b) { b.o *= k; b.h *= k; b.l *= k; b.c *= k; });
+      return out;
+    }
+    function ema(vals, n) {
+      var out = [], k = 2 / (n + 1), prev = vals[0];
+      for (var i = 0; i < vals.length; i++) { prev = i === 0 ? vals[0] : vals[i] * k + prev * (1 - k); out.push(prev); }
+      return out;
+    }
+    function rsiS(c) {
+      var out = [50], g = 0, l = 0;
+      for (var i = 1; i < c.length; i++) {
+        var d = c[i] - c[i - 1];
+        if (i <= 14) { g += Math.max(d, 0) / 14; l += Math.max(-d, 0) / 14; }
+        else { g = (g * 13 + Math.max(d, 0)) / 14; l = (l * 13 + Math.max(-d, 0)) / 14; }
+        out.push(l === 0 ? 100 : 100 - 100 / (1 + g / l));
+      }
+      return out;
+    }
+    function indicators(b) {
+      var c = b.map(function (x) { return x.c; });
+      var tr = [b[0].h - b[0].l], pdm = [0], mdm = [0];
+      for (var i = 1; i < b.length; i++) {
+        tr.push(Math.max(b[i].h - b[i].l, Math.abs(b[i].h - b[i - 1].c), Math.abs(b[i].l - b[i - 1].c)));
+        var up = b[i].h - b[i - 1].h, dn = b[i - 1].l - b[i].l;
+        pdm.push(up > dn && up > 0 ? up : 0); mdm.push(dn > up && dn > 0 ? dn : 0);
+      }
+      var atr = [], sTR = 0, sP = 0, sM = 0, adx = [], a = 20;
+      for (var j = 0; j < b.length; j++) {
+        sTR = j < 14 ? sTR + tr[j] : sTR - sTR / 14 + tr[j];
+        sP = j < 14 ? sP + pdm[j] : sP - sP / 14 + pdm[j];
+        sM = j < 14 ? sM + mdm[j] : sM - sM / 14 + mdm[j];
+        atr.push(sTR / 14);
+        var pdi = 100 * sP / sTR, mdi = 100 * sM / sTR, dx = pdi + mdi > 0 ? 100 * Math.abs(pdi - mdi) / (pdi + mdi) : 0;
+        a = j < 28 ? (a * j + dx) / (j + 1) : (a * 13 + dx) / 14;
+        adx.push(a);
+      }
+      var obv = [0];
+      for (var m = 1; m < b.length; m++) obv.push(obv[m - 1] + (c[m] > c[m - 1] ? b[m].v : c[m] < c[m - 1] ? -b[m].v : 0));
+      var vwap = [], volAvg = [];
+      for (var q = 0; q < b.length; q++) {
+        var pv = 0, vv = 0, va = 0, cnt = 0;
+        for (var z = Math.max(0, q - 23); z <= q; z++) { pv += (b[z].h + b[z].l + b[z].c) / 3 * b[z].v; vv += b[z].v; }
+        for (var y = Math.max(0, q - 19); y <= q; y++) { va += b[y].v; cnt++; }
+        vwap.push(pv / vv); volAvg.push(va / cnt);
+      }
+      return { c: c, e20: ema(c, 20), e50: ema(c, 50), e200: ema(c, 200), rsi: rsiS(c), atr: atr, adx: adx, obv: obv, vwap: vwap, volAvg: volAvg };
+    }
+    function snapshot(b, ind, at) {
+      var last = b[at].c, vsum = 0;
+      for (var i = at - 19; i <= at; i++) vsum += b[i].v;
+      var atrPctSeries = ind.atr.map(function (x, i) { return x / ind.c[i] * 100; });
+      var nowAtr = atrPctSeries[at], below = atrPctSeries.slice(at - 179, at + 1).filter(function (x) { return x <= nowAtr; }).length;
+      return {
+        rsi: ind.rsi[at], e20: ind.e20[at], e50: ind.e50[at], e200: ind.e200[at], adx: ind.adx[at],
+        vwapD: (last / ind.vwap[at] - 1) * 100, e200D: (last / ind.e200[at] - 1) * 100,
+        obvT: (ind.obv[at] - ind.obv[at - 20]) / vsum, atrPct: nowAtr, atrRank: Math.round(below / 180 * 100),
+        volX: b[at].v / ind.volAvg[at], atr: ind.atr[at], last: last
+      };
+    }
+    function readOf(kind, v) {
+      if (kind === 'rsi') return v > 55 ? 1 : v < 45 ? -1 : 0;
+      if (kind === 'pct') return v > 0.1 ? 1 : v < -0.1 ? -1 : 0;
+      if (kind === 'obv') return v > 0.1 ? 1 : v < -0.1 ? -1 : 0;
+      return 0;
+    }
+    var READ = { '1': ['bullish', '#3DD68C'], '-1': ['bearish', '#FF8A8F'], '0': ['neutral', '#C9CFD6'] };
+    function cell(text, read, last) {
+      var r = READ[String(read)];
+      return { text: read === null ? text : text + ' · ' + r[0], style: 'padding:8px ' + (last ? '0' : '6px') + ' 8px 6px;text-align:right;font-family:IBM Plex Mono,monospace;font-size:12px;white-space:nowrap;color:' + (read === null ? '#E7EAEE' : r[1]) };
+    }
+
+    var P = PAIRS[st.pair];
+    var series = ['1h', '4h', '1d'].map(function (tf, idx) { return gen(P.seed + idx * 31, P.base, VOL[tf]); });
+    var inds = series.map(indicators);
+    var bars = series[TFI[st.tf]], ind = inds[TFI[st.tf]];
+    var at = TOTAL - 1;
+    var snaps = series.map(function (b, i) { return snapshot(b, inds[i], at); });
+    var now = snaps[TFI[st.tf]];
+
+    var start = TOTAL - N, win = bars.slice(start), W = 1000 / N;
+    var lo = Infinity, hi = -Infinity;
+    win.forEach(function (b, i) { lo = Math.min(lo, b.l, ind.e200[start + i]); hi = Math.max(hi, b.h, ind.e200[start + i]); });
+    var pad = (hi - lo) * 0.06; lo -= pad; hi += pad;
+    function Y(p) { return 8 + (hi - p) / (hi - lo) * 344; }
+    function X(i) { return (i + 0.5) * W; }
+    function line(arr, fy) { return arr.slice(start).map(function (v, i) { return X(i).toFixed(1) + ',' + fy(v).toFixed(1); }).join(' '); }
+
+    var upB = '', dnB = '', upW = '', dnW = '', vU = '', vD = '';
+    var vmax = 0; win.forEach(function (b) { vmax = Math.max(vmax, b.v); });
+    win.forEach(function (b, i) {
+      var x = X(i), up = b.c >= b.o, top = Y(Math.max(b.o, b.c)), bot = Y(Math.min(b.o, b.c)), bw = W * 0.6;
+      var body = 'M' + (x - bw / 2).toFixed(1) + ' ' + top.toFixed(1) + 'h' + bw.toFixed(1) + 'v' + Math.max(1, bot - top).toFixed(1) + 'h-' + bw.toFixed(1) + 'z';
+      var wick = 'M' + x.toFixed(1) + ' ' + Y(b.h).toFixed(1) + 'V' + Y(b.l).toFixed(1);
+      var vh = b.v / vmax * 70, vb = 'M' + (x - bw / 2).toFixed(1) + ' 84h' + bw.toFixed(1) + 'v-' + vh.toFixed(1) + 'h-' + bw.toFixed(1) + 'z';
+      if (up) { upB += body; upW += wick; vU += vb; } else { dnB += body; dnW += wick; vD += vb; }
+    });
+
+    var last = bars[at].c, atr1h = snaps[0].atr;
+    var r1 = -Infinity, r2 = -Infinity, s1 = Infinity, s2 = Infinity, pdh = -Infinity, pdl = Infinity;
+    bars.slice(at - 47, at - 2).forEach(function (b) { r1 = Math.max(r1, b.h); s1 = Math.min(s1, b.l); });
+    bars.slice(start, at - 47).forEach(function (b) { r2 = Math.max(r2, b.h); s2 = Math.min(s2, b.l); });
+    series[0].slice(TOTAL - 48, TOTAL - 24).forEach(function (b) { pdh = Math.max(pdh, b.h); pdl = Math.min(pdl, b.l); });
+    if (r1 < last) r1 = last * 1.012; if (s1 > last) s1 = last * 0.985;
+    if (r2 < r1) r2 = r1 * 1.015; if (s2 > s1) s2 = s1 * 0.985;
+    function hl(p) { var y = Y(p); return y > 0 && y < 360 ? 'M0 ' + y.toFixed(1) + 'H1000' : ''; }
+    var levels = [['R2', r2, 'res'], ['R1', r1, 'res'], ['PDH', pdh, 'pd'], ['PDL', pdl, 'pd'], ['S1', s1, 'sup'], ['S2', s2, 'sup']];
+    var levelLabels = levels.filter(function (L) { var y = Y(L[1]); return y > 6 && y < 354; }).map(function (L) {
+      var col = L[2] === 'res' ? '#FF8A8F' : L[2] === 'sup' ? '#3DD68C' : '#98A2AF';
+      return { text: L[0] + ' ' + fmt(L[1], P.dp), style: 'position:absolute;right:76px;top:calc(' + (Y(L[1]) / 360 * 100).toFixed(2) + '% - 9px);font-size:11px;font-family:IBM Plex Mono,monospace;color:' + col + ';background:#12161D;padding:1px 4px;border-radius:4px;opacity:' + (st.levels ? 1 : 0) };
+    });
+    var axis = [0.12, 0.37, 0.62, 0.87].map(function (f) {
+      var p = hi - f * (hi - lo);
+      return { text: fmt(p, P.dp), style: 'position:absolute;right:4px;top:calc(' + (Y(p) / 360 * 100).toFixed(2) + '% - 8px);font-size:11px;font-family:IBM Plex Mono,monospace;color:#98A2AF' };
+    });
+
+    var marks = [[38, 'B'], [71, 'S'], [N - 2, 'B']].map(function (m) {
+      var b = win[m[0]], buy = m[1] === 'B';
+      var top = buy ? Y(b.l) + 6 : Y(b.h) - 24;
+      return { letter: m[1], label: buy ? 'Agent buy' : 'Agent sell', style: 'position:absolute;left:calc(' + (X(m[0]) / 10).toFixed(2) + '% - 9px);top:' + top.toFixed(0) + 'px;width:18px;height:18px;border-radius:4px;background:' + (buy ? '#3DD68C' : '#FF6369') + ';color:#0B0E13;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:IBM Plex Mono,monospace' };
+    });
+
+    var ci = st.frozen ? N - 2 : N - 16, cb = win[ci], gi = start + ci;
+    var cx = (X(ci) / 10).toFixed(2);
+    var tipRows = [
+      ['Open', fmt(cb.o, P.dp)], ['High', fmt(cb.h, P.dp)], ['Low', fmt(cb.l, P.dp)], ['Close', fmt(cb.c, P.dp)],
+      ['EMA 20', fmt(ind.e20[gi], P.dp)], ['EMA 50', fmt(ind.e50[gi], P.dp)], ['EMA 200', fmt(ind.e200[gi], P.dp)], ['VWAP', fmt(ind.vwap[gi], P.dp)],
+      ['RSI', ind.rsi[gi].toFixed(1)], ['ADX', ind.adx[gi].toFixed(1)], ['ATR', (ind.atr[gi] / cb.c * 100).toFixed(2) + '%'], ['Vol × avg', (cb.v / ind.volAvg[gi]).toFixed(2) + '×']
+    ].map(function (r) { return { k: r[0], v: r[1], style: 'font-family:IBM Plex Mono,monospace;color:#E7EAEE' }; });
+    var hoursBack = (N - 1 - ci) * ({ '1h': 1, '4h': 4, '1d': 24 })[st.tf];
+    var when = st.frozen ? '09 Oct 12:00 (decision bar)' : (hoursBack < 24 ? hoursBack + 'h ago' : Math.round(hoursBack / 24) + 'd ago') + ' · bar ' + (ci + 1) + ' of ' + N;
+
+    function rs(v) { var r = READ[String(readOf('rsi', v))]; return 'font-family:IBM Plex Mono,monospace;color:' + r[1]; }
+    var obvRead = readOf('obv', now.obvT);
+
+    var rows = [
+      ['RSI 14', function (s) { return cell(s.rsi.toFixed(1), readOf('rsi', s.rsi)); }],
+      ['EMA 20 vs 50', function (s) { var d = (s.e20 / s.e50 - 1) * 100; return cell((d >= 0 ? '+' : '−') + Math.abs(d).toFixed(2) + '%', d > 0 ? 1 : -1); }],
+      ['Price vs EMA 200', function (s) { return cell((s.e200D >= 0 ? '+' : '−') + Math.abs(s.e200D).toFixed(1) + '%', readOf('pct', s.e200D)); }],
+      ['Price vs VWAP', function (s) { return cell((s.vwapD >= 0 ? '+' : '−') + Math.abs(s.vwapD).toFixed(2) + '%', readOf('pct', s.vwapD)); }],
+      ['OBV trend', function (s) { return cell((s.obvT >= 0 ? '+' : '−') + Math.abs(s.obvT).toFixed(2), readOf('obv', s.obvT)); }],
+      ['ADX 14', function (s) { return cell(s.adx.toFixed(0) + (s.adx > 25 ? ' trending' : ' ranging'), null); }],
+      ['ATR % of price', function (s) { return cell(s.atrPct.toFixed(2) + '% · p' + s.atrRank, null); }],
+      ['Volume × avg', function (s) { return cell(s.volX.toFixed(2) + '×', null); }]
+    ].map(function (r) { return { name: r[0], c1: r[1](snaps[0]), c2: r[1](snaps[1]), c3: r[1](snaps[2]) }; });
+    rows.forEach(function (r) { r.c3.style = r.c3.style.replace('padding:8px 6px 8px 6px', 'padding:8px 0 8px 6px'); });
+
+    var k = 0, above = bars[at].c > ind.e20[at];
+    while (k < 60 && (bars[at - k].c > ind.e20[at - k]) === above) k++;
+    var trend4 = snaps[1].e20 > snaps[1].e50 ? 'up' : 'down', trend1d = snaps[2].e20 > snaps[2].e50 ? 'up' : 'down';
+    var summary = (above ? 'Closed above' : 'Closed below') + ' EMA 20 for ' + k + ' bars on ' + st.tf + '; 4h trend ' + trend4 + ', daily trend ' + trend1d + '. Nearest resistance ' + ((r1 / last - 1) * 100).toFixed(1) + '% above, support ' + ((1 - s1 / last) * 100).toFixed(1) + '% below.';
+    var ctxLevels = levels.map(function (L) {
+      var d = (L[1] / last - 1) * 100, col = L[2] === 'res' ? '#FF8A8F' : L[2] === 'sup' ? '#3DD68C' : '#98A2AF';
+      return { tag: L[0], price: fmt(L[1], P.dp), dist: (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(1) + '% · ' + Math.abs((L[1] - last) / atr1h).toFixed(1) + ' ATR', tagStyle: 'flex:0 0 40px;font-family:IBM Plex Mono,monospace;font-size:12px;color:' + col };
+    });
+    var btcCtx = st.pair === 'BTC-EUR' ? 'not used for BTC' : '4h up · 1d up · 24h +1.4%';
+
+    var chipBase = 'height:36px;padding:0 12px;border-radius:8px;font-size:13px;cursor:pointer;';
+    function chip(on) { return chipBase + (on ? 'border:1px solid #F2B94B;background:#211C10;color:#E7EAEE' : 'border:1px solid #2E3643;background:transparent;color:#98A2AF'); }
+    var segBase = 'height:34px;padding:0 14px;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;font-family:IBM Plex Mono,monospace;';
+
+    var allPairs = Object.keys(PAIRS).map(function (id) {
+      var on = id === st.pair;
+      return {
+        id: id,
+        pick: function () { self.setState({ pair: id, moreOpen: false }); },
+        tabStyle: 'height:40px;padding:0 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;border:1px solid ' + (on ? '#F2B94B' : '#232A35') + ';background:' + (on ? '#211C10' : '#171C24') + ';color:#E7EAEE',
+        rowStyle: 'height:40px;padding:0 10px;display:flex;align-items:center;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;border:0;text-align:left;background:' + (on ? '#211C10' : 'transparent') + ';color:#E7EAEE'
+      };
+    });
+    var selInMore = Object.keys(PAIRS).indexOf(st.pair) >= 6;
+    var navCollapsed = !!(this.state && this.state.navCollapsed);
+    var navBase = 'height:44px;display:flex;align-items:center;gap:12px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;box-sizing:border-box;' + (navCollapsed ? 'justify-content:center;padding:0;' : 'padding:0 12px;');
+    var nav = {
+      expanded: !navCollapsed,
+      expandedStr: String(!navCollapsed),
+      toggle: function () { self.setState({ navCollapsed: !navCollapsed }); },
+      toggleLabel: navCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      aside: 'flex:0 0 ' + (navCollapsed ? '72px' : '232px') + ';box-sizing:border-box;display:flex;flex-direction:column;gap:16px;padding:16px ' + (navCollapsed ? '12px' : '16px') + ';background:#0F131A;border-right:1px solid #232A35',
+      brandRow: 'display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid #232A35;' + (navCollapsed ? 'justify-content:center' : ''),
+      item: navBase + 'color:#98A2AF',
+      active: navBase + 'background:#1C222C;color:#E7EAEE',
+      status: 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#171C24;border:1px solid #232A35;font-size:13px;' + (navCollapsed ? 'justify-content:center' : ''),
+      dot: 'width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#3DD68C',
+      statusText: 'Running · paper',
+      toggleStyle: navBase + 'width:100%;border:1px solid #232A35;background:transparent;color:#98A2AF;cursor:pointer;font-family:inherit'
+    };
+
+    nav.group = navCollapsed ? 'height:1px;background:#232A35;margin:8px 4px;overflow:hidden;color:transparent;font-size:0' : 'font-size:11px;font-weight:600;color:#8A94A1;text-transform:uppercase;letter-spacing:0.08em;padding:12px 12px 4px';
+    nav.ask = navBase + 'color:#F2B94B;background:#211C10;border:1px solid #4A3A16';
+
+    var REG = { 'BTC-EUR': ['up', 'normal', 14], 'ETH-EUR': ['up', 'normal', 9], 'SOL-EUR': ['up', 'normal', 22], 'XRP-EUR': ['sideways', 'high', 3], 'ADA-EUR': ['sideways', 'normal', 11], 'LINK-EUR': ['up', 'high', 5], 'AVAX-EUR': ['down', 'high', 8], 'DOGE-EUR': ['sideways', 'low', 30], 'LTC-EUR': null };
+    var REGC = { up: ['#123A27', '#3DD68C', '#1E5A3E'], down: ['#3A1416', '#FF8A8F', '#7A2A2E'], sideways: ['#1A2230', '#9FB4CC', '#2E3B4E'] };
+    function regChip(pair, label) {
+      var r = REG[pair];
+      if (!r) return { text: (label ? label + ': ' : '') + 'warming up, no regime yet', style: 'display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:999px;font-size:12px;font-family:IBM Plex Mono,monospace;background:#171C24;color:#98A2AF;border:1px solid #2E3643' };
+      var c = REGC[r[0]];
+      return { text: (label ? label + ' ' : '') + r[0] + ' · ' + r[1] + ' vol · ' + r[2] + ' bars' + (r[2] < 6 ? ' · new' : ''),
+        style: 'display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;font-size:12px;font-family:IBM Plex Mono,monospace;white-space:nowrap;background:' + c[0] + ';color:' + c[1] + ';border:1px solid ' + c[2] };
+    }
+    var rp = REG[st.pair] || ['sideways', 'normal', 0];
+    var RULE = { up: 'Normal BUY rules apply.', sideways: 'BUY only near support; no breakouts.', down: st.pair === 'BTC-EUR' ? 'HOLD unless every BUY rule holds (confidence ≤ 0.6).' : 'No new BUYs.' };
+    var bandSegs = rp[0] === 'up' ? [['down', 38], ['sideways', 30], ['up', 52]] : rp[0] === 'down' ? [['up', 45], ['sideways', 31], ['down', 44]] : [['up', 50], ['down', 22], ['sideways', 48]];
+    if (rp[2] < 6) bandSegs = [['sideways', 80], ['up', 30], [rp[0], 10]];
+    var regV = { pair: regChip(st.pair, st.pair === 'BTC-EUR' ? 'BTC' : st.pair.replace('-EUR', '')), btc: regChip('BTC-EUR', 'BTC'), showBtc: st.pair !== 'BTC-EUR',
+      rule: !REG[st.pair] ? 'No trades until history is loaded.' : RULE[rp[0]] + (rp[1] === 'high' ? ' Confidence capped at 0.7.' : '') + (rp[2] < 6 ? ' Regime is new: one extra signal needed.' : ''),
+      band: bandSegs.map(function (b) { return { title: b[0] + ' · ' + b[1] + ' bars', style: 'flex:' + b[1] + ' 0 0;background:' + REGC[b[0]][1] + ';opacity:0.75' }; }) };
+
+    return {
+      reg: regV,
+      nav: nav,
+      frozen: st.frozen,
+      tf: st.tf,
+      sel: { id: st.pair, last: '€' + fmt(last, P.dp) },
+      pairsMain: allPairs.slice(0, 6),
+      pairsMore: allPairs.slice(6),
+      more: {
+        open: !!st.moreOpen, openStr: String(!!st.moreOpen),
+        label: selInMore ? st.pair : 'More (' + (allPairs.length - 6) + ')',
+        toggle: function () { self.setState({ moreOpen: !st.moreOpen }); },
+        btnStyle: 'height:40px;padding:0 12px;display:flex;align-items:center;gap:8px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;border:1px solid ' + (selInMore ? '#F2B94B' : '#232A35') + ';background:' + (selInMore ? '#211C10' : '#171C24') + ';color:#E7EAEE'
+      },
+      tfs: ['1h', '4h', '1d'].map(function (t) {
+        var on = t === st.tf;
+        return { id: t, pick: function () { self.setState({ tf: t }); }, style: segBase + (on ? 'background:#2E3643;color:#E7EAEE' : 'background:transparent;color:#98A2AF') };
+      }),
+      ov: {
+        ema: String(st.ema), vwap: String(st.vwap), levels: String(st.levels),
+        emaStyle: chip(st.ema), vwapStyle: chip(st.vwap), levelsStyle: chip(st.levels),
+        emaOpacity: st.ema ? 1 : 0, vwapOpacity: st.vwap ? 1 : 0, levelsOpacity: st.levels ? 1 : 0
+      },
+      toggleEma: function () { self.setState({ ema: !st.ema }); },
+      toggleVwap: function () { self.setState({ vwap: !st.vwap }); },
+      toggleLevels: function () { self.setState({ levels: !st.levels }); },
+      freeze: function () { self.setState({ frozen: true, tf: '1h' }); },
+      goLive: function () { self.setState({ frozen: false }); },
+      c: {
+        upBody: upB, downBody: dnB, upWick: upW, downWick: dnW,
+        ema20: line(ind.e20, Y), ema50: line(ind.e50, Y), ema200: line(ind.e200, Y), vwap: line(ind.vwap, Y),
+        resLines: hl(r1) + hl(r2), supLines: hl(s1) + hl(s2), pdLines: st.tf === '1h' ? hl(pdh) + hl(pdl) : '',
+        axis: axis, levelLabels: levelLabels, markers: marks,
+        rsi: line(ind.rsi, function (v) { return 6 + (100 - v) * 1.0; }),
+        rsiBandY: (6 + 45).toFixed(0), rsiBandH: '10',
+        rsiGuides: 'M0 36H1000M0 76H1000',
+        adx: line(ind.adx, function (v) { return 80 - Math.min(v, 60) / 60 * 64; }),
+        adxGuide: 'M0 ' + (80 - 25 / 60 * 64).toFixed(1) + 'H1000',
+        obv: (function () { var o = ind.obv.slice(start), mn = Math.min.apply(null, o), mx = Math.max.apply(null, o); return o.map(function (v, i) { return X(i).toFixed(1) + ',' + (78 - (v - mn) / (mx - mn || 1) * 56).toFixed(1); }).join(' '); })(),
+        atr: (function () { var o = ind.atr.slice(start).map(function (v, i) { return v / win[i].c; }), mn = Math.min.apply(null, o), mx = Math.max.apply(null, o); return o.map(function (v, i) { return X(i).toFixed(1) + ',' + (78 - (v - mn) / (mx - mn || 1) * 56).toFixed(1); }).join(' '); })(),
+        volUp: vU, volDown: vD,
+        volAvg: line(ind.volAvg, function (v) { return 84 - v / vmax * 70; })
+      },
+      cross: {
+        line: 'position:absolute;top:0;bottom:0;left:' + cx + '%;width:1px;background:rgba(231,234,238,0.35);pointer-events:none;z-index:1',
+        band: 'position:absolute;top:0;bottom:0;left:calc(' + cx + '% - ' + (W / 20).toFixed(2) + '%);width:' + (W / 10).toFixed(2) + '%;background:rgba(242,185,75,0.12);border-left:1px solid #F2B94B;border-right:1px solid #F2B94B;pointer-events:none'
+      },
+      tip: {
+        when: when, rows: tipRows,
+        box: 'position:absolute;top:44px;right:calc(' + (100 - parseFloat(cx)).toFixed(2) + '% + 12px);width:200px;padding:10px 12px;background:#0F131A;border:1px solid #2E3643;border-radius:8px;font-size:12px;display:flex;flex-direction:column;gap:3px;z-index:2'
+      },
+      now: {
+        rsi: now.rsi.toFixed(1) + ' ' + READ[String(readOf('rsi', now.rsi))][0], rsiStyle: rs(now.rsi),
+        adx: now.adx.toFixed(1), obv: (now.obvT >= 0 ? '+' : '−') + Math.abs(now.obvT).toFixed(2) + ' ' + READ[String(obvRead)][0],
+        obvStyle: 'font-family:IBM Plex Mono,monospace;color:' + READ[String(obvRead)][1],
+        atr: now.atrPct.toFixed(2) + '%', atrPct: 'p' + now.atrRank, vol: now.volX.toFixed(2) + '×'
+      },
+      table: rows,
+      ctx: { summary: summary, levels: ctxLevels, btc: btcCtx, spread: LIQ[st.pair][0], depth: LIQ[st.pair][1], vol24: LIQ[st.pair][2] },
+      health: { age: st.tf === '1h' ? '9 min · limit 75 min' : st.tf === '4h' ? '2h 09m · limit 4h 15m' : '12h 30m · limit 24h 15m' }
+    };
+  }
+}
+</script>
+</body>
+</html>

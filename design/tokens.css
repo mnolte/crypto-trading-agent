@@ -1,0 +1,112 @@
+/*
+ * Trading Agent v0.1 design tokens.
+ * Taken from the design screens in design/screens. Use these variables in
+ * every component; do not hard-code hex values in components.
+ * Dark only in v0.1.
+ */
+
+/* Fonts are bundled, never loaded from the network:
+   pnpm add @fontsource/ibm-plex-sans @fontsource/ibm-plex-mono
+   and import weights 400, 500, 600, 700 in main.tsx. */
+
+:root {
+  /* Surfaces */
+  --bg: #0B0E13;            /* page ground */
+  --bg-sunken: #0F131A;     /* top bar, sidebar, inputs, inner boxes */
+  --panel: #12161D;         /* cards and panels */
+  --panel-raised: #171C24;  /* secondary buttons, segmented controls, chips */
+  --panel-hover: #1C222C;   /* active nav item, neutral chip, hover */
+
+  /* Lines */
+  --line: #232A35;          /* card borders, table rows, dividers */
+  --line-strong: #2E3643;   /* inputs, buttons, dialogs */
+
+  /* Text */
+  --text: #E7EAEE;
+  --text-soft: #C9CFD6;     /* body copy inside cards, reasoning text */
+  --text-muted: #98A2AF;    /* labels, captions, table headers */
+  --text-faint: #6B7480;    /* disabled, footnotes */
+  --text-group: #8A94A1;    /* sidebar group labels */
+
+  /* Agent accent (amber): agent state, primary actions, focus */
+  --accent: #F2B94B;
+  --accent-ink: #0B0E13;    /* text on amber */
+  --accent-soft: #FFD58A;   /* links hover, warning text */
+  --accent-bg: #211C10;     /* Ask button, "not yet" pills */
+  --accent-line: #4A3A16;
+
+  /* Up / good */
+  --up: #3DD68C;
+  --up-bg: #123A27;
+  --up-line: #1E5A3E;
+
+  /* Down / bad / destructive */
+  --down: #FF6369;          /* bars, candles, solid danger */
+  --down-text: #FF8A8F;     /* negative numbers on dark */
+  --down-soft: #FFB3B6;     /* text on danger buttons and banners */
+  --down-bg: #3A1416;
+  --down-line: #7A2A2E;
+
+  /* Warning banner (stale data, shock brake, cost cap) */
+  --warn-bg: #3A2A0E;
+  --warn-line: #6B4E17;
+  --warn-text: #FFD58A;
+
+  /* Info banner (first run, What-if notice) */
+  --info-bg: #13202F;
+  --info-line: #24405F;
+  --info-text: #CFE3FF;
+  --info-icon: #7FB8FF;
+
+  /* Neutral / sideways regime */
+  --side: #9FB4CC;
+  --side-bg: #1A2230;
+  --side-line: #2E3B4E;
+
+  /* Chart series */
+  --series-ema20: #F2B94B;
+  --series-ema50: #5AA9FF;
+  --series-ema200: #C9CFD6;
+  --series-vwap: #B48CFF;
+  --series-grid: #1C222C;
+
+  /* Type */
+  --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-num: 'IBM Plex Mono', ui-monospace, monospace; /* every number */
+  --fs-caption: 12px;
+  --fs-small: 13px;
+  --fs-body: 14px;
+  --fs-title: 16px;
+  --fs-page: 18px;
+  --fs-kpi: 24px;
+  --fs-price: 22px;
+  --label-tracking: 0.06em; /* uppercase card headings */
+
+  /* Shape and spacing */
+  --radius-sm: 6px;   /* chips, small badges */
+  --radius: 8px;      /* buttons, inputs, inner boxes */
+  --radius-card: 10px;
+  --radius-dialog: 12px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* Sizes */
+  --hit: 44px;            /* minimum height of anything clickable */
+  --sidebar: 232px;
+  --sidebar-collapsed: 72px;
+  --topbar: 76px;
+  --drawer: 560px;        /* Decision detail */
+  --ask-panel: 520px;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+}

@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trading Agent — Insights</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#F2B94B}a:hover{color:#FFD58A}
+button,select{font-family:inherit}
+</style>
+</helmet>
+<div style="min-height: 1300px; background: #0B0E13; color: #E7EAEE; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <aside aria-label="Sidebar" style="{{nav.aside}}">
+    <div style="{{nav.brandRow}}">
+      <div style="width: 36px; height: 36px; flex: 0 0 36px; border-radius: 8px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px">TA</div>
+      <sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+          <div style="font-weight: 600; font-size: 16px; white-space: nowrap">Trading Agent</div>
+          <div style="font-size: 12px; color: #98A2AF; white-space: nowrap">Paper · local · v0.1</div>
+        </div>
+      </sc-if>
+    </div>
+    <a href="Ask.dc.html" aria-current="{{nav.c.ask}}" aria-label="Ask the agent" title="Ask the agent" style="{{nav.ask}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Ask the agent</span></sc-if></a>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+      <div style="{{nav.group}}">Monitor</div>
+      <a href="Main.dc.html" aria-current="{{nav.c.dash}}" aria-label="Dashboard" title="Dashboard" style="{{nav.s.dash}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Dashboard</span></sc-if></a>
+      <a href="Indicators.dc.html" aria-current="{{nav.c.ind}}" aria-label="Indicators" title="Indicators" style="{{nav.s.ind}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><polyline points="3 17 9 11 13 15 21 7"></polyline><line x1="3" y1="21" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Indicators</span></sc-if></a>
+      <a href="Performance.dc.html" aria-current="{{nav.c.perf}}" aria-label="Performance" title="Performance" style="{{nav.s.perf}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="6" y1="20" x2="6" y2="14"></line><line x1="12" y1="20" x2="12" y2="9"></line><line x1="18" y1="20" x2="18" y2="4"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Performance</span></sc-if></a>
+      <div style="{{nav.group}}">Learn</div>
+      <a href="Insights.dc.html" aria-current="{{nav.c.ins}}" aria-label="Insights" title="Insights" style="{{nav.s.ins}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M9 18h6"></path><path d="M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Insights</span></sc-if></a>
+      <a href="WhatIf.dc.html" aria-current="{{nav.c.what}}" aria-label="What-if" title="What-if" style="{{nav.s.what}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="9" r="2"></circle><path d="M6 8v8"></path><path d="M6 13c0-3 3-4 6-4h4"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>What-if</span></sc-if></a>
+      <a href="Reviews.dc.html" aria-current="{{nav.c.rev}}" aria-label="Reviews" title="Reviews" style="{{nav.s.rev}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Reviews</span></sc-if></a>
+      <a href="Inspector.dc.html" aria-current="{{nav.c.insp}}" aria-label="LLM inspector" title="LLM inspector" style="{{nav.s.insp}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="11" cy="11" r="6"></circle><line x1="16" y1="16" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>LLM inspector</span></sc-if></a>
+      <div style="{{nav.group}}">Control</div>
+      <a href="Readiness.dc.html" aria-current="{{nav.c.ready}}" aria-label="Readiness" title="Readiness" style="{{nav.s.ready}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><polyline points="9 12 11 14 15 10"></polyline></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Readiness</span></sc-if></a>
+      <a href="Settings.dc.html" aria-current="{{nav.c.set}}" aria-label="Settings" title="Settings" style="{{nav.s.set}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line><circle cx="9" cy="6" r="2" fill="#0F131A"></circle><circle cx="15" cy="12" r="2" fill="#0F131A"></circle><circle cx="7" cy="18" r="2" fill="#0F131A"></circle></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Settings</span></sc-if></a>
+    </nav>
+    <div style="flex: 1"></div>
+    <div style="{{nav.status}}"><span style="{{nav.dot}}"></span><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>{{nav.statusText}}</span></sc-if></div>
+    <button type="button" onClick="{{nav.toggle}}" aria-label="{{nav.toggleLabel}}" aria-expanded="{{nav.expandedStr}}" title="{{nav.toggleLabel}}" style="{{nav.toggleStyle}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Collapse</span></sc-if></button>
+  </aside>
+
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 24px; border-bottom: 1px solid #232A35; background: #0F131A; min-height: 76px; box-sizing: border-box">
+      <h1 style="margin: 0; font-size: 18px; font-weight: 600; flex: 1 1 auto">Insights</h1>
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #98A2AF">Period
+        <select style="height: 40px; padding: 0 8px; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 13px"><option>Last 30 days</option><option>Last 7 days</option><option>Since start</option></select>
+      </label>
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #98A2AF">Decider
+        <select style="height: 40px; padding: 0 8px; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 13px"><option>Live · gpt-4o-mini · v1</option><option>Rules baseline</option><option>Shadow A · v2-draft</option></select>
+      </label>
+    </header>
+
+    <main style="max-width: 1440px; width: 100%; margin: 0 auto; padding: 20px 24px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+
+      <section aria-label="Findings" style="display: flex; flex-wrap: wrap; gap: 12px">
+        <div style="flex: 1 1 300px; padding: 16px; background: #12161D; border: 1px solid #232A35; border-radius: 10px; display: flex; flex-direction: column; gap: 8px">
+          <span style="align-self: flex-start; padding: 2px 8px; border-radius: 6px; background: #3A1416; color: #FFB3B6; font-size: 12px; font-weight: 600">Overconfident</span>
+          <div style="font-weight: 600; line-height: 1.4">Confidence above 0.7 wins 51% of BUYs, not 70%+</div>
+          <div style="font-size: 13px; color: #98A2AF">n = 42 BUYs · see calibration below</div>
+        </div>
+        <div style="flex: 1 1 300px; padding: 16px; background: #12161D; border: 1px solid #232A35; border-radius: 10px; display: flex; flex-direction: column; gap: 8px">
+          <span style="align-self: flex-start; padding: 2px 8px; border-radius: 6px; background: #3A2A0E; color: #F2B94B; font-size: 12px; font-weight: 600">Weak spot</span>
+          <div style="font-weight: 600; line-height: 1.4">Weekend BUYs average −0.31R vs +0.52R on weekdays</div>
+          <div style="font-size: 13px; color: #98A2AF">n = 34 weekend, 71 weekday · <a href="WhatIf.dc.html">Try skipping weekends in What-if</a></div>
+        </div>
+        <div style="flex: 1 1 300px; padding: 16px; background: #12161D; border: 1px solid #232A35; border-radius: 10px; display: flex; flex-direction: column; gap: 8px">
+          <span style="align-self: flex-start; padding: 2px 8px; border-radius: 6px; background: #123A27; color: #3DD68C; font-size: 12px; font-weight: 600">Strength</span>
+          <div style="font-weight: 600; line-height: 1.4">BUYs in an up regime win 61% at +0.64R</div>
+          <div style="font-size: 13px; color: #98A2AF">n = 71 · sideways regime: 42% at +0.05R (n = 31)</div>
+        </div>
+      </section>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+        <section aria-label="Sliced results" style="flex: 999 1 600px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+          <div role="tablist" aria-label="Slice by" style="display: flex; flex-wrap: wrap; gap: 6px">
+            <sc-for list="{{dims}}" as="d" hint-placeholder-count="6">
+              <button type="button" role="tab" onClick="{{d.pick}}" style="{{d.style}}">{{d.label}}</button>
+            </sc-for>
+          </div>
+          <div style="overflow-x: auto">
+            <table style="width: 100%; min-width: 620px; border-collapse: collapse; font-size: 13px">
+              <thead>
+                <tr style="color: #98A2AF; text-align: left">
+                  <th style="padding: 8px 8px 8px 0; font-weight: 500">{{dimLabel}}</th>
+                  <th style="padding: 8px; font-weight: 500; text-align: right">Decisions</th>
+                  <th style="padding: 8px; font-weight: 500; text-align: right">BUYs</th>
+                  <th style="padding: 8px; font-weight: 500; text-align: right">BUY win rate</th>
+                  <th style="padding: 8px; font-weight: 500">Avg R per BUY</th>
+                  <th style="padding: 8px; font-weight: 500; text-align: right">Avoided</th>
+                  <th style="padding: 8px 0 8px 8px; font-weight: 500; text-align: right">Missed</th>
+                </tr>
+              </thead>
+              <tbody style="font-family: 'IBM Plex Mono', monospace">
+                <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+                  <tr style="{{r.rowStyle}}">
+                    <td style="padding: 9px 8px 9px 0; font-family: 'IBM Plex Sans', sans-serif; font-weight: 500">{{r.label}} <span style="{{r.fewStyle}}">{{r.few}}</span></td>
+                    <td style="padding: 9px 8px; text-align: right">{{r.n}}</td>
+                    <td style="padding: 9px 8px; text-align: right">{{r.buys}}</td>
+                    <td style="padding: 9px 8px; text-align: right">{{r.win}}</td>
+                    <td style="padding: 9px 8px">
+                      <div style="display: flex; align-items: center; gap: 8px">
+                        <div style="position: relative; width: 120px; height: 10px; background: #1C222C; border-radius: 3px"><div style="position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: #2E3643"></div><div style="{{r.bar}}"></div></div>
+                        <span style="{{r.rStyle}}">{{r.r}}</span>
+                      </div>
+                    </td>
+                    <td style="padding: 9px 8px; text-align: right">{{r.avoided}}</td>
+                    <td style="padding: 9px 0 9px 8px; text-align: right">{{r.missed}}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <p style="margin: 0; font-size: 12px; color: #98A2AF">Rows with fewer than 30 decisions are greyed: too few to trust. Avoided: the hypothetical stop was hit first after a HOLD or SKIP. Missed: the target was hit first. Sample data.</p>
+        </section>
+
+        <section aria-label="Calibration" style="flex: 1 1 380px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+          <h2 style="margin: 0; font-size: 14px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Calibration</h2>
+          <p style="margin: 0; font-size: 13px; color: #C9CFD6; line-height: 1.5">Does the model's confidence match reality? Bars show the actual BUY win rate per confidence band; the line is where they should be.</p>
+          <svg viewBox="0 0 360 240" width="100%" role="img" aria-label="Calibration: actual win rate falls below stated confidence above 0.7">
+            <line x1="40" y1="20" x2="40" y2="200" stroke="#2E3643"></line>
+            <line x1="40" y1="200" x2="350" y2="200" stroke="#2E3643"></line>
+            <line x1="40" y1="110" x2="350" y2="110" stroke="#1C222C"></line>
+            <line x1="40" y1="20" x2="350" y2="20" stroke="#1C222C"></line>
+            <text x="34" y="204" fill="#98A2AF" font-size="11" text-anchor="end" font-family="IBM Plex Mono, monospace">0%</text>
+            <text x="34" y="114" fill="#98A2AF" font-size="11" text-anchor="end" font-family="IBM Plex Mono, monospace">50%</text>
+            <text x="34" y="24" fill="#98A2AF" font-size="11" text-anchor="end" font-family="IBM Plex Mono, monospace">100%</text>
+            <rect x="58" y="110" width="52" height="90" rx="3" fill="#5AA9FF" fill-opacity="0.75"></rect>
+            <rect x="134" y="94" width="52" height="106" rx="3" fill="#5AA9FF" fill-opacity="0.75"></rect>
+            <rect x="210" y="108" width="52" height="92" rx="3" fill="#FF8A8F" fill-opacity="0.8"></rect>
+            <rect x="286" y="103" width="52" height="97" rx="3" fill="#FF8A8F" fill-opacity="0.8"></rect>
+            <polyline points="84,101 160,83 236,65 312,38" fill="none" stroke="#F2B94B" stroke-width="2" stroke-dasharray="5 4"></polyline>
+            <circle cx="84" cy="101" r="3" fill="#F2B94B"></circle><circle cx="160" cy="83" r="3" fill="#F2B94B"></circle><circle cx="236" cy="65" r="3" fill="#F2B94B"></circle><circle cx="312" cy="38" r="3" fill="#F2B94B"></circle>
+            <text x="84" y="218" fill="#98A2AF" font-size="11" text-anchor="middle" font-family="IBM Plex Mono, monospace">0.5–0.6</text>
+            <text x="160" y="218" fill="#98A2AF" font-size="11" text-anchor="middle" font-family="IBM Plex Mono, monospace">0.6–0.7</text>
+            <text x="236" y="218" fill="#98A2AF" font-size="11" text-anchor="middle" font-family="IBM Plex Mono, monospace">0.7–0.8</text>
+            <text x="312" y="218" fill="#98A2AF" font-size="11" text-anchor="middle" font-family="IBM Plex Mono, monospace">0.8+</text>
+            <text x="84" y="234" fill="#98A2AF" font-size="10" text-anchor="middle" font-family="IBM Plex Mono, monospace">n=31</text>
+            <text x="160" y="234" fill="#98A2AF" font-size="10" text-anchor="middle" font-family="IBM Plex Mono, monospace">n=32</text>
+            <text x="236" y="234" fill="#98A2AF" font-size="10" text-anchor="middle" font-family="IBM Plex Mono, monospace">n=29</text>
+            <text x="312" y="234" fill="#98A2AF" font-size="10" text-anchor="middle" font-family="IBM Plex Mono, monospace">n=13</text>
+          </svg>
+          <div style="display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: #98A2AF">
+            <span style="display: flex; align-items: center; gap: 6px"><span style="width: 18px; height: 0; border-top: 2px dashed #F2B94B"></span>Stated confidence</span>
+            <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #5AA9FF"></span>Actual, close enough</span>
+            <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #FF8A8F"></span>Actual, more than 10 pts below</span>
+          </div>
+          <div style="padding: 10px 12px; background: #0F131A; border: 1px solid #232A35; border-radius: 8px; font-size: 13px; color: #C9CFD6; line-height: 1.5">Calibration gap: <span style="font-family: 'IBM Plex Mono', monospace; color: #FF8A8F">24 pts</span> above 0.7. Readiness requires 10 or less.</div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1300}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { navCollapsed: false, dim: 'pair' };
+  }
+  renderVals() {
+    var self = this;
+    var PAGE = 'ins';
+    var navCollapsed = !!this.state.navCollapsed;
+    var navBase = 'height:44px;display:flex;align-items:center;gap:12px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;box-sizing:border-box;' + (navCollapsed ? 'justify-content:center;padding:0;' : 'padding:0 12px;');
+    var s = {}, c = {};
+    ['dash', 'ind', 'perf', 'ins', 'what', 'rev', 'insp', 'ready', 'set', 'ask'].forEach(function (k) { s[k] = navBase + (k === PAGE ? 'background:#1C222C;color:#E7EAEE' : 'color:#98A2AF'); c[k] = k === PAGE ? 'page' : undefined; });
+    var nav = {
+      expanded: !navCollapsed, expandedStr: String(!navCollapsed), s: s, c: c,
+      toggle: function () { self.setState({ navCollapsed: !navCollapsed }); },
+      toggleLabel: navCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      aside: 'flex:0 0 ' + (navCollapsed ? '72px' : '232px') + ';box-sizing:border-box;display:flex;flex-direction:column;gap:12px;padding:16px ' + (navCollapsed ? '12px' : '16px') + ';background:#0F131A;border-right:1px solid #232A35',
+      brandRow: 'display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid #232A35;' + (navCollapsed ? 'justify-content:center' : ''),
+      status: 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#171C24;border:1px solid #232A35;font-size:13px;' + (navCollapsed ? 'justify-content:center' : ''),
+      dot: 'width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#3DD68C',
+      statusText: 'Running · paper',
+      toggleStyle: navBase + 'width:100%;border:1px solid #232A35;background:transparent;color:#98A2AF;cursor:pointer;font-family:inherit',
+      group: navCollapsed ? 'height:1px;background:#232A35;margin:8px 4px;overflow:hidden;color:transparent;font-size:0' : 'font-size:11px;font-weight:600;color:#8A94A1;text-transform:uppercase;letter-spacing:0.08em;padding:12px 12px 4px',
+      ask: navBase + (PAGE === 'ask' ? 'color:#0B0E13;background:#F2B94B;border:1px solid #F2B94B' : 'color:#F2B94B;background:#211C10;border:1px solid #4A3A16')
+    };
+
+    var DATA = {
+      pair: ['Pair', [['BTC-EUR', 412, 24, 58, 0.61, 21, 7], ['ETH-EUR', 398, 19, 53, 0.44, 19, 9], ['SOL-EUR', 401, 17, 59, 0.55, 23, 8], ['XRP-EUR', 377, 12, 42, -0.18, 17, 12], ['ADA-EUR', 96, 4, 50, 0.20, 14, 11], ['LINK-EUR', 92, 5, 60, 0.71, 18, 6], ['AVAX-EUR', 88, 3, 33, -0.40, 22, 5], ['DOGE-EUR', 23, 1, 0, -1.00, 9, 13]]],
+      hour: ['Hour (Amsterdam)', [['00–06', 210, 9, 44, 0.05, 19, 10], ['06–12', 512, 31, 58, 0.58, 20, 8], ['12–18', 547, 34, 56, 0.49, 18, 9], ['18–24', 538, 31, 52, 0.31, 21, 9]]],
+      weekday: ['Weekday', [['Mon–Fri', 1292, 71, 59, 0.52, 19, 8], ['Saturday', 258, 18, 39, -0.27, 22, 11], ['Sunday', 257, 16, 38, -0.36, 21, 12]]],
+      regime: ['Regime', [['Up', 812, 71, 61, 0.64, 14, 12], ['Sideways', 655, 31, 42, 0.05, 22, 8], ['Down', 340, 3, 33, -0.40, 28, 4]]],
+      vol: ['Volatility percentile', [['Low (p0–33)', 618, 29, 48, 0.12, 17, 10], ['Mid (p33–66)', 597, 41, 59, 0.58, 20, 9], ['High (p66–100)', 592, 35, 51, 0.30, 22, 8]]],
+      conf: ['Confidence', [['0.5–0.6', 124, 31, 50, 0.18, 18, 9], ['0.6–0.7', 118, 32, 59, 0.51, 20, 8], ['0.7–0.8', 77, 29, 51, 0.33, 0, 0], ['0.8+', 26, 13, 54, 0.40, 0, 0]]]
+    };
+    var LABELS = [['pair', 'Pair'], ['hour', 'Hour'], ['weekday', 'Weekday'], ['regime', 'Regime'], ['vol', 'Volatility'], ['conf', 'Confidence']];
+    var cur = DATA[this.state.dim];
+    var rows = cur[1].map(function (r) {
+      var few = r[1] < 30, R = r[4], w = Math.min(Math.abs(R), 1) * 50;
+      return {
+        label: r[0], n: String(r[1]), buys: String(r[2]), win: r[2] ? r[3] + '%' : '—',
+        r: (R >= 0 ? '+' : '−') + Math.abs(R).toFixed(2), avoided: r[5] + '%', missed: r[6] + '%',
+        few: few ? 'too few' : '', fewStyle: 'font-family:IBM Plex Mono,monospace;font-size:11px;color:#F2B94B',
+        rowStyle: 'border-top:1px solid #232A35;' + (few ? 'opacity:0.5' : ''),
+        rStyle: 'color:' + (R >= 0 ? '#3DD68C' : '#FF8A8F'),
+        bar: 'position:absolute;top:0;height:10px;border-radius:2px;background:' + (R >= 0 ? '#3DD68C' : '#FF6369') + ';' + (R >= 0 ? 'left:50%;' : 'right:50%;') + 'width:' + w.toFixed(0) + '%'
+      };
+    });
+    return {
+      nav: nav,
+      dimLabel: cur[0],
+      rows: rows,
+      dims: LABELS.map(function (l) {
+        var on = l[0] === self.state.dim;
+        return { label: l[1], pick: function () { self.setState({ dim: l[0] }); }, style: 'height:40px;padding:0 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;border:1px solid ' + (on ? '#F2B94B' : '#232A35') + ';background:' + (on ? '#211C10' : '#171C24') + ';color:#E7EAEE' };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

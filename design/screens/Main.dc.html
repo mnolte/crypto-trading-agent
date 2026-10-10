@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trading Agent — Dashboard</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#F2B94B}a:hover{color:#FFD58A}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="min-height: 1000px; background: #0B0E13; color: #E7EAEE; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <aside aria-label="Sidebar" style="{{nav.aside}}">
+    <div style="{{nav.brandRow}}">
+      <div style="width: 36px; height: 36px; flex: 0 0 36px; border-radius: 8px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px">TA</div>
+      <sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+          <div style="font-weight: 600; font-size: 16px; white-space: nowrap">Trading Agent</div>
+          <div style="font-size: 12px; color: #98A2AF; white-space: nowrap">Paper · local · v0.1</div>
+        </div>
+      </sc-if>
+    </div>
+    <a href="Ask.dc.html" aria-label="Ask the agent" title="Ask the agent" style="{{nav.ask}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Ask the agent</span></sc-if></a>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+      <div style="{{nav.group}}">Monitor</div>
+      <a href="Main.dc.html" aria-current="page" aria-label="Dashboard" title="Dashboard" style="{{nav.active}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Dashboard</span></sc-if></a>
+      <a href="Indicators.dc.html" aria-label="Indicators" title="Indicators" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><polyline points="3 17 9 11 13 15 21 7"></polyline><line x1="3" y1="21" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Indicators</span></sc-if></a>
+      <a href="Performance.dc.html" aria-label="Performance" title="Performance" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="6" y1="20" x2="6" y2="14"></line><line x1="12" y1="20" x2="12" y2="9"></line><line x1="18" y1="20" x2="18" y2="4"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Performance</span></sc-if></a>
+      <div style="{{nav.group}}">Learn</div>
+      <a href="Insights.dc.html" aria-label="Insights" title="Insights" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M9 18h6"></path><path d="M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Insights</span></sc-if></a>
+      <a href="WhatIf.dc.html" aria-label="What-if" title="What-if" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="9" r="2"></circle><path d="M6 8v8"></path><path d="M6 13c0-3 3-4 6-4h4"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>What-if</span></sc-if></a>
+      <a href="Reviews.dc.html" aria-label="Reviews" title="Reviews" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Reviews</span></sc-if></a>
+      <a href="Inspector.dc.html" aria-label="LLM inspector" title="LLM inspector" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="11" cy="11" r="6"></circle><line x1="16" y1="16" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>LLM inspector</span></sc-if></a>
+      <div style="{{nav.group}}">Control</div>
+      <a href="Readiness.dc.html" aria-label="Readiness" title="Readiness" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><polyline points="9 12 11 14 15 10"></polyline></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Readiness</span></sc-if></a>
+      <a href="Settings.dc.html" aria-label="Settings" title="Settings" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line><circle cx="9" cy="6" r="2" fill="#0F131A"></circle><circle cx="15" cy="12" r="2" fill="#0F131A"></circle><circle cx="7" cy="18" r="2" fill="#0F131A"></circle></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Settings</span></sc-if></a>
+    </nav>
+    <div style="flex: 1"></div>
+    <div style="{{nav.status}}"><span style="{{nav.dot}}"></span><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>{{nav.statusText}}</span></sc-if></div>
+    <button type="button" onClick="{{nav.toggle}}" aria-label="{{nav.toggleLabel}}" aria-expanded="{{nav.expandedStr}}" title="{{nav.toggleLabel}}" style="{{nav.toggleStyle}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Collapse</span></sc-if></button>
+  </aside>
+
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 16px 24px; border-bottom: 1px solid #232A35; background: #0F131A">
+    <div style="display: flex; align-items: center; gap: 12px; flex: 1 1 260px; min-width: 0; flex-wrap: wrap">
+      <h1 style="margin: 0; font-size: 18px; font-weight: 600">Dashboard</h1>
+      <div style="display: flex; align-items: center; gap: 8px; margin-left: 4px; padding: 6px 12px; border-radius: 999px; background: #171C24; border: 1px solid #232A35; font-size: 13px">
+        <span style="{{statusDot}}"></span>
+        <span>{{statusText}}</span>
+      </div>
+      <a href="Main.dc.html" title="Errors in the last 24h" style="display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 999px; background: #3A1416; border: 1px solid #7A2A2E; color: #FFB3B6; font-size: 12px; text-decoration: none">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="6" x2="12" y2="13"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg>
+        <span>2 errors · 24h</span>
+      </a>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+      <div role="group" aria-label="Trading mode" style="display: flex; padding: 3px; background: #171C24; border: 1px solid #232A35; border-radius: 8px">
+        <button type="button" onClick="{{setPaper}}" style="{{paperStyle}}">Paper</button>
+        <button type="button" disabled title="Live trading comes after the paper phase" style="{{liveStyle}}">Live</button>
+      </div>
+      <button type="button" style="height: 44px; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; font-weight: 500; cursor: pointer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 20 11 15 11"></polyline><path d="M20 11a8 8 0 1 0-2.3 5.7"></path></svg>
+        <span>Run now</span>
+      </button>
+      <button type="button" onClick="{{togglePause}}" style="height: 44px; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; font-weight: 500; cursor: pointer">
+        <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+        </sc-if>
+        <sc-if value="{{running}}" hint-placeholder-val="{{ true }}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="5" x2="8" y2="19"></line><line x1="16" y1="5" x2="16" y2="19"></line></svg>
+        </sc-if>
+        <span>{{pauseLabel}}</span>
+      </button>
+      <button type="button" style="height: 44px; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-radius: 8px; border: 1px solid #7A2A2E; background: #3A1416; color: #FFB3B6; font-size: 14px; font-weight: 600; cursor: pointer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="7" x2="12" y2="13"></line><line x1="12" y1="17" x2="12" y2="17"></line></svg>
+        <span>Stop &amp; flatten</span>
+      </button>
+    </div>
+  </header>
+
+  <sc-if value="{{isLive}}" hint-placeholder-val="{{ false }}">
+    <div style="padding: 10px 24px; background: #3A2A0E; border-bottom: 1px solid #6B4E17; color: #FFD58A; font-size: 13px; display: flex; align-items: center; gap: 8px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"></path><line x1="12" y1="10" x2="12" y2="14"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg>
+      <span>Live mode — orders go to the exchange with real funds. Risk limits from Settings are enforced.</span>
+    </div>
+  </sc-if>
+
+  <main style="max-width: 1440px; margin: 0 auto; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+
+    <div role="status" style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 12px 16px; background: #12161D; border: 1px solid #232A35; border-radius: 10px; font-size: 13px">
+      <span style="padding: 3px 8px; border-radius: 6px; background: #1C222C; color: #C9CFD6; font-size: 12px; font-weight: 600">This cycle</span>
+      <span style="flex: 1 1 420px; color: #C9CFD6; line-height: 1.5">6 of 9 pairs failed the <span title="The Rules check that decides whether the model is asked at all. It saves model calls when nothing looks promising." style="text-decoration: underline dotted; text-underline-offset: 3px; cursor: help">pre-filter</span> (4h trend down on 4, too weak on 2). 3 reached the model: 1 BUY (BTC), 2 held. Last trade 1 min ago. DOGE paused for 18h.</span>
+      <a href="Insights.dc.html" style="font-size: 13px">Why?</a>
+    </div>
+
+    <section aria-label="Account summary" style="display: flex; flex-wrap: wrap; gap: 12px">
+      <div style="flex: 1 1 200px; padding: 16px; background: #12161D; border: 1px solid #232A35; border-radius: 10px; display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Equity</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 500">€10,412.80</div>
+        <div style="font-size: 13px; color: #3DD68C; font-family: 'IBM Plex Mono', monospace">+4.13% since start</div>
+      </div>
+      <div style="flex: 1 1 200px; padding: 16px; background: #12161D; border: 1px solid #232A35; border-radius: 10px; display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Today P&amp;L</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 500; color: #3DD68C">+€86.20</div>
+        <div style="font-size: 13px; color: #98A2AF">7 trades · 4 won</div>
+      </div>
+      <div style="flex: 1 1 200px; padding: 16px; background: #12161D; border: 1px solid #232A35; border-radius: 10px; display: flex; flex-direction: column; gap: 6px">
+        <div title="Share of your equity currently held in coins rather than euros." style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em; text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; align-self: flex-start">Exposure</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 500">67%</div>
+        <div style="height: 6px; background: #232A35; border-radius: 3px; overflow: hidden"><div style="width: 67%; height: 6px; background: #F2B94B"></div></div>
+        <div style="font-size: 13px; color: #98A2AF">cap 100% · spot, no leverage</div>
+      </div>
+      <div style="flex: 1 1 200px; padding: 16px; background: #12161D; border: 1px solid #232A35; border-radius: 10px; display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Drawdown</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 500; color: #FF8A8F">−2.3%</div>
+        <div style="height: 6px; background: #232A35; border-radius: 3px; overflow: hidden"><div style="width: 29%; height: 6px; background: #FF6369"></div></div>
+        <div style="font-size: 13px; color: #98A2AF">kill at −8%</div>
+      </div>
+      <div style="flex: 1 1 200px; padding: 16px; background: #12161D; border: 1px solid #232A35; border-radius: 10px; display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Next cycle</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 500">{{countdown}}</div>
+        <div style="font-size: 13px; color: #98A2AF">every 15 min · cycle #728</div>
+      </div>
+      <div style="flex: 1 1 200px; padding: 16px; background: #12161D; border: 1px solid #232A35; border-radius: 10px; display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Model today</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 500">41 calls</div>
+        <div style="font-size: 13px; color: #98A2AF">of 1,000 · €0.03 today · €2.14 of €10 this month</div>
+      </div>
+    </section>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch">
+      <section aria-label="Morning briefing" style="flex: 999 1 560px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px">
+          <h2 style="margin: 0; font-size: 14px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Morning briefing · 08:00</h2>
+          <a href="Reviews.dc.html" style="font-size: 13px">All briefings and reviews</a>
+        </div>
+        <p style="margin: 0; line-height: 1.65; color: #D5DAE0">Overnight the agent closed one trade: XRP-EUR hit its exit at +1.4R after BTC's push above €61,000 lifted the altcoins. Equity is €10,413, up €86 since yesterday and 1.2 points ahead of simply holding BTC this month. Three positions are open; SOL's stop has moved to breakeven, so it can no longer lose money beyond fees. ETH is the one to watch: it sits 0.9% above its stop with momentum fading. Nothing was bought overnight because 6 of 9 pairs had a falling 4-hour trend. Closest to a setup this morning: BTC, LINK and ADA.</p>
+        <div style="font-size: 12px; color: #98A2AF">Written by the model from figures computed by the agent; every number was checked against those figures.</div>
+      </section>
+      <section aria-label="Risk budget" style="flex: 1 1 340px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 14px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Risk budget</h2>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div style="display: flex; justify-content: space-between; font-size: 13px"><span title="What you would lose if every open position hit its stop at the same time." style="text-decoration: underline dotted; text-underline-offset: 3px; cursor: help">Open risk</span><span style="font-family: 'IBM Plex Mono', monospace">1.2% of 2.5% cap</span></div>
+          <div style="height: 8px; background: #232A35; border-radius: 4px; overflow: hidden"><div style="width: 48%; height: 8px; background: #F2B94B"></div></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div style="display: flex; justify-content: space-between; font-size: 13px"><span>Today's loss</span><span style="font-family: 'IBM Plex Mono', monospace">0.0% of 3% limit</span></div>
+          <div style="height: 8px; background: #232A35; border-radius: 4px; overflow: hidden"><div style="width: 0%; height: 8px; background: #F2B94B"></div></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div style="display: flex; justify-content: space-between; font-size: 13px"><span title="How far equity is below its highest point so far. At −8% the kill switch closes everything." style="text-decoration: underline dotted; text-underline-offset: 3px; cursor: help">Drawdown</span><span style="font-family: 'IBM Plex Mono', monospace">−2.3% of −8% kill</span></div>
+          <div style="height: 8px; background: #232A35; border-radius: 4px; overflow: hidden"><div style="width: 29%; height: 8px; background: #FF6369"></div></div>
+        </div>
+        <div style="padding: 10px 12px; background: #0F131A; border: 1px solid #232A35; border-radius: 8px; font-size: 13px; color: #C9CFD6; display: flex; flex-direction: column; gap: 6px">
+          <span>Room for 1 more trade, slightly reduced by available cash.</span>
+          <span style="display: flex; justify-content: space-between; gap: 8px"><span title="At most 2 open positions that move together (30-day correlation above 0.8)." style="text-decoration: underline dotted; text-underline-offset: 3px; cursor: help">Correlated</span><span style="font-family: 'IBM Plex Mono', monospace; color: #F2B94B">BTC + ETH 0.86 · full</span></span>
+          <span style="display: flex; justify-content: space-between; gap: 8px"><span>Risk per trade</span><span style="font-family: 'IBM Plex Mono', monospace">1.0% · throttle off</span></span>
+          <span style="display: flex; justify-content: space-between; gap: 8px"><span>Shock brake</span><span style="font-family: 'IBM Plex Mono', monospace">off</span></span>
+        </div>
+      </section>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch">
+
+      <section aria-label="Market chart" style="flex: 999 1 640px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+          <div style="position: relative; display: flex; flex-wrap: wrap; gap: 6px">
+            <div role="tablist" aria-label="Pairs" style="display: flex; flex-wrap: wrap; gap: 6px">
+              <sc-for list="{{pairsMain}}" as="p" hint-placeholder-count="6">
+                <button type="button" role="tab" onClick="{{p.pick}}" style="{{p.tabStyle}}">
+                  <span>{{p.id}}</span>
+                  <span style="{{p.chgStyle}}">{{p.chgText}}</span>
+                </button>
+              </sc-for>
+            </div>
+            <button type="button" aria-haspopup="listbox" aria-expanded="{{more.openStr}}" onClick="{{more.toggle}}" style="{{more.btnStyle}}">
+              <span>{{more.label}}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <sc-if value="{{more.open}}" hint-placeholder-val="{{ false }}">
+              <div role="listbox" aria-label="More pairs" style="position: absolute; top: 46px; right: 0; z-index: 5; width: 240px; padding: 8px; background: #171C24; border: 1px solid #2E3643; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); display: flex; flex-direction: column; gap: 4px">
+                <input type="search" aria-label="Search pairs" placeholder="Search pairs" style="height: 36px; padding: 0 10px; box-sizing: border-box; border-radius: 6px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 13px; margin-bottom: 4px">
+                <sc-for list="{{pairsMore}}" as="p" hint-placeholder-count="3">
+                  <button type="button" role="option" onClick="{{p.pick}}" style="{{p.rowStyle}}">
+                    <span>{{p.id}}<span style="{{p.badgeStyle}}">{{p.badge}}</span></span>
+                    <span style="{{p.chgStyle}}">{{p.chgText}}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+          <div style="display: flex; gap: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 13px">
+            <button type="button" style="height: 32px; padding: 0 10px; border-radius: 6px; border: 0; background: #232A35; color: #E7EAEE">1h</button>
+            <button type="button" style="height: 32px; padding: 0 10px; border-radius: 6px; border: 0; background: transparent; color: #98A2AF">4h</button>
+            <button type="button" style="height: 32px; padding: 0 10px; border-radius: 6px; border: 0; background: transparent; color: #98A2AF">1d</button>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 500">{{sel.priceText}}</div>
+          <div style="{{sel.chgStyle}}">{{sel.chgText}} 24h</div>
+        </div>
+
+        <div style="position: relative; height: 300px; border-top: 1px solid #1C222C; border-bottom: 1px solid #1C222C">
+          <svg viewBox="0 0 800 300" preserveAspectRatio="none" width="100%" height="300" aria-hidden="true" style="display: block">
+            <line x1="0" y1="75" x2="800" y2="75" stroke="#1C222C" stroke-width="1"></line>
+            <line x1="0" y1="150" x2="800" y2="150" stroke="#1C222C" stroke-width="1"></line>
+            <line x1="0" y1="225" x2="800" y2="225" stroke="#1C222C" stroke-width="1"></line>
+            <polygon points="{{chart.area}}" fill="#F2B94B" fill-opacity="0.08"></polygon>
+            <polyline points="{{chart.line}}" fill="none" stroke="#F2B94B" stroke-width="2" vector-effect="non-scaling-stroke"></polyline>
+          </svg>
+          <sc-for list="{{markers}}" as="m" hint-placeholder-count="3">
+            <div style="{{m.style}}" title="{{m.label}}">{{m.letter}}</div>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: #98A2AF">
+          <span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 14px; border-radius: 3px; background: #3DD68C; color: #0B0E13; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center">B</span>Agent buy</span>
+          <span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 14px; border-radius: 3px; background: #FF6369; color: #0B0E13; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center">S</span>Agent sell</span>
+          <span>Sample data</span>
+        </div>
+      </section>
+
+      <section aria-label="Latest decision" style="flex: 1 1 340px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+          <h2 style="margin: 0; font-size: 14px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Latest decision</h2>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #98A2AF">12:30:00 · gpt-4o-mini</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px">
+          <div style="{{dec.badgeStyle}}">{{dec.action}}</div>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="font-weight: 600; font-size: 16px">{{sel.id}}</div>
+            <div style="font-size: 13px; color: #98A2AF">confidence <span style="font-family: 'IBM Plex Mono', monospace; color: #E7EAEE">{{dec.conf}}</span></div>
+          </div>
+        </div>
+        <div><span style="{{reg.style}}" title="Market regime when this decision was made">{{reg.text}}</span></div>
+        <p style="margin: 0; line-height: 1.55; color: #C9CFD6">{{dec.why}}</p>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 6px">
+          <sc-for list="{{dec.signals}}" as="s" hint-placeholder-count="5">
+            <span style="{{s.style}}">{{s.text}}</span>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #0F131A; border: 1px solid #232A35; border-radius: 8px; font-size: 13px">
+          <div style="display: flex; justify-content: space-between"><span title="R is the amount you risk: entry minus stop. 2.1R means the target would earn 2.1 times what the stop would lose. The agent needs at least 2.0." style="color: #98A2AF; text-decoration: underline dotted; text-underline-offset: 3px; cursor: help">Risk / reward gate</span><span style="font-family: 'IBM Plex Mono', monospace">{{dec.rr}}</span></div>
+          <div style="display: flex; justify-content: space-between"><span style="color: #98A2AF">Position size</span><span style="font-family: 'IBM Plex Mono', monospace">{{dec.size}}</span></div>
+          <div style="display: flex; justify-content: space-between"><span style="color: #98A2AF">Stop / target</span><span style="font-family: 'IBM Plex Mono', monospace">{{dec.stops}}</span></div>
+        </div>
+
+        <div style="margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+          <label style="font-size: 13px; color: #98A2AF" for="pause-coin">Pause new entries on this coin</label>
+          <select id="pause-coin" style="height: 36px; padding: 0 8px; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 13px"><option>Not paused</option><option>1 hour</option><option>24 hours</option><option>Until a date…</option><option>Until I resume</option></select>
+        </div>
+        <a href="Decision.dc.html" style=" height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; text-decoration: none; font-weight: 500">Open full reasoning</a>
+      </section>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch">
+      <section aria-label="Open positions" style="flex: 1 1 520px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px">
+        <h2 style="margin: 0; font-size: 14px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Open positions</h2>
+        <div style="overflow-x: auto">
+          <table style="width: 100%; min-width: 520px; border-collapse: collapse; font-size: 13px">
+            <thead>
+              <tr style="color: #98A2AF; text-align: left">
+                <th style="padding: 8px 8px 8px 0; font-weight: 500">Pair</th>
+                <th style="padding: 8px; font-weight: 500">Side</th>
+                <th style="padding: 8px; font-weight: 500; text-align: right">Size</th>
+                <th style="padding: 8px; font-weight: 500; text-align: right">Entry</th>
+                <th style="padding: 8px; font-weight: 500; text-align: right">Stop</th>
+                <th style="padding: 8px 0 8px 8px; font-weight: 500; text-align: right">Unrealised</th>
+              </tr>
+            </thead>
+            <tbody style="font-family: 'IBM Plex Mono', monospace">
+              <tr style="border-top: 1px solid #232A35">
+                <td style="padding: 10px 8px 10px 0; font-family: 'IBM Plex Sans', sans-serif; font-weight: 500">BTC-EUR</td>
+                <td style="padding: 10px 8px; color: #3DD68C">Long</td>
+                <td style="padding: 10px 8px; text-align: right">0.0807</td>
+                <td style="padding: 10px 8px; text-align: right">61,240.00</td>
+                <td style="padding: 10px 8px; text-align: right">59,950.00</td>
+                <td style="padding: 10px 0 10px 8px; text-align: right; color: #3DD68C">+€0.81</td>
+              </tr>
+              <tr style="border-top: 1px solid #232A35">
+                <td style="padding: 10px 8px 10px 0; font-family: 'IBM Plex Sans', sans-serif; font-weight: 500">SOL-EUR</td>
+                <td style="padding: 10px 8px; color: #3DD68C">Long</td>
+                <td style="padding: 10px 8px; text-align: right">7.500</td>
+                <td style="padding: 10px 8px; text-align: right">138.40</td>
+                <td style="padding: 10px 8px; text-align: right">139.10</td>
+                <td style="padding: 10px 0 10px 8px; text-align: right; color: #3DD68C">+€24.90</td>
+              </tr>
+              <tr style="border-top: 1px solid #232A35">
+                <td style="padding: 10px 8px 10px 0; font-family: 'IBM Plex Sans', sans-serif; font-weight: 500">ETH-EUR</td>
+                <td style="padding: 10px 8px; color: #3DD68C">Long</td>
+                <td style="padding: 10px 8px; text-align: right">0.420</td>
+                <td style="padding: 10px 8px; text-align: right">2,402.50</td>
+                <td style="padding: 10px 8px; text-align: right">2,351.00</td>
+                <td style="padding: 10px 0 10px 8px; text-align: right; color: #FF8A8F">−€7.73</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-label="Activity log" style="flex: 1 1 420px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: center; justify-content: space-between">
+          <h2 style="margin: 0; font-size: 14px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Activity</h2>
+          <span style="font-size: 12px; color: #98A2AF">all pairs</span>
+        </div>
+        <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; font-size: 13px">
+          <li style="display: flex; gap: 12px; padding: 9px 0; border-top: 1px solid #232A35"><span style="font-family: 'IBM Plex Mono', monospace; color: #98A2AF; flex: 0 0 64px">12:30</span><span style="flex: 0 0 44px; color: #3DD68C; font-weight: 600">BUY</span><span style="color: #C9CFD6">BTC-EUR 0.0807 @ 61,240 · R/R 2.1</span></li>
+          <li style="display: flex; gap: 12px; padding: 9px 0; border-top: 1px solid #232A35"><span style="font-family: 'IBM Plex Mono', monospace; color: #98A2AF; flex: 0 0 64px">12:30</span><span style="flex: 0 0 44px; color: #98A2AF; font-weight: 600">HOLD</span><span style="color: #C9CFD6">ETH-EUR · OBV diverging, no edge</span></li>
+          <li style="display: flex; gap: 12px; padding: 9px 0; border-top: 1px solid #232A35"><span style="font-family: 'IBM Plex Mono', monospace; color: #98A2AF; flex: 0 0 64px">12:15</span><span style="flex: 0 0 44px; color: #F2B94B; font-weight: 600">SKIP</span><span style="color: #C9CFD6">XRP-EUR · costs 41% of risk, gate 30%</span></li>
+          <li style="display: flex; gap: 12px; padding: 9px 0; border-top: 1px solid #232A35"><span style="font-family: 'IBM Plex Mono', monospace; color: #98A2AF; flex: 0 0 64px">12:00</span><span style="flex: 0 0 44px; color: #FF8A8F; font-weight: 600">SELL</span><span style="color: #C9CFD6">XRP-EUR 1,850 @ 0.5412 · model exit, +1.4R</span></li>
+          <li style="display: flex; gap: 12px; padding: 9px 0; border-top: 1px solid #232A35"><span style="font-family: 'IBM Plex Mono', monospace; color: #98A2AF; flex: 0 0 64px">11:45</span><span style="flex: 0 0 44px; color: #98A2AF; font-weight: 600">INFO</span><span style="color: #C9CFD6">Pre-filter: 3 pairs held by Rules, no model call</span></li>
+        </ol>
+      </section>
+    </div>
+  </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { pair: 'BTC-EUR', paused: false, mode: 'paper' };
+  }
+  renderVals() {
+    var self = this;
+    var PAIRS = [
+      { id: 'BTC-EUR', price: 61240.5, dp: 2, chg: 1.42, seed: 3,
+        dec: { action: 'BUY', conf: '0.71', why: 'The 1h trend resumed above VWAP on rising OBV, and the 4h and daily trends agree. A stop under the 1h swing low sits 2.1% away, keeping fees under 30% of risk; the first resistance gives 2.1R.', rr: '2.1R ≥ 2.0 ✓', size: '0.0807 BTC · €4,942', stops: '59,950 / 63,950',
+          signals: [['RSI 1h 58', 1], ['> VWAP', 1], ['OBV ↑', 1], ['4h trend ↑', 1], ['ADX 27', 0]] } },
+      { id: 'ETH-EUR', price: 2384.1, dp: 2, chg: -0.86, seed: 7,
+        dec: { action: 'HOLD', conf: '0.54', why: 'Price is above the 4h MA but OBV is diverging lower. Signals conflict across timeframes, so the agent keeps the existing position and adds nothing.', rr: '—', size: 'no change', stops: '2,351 / 2,520',
+          signals: [['RSI 47', 0], ['< VWAP', -1], ['OBV ↓', -1], ['ATR 2.2%', 0], ['ADX 18', 0]] } },
+      { id: 'SOL-EUR', price: 141.72, dp: 2, chg: 3.15, seed: 11,
+        dec: { action: 'HOLD', conf: '0.63', why: 'Trend is intact and price is more than 1R above entry, so the stop has moved to breakeven plus fees. Nothing to do until the 1h trend breaks or a level is hit.', rr: '—', size: 'no change', stops: '139.10 / 148.00',
+          signals: [['RSI 66', 0], ['> VWAP', 1], ['OBV ↑', 1], ['ATR 3.1%', 0], ['ADX 18', 0]] } },
+      { id: 'XRP-EUR', price: 0.5321, dp: 4, chg: -0.21, seed: 19,
+        dec: { action: 'SKIP', conf: '0.48', why: 'A long setup exists near support, but the nearest resistance caps reward at 1.3R, below the 2.0R gate. No order placed.', rr: '1.3R < 2.0 ✗', size: '—', stops: '—',
+          signals: [['RSI 41', 0], ['< VWAP', -1], ['OBV flat', 0], ['ATR 2.6%', 0], ['ADX 17', 0]] } },
+      { id: 'ADA-EUR', price: 0.2126, dp: 4, chg: 0.84, seed: 23,
+        dec: { action: 'HOLD', conf: '0.52', why: 'No position. The 1h trend is up but ADX is 16, so the move lacks strength; the Rules pre-filter passed, the model saw no edge.', rr: '—', size: '—', stops: '—',
+          signals: [['RSI 53', 0], ['> VWAP', 1], ['OBV flat', 0], ['ADX 16', 0], ['BTC ctx ↑', 1]] } },
+      { id: 'LINK-EUR', price: 11.47, dp: 2, chg: 2.31, seed: 29,
+        dec: { action: 'HOLD', conf: '0.58', why: 'Strong 1h move, but price sits 1.9 ATR above EMA 20, past the 1.5 ATR limit for entries. Waiting for a pullback.', rr: '—', size: '—', stops: '—',
+          signals: [['RSI 68', 1], ['> VWAP', 1], ['OBV ↑', 1], ['ADX 29', 0], ['Extended', -1]] } },
+      { id: 'AVAX-EUR', price: 9.13, dp: 2, chg: -1.12, seed: 31,
+        dec: { action: 'HOLD', conf: '0.40', why: 'Pre-filter held: 4h trend down, so no model call this cycle.', rr: '—', size: '—', stops: '—',
+          signals: [['RSI 42', -1], ['< VWAP', -1], ['OBV ↓', -1], ['4h trend ↓', -1], ['ADX 22', 0]] } },
+      { id: 'DOGE-EUR', price: 0.07576, dp: 5, chg: 0.37, seed: 37, paused: '18h',
+        dec: { action: 'HOLD', conf: '0.46', why: 'Pre-filter held: only 2 of 5 short-term conditions met.', rr: '—', size: '—', stops: '—',
+          signals: [['RSI 49', 0], ['> VWAP', 1], ['OBV flat', 0], ['ADX 14', 0], ['Corr BTC 0.81', 0]] } },
+      { id: 'LTC-EUR', price: 56.78, dp: 2, chg: 0.12, seed: 41,
+        dec: { action: 'HOLD', conf: '0.00', why: 'Warming up: history backfill at 62%. Not traded until 800 hourly candles are loaded.', rr: '—', size: '—', stops: '—',
+          signals: [['Warming up', 0]] } }
+    ];
+    var sel = PAIRS.filter(function (p) { return p.id === self.state.pair; })[0] || PAIRS[0];
+
+    function fmt(n, dp) { return n.toLocaleString('en-GB', { minimumFractionDigits: dp, maximumFractionDigits: dp }); }
+    function chgText(c) { return (c >= 0 ? '+' : '−') + Math.abs(c).toFixed(2) + '%'; }
+    function chgColor(c) { return c >= 0 ? '#3DD68C' : '#FF8A8F'; }
+
+    var n = 72, s = sel.seed, v = 50, vals = [];
+    for (var i = 0; i < n; i++) {
+      s = (s * 9301 + 49297) % 233280;
+      v += (s / 233280 - 0.48) * 7;
+      v = Math.max(12, Math.min(88, v));
+      vals.push(v);
+    }
+    var pts = vals.map(function (y, i) { return (i / (n - 1) * 800).toFixed(1) + ',' + (300 - y / 100 * 300).toFixed(1); });
+    var line = pts.join(' ');
+    var area = '0,300 ' + line + ' 800,300';
+
+    var marks = [[14, 'B'], [33, 'S'], [52, 'B'], [70, 'B']];
+    var markers = marks.map(function (m) {
+      var idx = m[0], buy = m[1] === 'B';
+      var left = idx / (n - 1) * 100, top = 100 - vals[idx];
+      return {
+        letter: m[1], label: buy ? 'Agent buy' : 'Agent sell',
+        style: 'position:absolute;left:calc(' + left.toFixed(2) + '% - 9px);top:calc(' + top.toFixed(2) + '% ' + (buy ? '+ 10px' : '- 28px') + ');width:18px;height:18px;border-radius:4px;background:' + (buy ? '#3DD68C' : '#FF6369') + ';color:#0B0E13;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:IBM Plex Mono,monospace'
+      };
+    });
+
+    var badgeColors = { BUY: ['#123A27', '#3DD68C'], SELL: ['#3A1416', '#FF8A8F'], HOLD: ['#1C222C', '#C9CFD6'], SKIP: ['#3A2A0E', '#F2B94B'] };
+    var bc = badgeColors[sel.dec.action];
+
+    var pairs = PAIRS.map(function (p) {
+      var on = p.id === sel.id;
+      return {
+        id: p.id, chgText: chgText(p.chg),
+        chgStyle: 'font-family:IBM Plex Mono,monospace;font-size:12px;color:' + chgColor(p.chg),
+        tabStyle: 'height:40px;padding:0 12px;display:flex;align-items:center;gap:8px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;border:1px solid ' + (on ? '#F2B94B' : '#232A35') + ';background:' + (on ? '#211C10' : '#171C24') + ';color:#E7EAEE',
+        badge: p.paused ? 'paused ' + p.paused : '',
+        badgeStyle: 'font-family:IBM Plex Mono,monospace;font-size:11px;color:#F2B94B;margin-left:8px',
+        rowStyle: 'height:40px;padding:0 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;border:0;text-align:left;background:' + (on ? '#211C10' : 'transparent') + ';color:#E7EAEE',
+        pick: function () { self.setState({ pair: p.id, moreOpen: false }); }
+      };
+    });
+    var pairsMain = pairs.slice(0, 6), pairsMore = pairs.slice(6);
+    var selInMore = PAIRS.slice(6).some(function (p) { return p.id === sel.id; });
+    var moreOpen = !!this.state.moreOpen;
+    var more = {
+      open: moreOpen, openStr: String(moreOpen),
+      label: selInMore ? sel.id : 'More (' + pairsMore.length + ')',
+      toggle: function () { self.setState({ moreOpen: !moreOpen }); },
+      btnStyle: 'height:40px;padding:0 12px;display:flex;align-items:center;gap:8px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;border:1px solid ' + (selInMore ? '#F2B94B' : '#232A35') + ';background:' + (selInMore ? '#211C10' : '#171C24') + ';color:#E7EAEE'
+    };
+
+    var segBase = 'height:36px;padding:0 14px;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;';
+    var live = this.state.mode === 'live';
+    var paused = this.state.paused;
+
+    var navCollapsed = !!(this.state && this.state.navCollapsed);
+    var navBase = 'height:44px;display:flex;align-items:center;gap:12px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;box-sizing:border-box;' + (navCollapsed ? 'justify-content:center;padding:0;' : 'padding:0 12px;');
+    var nav = {
+      expanded: !navCollapsed,
+      expandedStr: String(!navCollapsed),
+      toggle: function () { self.setState({ navCollapsed: !navCollapsed }); },
+      toggleLabel: navCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      aside: 'flex:0 0 ' + (navCollapsed ? '72px' : '232px') + ';box-sizing:border-box;display:flex;flex-direction:column;gap:16px;padding:16px ' + (navCollapsed ? '12px' : '16px') + ';background:#0F131A;border-right:1px solid #232A35',
+      brandRow: 'display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid #232A35;' + (navCollapsed ? 'justify-content:center' : ''),
+      item: navBase + 'color:#98A2AF',
+      active: navBase + 'background:#1C222C;color:#E7EAEE',
+      status: 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#171C24;border:1px solid #232A35;font-size:13px;' + (navCollapsed ? 'justify-content:center' : ''),
+      dot: 'width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:' + (paused ? '#98A2AF' : (live ? '#F2B94B' : '#3DD68C')),
+      statusText: paused ? 'Paused' : (live ? 'Running · live' : 'Running · paper'),
+      toggleStyle: navBase + 'width:100%;border:1px solid #232A35;background:transparent;color:#98A2AF;cursor:pointer;font-family:inherit'
+    };
+
+    nav.group = navCollapsed ? 'height:1px;background:#232A35;margin:8px 4px;overflow:hidden;color:transparent;font-size:0' : 'font-size:11px;font-weight:600;color:#8A94A1;text-transform:uppercase;letter-spacing:0.08em;padding:12px 12px 4px';
+    nav.ask = navBase + 'color:#F2B94B;background:#211C10;border:1px solid #4A3A16';
+
+    var REG = { 'BTC-EUR': ['up', 'normal', 14], 'ETH-EUR': ['up', 'normal', 9], 'SOL-EUR': ['up', 'normal', 22], 'XRP-EUR': ['sideways', 'high', 3], 'ADA-EUR': ['sideways', 'normal', 11], 'LINK-EUR': ['up', 'high', 5], 'AVAX-EUR': ['down', 'high', 8], 'DOGE-EUR': ['sideways', 'low', 30], 'LTC-EUR': null };
+    var REGC = { up: ['#123A27', '#3DD68C', '#1E5A3E'], down: ['#3A1416', '#FF8A8F', '#7A2A2E'], sideways: ['#1A2230', '#9FB4CC', '#2E3B4E'] };
+    function regChip(pair, label) {
+      var r = REG[pair];
+      if (!r) return { text: (label ? label + ': ' : '') + 'warming up, no regime yet', style: 'display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:999px;font-size:12px;font-family:IBM Plex Mono,monospace;background:#171C24;color:#98A2AF;border:1px solid #2E3643' };
+      var c = REGC[r[0]];
+      return { text: (label ? label + ' ' : '') + r[0] + ' · ' + r[1] + ' vol · ' + r[2] + ' bars' + (r[2] < 6 ? ' · new' : ''),
+        style: 'display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;font-size:12px;font-family:IBM Plex Mono,monospace;white-space:nowrap;background:' + c[0] + ';color:' + c[1] + ';border:1px solid ' + c[2] };
+    }
+    var regV = regChip((this.state && this.state.pair) || 'BTC-EUR', 'regime');
+
+    return {
+      reg: regV,
+      nav: nav,
+      pairsMain: pairsMain,
+      pairsMore: pairsMore,
+      more: more,
+      sel: { id: sel.id, priceText: '€' + fmt(sel.price, sel.dp), chgText: chgText(sel.chg), chgStyle: 'font-family:IBM Plex Mono,monospace;font-size:15px;color:' + chgColor(sel.chg) },
+      chart: { line: line, area: area },
+      markers: markers,
+      dec: {
+        action: sel.dec.action, conf: sel.dec.conf, why: sel.dec.why, rr: sel.dec.rr, size: sel.dec.size, stops: sel.dec.stops,
+        badgeStyle: 'min-width:72px;height:48px;padding:0 12px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:IBM Plex Mono,monospace;font-weight:600;font-size:18px;background:' + bc[0] + ';color:' + bc[1],
+        signals: sel.dec.signals.map(function (sg) {
+          var c = sg[1] > 0 ? ['#123A27', '#3DD68C'] : sg[1] < 0 ? ['#3A1416', '#FF8A8F'] : ['#1C222C', '#C9CFD6'];
+          return { text: sg[0], style: 'padding:4px 8px;border-radius:6px;font-family:IBM Plex Mono,monospace;font-size:12px;background:' + c[0] + ';color:' + c[1] };
+        })
+      },
+      paused: paused,
+      running: !paused,
+      pauseLabel: paused ? 'Resume' : 'Pause',
+      statusText: paused ? 'Paused' : (live ? 'Running · live' : 'Running · paper'),
+      statusDot: 'width:8px;height:8px;border-radius:50%;background:' + (paused ? '#98A2AF' : (live ? '#F2B94B' : '#3DD68C')),
+      countdown: paused ? '—' : '11:41',
+      isLive: live,
+      paperStyle: segBase + (live ? 'background:transparent;color:#98A2AF' : 'background:#2E3643;color:#E7EAEE'),
+      liveStyle: segBase + 'background:transparent;color:#6B7480;cursor:not-allowed',
+      setPaper: function () { self.setState({ mode: 'paper' }); },
+      setLive: function () { self.setState({ mode: 'live' }); },
+      togglePause: function () { self.setState({ paused: !self.state.paused }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trading Agent — Decision detail</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#F2B94B}a:hover{color:#FFD58A}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 560px; min-height: 1000px; box-sizing: border-box; background: #12161D; border-left: 1px solid #232A35; color: #E7EAEE; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; display: flex; flex-direction: column">
+
+  <header style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #232A35">
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <div style="font-size: 12px; color: #98A2AF; font-family: 'IBM Plex Mono', monospace">Cycle #728 · 12:30:00 CEST · gpt-4o-mini · prompt v1</div>
+      <h1 style="margin: 0; font-size: 18px; font-weight: 600">BTC-EUR decision</h1>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px"><span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-family: 'IBM Plex Mono', monospace; background: #123A27; color: #3DD68C; border: 1px solid #1E5A3E" title="Regime at decision time: trend from 4h and daily, volatility from the 1h ATR percentile, age in 4h bars">regime up · normal vol · 14 bars</span><span style="font-size: 12px; color: #98A2AF; align-self: center">normal BUY rules applied</span></div>
+    </div>
+    <a href="Main.dc.html" aria-label="Close" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg>
+    </a>
+  </header>
+
+  <div style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px">
+
+    <section aria-label="Verdict" style="display: flex; align-items: center; gap: 16px">
+      <div style="width: 88px; height: 56px; border-radius: 8px; background: #123A27; color: #3DD68C; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 22px">BUY</div>
+      <div style="display: flex; flex-direction: column; gap: 4px; flex: 1">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px">0.0807 BTC @ market ≈ €4,942</div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #98A2AF">
+          <span>confidence</span>
+          <div style="flex: 1; height: 6px; background: #232A35; border-radius: 3px; overflow: hidden"><div style="width: 71%; height: 6px; background: #3DD68C"></div></div>
+          <span style="font-family: 'IBM Plex Mono', monospace; color: #E7EAEE">0.71</span>
+        </div>
+      </div>
+    </section>
+
+    <section aria-label="Gates" style="display: flex; flex-direction: column; gap: 8px">
+      <h2 style="margin: 0; font-size: 12px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Safety gates</h2>
+      <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid #232A35; border-radius: 8px; overflow: hidden; font-size: 13px">
+        <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #0F131A"><span>Risk / reward ≥ 2.0</span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">2.1 · pass</span></li>
+        <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #0F131A; border-top: 1px solid #232A35"><span>Costs ≤ 30% of risk</span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">0.6% / 2.1% = 29% · pass</span></li>
+        <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #0F131A; border-top: 1px solid #232A35"><span>Risk per trade ≤ 1% equity</span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">1.00% · pass</span></li>
+        <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #0F131A; border-top: 1px solid #232A35"><span>Total exposure ≤ 100%</span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">67% after · pass</span></li>
+        <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #0F131A; border-top: 1px solid #232A35"><span>Daily loss limit</span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">not hit · pass</span></li>
+        <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #0F131A; border-top: 1px solid #232A35"><span>Correlated positions ≤ 2</span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">ETH 0.86 · 1 of 2 · pass</span></li>
+        <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #0F131A; border-top: 1px solid #232A35"><span>Shock brake</span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">off · pass</span></li>
+        <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #0F131A; border-top: 1px solid #232A35"><span>Risk throttle</span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">off · 1.0% used</span></li>
+        <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #0F131A; border-top: 1px solid #232A35"><span>Regime rule</span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">up · pass</span></li>
+        <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #0F131A; border-top: 1px solid #232A35"><span>Data freshness</span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">1h candle 9 min old · pass</span></li>
+      </ul>
+    </section>
+
+    <section aria-label="Signal stack" style="display: flex; flex-direction: column; gap: 8px">
+      <h2 style="margin: 0; font-size: 12px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Signal stack</h2>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px; font-family: 'IBM Plex Mono', monospace">
+        <thead>
+          <tr style="color: #98A2AF; font-family: 'IBM Plex Sans', sans-serif; text-align: left">
+            <th style="padding: 6px 0; font-weight: 500">Signal</th>
+            <th style="padding: 6px; font-weight: 500; text-align: right">1h</th>
+            <th style="padding: 6px; font-weight: 500; text-align: right">4h</th>
+            <th style="padding: 6px 0 6px 6px; font-weight: 500; text-align: right">1d</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-top: 1px solid #232A35"><td style="padding: 8px 0; font-family: 'IBM Plex Sans', sans-serif">RSI 14</td><td style="padding: 8px 6px; text-align: right; color: #3DD68C">58.2</td><td style="padding: 8px 6px; text-align: right; color: #C9CFD6">52.4</td><td style="padding: 8px 0 8px 6px; text-align: right; color: #C9CFD6">54.1</td></tr>
+          <tr style="border-top: 1px solid #232A35"><td style="padding: 8px 0; font-family: 'IBM Plex Sans', sans-serif">EMA 20 vs 50</td><td style="padding: 8px 6px; text-align: right; color: #3DD68C">+0.34%</td><td style="padding: 8px 6px; text-align: right; color: #3DD68C">+0.91%</td><td style="padding: 8px 0 8px 6px; text-align: right; color: #3DD68C">+2.8%</td></tr>
+          <tr style="border-top: 1px solid #232A35"><td style="padding: 8px 0; font-family: 'IBM Plex Sans', sans-serif">vs VWAP</td><td style="padding: 8px 6px; text-align: right; color: #3DD68C">+0.42%</td><td style="padding: 8px 6px; text-align: right; color: #3DD68C">+0.6%</td><td style="padding: 8px 0 8px 6px; text-align: right; color: #C9CFD6">+0.1%</td></tr>
+          <tr style="border-top: 1px solid #232A35"><td style="padding: 8px 0; font-family: 'IBM Plex Sans', sans-serif">OBV trend</td><td style="padding: 8px 6px; text-align: right; color: #3DD68C">+0.18</td><td style="padding: 8px 6px; text-align: right; color: #C9CFD6">+0.04</td><td style="padding: 8px 0 8px 6px; text-align: right; color: #3DD68C">+0.12</td></tr>
+          <tr style="border-top: 1px solid #232A35"><td style="padding: 8px 0; font-family: 'IBM Plex Sans', sans-serif">ADX 14</td><td style="padding: 8px 6px; text-align: right">27</td><td style="padding: 8px 6px; text-align: right">26</td><td style="padding: 8px 0 8px 6px; text-align: right">31</td></tr>
+          <tr style="border-top: 1px solid #232A35"><td style="padding: 8px 0; font-family: 'IBM Plex Sans', sans-serif">ATR % · rank</td><td style="padding: 8px 6px; text-align: right">0.71% · p54</td><td style="padding: 8px 6px; text-align: right">1.4% · p48</td><td style="padding: 8px 0 8px 6px; text-align: right">3.2% · p41</td></tr>
+        </tbody>
+      </table>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px">
+        <span style="padding: 4px 8px; border-radius: 6px; background: #1C222C; color: #C9CFD6; font-family: 'IBM Plex Mono', monospace; font-size: 12px">Spread 0.02%</span>
+        <span style="padding: 4px 8px; border-radius: 6px; background: #123A27; color: #3DD68C; font-family: 'IBM Plex Mono', monospace; font-size: 12px">Volume 1.38× avg</span>
+        <span style="padding: 4px 8px; border-radius: 6px; background: #1C222C; color: #C9CFD6; font-family: 'IBM Plex Mono', monospace; font-size: 12px">R1 +4.4% · S1 −2.0%</span>
+      </div>
+    </section>
+
+    <section aria-label="Reasoning" style="display: flex; flex-direction: column; gap: 8px">
+      <h2 style="margin: 0; font-size: 12px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Agent reasoning</h2>
+      <div style="padding: 14px; background: #0F131A; border: 1px solid #232A35; border-radius: 8px; line-height: 1.6; color: #C9CFD6">
+        The 1h trend resumed above VWAP with rising OBV, and the 4h and daily trends agree. 4h momentum is only neutral, so this is a normal-size trade, not an added one. The stop sits under the 1h swing low, 2.1% away, keeping costs under 30% of risk; the first resistance gives 2.1R.
+      </div>
+    </section>
+
+    <section aria-label="Order plan" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+      <div style="padding: 12px; background: #0F131A; border: 1px solid #232A35; border-radius: 8px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #98A2AF">Entry</span><span style="font-family: 'IBM Plex Mono', monospace">61,240</span></div>
+      <div style="padding: 12px; background: #0F131A; border: 1px solid #232A35; border-radius: 8px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #98A2AF">Stop</span><span style="font-family: 'IBM Plex Mono', monospace; color: #FF8A8F">59,950</span></div>
+      <div style="padding: 12px; background: #0F131A; border: 1px solid #232A35; border-radius: 8px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #98A2AF">Target</span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">63,950</span></div>
+      <div title="If price crosses this, the model is asked again at once. Not an exit." style="padding: 12px; background: #0F131A; border: 1px dashed #4A3A16; border-radius: 8px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #98A2AF">Invalidation</span><span style="font-family: 'IBM Plex Mono', monospace; color: #F2B94B">60,400</span></div>
+    </section>
+    <section aria-label="Outcome" style="display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+        <h2 style="margin: 0; font-size: 12px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Outcome</h2>
+        <span style="font-size: 12px; color: #98A2AF">first result 16:30</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+        <div style="padding: 10px 12px; background: #0F131A; border: 1px dashed #2E3643; border-radius: 8px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #98A2AF">4h</span><span style="font-family: 'IBM Plex Mono', monospace; color: #98A2AF">pending</span></div>
+        <div style="padding: 10px 12px; background: #0F131A; border: 1px dashed #2E3643; border-radius: 8px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #98A2AF">24h</span><span style="font-family: 'IBM Plex Mono', monospace; color: #98A2AF">pending</span></div>
+        <div style="padding: 10px 12px; background: #0F131A; border: 1px dashed #2E3643; border-radius: 8px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #98A2AF">72h</span><span style="font-family: 'IBM Plex Mono', monospace; color: #98A2AF">pending</span></div>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; color: #C9CFD6">
+        <span>So far: best <span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">+0.6R</span></span>
+        <span>worst <span style="font-family: 'IBM Plex Mono', monospace; color: #FF8A8F">−0.1R</span></span>
+        <span>first touch: <span style="font-family: 'IBM Plex Mono', monospace">neither yet</span></span>
+      </div>
+      <div style="display: flex; gap: 8px; font-size: 12px; color: #98A2AF">
+        <span style="padding: 3px 8px; border-radius: 6px; background: #1C222C">Verdict: unreviewed</span>
+        <span style="padding: 3px 8px; border-radius: 6px; background: #1C222C">Outcome: pending</span>
+      </div>
+    </section>
+  </div>
+
+  <footer style="padding: 16px 20px; border-top: 1px solid #232A35; display: flex; flex-direction: column; gap: 10px">
+    <div style="font-size: 12px; color: #98A2AF; font-family: 'IBM Plex Mono', monospace">Automatic mode · executed 12:30:04 · filled at 61,251.20</div>
+    <div style="display: flex; gap: 10px">
+      <a href="Indicators.dc.html" style="flex: 1; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; font-weight: 500; text-decoration: none">Open in Indicators</a>
+      <a href="Inspector.dc.html" style="flex: 1; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; font-weight: 500; text-decoration: none">Open LLM call</a>
+    </div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":560,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trading Agent — Reviews</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#F2B94B}a:hover{color:#FFD58A}
+button,select,input{font-family:inherit}
+</style>
+</helmet>
+<div style="min-height: 1500px; background: #0B0E13; color: #E7EAEE; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <aside aria-label="Sidebar" style="{{nav.aside}}">
+    <div style="{{nav.brandRow}}">
+      <div style="width: 36px; height: 36px; flex: 0 0 36px; border-radius: 8px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px">TA</div>
+      <sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+          <div style="font-weight: 600; font-size: 16px; white-space: nowrap">Trading Agent</div>
+          <div style="font-size: 12px; color: #98A2AF; white-space: nowrap">Paper · local · v0.1</div>
+        </div>
+      </sc-if>
+    </div>
+    <a href="Ask.dc.html" aria-current="{{nav.c.ask}}" aria-label="Ask the agent" title="Ask the agent" style="{{nav.ask}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Ask the agent</span></sc-if></a>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+      <div style="{{nav.group}}">Monitor</div>
+      <a href="Main.dc.html" aria-current="{{nav.c.dash}}" aria-label="Dashboard" title="Dashboard" style="{{nav.s.dash}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Dashboard</span></sc-if></a>
+      <a href="Indicators.dc.html" aria-current="{{nav.c.ind}}" aria-label="Indicators" title="Indicators" style="{{nav.s.ind}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><polyline points="3 17 9 11 13 15 21 7"></polyline><line x1="3" y1="21" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Indicators</span></sc-if></a>
+      <a href="Performance.dc.html" aria-current="{{nav.c.perf}}" aria-label="Performance" title="Performance" style="{{nav.s.perf}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="6" y1="20" x2="6" y2="14"></line><line x1="12" y1="20" x2="12" y2="9"></line><line x1="18" y1="20" x2="18" y2="4"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Performance</span></sc-if></a>
+      <div style="{{nav.group}}">Learn</div>
+      <a href="Insights.dc.html" aria-current="{{nav.c.ins}}" aria-label="Insights" title="Insights" style="{{nav.s.ins}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M9 18h6"></path><path d="M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Insights</span></sc-if></a>
+      <a href="WhatIf.dc.html" aria-current="{{nav.c.what}}" aria-label="What-if" title="What-if" style="{{nav.s.what}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="9" r="2"></circle><path d="M6 8v8"></path><path d="M6 13c0-3 3-4 6-4h4"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>What-if</span></sc-if></a>
+      <a href="Reviews.dc.html" aria-current="{{nav.c.rev}}" aria-label="Reviews" title="Reviews" style="{{nav.s.rev}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Reviews</span></sc-if></a>
+      <a href="Inspector.dc.html" aria-current="{{nav.c.insp}}" aria-label="LLM inspector" title="LLM inspector" style="{{nav.s.insp}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="11" cy="11" r="6"></circle><line x1="16" y1="16" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>LLM inspector</span></sc-if></a>
+      <div style="{{nav.group}}">Control</div>
+      <a href="Readiness.dc.html" aria-current="{{nav.c.ready}}" aria-label="Readiness" title="Readiness" style="{{nav.s.ready}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><polyline points="9 12 11 14 15 10"></polyline></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Readiness</span></sc-if></a>
+      <a href="Settings.dc.html" aria-current="{{nav.c.set}}" aria-label="Settings" title="Settings" style="{{nav.s.set}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line><circle cx="9" cy="6" r="2" fill="#0F131A"></circle><circle cx="15" cy="12" r="2" fill="#0F131A"></circle><circle cx="7" cy="18" r="2" fill="#0F131A"></circle></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Settings</span></sc-if></a>
+    </nav>
+    <div style="flex: 1"></div>
+    <div style="{{nav.status}}"><span style="{{nav.dot}}"></span><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>{{nav.statusText}}</span></sc-if></div>
+    <button type="button" onClick="{{nav.toggle}}" aria-label="{{nav.toggleLabel}}" aria-expanded="{{nav.expandedStr}}" title="{{nav.toggleLabel}}" style="{{nav.toggleStyle}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Collapse</span></sc-if></button>
+  </aside>
+
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 24px; border-bottom: 1px solid #232A35; background: #0F131A; min-height: 76px; box-sizing: border-box">
+      <h1 style="margin: 0; font-size: 18px; font-weight: 600; flex: 1 1 auto">Reviews</h1>
+      <span style="font-size: 13px; color: #98A2AF">Weekly review every Monday 08:00 · morning briefing daily 08:00</span>
+    </header>
+
+    <main style="max-width: 1440px; width: 100%; margin: 0 auto; padding: 20px 24px 24px; box-sizing: border-box; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+
+      <nav aria-label="Reports" style="flex: 1 1 260px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 2px">
+        <div role="group" aria-label="Report type" style="display: flex; padding: 3px; margin: 4px 4px 8px; background: #171C24; border: 1px solid #232A35; border-radius: 8px">
+          <button type="button" onClick="{{showWeekly}}" style="{{tab.weekly}}">Weekly</button>
+          <button type="button" onClick="{{showDaily}}" style="{{tab.daily}}">Briefings</button>
+        </div>
+        <sc-for list="{{items}}" as="it" hint-placeholder-count="6">
+          <button type="button" onClick="{{it.pick}}" aria-current="{{it.cur}}" style="{{it.style}}">
+            <span style="font-weight: 500">{{it.title}}</span>
+            <span style="display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: #98A2AF"><span>{{it.sub}}</span><span style="{{it.retStyle}}">{{it.ret}}</span></span>
+          </button>
+        </sc-for>
+      </nav>
+
+      <article aria-label="Weekly review" style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+        <section style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+          <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px">
+            <h2 style="margin: 0; font-size: 20px; font-weight: 600; flex: 1 1 auto">Week 40 · 28 Sep – 4 Oct</h2>
+            <span style="font-size: 12px; color: #98A2AF">Written Mon 5 Oct 08:00 · gpt-4o-mini · numbers checked ✓</span>
+          </div>
+          <p style="margin: 0; line-height: 1.65; color: #C9CFD6; max-width: 72ch">A good week. The agent made 7 trades and finished up 2.41% after fees, while simply holding BTC lost 1.40%. Most of the gain came from one ETH trade on Wednesday. Two of the three losers were weekend entries, which matches a pattern Insights has been flagging for three weeks.</p>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px">
+            <sc-for list="{{kpis}}" as="k" hint-placeholder-count="6">
+              <div style="padding: 12px; border-radius: 8px; background: #171C24; border: 1px solid #232A35; display: flex; flex-direction: column; gap: 4px">
+                <span style="font-size: 12px; color: #98A2AF">{{k.label}}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 500">{{k.value}}</span>
+                <span style="{{k.subStyle}}">{{k.sub}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 16px">
+          <section style="flex: 1 1 320px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+            <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Best trades</h3>
+            <sc-for list="{{best}}" as="t" hint-placeholder-count="3">
+              <a href="Decision.dc.html" style="display: flex; gap: 10px; align-items: center; min-height: 44px; padding: 6px 0; border-top: 1px solid #232A35; color: #E7EAEE; text-decoration: none; font-size: 13px"><span style="flex: 0 0 80px; font-weight: 500">{{t.pair}}</span><span style="flex: 1; color: #98A2AF">{{t.when}}</span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">{{t.r}}</span></a>
+            </sc-for>
+          </section>
+          <section style="flex: 1 1 320px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+            <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Worst trades</h3>
+            <sc-for list="{{worst}}" as="t" hint-placeholder-count="3">
+              <a href="Decision.dc.html" style="display: flex; gap: 10px; align-items: center; min-height: 44px; padding: 6px 0; border-top: 1px solid #232A35; color: #E7EAEE; text-decoration: none; font-size: 13px"><span style="flex: 0 0 80px; font-weight: 500">{{t.pair}}</span><span style="flex: 1; color: #98A2AF">{{t.when}}</span><span style="font-family: 'IBM Plex Mono', monospace; color: #FF8A8F">{{t.r}}</span></a>
+            </sc-for>
+          </section>
+        </div>
+
+        <section style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Where the model was wrong</h3>
+          <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; line-height: 1.55; color: #C9CFD6">
+            <li>You marked 4 decisions <span style="font-family: 'IBM Plex Mono', monospace; color: #FF8A8F">Wrong</span> this week. 3 were BUYs with confidence ≥ 0.70 in low volatility, and the signal-claims check had warned on 2 of them.</li>
+            <li>The model called XRP "breaking out" twice on Saturday with weekend volume 38% below its 30-day average.</li>
+          </ul>
+          <h3 style="margin: 6px 0 0; font-size: 14px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">What changed in Insights</h3>
+          <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; line-height: 1.55; color: #C9CFD6">
+            <li>Weekend BUYs: −0.31R average over 12 trades (was 8). Still an early signal: a finding needs 30. <a href="Insights.dc.html">Open Insights</a></li>
+            <li>Calibration gap widened from 21 to 24 points.</li>
+          </ul>
+        </section>
+
+        <section style="background: #1A1710; border: 1px solid #4A3A16; border-radius: 10px; padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+          <div style="flex: 1 1 360px; display: flex; flex-direction: column; gap: 4px; line-height: 1.55">
+            <span style="font-size: 12px; font-weight: 600; color: #F2B94B; text-transform: uppercase; letter-spacing: 0.06em">Suggestion · not applied</span>
+            <span>Test "no new entries on weekends" in What-if before changing anything. With 12 trades this is an early signal, not a finding yet.</span>
+          </div>
+          <a href="WhatIf.dc.html" style="display: inline-flex; align-items: center; height: 44px; padding: 0 16px; border-radius: 8px; background: #F2B94B; color: #0B0E13; font-weight: 600; text-decoration: none">Try in What-if</a>
+        </section>
+      </article>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { navCollapsed: false, kind: 'weekly', sel: 0 };
+  }
+  renderVals() {
+    var self = this;
+    var PAGE = 'rev';
+    var navCollapsed = !!this.state.navCollapsed;
+    var navBase = 'height:44px;display:flex;align-items:center;gap:12px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;box-sizing:border-box;' + (navCollapsed ? 'justify-content:center;padding:0;' : 'padding:0 12px;');
+    var s = {}, c = {};
+    ['dash', 'ind', 'perf', 'ins', 'what', 'rev', 'insp', 'ready', 'set', 'ask'].forEach(function (k) { s[k] = navBase + (k === PAGE ? 'background:#1C222C;color:#E7EAEE' : 'color:#98A2AF'); c[k] = k === PAGE ? 'page' : undefined; });
+    var nav = {
+      expanded: !navCollapsed, expandedStr: String(!navCollapsed), s: s, c: c,
+      toggle: function () { self.setState({ navCollapsed: !navCollapsed }); },
+      toggleLabel: navCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      aside: 'flex:0 0 ' + (navCollapsed ? '72px' : '232px') + ';box-sizing:border-box;display:flex;flex-direction:column;gap:12px;padding:16px ' + (navCollapsed ? '12px' : '16px') + ';background:#0F131A;border-right:1px solid #232A35',
+      brandRow: 'display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid #232A35;' + (navCollapsed ? 'justify-content:center' : ''),
+      status: 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#171C24;border:1px solid #232A35;font-size:13px;' + (navCollapsed ? 'justify-content:center' : ''),
+      dot: 'width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#3DD68C',
+      statusText: 'Running · paper',
+      toggleStyle: navBase + 'width:100%;border:1px solid #232A35;background:transparent;color:#98A2AF;cursor:pointer;font-family:inherit',
+      group: navCollapsed ? 'height:1px;background:#232A35;margin:8px 4px;overflow:hidden;color:transparent;font-size:0' : 'font-size:11px;font-weight:600;color:#8A94A1;text-transform:uppercase;letter-spacing:0.08em;padding:12px 12px 4px',
+      ask: navBase + (PAGE === 'ask' ? 'color:#0B0E13;background:#F2B94B;border:1px solid #F2B94B' : 'color:#F2B94B;background:#211C10;border:1px solid #4A3A16')
+    };
+    var kind = this.state.kind, sel = this.state.sel;
+    var WEEKLY = [['Week 40', '28 Sep – 4 Oct', 2.41], ['Week 39', '21 – 27 Sep', 1.37], ['Week 38', '14 – 20 Sep', -0.64], ['Week 37', '7 – 13 Sep', 0.91]];
+    var DAILY = [['Fri 9 Oct', 'Briefing 08:00', 0.21], ['Thu 8 Oct', 'Briefing 08:00', -0.12], ['Wed 7 Oct', 'Briefing 08:00', 0.34], ['Tue 6 Oct', 'Briefing 08:00', 0.05], ['Mon 5 Oct', 'Briefing 08:00', -0.18]];
+    var list = kind === 'weekly' ? WEEKLY : DAILY;
+    function sgn(v) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2) + '%'; }
+    var items = list.map(function (r, i) {
+      var on = i === sel;
+      return {
+        title: r[0], sub: r[1], ret: sgn(r[2]),
+        retStyle: 'font-family:IBM Plex Mono,monospace;color:' + (r[2] >= 0 ? '#3DD68C' : '#FF8A8F'),
+        cur: on ? 'true' : undefined,
+        style: 'min-height:56px;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:8px 12px;border:0;border-radius:8px;text-align:left;cursor:pointer;color:#E7EAEE;font-size:14px;' + (on ? 'background:#1C222C;box-shadow:inset 3px 0 0 #F2B94B' : 'background:transparent'),
+        pick: function () { self.setState({ sel: i }); }
+      };
+    });
+    var seg = 'height:36px;flex:1;border:0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;';
+    function kpi(label, value, sub, good) { return { label: label, value: value, sub: sub, subStyle: 'font-size:12px;color:' + (good === null ? '#98A2AF' : good ? '#3DD68C' : '#FF8A8F') }; }
+    return {
+      nav: nav,
+      tab: { weekly: seg + (kind === 'weekly' ? 'background:#2E3643;color:#E7EAEE' : 'background:transparent;color:#98A2AF'), daily: seg + (kind === 'daily' ? 'background:#2E3643;color:#E7EAEE' : 'background:transparent;color:#98A2AF') },
+      showWeekly: function () { self.setState({ kind: 'weekly', sel: 0 }); },
+      showDaily: function () { self.setState({ kind: 'daily', sel: 0 }); },
+      items: items,
+      kpis: [
+        kpi('Return', '+2.41%', 'prior week +1.37%', true),
+        kpi('vs holding BTC', '+3.81 pts', 'BTC −1.40%', true),
+        kpi('Trades', '7', '4 won · 3 lost', null),
+        kpi('Average R', '+0.37', 'prior week +0.44', false),
+        kpi('Max drawdown', '−1.1%', 'prior week −1.6%', true),
+        kpi('Model cost', '€0.38', '412 calls', null)
+      ],
+      best: [{ pair: 'ETH-EUR', when: 'Wed 30 Sep · 5h 15m', r: '+2.0R' }, { pair: 'LINK-EUR', when: 'Fri 2 Oct · 20h 15m', r: '+2.0R' }, { pair: 'BTC-EUR', when: 'Tue 29 Sep · 2d 4h', r: '+0.9R' }],
+      worst: [{ pair: 'XRP-EUR', when: 'Sat 3 Oct · 12h 15m', r: '−1.0R' }, { pair: 'ADA-EUR', when: 'Wed 30 Sep · 13h 15m', r: '−1.0R' }, { pair: 'SOL-EUR', when: 'Sun 4 Oct · 9h 30m', r: '−0.6R' }]
+    };
+  }
+}
+</script>
+</body>
+</html>

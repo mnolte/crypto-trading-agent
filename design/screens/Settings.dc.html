@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trading Agent — Settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#F2B94B}a:hover{color:#FFD58A}
+button,input,select{font-family:inherit}
+</style>
+</helmet>
+<div style="min-height: 1080px; background: #0B0E13; color: #E7EAEE; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <aside aria-label="Sidebar" style="{{nav.aside}}">
+    <div style="{{nav.brandRow}}">
+      <div style="width: 36px; height: 36px; flex: 0 0 36px; border-radius: 8px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px">TA</div>
+      <sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+          <div style="font-weight: 600; font-size: 16px; white-space: nowrap">Trading Agent</div>
+          <div style="font-size: 12px; color: #98A2AF; white-space: nowrap">Paper · local · v0.1</div>
+        </div>
+      </sc-if>
+    </div>
+    <a href="Ask.dc.html" aria-label="Ask the agent" title="Ask the agent" style="{{nav.ask}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Ask the agent</span></sc-if></a>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+      <div style="{{nav.group}}">Monitor</div>
+      <a href="Main.dc.html" aria-label="Dashboard" title="Dashboard" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Dashboard</span></sc-if></a>
+      <a href="Indicators.dc.html" aria-label="Indicators" title="Indicators" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><polyline points="3 17 9 11 13 15 21 7"></polyline><line x1="3" y1="21" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Indicators</span></sc-if></a>
+      <a href="Performance.dc.html" aria-label="Performance" title="Performance" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="6" y1="20" x2="6" y2="14"></line><line x1="12" y1="20" x2="12" y2="9"></line><line x1="18" y1="20" x2="18" y2="4"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Performance</span></sc-if></a>
+      <div style="{{nav.group}}">Learn</div>
+      <a href="Insights.dc.html" aria-label="Insights" title="Insights" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M9 18h6"></path><path d="M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Insights</span></sc-if></a>
+      <a href="WhatIf.dc.html" aria-label="What-if" title="What-if" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="9" r="2"></circle><path d="M6 8v8"></path><path d="M6 13c0-3 3-4 6-4h4"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>What-if</span></sc-if></a>
+      <a href="Reviews.dc.html" aria-label="Reviews" title="Reviews" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Reviews</span></sc-if></a>
+      <a href="Inspector.dc.html" aria-label="LLM inspector" title="LLM inspector" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="11" cy="11" r="6"></circle><line x1="16" y1="16" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>LLM inspector</span></sc-if></a>
+      <div style="{{nav.group}}">Control</div>
+      <a href="Readiness.dc.html" aria-label="Readiness" title="Readiness" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><polyline points="9 12 11 14 15 10"></polyline></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Readiness</span></sc-if></a>
+      <a href="Settings.dc.html" aria-current="page" aria-label="Settings" title="Settings" style="{{nav.active}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line><circle cx="9" cy="6" r="2" fill="#1C222C"></circle><circle cx="15" cy="12" r="2" fill="#1C222C"></circle><circle cx="7" cy="18" r="2" fill="#1C222C"></circle></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Settings</span></sc-if></a>
+    </nav>
+    <div style="flex: 1"></div>
+    <div style="{{nav.status}}"><span style="{{nav.dot}}"></span><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>{{nav.statusText}}</span></sc-if></div>
+    <button type="button" onClick="{{nav.toggle}}" aria-label="{{nav.toggleLabel}}" aria-expanded="{{nav.expandedStr}}" title="{{nav.toggleLabel}}" style="{{nav.toggleStyle}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Collapse</span></sc-if></button>
+  </aside>
+
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 16px 24px; border-bottom: 1px solid #232A35; background: #0F131A">
+    <div style="display: flex; align-items: center; gap: 12px; flex: 1 1 260px; min-width: 0">
+      <h1 style="margin: 0; font-size: 18px; font-weight: 600">Settings</h1>
+    </div>
+    <div style="display: flex; gap: 10px">
+      <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; cursor: pointer">Discard</button>
+      <button type="button" style="height: 44px; padding: 0 18px; border-radius: 8px; border: 0; background: #F2B94B; color: #0B0E13; font-size: 14px; font-weight: 600; cursor: pointer">Save · applies next cycle</button>
+    </div>
+  </header>
+
+  <main style="max-width: 1120px; margin: 0 auto; padding: 24px; box-sizing: border-box; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+    <section aria-label="Markets and schedule" style="flex: 1 1 480px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 600">Markets &amp; schedule</h2>
+      <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Add a market</span>
+        <input type="search" placeholder="Search Bitvavo EUR markets, e.g. HYPE" style="height: 44px; padding: 0 12px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 14px">
+      </label>
+      <div style="overflow-x: auto">
+        <table style="width: 100%; min-width: 520px; border-collapse: collapse; font-size: 13px">
+          <thead>
+            <tr style="color: #98A2AF; text-align: left">
+              <th style="padding: 6px 6px 6px 0; font-weight: 500">Market</th>
+              <th style="padding: 6px; font-weight: 500; text-align: right">30d vol/day</th>
+              <th style="padding: 6px; font-weight: 500; text-align: right">Spread</th>
+              <th style="padding: 6px; font-weight: 500">Status</th>
+              <th style="padding: 6px 0 6px 6px; font-weight: 500; text-align: right">Active</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{markets}}" as="m" hint-placeholder-count="12">
+              <tr style="border-top: 1px solid #232A35">
+                <td style="{{m.nameStyle}}">{{m.id}}</td>
+                <td style="padding: 9px 6px; text-align: right; font-family: 'IBM Plex Mono', monospace; color: #C9CFD6">{{m.vol}}</td>
+                <td style="padding: 9px 6px; text-align: right; font-family: 'IBM Plex Mono', monospace; color: #C9CFD6">{{m.spread}}</td>
+                <td style="padding: 9px 6px"><span style="{{m.statusStyle}}">{{m.status}}</span></td>
+                <td style="padding: 9px 0 9px 6px; text-align: right"><input type="checkbox" checked="{{m.active}}" disabled="{{m.locked}}" onChange="{{m.toggle}}" aria-label="{{m.label}}" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 10px 12px; background: #0F131A; border: 1px solid #232A35; border-radius: 8px; font-size: 13px">
+        <span><span style="font-family: 'IBM Plex Mono', monospace">{{mk.active}}</span> active</span>
+        <span style="color: #98A2AF">up to <span style="font-family: 'IBM Plex Mono', monospace; color: #E7EAEE">{{mk.calls}}</span> model calls/day before pre-filter · budget 1,000</span>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.5">Eligible: 30-day average volume of at least €1M a day, spread at most 0.15%, 300+ days of daily history, not a stablecoin. A market drops out only after 3 days below a threshold. Checked daily. Sample data.</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px">
+        <div style="flex: 1 1 180px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Cycle</span><span style="min-height: 44px; display: flex; align-items: center; font-size: 14px; color: #C9CFD6">Every 15 minutes, 45 s after the quarter hour (fixed in v0.1)</span></div>
+        <label style="flex: 1 1 180px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Execution</span>
+          <select style="height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 14px"><option selected>Automatic</option><option>Supervised (veto window)</option><option>Manual approval</option></select>
+        </label>
+        <label style="flex: 1 1 180px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Veto window (s, supervised only)</span>
+          <input type="number" value="60" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px">
+        </label>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #98A2AF; line-height: 1.5">Trades the 1h timeframe with 4h and daily context. Stops and targets are checked every 30 s regardless of the cycle.</p>
+    </section>
+
+    <section aria-label="Risk limits" style="flex: 1 1 480px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 600">Risk limits</h2>
+      <p style="margin: 0; font-size: 13px; color: #98A2AF; line-height: 1.5">Enforced in code before any order — the model cannot override them.</p>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Risk per trade (% equity)</span><input type="number" value="1.0" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Min. reward / risk</span><input type="number" value="2.0" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Max costs (% of risk)</span><input type="number" value="30" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Max total exposure (%)</span><input type="number" value="100" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Stop distance min (× ATR 1h)</span><input type="number" value="0.5" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Stop distance max (× ATR 1h)</span><input type="number" value="5.0" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Daily loss limit (%)</span><input type="number" value="3" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Kill at drawdown (%)</span><input type="number" value="8" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #7A2A2E; background: #0F131A; color: #FFB3B6; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Max correlated positions (corr. above)</span><span style="display: flex; gap: 8px"><input type="number" value="2" aria-label="Max correlated positions" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px; width: 50%"><input type="number" value="0.8" aria-label="Correlation threshold" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px; width: 50%"></span></label>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Shock brake: BTC move in 60 min (%)</span><input type="number" value="4" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Throttled risk per trade (%)</span><input type="number" value="0.5" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Throttle after losses in a row / drawdown (%)</span><span style="display: flex; gap: 8px"><input type="number" value="3" aria-label="Losses in a row" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px; width: 50%"><input type="number" value="4" aria-label="Drawdown percent" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px; width: 50%"></span></label>
+      </div>
+      <label style="display: flex; align-items: flex-start; gap: 10px; min-height: 44px; font-size: 14px; line-height: 1.45"><input type="checkbox" style="width: 20px; height: 20px; margin-top: 1px; accent-color: #F2B94B"><span>Trailing stop from +2R (2 × ATR below the highest close)<br><span style="font-size: 12px; color: #98A2AF">Off by default. Test it in What-if or as a shadow strategy first.</span></span></label>
+    </section>
+
+    <section aria-label="Decision model" style="flex: 1 1 480px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 600">Decision model</h2>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px">
+        <label style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Decider</span>
+          <select style="height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 14px"><option selected>OpenAI</option><option>Rules baseline</option></select>
+        </label>
+        <label style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Model id</span>
+          <input type="text" value="gpt-4o-mini" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px">
+        </label>
+        <label style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Prompt version</span>
+          <select style="height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"><option selected>decision.v1</option></select>
+        </label>
+        <label style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Daily call budget</span>
+          <input type="number" value="1000" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px">
+        </label>
+      </div>
+      <label style="display: flex; align-items: flex-start; gap: 10px; min-height: 44px; font-size: 14px; line-height: 1.45"><input type="checkbox" checked style="width: 20px; height: 20px; margin-top: 1px; accent-color: #F2B94B"><span>Only call the model when Rules sees a possible setup or a position is open</span></label>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end">
+        <label style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Monthly cost cap (€)</span><input type="number" value="10" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <div style="flex: 2 1 280px; display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 13px; color: #98A2AF">This month · €2.14 of €10</span>
+          <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: #232A35" aria-hidden="true"><span style="width: 14%; background: #F2B94B"></span><span style="width: 4%; background: #7FB8FF"></span><span style="width: 3%; background: #C9CFD6"></span></div>
+          <span style="font-size: 12px; color: #98A2AF">Decisions €1.41 · Shadows €0.42 · Ask, briefings, replays €0.31. At 80%: shadows, Ask and replays pause. At 100%: decisions use Rules until the 1st.</span>
+        </div>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #98A2AF">Costs are converted from USD at the day's rate. The OpenAI key is managed under <a href="#sources">Data sources &amp; API keys</a>.</p>
+    </section>
+
+    <section aria-label="Market data and paper account" style="flex: 1 1 480px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 600">Market data &amp; paper account</h2>
+      <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Data source</span>
+        <select style="height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 14px"><option selected>Bitvavo live prices (public API, no key)</option><option>Simulated market</option></select>
+      </label>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Starting balance (€)</span><input type="number" value="10000" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Fee per side (%)</span><input type="number" value="0.25" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Slippage (%)</span><input type="number" value="0.05" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px">
+        <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; cursor: pointer">Export history (CSV)</button>
+        <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #7A2A2E; background: #3A1416; color: #FFB3B6; font-size: 14px; font-weight: 600; cursor: pointer">Reset paper account…</button>
+        <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #7A2A2E; background: transparent; color: #FF8A8F; font-size: 14px; cursor: pointer">Delete all data…</button>
+      </div>
+    </section>
+
+    <section aria-label="Notifications" style="flex: 1 1 100%; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 600">Notifications</h2>
+        <button type="button" style="height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; cursor: pointer">Send test</button>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+        <div style="flex: 1 1 460px; min-width: 0; overflow-x: auto">
+          <table style="width: 100%; min-width: 420px; border-collapse: collapse; font-size: 13px">
+            <thead>
+              <tr style="color: #98A2AF; text-align: left">
+                <th style="padding: 8px 8px 8px 0; font-weight: 500">Event</th>
+                <th style="padding: 8px; font-weight: 500; text-align: center">Browser</th>
+                <th style="padding: 8px 0 8px 8px; font-weight: 500; text-align: center">Email</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-top: 1px solid #232A35"><td style="padding: 10px 8px 10px 0">Kill switch fired</td><td style="padding: 10px 8px; text-align: center"><input type="checkbox" checked aria-label="Kill switch, browser" style="width: 18px; height: 18px; accent-color: #F2B94B"></td><td style="padding: 10px 0 10px 8px; text-align: center"><input type="checkbox" checked aria-label="Kill switch, email" style="width: 18px; height: 18px; accent-color: #F2B94B"></td></tr>
+              <tr style="border-top: 1px solid #232A35"><td style="padding: 10px 8px 10px 0">Daily loss limit reached</td><td style="padding: 10px 8px; text-align: center"><input type="checkbox" checked aria-label="Daily loss limit, browser" style="width: 18px; height: 18px; accent-color: #F2B94B"></td><td style="padding: 10px 0 10px 8px; text-align: center"><input type="checkbox" checked aria-label="Daily loss limit, email" style="width: 18px; height: 18px; accent-color: #F2B94B"></td></tr>
+              <tr style="border-top: 1px solid #232A35"><td style="padding: 10px 8px 10px 0">Pair stale for 2 cycles</td><td style="padding: 10px 8px; text-align: center"><input type="checkbox" checked aria-label="Stale pair, browser" style="width: 18px; height: 18px; accent-color: #F2B94B"></td><td style="padding: 10px 0 10px 8px; text-align: center"><input type="checkbox" aria-label="Stale pair, email" style="width: 18px; height: 18px; accent-color: #F2B94B"></td></tr>
+              <tr style="border-top: 1px solid #232A35"><td style="padding: 10px 8px 10px 0">Data source failing</td><td style="padding: 10px 8px; text-align: center"><input type="checkbox" checked aria-label="Source failing, browser" style="width: 18px; height: 18px; accent-color: #F2B94B"></td><td style="padding: 10px 0 10px 8px; text-align: center"><input type="checkbox" aria-label="Source failing, email" style="width: 18px; height: 18px; accent-color: #F2B94B"></td></tr>
+              <tr style="border-top: 1px solid #232A35"><td style="padding: 10px 8px 10px 0">Model failing or budget reached</td><td style="padding: 10px 8px; text-align: center"><input type="checkbox" checked aria-label="Model failing, browser" style="width: 18px; height: 18px; accent-color: #F2B94B"></td><td style="padding: 10px 0 10px 8px; text-align: center"><input type="checkbox" checked aria-label="Model failing, email" style="width: 18px; height: 18px; accent-color: #F2B94B"></td></tr>
+              <tr style="border-top: 1px solid #232A35"><td style="padding: 10px 8px 10px 0">Trade opened or closed</td><td style="padding: 10px 8px; text-align: center"><input type="checkbox" aria-label="Trades, browser" style="width: 18px; height: 18px; accent-color: #F2B94B"></td><td style="padding: 10px 0 10px 8px; text-align: center"><input type="checkbox" aria-label="Trades, email" style="width: 18px; height: 18px; accent-color: #F2B94B"></td></tr>
+              <tr style="border-top: 1px solid #232A35"><td style="padding: 10px 8px 10px 0">Morning briefing</td><td style="padding: 10px 8px; text-align: center"><input type="checkbox" checked aria-label="Morning briefing, browser" style="width: 18px; height: 18px; accent-color: #F2B94B"></td><td style="padding: 10px 0 10px 8px; text-align: center"><input type="checkbox" checked aria-label="Morning briefing, email" style="width: 18px; height: 18px; accent-color: #F2B94B"></td></tr>
+              <tr style="border-top: 1px solid #232A35"><td style="padding: 10px 8px 10px 0">Weekly review ready</td><td style="padding: 10px 8px; text-align: center"><input type="checkbox" aria-label="Weekly review, browser" style="width: 18px; height: 18px; accent-color: #F2B94B"></td><td style="padding: 10px 0 10px 8px; text-align: center"><input type="checkbox" checked aria-label="Weekly review, email" style="width: 18px; height: 18px; accent-color: #F2B94B"></td></tr>
+            </tbody>
+          </table>
+          <p style="margin: 10px 0 0; font-size: 12px; color: #98A2AF">Browser notifications work while the app is open in a tab. The same alert is sent at most once per 30 minutes.</p>
+        </div>
+        <div style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #0F131A; border: 1px solid #232A35; border-radius: 8px; font-size: 13px">
+            <span>Browser permission</span><span style="color: #3DD68C">Allowed</span>
+          </div>
+          <div style="font-weight: 500; font-size: 14px">Email (SMTP)</div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+            <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">SMTP host</span><input type="text" value="[smtp host]" style="height: 40px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 13px"></label>
+            <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Port · TLS</span><input type="text" value="587 · STARTTLS" style="height: 40px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 13px"></label>
+            <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Username</span><input type="text" value="[username]" style="height: 40px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 13px"></label>
+            <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Password (keyring)</span><input type="password" value="placeholder" style="height: 40px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 13px"></label>
+            <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">From</span><input type="email" value="[sender address]" style="height: 40px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 13px"></label>
+            <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">To</span><input type="email" value="[your address]" style="height: 40px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 13px"></label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sources" aria-label="Data sources and API keys" style="flex: 1 1 100%; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 600">Data sources &amp; API keys</h2>
+        <span style="font-size: 13px; color: #98A2AF">Keys are stored in the OS keyring and never shown again; only the last 4 characters are displayed.</span>
+      </div>
+      <div style="overflow-x: auto">
+        <table style="width: 100%; min-width: 960px; border-collapse: collapse; font-size: 13px">
+          <thead>
+            <tr style="color: #98A2AF; text-align: left">
+              <th style="padding: 8px 8px 8px 0; font-weight: 500">Source</th>
+              <th style="padding: 8px; font-weight: 500">Used for</th>
+              <th style="padding: 8px; font-weight: 500">API key</th>
+              <th style="padding: 8px; font-weight: 500">Status</th>
+              <th style="padding: 8px 0 8px 8px; font-weight: 500; text-align: right">On</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-top: 1px solid #232A35">
+              <td style="padding: 12px 8px 12px 0; font-weight: 500">OpenAI</td>
+              <td style="padding: 12px 8px; color: #C9CFD6">Trade decisions</td>
+              <td style="padding: 12px 8px">
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+                  <span style="padding: 2px 6px; border-radius: 4px; background: #3A2A0E; color: #F2B94B; font-size: 11px">required</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace">••••[last 4]</span>
+                  <button type="button" style="height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 12px; cursor: pointer">Test</button>
+                  <button type="button" style="height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 12px; cursor: pointer">Replace</button>
+                  <button type="button" style="height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid #2E3643; background: transparent; color: #98A2AF; font-size: 12px; cursor: pointer">Remove</button>
+                </div>
+              </td>
+              <td style="padding: 12px 8px"><span style="color: #3DD68C">OK</span> <span style="color: #98A2AF; font-family: 'IBM Plex Mono', monospace">12:30 · 41 calls today</span></td>
+              <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" checked aria-label="OpenAI enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
+            </tr>
+            <tr style="border-top: 1px solid #232A35">
+              <td style="padding: 12px 8px 12px 0; font-weight: 500">Bitvavo market data</td>
+              <td style="padding: 12px 8px; color: #C9CFD6">Candles, ticker, order book, USDC-EUR</td>
+              <td style="padding: 12px 8px"><span style="padding: 2px 6px; border-radius: 4px; background: #1C222C; color: #C9CFD6; font-size: 11px">no key needed</span></td>
+              <td style="padding: 12px 8px"><span style="color: #3DD68C">OK</span> <span style="color: #98A2AF; font-family: 'IBM Plex Mono', monospace">12:30 · 18% of rate limit</span></td>
+              <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" checked aria-label="Bitvavo market data enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
+            </tr>
+            <tr style="border-top: 1px solid #232A35">
+              <td style="padding: 12px 8px 12px 0; font-weight: 500">
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <span>Futures data</span>
+                  <select aria-label="Futures data provider" style="height: 32px; padding: 0 6px; border-radius: 6px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 12px; width: 120px"><option>Binance</option><option>Bybit</option><option>OKX</option></select>
+                </div>
+              </td>
+              <td style="padding: 12px 8px; color: #C9CFD6">Funding, open interest, long/short ratio</td>
+              <td style="padding: 12px 8px"><span style="padding: 2px 6px; border-radius: 4px; background: #1C222C; color: #C9CFD6; font-size: 11px">no key needed</span></td>
+              <td style="padding: 12px 8px; color: #98A2AF">Off · planned v0.2</td>
+              <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" aria-label="Futures data enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
+            </tr>
+            <tr style="border-top: 1px solid #232A35">
+              <td style="padding: 12px 8px 12px 0; font-weight: 500">Deribit</td>
+              <td style="padding: 12px 8px; color: #C9CFD6">Options implied volatility (DVOL) and skew</td>
+              <td style="padding: 12px 8px"><span style="padding: 2px 6px; border-radius: 4px; background: #1C222C; color: #C9CFD6; font-size: 11px">no key needed</span></td>
+              <td style="padding: 12px 8px; color: #98A2AF">Off · planned v0.2</td>
+              <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" aria-label="Deribit enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
+            </tr>
+            <tr style="border-top: 1px solid #232A35">
+              <td style="padding: 12px 8px 12px 0; font-weight: 500">CoinGecko</td>
+              <td style="padding: 12px 8px; color: #C9CFD6">BTC dominance, total market cap</td>
+              <td style="padding: 12px 8px">
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+                  <span style="padding: 2px 6px; border-radius: 4px; background: #1C222C; color: #C9CFD6; font-size: 11px">optional · higher rate limit</span>
+                  <input type="password" aria-label="CoinGecko API key" placeholder="Paste key" style="height: 32px; width: 160px; padding: 0 8px; box-sizing: border-box; border-radius: 6px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 12px">
+                  <button type="button" style="height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 12px; cursor: pointer">Save &amp; test</button>
+                </div>
+              </td>
+              <td style="padding: 12px 8px; color: #98A2AF">Off · planned v0.2</td>
+              <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" aria-label="CoinGecko enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
+            </tr>
+            <tr style="border-top: 1px solid #232A35">
+              <td style="padding: 12px 8px 12px 0; font-weight: 500">alternative.me</td>
+              <td style="padding: 12px 8px; color: #C9CFD6">Fear &amp; Greed Index</td>
+              <td style="padding: 12px 8px"><span style="padding: 2px 6px; border-radius: 4px; background: #1C222C; color: #C9CFD6; font-size: 11px">no key needed</span></td>
+              <td style="padding: 12px 8px; color: #98A2AF">Off · planned v0.2</td>
+              <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" aria-label="Fear and Greed enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
+            </tr>
+            <tr style="border-top: 1px solid #232A35">
+              <td style="padding: 12px 8px 12px 0; font-weight: 500">News provider</td>
+              <td style="padding: 12px 8px; color: #C9CFD6">Hard-event flags</td>
+              <td style="padding: 12px 8px">
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+                  <span style="padding: 2px 6px; border-radius: 4px; background: #3A2A0E; color: #F2B94B; font-size: 11px">required</span>
+                  <input type="password" aria-label="News provider API key" placeholder="Paste key" disabled style="height: 32px; width: 160px; padding: 0 8px; box-sizing: border-box; border-radius: 6px; border: 1px solid #232A35; background: #0F131A; color: #6B7480; font-size: 12px">
+                </div>
+              </td>
+              <td style="padding: 12px 8px; color: #98A2AF">Later · manual flag for now</td>
+              <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" disabled aria-label="News provider enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
+            </tr>
+            <tr style="border-top: 1px solid #232A35">
+              <td style="padding: 12px 8px 12px 0; font-weight: 500">Bitvavo trading</td>
+              <td style="padding: 12px 8px; color: #C9CFD6">Real orders (live trading)</td>
+              <td style="padding: 12px 8px">
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+                  <span style="padding: 2px 6px; border-radius: 4px; background: #3A2A0E; color: #F2B94B; font-size: 11px">key + secret required</span>
+                  <span style="color: #98A2AF; font-size: 12px">trade-only key, never withdraw rights</span>
+                </div>
+              </td>
+              <td style="padding: 12px 8px; color: #98A2AF">Locked · after the paper phase</td>
+              <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" disabled aria-label="Bitvavo trading enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.5">A source whose required key is missing stays off with a clear message; the agent keeps running without it. Freshness limits per source are listed in the spec.</p>
+    </section>
+
+    <section aria-label="Learning and explanations" style="flex: 1 1 100%; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 600">Learning and explanations</h2>
+      <div style="display: flex; flex-wrap: wrap; gap: 16px">
+        <label style="display: flex; align-items: flex-start; gap: 10px; min-height: 44px; font-size: 14px; line-height: 1.45; flex: 1 1 320px"><input type="checkbox" checked style="width: 20px; height: 20px; margin-top: 1px; accent-color: #F2B94B"><span>Plain-language mode<br><span style="font-size: 12px; color: #98A2AF">Explains jargon in tooltips and writes summaries for a non-trader</span></span></label>
+        <label style="display: flex; align-items: flex-start; gap: 10px; min-height: 44px; font-size: 14px; line-height: 1.45; flex: 1 1 320px"><input type="checkbox" checked style="width: 20px; height: 20px; margin-top: 1px; accent-color: #F2B94B"><span>Show "why so quiet?" line on the Dashboard<br><span style="font-size: 12px; color: #98A2AF">Says what the agent did this cycle and why it didn't trade</span></span></label>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 16px">
+        <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 200px; min-width: 0"><span style="font-size: 13px; color: #98A2AF">Morning briefing at</span><input type="time" value="08:00" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 14px; font-family: 'IBM Plex Mono', monospace"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 200px; min-width: 0"><span style="font-size: 13px; color: #98A2AF">Weekly review on</span><select style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 14px"><option>Monday 08:00</option><option>Sunday 20:00</option><option>Off</option></select></label>
+        <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 200px; min-width: 0"><span style="font-size: 13px; color: #98A2AF">Ask the agent · questions per day</span><input type="number" value="100" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 14px; font-family: 'IBM Plex Mono', monospace"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 200px; min-width: 0"><span style="font-size: 13px; color: #98A2AF">Insights · decisions for a finding</span><input type="number" value="30" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 14px; font-family: 'IBM Plex Mono', monospace"></label>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.5">Briefings, reviews and answers are written by the model from numbers computed in code. A check rejects any text with a number that isn't in the facts. Ask, briefings and reviews count toward the monthly cost cap.</p>
+    </section>
+
+    <section aria-label="Shadow strategies" style="flex: 1 1 100%; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 600">Shadow strategies</h2>
+        <button type="button" style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; text-decoration: none; cursor: pointer">Add shadow (1 of 2)</button>
+      </div>
+      <span style="font-size: 13px; color: #98A2AF; line-height: 1.5">A shadow runs on the same data every cycle and records what it would have done, with its own paper account. It never places orders. Each one roughly doubles model calls on cycles where it runs.</span>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 8px; background: #171C24; border: 1px solid #232A35">
+        <span style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 500">Shadow A</span><span style="font-size: 12px; color: #98A2AF; font-family: 'IBM Plex Mono', monospace">gpt-4o-mini · decision.v2-draft · since 28 Sep</span></span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">+3.02% <span style="color: #98A2AF">vs main +2.63%</span></span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #98A2AF">9 trades</span>
+        <a href="Inspector.dc.html" style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; text-decoration: none; cursor: pointer">Compare</a>
+        <button type="button" style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; text-decoration: none; cursor: pointer">Promote…</button>
+        <button type="button" style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; text-decoration: none; cursor: pointer; color: #FF8A8F">Stop</button>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #98A2AF">Promote replaces the main prompt or model after a confirmation. The old version stays in the inspector history.</p>
+    </section>
+
+    <section aria-label="Live readiness" style="flex: 1 1 100%; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 600">Live readiness</h2>
+        <a href="Readiness.dc.html" style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; text-decoration: none; cursor: pointer">Open checklist · 5 of 9 met</a>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 16px">
+        <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 200px; min-width: 0"><span style="font-size: 13px; color: #98A2AF">Min. closed trades</span><input type="number" value="100" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 14px; font-family: 'IBM Plex Mono', monospace"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 200px; min-width: 0"><span style="font-size: 13px; color: #98A2AF">Min. days running</span><input type="number" value="30" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 14px; font-family: 'IBM Plex Mono', monospace"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 200px; min-width: 0"><span style="font-size: 13px; color: #98A2AF">Max. drawdown (%)</span><input type="number" value="6" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 14px; font-family: 'IBM Plex Mono', monospace"></label>
+        <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 200px; min-width: 0"><span style="font-size: 13px; color: #98A2AF">Max. calibration gap (pts)</span><input type="number" value="10" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 14px; font-family: 'IBM Plex Mono', monospace"></label>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #98A2AF">Other criteria (average R, profit factor, beats BTC, no kill, no errors) use the defaults in the spec. Loosening any threshold is logged.</p>
+    </section>
+
+    <section aria-label="LLM records" style="flex: 1 1 100%; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 600">LLM records</h2>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px">
+        <span style="flex: 1 1 300px; font-size: 13px; color: #98A2AF; line-height: 1.5">Every model call is stored with its exact input and raw output for the LLM inspector. 41 calls today; raw briefs and responses are kept until pruned.</span>
+        <a href="Inspector.dc.html" style="height: 40px; padding: 0 14px; display: flex; align-items: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; text-decoration: none">Open LLM inspector</a>
+        <button type="button" style="height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; cursor: pointer">Prune raw data older than 90 days</button>
+      </div>
+    </section>
+  </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1080}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { navCollapsed: false, active: { 'BTC-EUR': true, 'ETH-EUR': true, 'SOL-EUR': true, 'XRP-EUR': true, 'ADA-EUR': true, 'LINK-EUR': true, 'AVAX-EUR': true, 'DOGE-EUR': true, 'LTC-EUR': true, 'HYPE-EUR': false, 'FET-EUR': false, 'MAGIC-EUR': false } };
+  }
+  renderVals() {
+    var self = this;
+    var ROWS = [
+      ['BTC-EUR', '€61.2M', '0.00%', 'ok'], ['ETH-EUR', '€18.4M', '0.00%', 'ok'], ['SOL-EUR', '€9.6M', '0.02%', 'ok'],
+      ['XRP-EUR', '€14.1M', '0.01%', 'ok'], ['ADA-EUR', '€20.8M', '0.02%', 'ok'], ['LINK-EUR', '€3.9M', '0.06%', 'ok'],
+      ['AVAX-EUR', '€2.1M', '0.03%', 'ok'], ['DOGE-EUR', '€1.3M', '0.01%', 'ok'], ['LTC-EUR', '€1.0M', '0.02%', 'warming'],
+      ['HYPE-EUR', '€7.4M', '0.01%', 'ok'], ['FET-EUR', '€2.7M', '0.10%', 'ok'], ['MAGIC-EUR', '€1.1M', '0.22%', 'spread']
+    ];
+    var act = (this.state && this.state.active) || {};
+    var nActive = 0;
+    var markets = ROWS.map(function (r) {
+      var id = r[0], status = r[3], on = !!act[id], bad = status === 'spread';
+      if (on) nActive++;
+      var label = bad ? 'Not eligible · spread above 0.15%' : status === 'warming' && on ? 'Warming up · 62% of history' : on ? 'Eligible · trading' : 'Eligible · off';
+      var col = bad ? 'background:#3A1416;color:#FFB3B6' : status === 'warming' && on ? 'background:#3A2A0E;color:#F2B94B' : on ? 'background:#123A27;color:#3DD68C' : 'background:#1C222C;color:#98A2AF';
+      return {
+        id: id, vol: r[1], spread: r[2], status: label, active: on, locked: bad, label: id + ' active',
+        nameStyle: 'padding:9px 6px 9px 0;font-weight:500;color:' + (bad ? '#6B7480' : '#E7EAEE'),
+        statusStyle: 'padding:3px 8px;border-radius:6px;font-size:12px;white-space:nowrap;' + col,
+        toggle: function () { var next = Object.assign({}, act); next[id] = !on; self.setState({ active: next }); }
+      };
+    });
+    var mk = { active: String(nActive), calls: String(nActive * 96) };
+    var navCollapsed = !!(this.state && this.state.navCollapsed);
+    var navBase = 'height:44px;display:flex;align-items:center;gap:12px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;box-sizing:border-box;' + (navCollapsed ? 'justify-content:center;padding:0;' : 'padding:0 12px;');
+    var nav = {
+      expanded: !navCollapsed,
+      expandedStr: String(!navCollapsed),
+      toggle: function () { self.setState({ navCollapsed: !navCollapsed }); },
+      toggleLabel: navCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      aside: 'flex:0 0 ' + (navCollapsed ? '72px' : '232px') + ';box-sizing:border-box;display:flex;flex-direction:column;gap:16px;padding:16px ' + (navCollapsed ? '12px' : '16px') + ';background:#0F131A;border-right:1px solid #232A35',
+      brandRow: 'display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid #232A35;' + (navCollapsed ? 'justify-content:center' : ''),
+      item: navBase + 'color:#98A2AF',
+      active: navBase + 'background:#1C222C;color:#E7EAEE',
+      status: 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#171C24;border:1px solid #232A35;font-size:13px;' + (navCollapsed ? 'justify-content:center' : ''),
+      dot: 'width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#3DD68C',
+      statusText: 'Running · paper',
+      toggleStyle: navBase + 'width:100%;border:1px solid #232A35;background:transparent;color:#98A2AF;cursor:pointer;font-family:inherit'
+    };
+    nav.group = navCollapsed ? 'height:1px;background:#232A35;margin:8px 4px;overflow:hidden;color:transparent;font-size:0' : 'font-size:11px;font-weight:600;color:#8A94A1;text-transform:uppercase;letter-spacing:0.08em;padding:12px 12px 4px';
+    nav.ask = navBase + 'color:#F2B94B;background:#211C10;border:1px solid #4A3A16';
+    return { nav: nav, markets: markets, mk: mk };
+  }
+}
+</script>
+</body>
+</html>

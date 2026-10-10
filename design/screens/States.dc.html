@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trading Agent — States and dialogs</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#F2B94B}a:hover{color:#FFD58A}
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div style="min-height: 2520px; background: #0B0E13; color: #E7EAEE; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; box-sizing: border-box; padding: 32px; display: flex; flex-direction: column; gap: 28px">
+
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <h1 style="margin: 0; font-size: 22px; font-weight: 600">States and dialogs</h1>
+    <p style="margin: 0; color: #98A2AF; max-width: 760px; line-height: 1.5">Banners appear directly under the header on every screen. Dialogs are modal, centred, and close with Escape or Cancel; the destructive button is never the default.</p>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Banner · first run</div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 20px; background: #13202F; border: 1px solid #24405F; border-radius: 10px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7FB8FF" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="11" x2="12" y2="16"></line><line x1="12" y1="8" x2="12" y2="8"></line></svg>
+      <span style="flex: 1 1 400px; color: #CFE3FF; line-height: 1.5">Welcome. The agent is paused and will decide with the Rules baseline until you add an OpenAI key. Paper balance: €10,000.</span>
+      <a href="Settings.dc.html" style="height: 40px; padding: 0 14px; display: flex; align-items: center; border-radius: 8px; background: #F2B94B; color: #0B0E13; font-size: 13px; font-weight: 600; text-decoration: none">Add OpenAI key</a>
+      <button type="button" style="height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; cursor: pointer">Start with Rules only</button>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Banner · stale data</div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 20px; background: #3A2A0E; border: 1px solid #6B4E17; border-radius: 10px; color: #FFD58A">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"></path><line x1="12" y1="10" x2="12" y2="14"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg>
+      <span style="flex: 1 1 400px; line-height: 1.5">ETH-EUR data is stale: newest closed 1h candle is 2h 10m old (limit 75 min). Bitvavo returned 503 three times. The agent holds ETH-EUR; its stop and target are still watched.</span>
+      <a href="Indicators.dc.html" style="height: 40px; padding: 0 14px; display: flex; align-items: center; border-radius: 8px; border: 1px solid #6B4E17; color: #FFD58A; font-size: 13px; text-decoration: none">Data health</a>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: #98A2AF">
+      <span>Pair tab while stale:</span>
+      <span style="height: 40px; padding: 0 12px; display: inline-flex; align-items: center; gap: 8px; border-radius: 8px; border: 1px solid #6B4E17; background: #171C24; color: #E7EAEE"><span style="width: 8px; height: 8px; border-radius: 50%; background: #F2B94B"></span>ETH-EUR<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #F2B94B">stale</span></span>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Header and banner · killed</div>
+    <div style="border: 1px solid #232A35; border-radius: 10px; overflow: hidden">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 20px; background: #0F131A; border-bottom: 1px solid #232A35">
+        <div style="width: 32px; height: 32px; border-radius: 8px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 13px">TA</div>
+        <span style="font-weight: 600">Trading Agent</span>
+        <span style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: #3A1416; border: 1px solid #7A2A2E; color: #FFB3B6; font-size: 13px; font-weight: 600"><span style="width: 8px; height: 8px; border-radius: 50%; background: #FF6369"></span>Killed</span>
+        <span style="flex: 1"></span>
+        <button type="button" disabled title="Acknowledge the kill first" style="height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #232A35; background: #12161D; color: #6B7480; font-size: 13px; cursor: not-allowed">Resume</button>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 20px; background: #3A1416; color: #FFB3B6">
+        <span style="flex: 1 1 400px; line-height: 1.5">Kill switch fired at 14:05: drawdown −8.1% from peak €10,812. All 3 positions were closed at market. No new trades until you acknowledge.</span>
+        <button type="button" style="height: 40px; padding: 0 14px; border-radius: 8px; border: 0; background: #FF6369; color: #0B0E13; font-size: 13px; font-weight: 600; cursor: pointer">Review and acknowledge</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+    <div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Dialog · acknowledge kill</div>
+      <div role="dialog" aria-label="Acknowledge kill switch" style="background: #12161D; border: 1px solid #2E3643; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">Acknowledge kill switch</h2>
+        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-family: 'IBM Plex Mono', monospace">
+          <div style="display: flex; justify-content: space-between"><span style="color: #98A2AF; font-family: 'IBM Plex Sans', sans-serif">Fired at</span><span>09 Oct 14:05</span></div>
+          <div style="display: flex; justify-content: space-between"><span style="color: #98A2AF; font-family: 'IBM Plex Sans', sans-serif">Peak → current equity</span><span>€10,812 → €9,936</span></div>
+          <div style="display: flex; justify-content: space-between"><span style="color: #98A2AF; font-family: 'IBM Plex Sans', sans-serif">Positions closed</span><span>BTC, SOL, ETH · −€412.70</span></div>
+        </div>
+        <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; line-height: 1.5"><input type="checkbox" style="width: 18px; height: 18px; margin-top: 1px; accent-color: #F2B94B"><span>I understand drawdown will be measured from €9,936 from now on.</span></label>
+        <div style="display: flex; justify-content: flex-end; gap: 10px">
+          <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; cursor: pointer">Cancel</button>
+          <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 0; background: #F2B94B; color: #0B0E13; font-size: 14px; font-weight: 600; cursor: pointer">Acknowledge and pause</button>
+        </div>
+        <p style="margin: 0; font-size: 12px; color: #98A2AF">After acknowledging, the agent is Paused; press Resume when ready.</p>
+      </div>
+    </div>
+
+    <div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Dialog · stop and flatten</div>
+      <div role="dialog" aria-label="Stop and flatten" style="background: #12161D; border: 1px solid #2E3643; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">Close all positions and pause?</h2>
+        <p style="margin: 0; font-size: 13px; color: #C9CFD6; line-height: 1.5">3 positions will be closed at market: BTC-EUR, SOL-EUR, ETH-EUR. Estimated fees €17.50. Unrealised P&amp;L right now: +€17.98.</p>
+        <div style="display: flex; justify-content: flex-end; gap: 10px">
+          <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; cursor: pointer">Cancel</button>
+          <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #7A2A2E; background: #3A1416; color: #FFB3B6; font-size: 14px; font-weight: 600; cursor: pointer">Close all and pause</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Dialog · reset paper account</div>
+      <div role="dialog" aria-label="Reset paper account" style="background: #12161D; border: 1px solid #2E3643; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">Reset paper account?</h2>
+        <p style="margin: 0; font-size: 13px; color: #C9CFD6; line-height: 1.5">Closes all positions and starts paper account #2 from €10,000. Decisions, LLM calls, verdicts and outcomes are kept and tagged with account #1; trades, the equity curve, Performance and Readiness start fresh. Export history first if you want it.</p>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Type RESET to confirm</span><input type="text" placeholder="RESET" style="height: 44px; padding: 0 12px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <div style="display: flex; justify-content: flex-end; gap: 10px">
+          <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; cursor: pointer">Cancel</button>
+          <button type="button" disabled style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #232A35; background: #12161D; color: #6B7480; font-size: 14px; font-weight: 600; cursor: not-allowed">Reset account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+    <div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Dialog · re-run a call (production)</div>
+      <div role="dialog" aria-label="Re-run model call" style="background: #12161D; border: 1px solid #2E3643; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">Re-run this call?</h2>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Model</span><input type="text" value="gpt-4o-mini" style="height: 40px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 13px"></label>
+          <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Prompt</span><input type="text" value="decision.v2-draft" style="height: 40px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 13px"></label>
+        </div>
+        <p style="margin: 0; font-size: 13px; color: #C9CFD6; line-height: 1.5">Spends one model call (est. €0.0004), counted toward the monthly cap: €2.14 of €10 used. The replay never trades.</p>
+        <div style="display: flex; justify-content: flex-end; gap: 10px">
+          <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; cursor: pointer">Cancel</button>
+          <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 0; background: #F2B94B; color: #0B0E13; font-size: 14px; font-weight: 600; cursor: pointer">Re-run</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Dashboard · approval queue (supervised mode, 2 waiting)</div>
+      <div style="background: #12161D; border: 1px solid #F2B94B; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+          <span style="font-size: 12px; font-weight: 600; color: #F2B94B; text-transform: uppercase; letter-spacing: 0.06em">Waiting for you</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #F2B94B">executes in 0:42</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px">
+          <span style="padding: 6px 10px; border-radius: 6px; background: #123A27; color: #3DD68C; font-family: 'IBM Plex Mono', monospace; font-weight: 600">BUY</span>
+          <span style="font-family: 'IBM Plex Mono', monospace">BTC-EUR 0.0807 ≈ €4,942 · R/R 2.1</span>
+        </div>
+        <div style="height: 6px; background: #232A35; border-radius: 3px; overflow: hidden"><div style="width: 70%; height: 6px; background: #F2B94B"></div></div>
+        <div style="display: flex; gap: 10px">
+          <button type="button" style="flex: 1; height: 44px; border-radius: 8px; border: 1px solid #7A2A2E; background: #3A1416; color: #FFB3B6; font-size: 14px; font-weight: 600; cursor: pointer">Veto</button>
+          <a href="Decision.dc.html" style="flex: 1; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; text-decoration: none">Details</a>
+          <button type="button" style="flex: 1; height: 44px; border-radius: 8px; border: 0; background: #F2B94B; color: #0B0E13; font-size: 14px; font-weight: 600; cursor: pointer">Approve now</button>
+        </div>
+      </div>
+      <div style="background: #12161D; border: 1px solid #4A3A16; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+          <span style="font-size: 12px; font-weight: 600; color: #F2B94B; text-transform: uppercase; letter-spacing: 0.06em">Waiting for you · 2 of 2</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #F2B94B">executes in 0:58</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px">
+          <span style="padding: 6px 10px; border-radius: 6px; background: #123A27; color: #3DD68C; font-family: 'IBM Plex Mono', monospace; font-weight: 600">BUY</span>
+          <span style="font-family: 'IBM Plex Mono', monospace">SOL-EUR 21.4 ≈ €3,021 · R/R 2.3</span>
+        </div>
+        <div style="height: 6px; background: #232A35; border-radius: 3px; overflow: hidden"><div style="width: 97%; height: 6px; background: #F2B94B"></div></div>
+        <div style="display: flex; gap: 10px">
+          <button type="button" style="flex: 1; height: 44px; border-radius: 8px; border: 1px solid #7A2A2E; background: #3A1416; color: #FFB3B6; font-size: 14px; font-weight: 600; cursor: pointer">Veto</button>
+          <a href="Decision.dc.html" style="flex: 1; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; text-decoration: none">Details</a>
+          <button type="button" style="flex: 1; height: 44px; border-radius: 8px; border: 0; background: #F2B94B; color: #0B0E13; font-size: 14px; font-weight: 600; cursor: pointer">Approve now</button>
+        </div>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.5">Each trade has its own timer. Risk gates are checked again at the moment each one fills: if BTC fills first, SOL is sized down to stay within 2.5% total open risk, or skipped if it would fall under €10.</p>
+    </div>
+
+    <div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Browser notification</div>
+      <div style="background: #1C222C; border: 1px solid #2E3643; border-radius: 12px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; max-width: 380px">
+        <div style="width: 32px; height: 32px; flex: 0 0 32px; border-radius: 8px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 12px">TA</div>
+        <div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.45">
+          <span style="font-weight: 600">Trading Agent · daily loss limit</span>
+          <span style="color: #C9CFD6">Today's P&amp;L reached −3.0%. No new entries until 00:00; open positions are still managed.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Banner · shock brake</div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 20px; background: #3A2A0E; border: 1px solid #6B4E17; border-radius: 10px; color: #FFD58A">
+      <span style="flex: 1 1 400px; line-height: 1.5">Shock brake on: BTC-EUR fell 4.6% between 14:02 and 14:31. No new entries on any coin until 16:31. Stops, targets and the exit watcher keep working.</span>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">1:58 left</span>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Banner · monthly cost cap reached</div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 20px; background: #3A2A0E; border: 1px solid #6B4E17; border-radius: 10px; color: #FFD58A">
+      <span style="flex: 1 1 400px; line-height: 1.5">Model cost cap reached: €10.00 of €10 this month. Decisions now use the Rules baseline until 1 Nov; shadows, Ask and replays are paused. Open positions are managed as usual.</span>
+      <a href="Settings.dc.html" style="height: 40px; padding: 0 14px; display: flex; align-items: center; border-radius: 8px; border: 1px solid #6B4E17; color: #FFD58A; font-size: 13px; text-decoration: none">Raise the cap</a>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+    <div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Dialog · delete all data</div>
+      <div role="dialog" aria-label="Delete all data" style="background: #12161D; border: 1px solid #7A2A2E; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">Delete all data?</h2>
+        <p style="margin: 0; font-size: 13px; color: #C9CFD6; line-height: 1.5">Deletes every account, trade, decision, model call, verdict, outcome, briefing and Ask conversation. Settings and API keys stay. This cannot be undone; the last daily backup is from 03:00.</p>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Type DELETE to confirm</span><input type="text" placeholder="DELETE" style="height: 44px; padding: 0 12px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px"></label>
+        <div style="display: flex; justify-content: flex-end; gap: 10px">
+          <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; cursor: pointer">Cancel</button>
+          <button type="button" disabled style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #232A35; background: #12161D; color: #6B7480; font-size: 14px; font-weight: 600; cursor: not-allowed">Delete everything</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">What-if · run in progress</div>
+      <div style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-weight: 600">Re-running 30 days with your scenario…</span>
+        <div style="height: 6px; border-radius: 3px; background: #232A35; overflow: hidden"><div style="width: 62%; height: 6px; background: #F2B94B"></div></div>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #98A2AF">1,786 of 2,880 cycles · about 20 s left</span>
+        <span style="font-size: 12px; color: #98A2AF; line-height: 1.5">No model calls are made. 3 cycles reach the model only in this scenario; Rules answers those and they will be marked as stand-ins.</span>
+        <div><button type="button" style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; text-decoration: none; cursor: pointer">Cancel run</button></div>
+      </div>
+    </div>
+
+    <div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Insights · not enough data yet</div>
+      <div style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-weight: 600">No findings yet</span>
+        <span style="font-size: 13px; color: #C9CFD6; line-height: 1.5">A finding needs 30 decisions in a slice. You have 84 decisions so far; the largest slice (BTC-EUR) has 19. Early signals appear greyed from 10.</span>
+        <div style="height: 6px; border-radius: 3px; background: #232A35; overflow: hidden"><div style="width: 63%; height: 6px; background: #8A94A1"></div></div>
+        <span style="font-size: 12px; color: #98A2AF">At the current pace the first finding is likely around Tue 20 Oct.</span>
+      </div>
+    </div>
+
+    <div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Ask panel · daily limit reached</div>
+      <div style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-weight: 600">100 of 100 questions used today</span>
+        <span style="font-size: 13px; color: #C9CFD6; line-height: 1.5">Ask is available again at 00:00. Everything it uses is still on screen: the decision drawer, the LLM inspector and Indicators.</span>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap"><a href="Settings.dc.html" style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; text-decoration: none; cursor: pointer">Change the limit</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2520}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
