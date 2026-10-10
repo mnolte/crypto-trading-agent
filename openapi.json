@@ -401,6 +401,308 @@
         "title": "KillInfo",
         "type": "object"
       },
+      "MarketOut": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "daily_candles": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Candles"
+          },
+          "eligible": {
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "failed_rule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Rule"
+          },
+          "market": {
+            "title": "Market",
+            "type": "string"
+          },
+          "paused": {
+            "title": "Paused",
+            "type": "boolean"
+          },
+          "spread_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Pct"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "volume_30d_eur": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume 30D Eur"
+          },
+          "warming_up": {
+            "title": "Warming Up",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "market",
+          "eligible",
+          "failed_rule",
+          "active",
+          "warming_up",
+          "paused",
+          "status",
+          "volume_30d_eur",
+          "spread_pct",
+          "daily_candles",
+          "checked_at"
+        ],
+        "title": "MarketOut",
+        "type": "object"
+      },
+      "MarketSettings-Input": {
+        "description": "Market-data and eligibility thresholds \u2014 all tunable, never literals\nin logic. The shared ADX threshold is used by the reads, the regime,\nRules condition C6 and Insights.",
+        "properties": {
+          "adx_threshold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "25",
+            "title": "Adx Threshold"
+          },
+          "eligibility_beyond_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "20",
+            "title": "Eligibility Beyond Pct"
+          },
+          "eligibility_fail_days": {
+            "default": 3,
+            "title": "Eligibility Fail Days",
+            "type": "integer"
+          },
+          "eligibility_recover_days": {
+            "default": 3,
+            "title": "Eligibility Recover Days",
+            "type": "integer"
+          },
+          "history_1d": {
+            "default": 300,
+            "title": "History 1D",
+            "type": "integer"
+          },
+          "history_1h": {
+            "default": 800,
+            "title": "History 1H",
+            "type": "integer"
+          },
+          "history_4h": {
+            "default": 300,
+            "title": "History 4H",
+            "type": "integer"
+          },
+          "max_avg_spread_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0.15",
+            "title": "Max Avg Spread Pct"
+          },
+          "min_avg_daily_volume_eur": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "1000000",
+            "title": "Min Avg Daily Volume Eur"
+          },
+          "min_daily_candles": {
+            "default": 300,
+            "title": "Min Daily Candles",
+            "type": "integer"
+          },
+          "stablecoin_bases": {
+            "default": [
+              "USDC",
+              "EURC",
+              "USDT",
+              "DAI",
+              "FDUSD",
+              "TUSD",
+              "PYUSD",
+              "EUR",
+              "USD",
+              "GBP"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Stablecoin Bases",
+            "type": "array"
+          },
+          "structure_min_range_bars": {
+            "default": 12,
+            "title": "Structure Min Range Bars",
+            "type": "integer"
+          }
+        },
+        "title": "MarketSettings",
+        "type": "object"
+      },
+      "MarketSettings-Output": {
+        "description": "Market-data and eligibility thresholds \u2014 all tunable, never literals\nin logic. The shared ADX threshold is used by the reads, the regime,\nRules condition C6 and Insights.",
+        "properties": {
+          "adx_threshold": {
+            "default": "25",
+            "title": "Adx Threshold",
+            "type": "string"
+          },
+          "eligibility_beyond_pct": {
+            "default": "20",
+            "title": "Eligibility Beyond Pct",
+            "type": "string"
+          },
+          "eligibility_fail_days": {
+            "default": 3,
+            "title": "Eligibility Fail Days",
+            "type": "integer"
+          },
+          "eligibility_recover_days": {
+            "default": 3,
+            "title": "Eligibility Recover Days",
+            "type": "integer"
+          },
+          "history_1d": {
+            "default": 300,
+            "title": "History 1D",
+            "type": "integer"
+          },
+          "history_1h": {
+            "default": 800,
+            "title": "History 1H",
+            "type": "integer"
+          },
+          "history_4h": {
+            "default": 300,
+            "title": "History 4H",
+            "type": "integer"
+          },
+          "max_avg_spread_pct": {
+            "default": "0.15",
+            "title": "Max Avg Spread Pct",
+            "type": "string"
+          },
+          "min_avg_daily_volume_eur": {
+            "default": "1000000",
+            "title": "Min Avg Daily Volume Eur",
+            "type": "string"
+          },
+          "min_daily_candles": {
+            "default": 300,
+            "title": "Min Daily Candles",
+            "type": "integer"
+          },
+          "stablecoin_bases": {
+            "default": [
+              "USDC",
+              "EURC",
+              "USDT",
+              "DAI",
+              "FDUSD",
+              "TUSD",
+              "PYUSD",
+              "EUR",
+              "USD",
+              "GBP"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Stablecoin Bases",
+            "type": "array"
+          },
+          "structure_min_range_bars": {
+            "default": 12,
+            "title": "Structure Min Range Bars",
+            "type": "integer"
+          }
+        },
+        "title": "MarketSettings",
+        "type": "object"
+      },
+      "MarketUpdateIn": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "active"
+        ],
+        "title": "MarketUpdateIn",
+        "type": "object"
+      },
       "ModelSettings-Input": {
         "properties": {
           "daily_call_budget": {
@@ -1143,6 +1445,43 @@
         "title": "RiskSettings",
         "type": "object"
       },
+      "SecretIn": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "title": "SecretIn",
+        "type": "object"
+      },
+      "SecretTestOut": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "SecretTestOut",
+        "type": "object"
+      },
       "SessionOut": {
         "description": "The X-Local-Token for the served UI.\n\nNo CORS headers are sent, so other sites can call this but cannot read\nthe response.",
         "properties": {
@@ -1192,6 +1531,14 @@
             "title": "Data Source",
             "type": "string"
           },
+          "disabled_sources": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Disabled Sources",
+            "type": "array"
+          },
           "execution_mode": {
             "default": "auto",
             "enum": [
@@ -1201,6 +1548,34 @@
             ],
             "title": "Execution Mode",
             "type": "string"
+          },
+          "market": {
+            "$ref": "#/components/schemas/MarketSettings-Input",
+            "default": {
+              "adx_threshold": "25",
+              "eligibility_beyond_pct": "20",
+              "eligibility_fail_days": 3,
+              "eligibility_recover_days": 3,
+              "history_1d": 300,
+              "history_1h": 800,
+              "history_4h": 300,
+              "max_avg_spread_pct": "0.15",
+              "min_avg_daily_volume_eur": "1000000",
+              "min_daily_candles": 300,
+              "stablecoin_bases": [
+                "USDC",
+                "EURC",
+                "USDT",
+                "DAI",
+                "FDUSD",
+                "TUSD",
+                "PYUSD",
+                "EUR",
+                "USD",
+                "GBP"
+              ],
+              "structure_min_range_bars": 12
+            }
           },
           "model": {
             "$ref": "#/components/schemas/ModelSettings-Input",
@@ -1297,6 +1672,14 @@
             "title": "Data Source",
             "type": "string"
           },
+          "disabled_sources": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Disabled Sources",
+            "type": "array"
+          },
           "execution_mode": {
             "default": "auto",
             "enum": [
@@ -1306,6 +1689,34 @@
             ],
             "title": "Execution Mode",
             "type": "string"
+          },
+          "market": {
+            "$ref": "#/components/schemas/MarketSettings-Output",
+            "default": {
+              "adx_threshold": "25",
+              "eligibility_beyond_pct": "20",
+              "eligibility_fail_days": 3,
+              "eligibility_recover_days": 3,
+              "history_1d": 300,
+              "history_1h": 800,
+              "history_4h": 300,
+              "max_avg_spread_pct": "0.15",
+              "min_avg_daily_volume_eur": "1000000",
+              "min_daily_candles": 300,
+              "stablecoin_bases": [
+                "USDC",
+                "EURC",
+                "USDT",
+                "DAI",
+                "FDUSD",
+                "TUSD",
+                "PYUSD",
+                "EUR",
+                "USD",
+                "GBP"
+              ],
+              "structure_min_range_bars": 12
+            }
           },
           "model": {
             "$ref": "#/components/schemas/ModelSettings-Output",
@@ -1579,6 +1990,152 @@
         "title": "Snapshot",
         "type": "object"
       },
+      "SourceOut": {
+        "properties": {
+          "disabled_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disabled Reason"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "failures": {
+            "title": "Failures",
+            "type": "integer"
+          },
+          "freshness_limit_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness Limit S"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "key_last4": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Last4"
+          },
+          "key_requirement": {
+            "enum": [
+              "none",
+              "optional",
+              "required"
+            ],
+            "title": "Key Requirement",
+            "type": "string"
+          },
+          "key_set": {
+            "title": "Key Set",
+            "type": "boolean"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          },
+          "rate_limit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Limit"
+          },
+          "rate_limit_remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Limit Remaining"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "purpose",
+          "key_requirement",
+          "key_set",
+          "key_last4",
+          "enabled",
+          "disabled_reason",
+          "freshness_limit_s",
+          "rate_limit",
+          "rate_limit_remaining",
+          "last_success_at",
+          "last_error",
+          "failures"
+        ],
+        "title": "SourceOut",
+        "type": "object"
+      },
+      "SourceUpdateIn": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "SourceUpdateIn",
+        "type": "object"
+      },
       "Throttle": {
         "properties": {
           "lifts_when": {
@@ -1703,6 +2260,274 @@
         "summary": "Health"
       }
     },
+    "/api/markets": {
+      "get": {
+        "operationId": "list_markets_api_markets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MarketOut"
+                  },
+                  "title": "Response List Markets Api Markets Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Markets"
+      }
+    },
+    "/api/markets/{market}": {
+      "put": {
+        "operationId": "update_market_api_markets__market__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "market",
+            "required": true,
+            "schema": {
+              "title": "Market",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarketUpdateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Market"
+      }
+    },
+    "/api/secrets/{source_id}": {
+      "delete": {
+        "operationId": "remove_secret_api_secrets__source_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Remove Secret Api Secrets  Source Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Secret"
+      },
+      "put": {
+        "operationId": "put_secret_api_secrets__source_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecretIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Put Secret Api Secrets  Source Id  Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Secret"
+      }
+    },
+    "/api/secrets/{source_id}/test": {
+      "post": {
+        "operationId": "test_secret_api_secrets__source_id__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecretTestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Secret"
+      }
+    },
     "/api/session": {
       "get": {
         "operationId": "get_session_token_api_session_get",
@@ -1809,6 +2634,93 @@
           }
         },
         "summary": "Snapshot"
+      }
+    },
+    "/api/sources": {
+      "get": {
+        "operationId": "list_sources_api_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceOut"
+                  },
+                  "title": "Response List Sources Api Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Sources"
+      }
+    },
+    "/api/sources/{source_id}": {
+      "put": {
+        "operationId": "update_source_api_sources__source_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceUpdateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Source"
       }
     }
   }

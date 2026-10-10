@@ -237,6 +237,38 @@ class PaperSettings(BaseModel):
     slippage_pct: Decimal = Decimal("0.05")
 
 
+class MarketSettings(BaseModel):
+    """Market-data and eligibility thresholds — all tunable, never literals
+    in logic. The shared ADX threshold is used by the reads, the regime,
+    Rules condition C6 and Insights."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    adx_threshold: Decimal = Decimal("25")
+    min_avg_daily_volume_eur: Decimal = Decimal("1000000")
+    max_avg_spread_pct: Decimal = Decimal("0.15")
+    min_daily_candles: int = 300
+    eligibility_fail_days: int = 3
+    eligibility_beyond_pct: Decimal = Decimal("20")
+    eligibility_recover_days: int = 3
+    history_1h: int = 800
+    history_4h: int = 300
+    history_1d: int = 300
+    structure_min_range_bars: int = 12
+    stablecoin_bases: list[str] = [
+        "USDC",
+        "EURC",
+        "USDT",
+        "DAI",
+        "FDUSD",
+        "TUSD",
+        "PYUSD",
+        "EUR",
+        "USD",
+        "GBP",
+    ]
+
+
 class Settings(BaseModel):
     """The one validated JSON document stored in the settings table.
 
@@ -254,3 +286,7 @@ class Settings(BaseModel):
     risk: RiskSettings = RiskSettings()
     model: ModelSettings = ModelSettings()
     paper: PaperSettings = PaperSettings()
+    market: MarketSettings = MarketSettings()
+    # Source ids the user disabled on the Sources page; the registry keeps
+    # the runtime status.
+    disabled_sources: list[str] = []

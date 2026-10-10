@@ -84,7 +84,8 @@ def test_snapshot_shape(client: TestClient) -> None:
     assert snap["usage"]["cap_eur"] == "10"
 
 
-def test_health(client: TestClient) -> None:
-    body = client.get("/api/health").json()
+def test_health(sim_client: TestClient) -> None:
+    body = sim_client.get("/api/health").json()
     assert body["status"] == "paused"
-    assert body["sources"] == {"bitvavo": "ok"}
+    assert body["sources"]["bitvavo"] == "ok"
+    assert body["sources"]["openai"] == "disabled"  # required key missing

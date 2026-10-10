@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from app import repo
 from app.api.deps import (
     AppState,
+    build_market_client,
     build_snapshot,
     get_session,
     get_state,
@@ -50,11 +51,19 @@ def get_session_token(state: Annotated[AppState, Depends(get_state)]) -> Session
 
 @router.get("/health")
 def health(state: Annotated[AppState, Depends(get_state)]) -> HealthOut:
+    sources: dict[str, str] = {}
+    for status in state.sources.statuses():
+        if not status.enabled:
+            sources[status.spec.id] = "disabled"
+        elif status.runtime.last_error is not None:
+            sources[status.spec.id] = "failing"
+        else:
+            sources[status.spec.id] = "ok"
     return HealthOut(
         status=state.status,
         cycle=state.cycle,
         last_cycle_at=None,
-        sources={state.settings.data_source: "ok"},
+        sources=sources,
         errors_24h=0,
     )
 
@@ -77,8 +86,14 @@ async def write_settings(request: Request, settings: Settings) -> Settings:
         version = repo.save_settings(session, settings)
     finally:
         session.close()
+    old_source = state.settings.data_source
     state.settings = settings
     state.settings_version = version
+    state.sources.set_disabled(settings.disabled_sources)
+    if settings.data_source != old_source:
+        old_client = state.market_client
+        state.market_client = build_market_client(settings, state.sources)
+        await old_client.aclose()
     await broadcast_snapshot(state)
     return state.settings
 
