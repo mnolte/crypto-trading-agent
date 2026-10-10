@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import type { AgentStatus } from "../api/client";
+import { lastKnownText, statusLabel, type DisplayStatus } from "../lib/status";
 
 const COLLAPSED_KEY = "ta.nav.collapsed";
 
@@ -134,9 +135,11 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
  */
 export function Sidebar({
   status,
+  lastKnown,
   onAsk,
 }: {
-  status: AgentStatus;
+  status: DisplayStatus;
+  lastKnown?: { status: AgentStatus; at: number };
   onAsk?: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(
@@ -200,15 +203,16 @@ export function Sidebar({
 
       <div className="sidebar__spacer" />
 
-      <div className="sidebar__status">
+      <div
+        className="sidebar__status"
+        title={
+          status === "disconnected" && lastKnown
+            ? lastKnownText(lastKnown.status, lastKnown.at)
+            : undefined
+        }
+      >
         <span className={`status-pill__dot status-pill__dot--${status}`} aria-hidden="true" />
-        {!collapsed && (
-          <span>
-            {status === "running"
-              ? "Running · paper"
-              : status.charAt(0).toUpperCase() + status.slice(1)}
-          </span>
-        )}
+        {!collapsed && <span>{statusLabel(status)}</span>}
       </div>
 
       <button

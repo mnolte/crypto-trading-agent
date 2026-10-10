@@ -372,6 +372,16 @@ textarea {
   background: var(--down);
 }
 
+.status-pill--disconnected {
+  background: var(--panel-raised);
+  border-color: var(--line);
+  color: var(--text-muted);
+}
+
+.status-pill__dot--disconnected {
+  background: var(--text-faint);
+}
+
 /* ----------------------------------------------------------- ErrorBadge -- */
 
 .error-badge {

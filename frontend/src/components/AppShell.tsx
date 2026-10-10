@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useSnapshot, useSnapshotStream } from "../api/hooks";
+import { displayStatus } from "../lib/status";
 import { EmptyState } from "./EmptyState";
 import { Sidebar } from "./Sidebar";
 import { SidePanel } from "./SlidePanel";
@@ -20,18 +21,20 @@ export function AppShell({
   controls?: boolean;
   children?: ReactNode;
 }) {
-  useSnapshotStream();
-  const { data: snapshot } = useSnapshot();
-  const status = snapshot?.status ?? "paused";
+  const { connected } = useSnapshotStream();
+  const { data: snapshot, dataUpdatedAt } = useSnapshot();
+  const status = displayStatus(connected, snapshot?.status);
+  const lastKnown = snapshot ? { status: snapshot.status, at: dataUpdatedAt } : undefined;
   const [askOpen, setAskOpen] = useState(false);
 
   return (
     <div className="shell">
-      <Sidebar status={status} onAsk={() => setAskOpen(true)} />
+      <Sidebar status={status} lastKnown={lastKnown} onAsk={() => setAskOpen(true)} />
       <div className="shell__main">
         <TopBar
           title={title}
           status={status}
+          lastKnown={lastKnown}
           running={status === "running"}
           errors24h={snapshot?.errors_24h ?? 0}
           controls={controls}
