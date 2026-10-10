@@ -132,6 +132,8 @@ jobs:
             ${{ runner.os }}-pnpm-
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm exec playwright install --with-deps chromium
+      # The app serves the built SPA — dist/ must exist for the suite to load a page.
+      - run: corepack pnpm build
       - run: corepack pnpm e2e
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
