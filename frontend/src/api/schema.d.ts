@@ -4,23 +4,6 @@
  */
 
 export interface paths {
-    "/api/session": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Session Token */
-        get: operations["get_session_token_api_session_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -38,15 +21,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/snapshot": {
+    "/api/session": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Snapshot */
-        get: operations["snapshot_api_snapshot_get"];
+        /** Get Session Token */
+        get: operations["get_session_token_api_session_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -73,6 +56,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Snapshot */
+        get: operations["snapshot_api_snapshot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -84,79 +84,79 @@ export interface components {
              * Format: date-time
              */
             at: string;
+            /** Decision Id */
+            decision_id: string | null;
             /** Kind */
             kind: string;
             /** Pair */
             pair: string | null;
             /** Text */
             text: string;
-            /** Decision Id */
-            decision_id: string | null;
         };
         /** Decision */
         Decision: {
-            /** Id */
-            id: string;
-            /** Cycle */
-            cycle: number;
-            /**
-             * At
-             * Format: date-time
-             */
-            at: string;
-            /** Pair */
-            pair: string;
-            /**
-             * Decider
-             * @enum {string}
-             */
-            decider: "openai" | "rules";
-            /** Model */
-            model?: string | null;
-            /** Prompt Version */
-            prompt_version?: string | null;
+            /** Account Id */
+            account_id: number;
             /**
              * Action
              * @enum {string}
              */
             action: "BUY" | "SELL" | "HOLD" | "SKIP";
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            btc_regime: components["schemas"]["Regime"];
             /** Confidence */
             confidence: number;
-            /** Reasoning */
-            reasoning: string;
-            /** Invalidation */
-            invalidation?: string | null;
-            /** Signals */
-            signals: components["schemas"]["Signal"][];
-            plan?: components["schemas"]["Plan"] | null;
-            /** Gates */
-            gates: components["schemas"]["Gate"][];
+            /** Cycle */
+            cycle: number;
             /**
-             * Status
+             * Decider
              * @enum {string}
              */
-            status: "executed" | "pending" | "approved" | "vetoed" | "expired" | "none";
-            /** Execute At */
-            execute_at?: string | null;
+            decider: "openai" | "rules";
             /** Error */
             error?: string | null;
-            regime: components["schemas"]["Regime"];
-            btc_regime: components["schemas"]["Regime"];
+            /** Execute At */
+            execute_at?: string | null;
+            /** Gates */
+            gates: components["schemas"]["Gate"][];
+            /** Id */
+            id: string;
+            /** Invalidation */
+            invalidation?: string | null;
             /** Invalidation Price */
             invalidation_price?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Pair */
+            pair: string;
+            plan?: components["schemas"]["Plan"] | null;
+            /** Prompt Version */
+            prompt_version?: string | null;
+            /** Reasoning */
+            reasoning: string;
+            regime: components["schemas"]["Regime"];
             /** Risk Pct Used */
             risk_pct_used: string;
-            /** Account Id */
-            account_id: number;
             /** Settings Version */
             settings_version: number;
             /** Shadow Id */
             shadow_id?: string | null;
+            /** Signals */
+            signals: components["schemas"]["Signal"][];
             /**
              * Stand In
              * @default false
              */
             stand_in: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "executed" | "pending" | "approved" | "vetoed" | "expired" | "none";
         };
         /** EntryPause */
         EntryPause: {
@@ -184,18 +184,18 @@ export interface components {
         };
         /** HealthOut */
         HealthOut: {
-            /** Status */
-            status: string;
             /** Cycle */
             cycle: number;
+            /** Errors 24H */
+            errors_24h: number;
             /** Last Cycle At */
             last_cycle_at: string | null;
             /** Sources */
             sources: {
                 [key: string]: string;
             };
-            /** Errors 24H */
-            errors_24h: number;
+            /** Status */
+            status: string;
         };
         /** KillInfo */
         KillInfo: {
@@ -204,17 +204,22 @@ export interface components {
              * Format: date-time
              */
             at: string;
-            /** Peak */
-            peak: string;
-            /** Equity */
-            equity: string;
-            /** Drawdown Pct */
-            drawdown_pct: string;
             /** Closed */
             closed: string[];
+            /** Drawdown Pct */
+            drawdown_pct: string;
+            /** Equity */
+            equity: string;
+            /** Peak */
+            peak: string;
         };
         /** ModelSettings */
         "ModelSettings-Input": {
+            /**
+             * Daily Call Budget
+             * @default 1000
+             */
+            daily_call_budget: number;
             /**
              * Decider
              * @default openai
@@ -226,29 +231,29 @@ export interface components {
              * @default gpt-4o-mini
              */
             model_id: string;
-            /**
-             * Prompt Version
-             * @default decision.v1
-             */
-            prompt_version: string;
-            /**
-             * Daily Call Budget
-             * @default 1000
-             */
-            daily_call_budget: number;
-            /**
-             * Rules Prefilter
-             * @default true
-             */
-            rules_prefilter: boolean;
             /**
              * Monthly Cost Cap Eur
              * @default 10
              */
             monthly_cost_cap_eur: number | string;
+            /**
+             * Prompt Version
+             * @default decision.v1
+             */
+            prompt_version: string;
+            /**
+             * Rules Prefilter
+             * @default true
+             */
+            rules_prefilter: boolean;
         };
         /** ModelSettings */
         "ModelSettings-Output": {
+            /**
+             * Daily Call Budget
+             * @default 1000
+             */
+            daily_call_budget: number;
             /**
              * Decider
              * @default openai
@@ -261,33 +266,23 @@ export interface components {
              */
             model_id: string;
             /**
+             * Monthly Cost Cap Eur
+             * @default 10
+             */
+            monthly_cost_cap_eur: string;
+            /**
              * Prompt Version
              * @default decision.v1
              */
             prompt_version: string;
             /**
-             * Daily Call Budget
-             * @default 1000
-             */
-            daily_call_budget: number;
-            /**
              * Rules Prefilter
              * @default true
              */
             rules_prefilter: boolean;
-            /**
-             * Monthly Cost Cap Eur
-             * @default 10
-             */
-            monthly_cost_cap_eur: string;
         };
         /** PaperSettings */
         "PaperSettings-Input": {
-            /**
-             * Start Balance Eur
-             * @default 10000
-             */
-            start_balance_eur: number | string;
             /**
              * Fee Pct
              * @default 0.25
@@ -298,14 +293,14 @@ export interface components {
              * @default 0.05
              */
             slippage_pct: number | string;
-        };
-        /** PaperSettings */
-        "PaperSettings-Output": {
             /**
              * Start Balance Eur
              * @default 10000
              */
-            start_balance_eur: string;
+            start_balance_eur: number | string;
+        };
+        /** PaperSettings */
+        "PaperSettings-Output": {
             /**
              * Fee Pct
              * @default 0.25
@@ -316,57 +311,64 @@ export interface components {
              * @default 0.05
              */
             slippage_pct: string;
+            /**
+             * Start Balance Eur
+             * @default 10000
+             */
+            start_balance_eur: string;
         };
         /** Plan */
         Plan: {
             /** Entry */
             entry: string;
+            /** Notional */
+            notional: string;
+            /** Qty */
+            qty: string;
+            /** Rr */
+            rr: string;
             /** Stop */
             stop: string;
             /** Target */
             target: string;
-            /** Qty */
-            qty: string;
-            /** Notional */
-            notional: string;
-            /** Rr */
-            rr: string;
         };
         /** Position */
         Position: {
-            /** Pair */
-            pair: string;
-            /** Qty */
-            qty: string;
+            /** Decision Id */
+            decision_id: string;
             /** Entry */
             entry: string;
-            /** Stop */
-            stop: string;
-            /** Target */
-            target: string;
+            /** Last */
+            last: string;
             /**
              * Opened At
              * Format: date-time
              */
             opened_at: string;
-            /** Decision Id */
-            decision_id: string;
-            /** Last */
-            last: string;
+            /** Pair */
+            pair: string;
+            /** Qty */
+            qty: string;
+            /** Stop */
+            stop: string;
+            /** Target */
+            target: string;
             /** Unrealised */
             unrealised: string;
         };
         /** PriceInfo */
         PriceInfo: {
-            /** Last */
-            last: string;
             /** Chg 24H Pct */
             chg_24h_pct: string;
+            /** Last */
+            last: string;
             /** Stale */
             stale: boolean;
         };
         /** Regime */
         Regime: {
+            /** Age 4H */
+            age_4h: number;
             /**
              * Trend
              * @enum {string}
@@ -377,73 +379,36 @@ export interface components {
              * @enum {string}
              */
             volatility: "low" | "normal" | "high";
-            /** Age 4H */
-            age_4h: number;
         };
         /** RiskBudget */
         RiskBudget: {
-            /** Open Risk Pct */
-            open_risk_pct: string;
-            /** Open Risk Cap Pct */
-            open_risk_cap_pct: string;
-            /** Today Loss Pct */
-            today_loss_pct: string;
+            /** Correlated Slots Left */
+            correlated_slots_left: number;
             /** Daily Limit Pct */
             daily_limit_pct: string;
             /** Drawdown Pct */
             drawdown_pct: string;
-            /** Kill Pct */
-            kill_pct: string;
             /** Full Trades Left */
             full_trades_left: number;
+            /** Kill Pct */
+            kill_pct: string;
+            /** Open Risk Cap Pct */
+            open_risk_cap_pct: string;
+            /** Open Risk Pct */
+            open_risk_pct: string;
             /** Risk Pct Now */
             risk_pct_now: string;
-            throttle: components["schemas"]["Throttle"] | null;
             /** Shock Brake Until */
             shock_brake_until: string | null;
-            /** Correlated Slots Left */
-            correlated_slots_left: number;
+            throttle: components["schemas"]["Throttle"] | null;
+            /** Today Loss Pct */
+            today_loss_pct: string;
         };
         /**
          * RiskSettings
          * @description Every risk-gate threshold lives here, never as a literal in logic.
          */
         "RiskSettings-Input": {
-            /**
-             * Min Rr
-             * @default 2.0
-             */
-            min_rr: number | string;
-            /**
-             * Max Cost Pct Of Risk
-             * @default 30
-             */
-            max_cost_pct_of_risk: number | string;
-            /**
-             * Risk Per Trade Pct
-             * @default 1.0
-             */
-            risk_per_trade_pct: number | string;
-            /**
-             * Throttled Risk Per Trade Pct
-             * @default 0.5
-             */
-            throttled_risk_per_trade_pct: number | string;
-            /**
-             * Total Open Risk Pct
-             * @default 2.5
-             */
-            total_open_risk_pct: number | string;
-            /**
-             * Max Exposure Pct
-             * @default 100
-             */
-            max_exposure_pct: number | string;
-            /**
-             * Min Trade Eur
-             * @default 10
-             */
-            min_trade_eur: number | string;
             /**
              * Cooldown After Stopout Hours
              * @default 6
@@ -460,6 +425,46 @@ export interface components {
              */
             correlated_threshold: number | string;
             /**
+             * Daily Loss Limit Pct
+             * @default 3
+             */
+            daily_loss_limit_pct: number | string;
+            /**
+             * Kill Drawdown Pct
+             * @default 8
+             */
+            kill_drawdown_pct: number | string;
+            /**
+             * Max Cost Pct Of Risk
+             * @default 30
+             */
+            max_cost_pct_of_risk: number | string;
+            /**
+             * Max Exposure Pct
+             * @default 100
+             */
+            max_exposure_pct: number | string;
+            /**
+             * Min Rr
+             * @default 2.0
+             */
+            min_rr: number | string;
+            /**
+             * Min Trade Eur
+             * @default 10
+             */
+            min_trade_eur: number | string;
+            /**
+             * Pending Entry Drift Pct
+             * @default 0.5
+             */
+            pending_entry_drift_pct: number | string;
+            /**
+             * Risk Per Trade Pct
+             * @default 1.0
+             */
+            risk_per_trade_pct: number | string;
+            /**
              * Shock Brake Btc Move Pct
              * @default 4
              */
@@ -469,6 +474,16 @@ export interface components {
              * @default 2
              */
             shock_brake_hours: number | string;
+            /**
+             * Stop Max Atr
+             * @default 5
+             */
+            stop_max_atr: number | string;
+            /**
+             * Stop Min Atr
+             * @default 0.5
+             */
+            stop_min_atr: number | string;
             /**
              * Throttle Consecutive Losses
              * @default 3
@@ -485,35 +500,20 @@ export interface components {
              */
             throttle_lift_drawdown_pct: number | string;
             /**
-             * Daily Loss Limit Pct
-             * @default 3
-             */
-            daily_loss_limit_pct: number | string;
-            /**
-             * Kill Drawdown Pct
-             * @default 8
-             */
-            kill_drawdown_pct: number | string;
-            /**
-             * Stop Min Atr
+             * Throttled Risk Per Trade Pct
              * @default 0.5
              */
-            stop_min_atr: number | string;
-            /**
-             * Stop Max Atr
-             * @default 5
-             */
-            stop_max_atr: number | string;
-            /**
-             * Pending Entry Drift Pct
-             * @default 0.5
-             */
-            pending_entry_drift_pct: number | string;
+            throttled_risk_per_trade_pct: number | string;
             /**
              * Time Stop Days
              * @default 5
              */
             time_stop_days: number | string;
+            /**
+             * Total Open Risk Pct
+             * @default 2.5
+             */
+            total_open_risk_pct: number | string;
             /**
              * Trailing Stop Enabled
              * @default false
@@ -525,41 +525,6 @@ export interface components {
          * @description Every risk-gate threshold lives here, never as a literal in logic.
          */
         "RiskSettings-Output": {
-            /**
-             * Min Rr
-             * @default 2.0
-             */
-            min_rr: string;
-            /**
-             * Max Cost Pct Of Risk
-             * @default 30
-             */
-            max_cost_pct_of_risk: string;
-            /**
-             * Risk Per Trade Pct
-             * @default 1.0
-             */
-            risk_per_trade_pct: string;
-            /**
-             * Throttled Risk Per Trade Pct
-             * @default 0.5
-             */
-            throttled_risk_per_trade_pct: string;
-            /**
-             * Total Open Risk Pct
-             * @default 2.5
-             */
-            total_open_risk_pct: string;
-            /**
-             * Max Exposure Pct
-             * @default 100
-             */
-            max_exposure_pct: string;
-            /**
-             * Min Trade Eur
-             * @default 10
-             */
-            min_trade_eur: string;
             /**
              * Cooldown After Stopout Hours
              * @default 6
@@ -576,6 +541,46 @@ export interface components {
              */
             correlated_threshold: string;
             /**
+             * Daily Loss Limit Pct
+             * @default 3
+             */
+            daily_loss_limit_pct: string;
+            /**
+             * Kill Drawdown Pct
+             * @default 8
+             */
+            kill_drawdown_pct: string;
+            /**
+             * Max Cost Pct Of Risk
+             * @default 30
+             */
+            max_cost_pct_of_risk: string;
+            /**
+             * Max Exposure Pct
+             * @default 100
+             */
+            max_exposure_pct: string;
+            /**
+             * Min Rr
+             * @default 2.0
+             */
+            min_rr: string;
+            /**
+             * Min Trade Eur
+             * @default 10
+             */
+            min_trade_eur: string;
+            /**
+             * Pending Entry Drift Pct
+             * @default 0.5
+             */
+            pending_entry_drift_pct: string;
+            /**
+             * Risk Per Trade Pct
+             * @default 1.0
+             */
+            risk_per_trade_pct: string;
+            /**
              * Shock Brake Btc Move Pct
              * @default 4
              */
@@ -585,6 +590,16 @@ export interface components {
              * @default 2
              */
             shock_brake_hours: string;
+            /**
+             * Stop Max Atr
+             * @default 5
+             */
+            stop_max_atr: string;
+            /**
+             * Stop Min Atr
+             * @default 0.5
+             */
+            stop_min_atr: string;
             /**
              * Throttle Consecutive Losses
              * @default 3
@@ -601,35 +616,20 @@ export interface components {
              */
             throttle_lift_drawdown_pct: string;
             /**
-             * Daily Loss Limit Pct
-             * @default 3
-             */
-            daily_loss_limit_pct: string;
-            /**
-             * Kill Drawdown Pct
-             * @default 8
-             */
-            kill_drawdown_pct: string;
-            /**
-             * Stop Min Atr
+             * Throttled Risk Per Trade Pct
              * @default 0.5
              */
-            stop_min_atr: string;
-            /**
-             * Stop Max Atr
-             * @default 5
-             */
-            stop_max_atr: string;
-            /**
-             * Pending Entry Drift Pct
-             * @default 0.5
-             */
-            pending_entry_drift_pct: string;
+            throttled_risk_per_trade_pct: string;
             /**
              * Time Stop Days
              * @default 5
              */
             time_stop_days: string;
+            /**
+             * Total Open Risk Pct
+             * @default 2.5
+             */
+            total_open_risk_pct: string;
             /**
              * Trailing Stop Enabled
              * @default false
@@ -655,11 +655,6 @@ export interface components {
          */
         "Settings-Input": {
             /**
-             * Schema Version
-             * @default 1
-             */
-            schema_version: number;
-            /**
              * Active Markets
              * @default [
              *       "BTC-EUR",
@@ -675,17 +670,6 @@ export interface components {
              */
             active_markets: string[];
             /**
-             * Execution Mode
-             * @default auto
-             * @enum {string}
-             */
-            execution_mode: "auto" | "supervised" | "manual";
-            /**
-             * Veto Window S
-             * @default 60
-             */
-            veto_window_s: number;
-            /**
              * Cycle Offset S
              * @default 45
              */
@@ -697,51 +681,67 @@ export interface components {
              */
             data_source: "bitvavo" | "sim";
             /**
-             * @default {
-             *       "min_rr": "2.0",
-             *       "max_cost_pct_of_risk": "30",
-             *       "risk_per_trade_pct": "1.0",
-             *       "throttled_risk_per_trade_pct": "0.5",
-             *       "total_open_risk_pct": "2.5",
-             *       "max_exposure_pct": "100",
-             *       "min_trade_eur": "10",
-             *       "cooldown_after_stopout_hours": "6",
-             *       "correlated_max_positions": 2,
-             *       "correlated_threshold": "0.8",
-             *       "shock_brake_btc_move_pct": "4",
-             *       "shock_brake_hours": "2",
-             *       "throttle_consecutive_losses": 3,
-             *       "throttle_drawdown_pct": "4",
-             *       "throttle_lift_drawdown_pct": "2",
-             *       "daily_loss_limit_pct": "3",
-             *       "kill_drawdown_pct": "8",
-             *       "stop_min_atr": "0.5",
-             *       "stop_max_atr": "5",
-             *       "pending_entry_drift_pct": "0.5",
-             *       "time_stop_days": "5",
-             *       "trailing_stop_enabled": false
-             *     }
+             * Execution Mode
+             * @default auto
+             * @enum {string}
              */
-            risk: components["schemas"]["RiskSettings-Input"];
+            execution_mode: "auto" | "supervised" | "manual";
             /**
              * @default {
+             *       "daily_call_budget": 1000,
              *       "decider": "openai",
              *       "model_id": "gpt-4o-mini",
+             *       "monthly_cost_cap_eur": "10",
              *       "prompt_version": "decision.v1",
-             *       "daily_call_budget": 1000,
-             *       "rules_prefilter": true,
-             *       "monthly_cost_cap_eur": "10"
+             *       "rules_prefilter": true
              *     }
              */
             model: components["schemas"]["ModelSettings-Input"];
             /**
              * @default {
-             *       "start_balance_eur": "10000",
              *       "fee_pct": "0.25",
-             *       "slippage_pct": "0.05"
+             *       "slippage_pct": "0.05",
+             *       "start_balance_eur": "10000"
              *     }
              */
             paper: components["schemas"]["PaperSettings-Input"];
+            /**
+             * @default {
+             *       "cooldown_after_stopout_hours": "6",
+             *       "correlated_max_positions": 2,
+             *       "correlated_threshold": "0.8",
+             *       "daily_loss_limit_pct": "3",
+             *       "kill_drawdown_pct": "8",
+             *       "max_cost_pct_of_risk": "30",
+             *       "max_exposure_pct": "100",
+             *       "min_rr": "2.0",
+             *       "min_trade_eur": "10",
+             *       "pending_entry_drift_pct": "0.5",
+             *       "risk_per_trade_pct": "1.0",
+             *       "shock_brake_btc_move_pct": "4",
+             *       "shock_brake_hours": "2",
+             *       "stop_max_atr": "5",
+             *       "stop_min_atr": "0.5",
+             *       "throttle_consecutive_losses": 3,
+             *       "throttle_drawdown_pct": "4",
+             *       "throttle_lift_drawdown_pct": "2",
+             *       "throttled_risk_per_trade_pct": "0.5",
+             *       "time_stop_days": "5",
+             *       "total_open_risk_pct": "2.5",
+             *       "trailing_stop_enabled": false
+             *     }
+             */
+            risk: components["schemas"]["RiskSettings-Input"];
+            /**
+             * Schema Version
+             * @default 1
+             */
+            schema_version: number;
+            /**
+             * Veto Window S
+             * @default 60
+             */
+            veto_window_s: number;
         };
         /**
          * Settings
@@ -751,11 +751,6 @@ export interface components {
          */
         "Settings-Output": {
             /**
-             * Schema Version
-             * @default 1
-             */
-            schema_version: number;
-            /**
              * Active Markets
              * @default [
              *       "BTC-EUR",
@@ -771,17 +766,6 @@ export interface components {
              */
             active_markets: string[];
             /**
-             * Execution Mode
-             * @default auto
-             * @enum {string}
-             */
-            execution_mode: "auto" | "supervised" | "manual";
-            /**
-             * Veto Window S
-             * @default 60
-             */
-            veto_window_s: number;
-            /**
              * Cycle Offset S
              * @default 45
              */
@@ -793,162 +777,178 @@ export interface components {
              */
             data_source: "bitvavo" | "sim";
             /**
-             * @default {
-             *       "min_rr": "2.0",
-             *       "max_cost_pct_of_risk": "30",
-             *       "risk_per_trade_pct": "1.0",
-             *       "throttled_risk_per_trade_pct": "0.5",
-             *       "total_open_risk_pct": "2.5",
-             *       "max_exposure_pct": "100",
-             *       "min_trade_eur": "10",
-             *       "cooldown_after_stopout_hours": "6",
-             *       "correlated_max_positions": 2,
-             *       "correlated_threshold": "0.8",
-             *       "shock_brake_btc_move_pct": "4",
-             *       "shock_brake_hours": "2",
-             *       "throttle_consecutive_losses": 3,
-             *       "throttle_drawdown_pct": "4",
-             *       "throttle_lift_drawdown_pct": "2",
-             *       "daily_loss_limit_pct": "3",
-             *       "kill_drawdown_pct": "8",
-             *       "stop_min_atr": "0.5",
-             *       "stop_max_atr": "5",
-             *       "pending_entry_drift_pct": "0.5",
-             *       "time_stop_days": "5",
-             *       "trailing_stop_enabled": false
-             *     }
+             * Execution Mode
+             * @default auto
+             * @enum {string}
              */
-            risk: components["schemas"]["RiskSettings-Output"];
+            execution_mode: "auto" | "supervised" | "manual";
             /**
              * @default {
+             *       "daily_call_budget": 1000,
              *       "decider": "openai",
              *       "model_id": "gpt-4o-mini",
+             *       "monthly_cost_cap_eur": "10",
              *       "prompt_version": "decision.v1",
-             *       "daily_call_budget": 1000,
-             *       "rules_prefilter": true,
-             *       "monthly_cost_cap_eur": "10"
+             *       "rules_prefilter": true
              *     }
              */
             model: components["schemas"]["ModelSettings-Output"];
             /**
              * @default {
-             *       "start_balance_eur": "10000",
              *       "fee_pct": "0.25",
-             *       "slippage_pct": "0.05"
+             *       "slippage_pct": "0.05",
+             *       "start_balance_eur": "10000"
              *     }
              */
             paper: components["schemas"]["PaperSettings-Output"];
+            /**
+             * @default {
+             *       "cooldown_after_stopout_hours": "6",
+             *       "correlated_max_positions": 2,
+             *       "correlated_threshold": "0.8",
+             *       "daily_loss_limit_pct": "3",
+             *       "kill_drawdown_pct": "8",
+             *       "max_cost_pct_of_risk": "30",
+             *       "max_exposure_pct": "100",
+             *       "min_rr": "2.0",
+             *       "min_trade_eur": "10",
+             *       "pending_entry_drift_pct": "0.5",
+             *       "risk_per_trade_pct": "1.0",
+             *       "shock_brake_btc_move_pct": "4",
+             *       "shock_brake_hours": "2",
+             *       "stop_max_atr": "5",
+             *       "stop_min_atr": "0.5",
+             *       "throttle_consecutive_losses": 3,
+             *       "throttle_drawdown_pct": "4",
+             *       "throttle_lift_drawdown_pct": "2",
+             *       "throttled_risk_per_trade_pct": "0.5",
+             *       "time_stop_days": "5",
+             *       "total_open_risk_pct": "2.5",
+             *       "trailing_stop_enabled": false
+             *     }
+             */
+            risk: components["schemas"]["RiskSettings-Output"];
+            /**
+             * Schema Version
+             * @default 1
+             */
+            schema_version: number;
+            /**
+             * Veto Window S
+             * @default 60
+             */
+            veto_window_s: number;
         };
         /** Signal */
         Signal: {
             /** Name */
             name: string;
             /**
-             * Tf
-             * @enum {string}
-             */
-            tf: "1h" | "4h" | "1d";
-            /**
              * Read
              * @enum {string}
              */
             read: "bullish" | "bearish" | "neutral" | "trending" | "ranging" | "low" | "normal" | "high";
+            /**
+             * Tf
+             * @enum {string}
+             */
+            tf: "1h" | "4h" | "1d";
         };
         /** Snapshot */
         Snapshot: {
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "running" | "paused" | "killed" | "error";
+            /** Account Id */
+            account_id: number;
+            /** Activity */
+            activity: components["schemas"]["ActivityItem"][];
+            /** Cash */
+            cash: string;
+            /** Cycle */
+            cycle: number;
+            /** Cycle In Progress */
+            cycle_in_progress: boolean;
+            /** Drawdown Pct */
+            drawdown_pct: number;
+            /** Equity */
+            equity: string;
+            /** Errors 24H */
+            errors_24h: number;
+            /** Errors Open */
+            errors_open: number;
+            /** Exposure Pct */
+            exposure_pct: number;
+            kill: components["schemas"]["KillInfo"] | null;
+            /** Latest */
+            latest: {
+                [key: string]: components["schemas"]["Decision"];
+            };
             /**
              * Mode
              * @constant
              */
             mode: "paper";
+            /** Next Run At */
+            next_run_at: string | null;
+            /** Paused */
+            paused: components["schemas"]["EntryPause"][];
+            /** Pending */
+            pending: components["schemas"]["Decision"][];
+            /** Positions */
+            positions: components["schemas"]["Position"][];
+            /** Prices */
+            prices: {
+                [key: string]: components["schemas"]["PriceInfo"];
+            };
+            /** Quiet */
+            quiet: string;
+            risk_budget: components["schemas"]["RiskBudget"];
             /**
              * Source
              * @enum {string}
              */
             source: "bitvavo" | "sim";
-            /** Cycle */
-            cycle: number;
-            /** Next Run At */
-            next_run_at: string | null;
-            /** Cycle In Progress */
-            cycle_in_progress: boolean;
-            /** Equity */
-            equity: string;
-            /** Cash */
-            cash: string;
             /** Start Equity */
             start_equity: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "paused" | "killed" | "error";
             /** Today Pnl */
             today_pnl: string;
-            /** Exposure Pct */
-            exposure_pct: number;
-            /** Drawdown Pct */
-            drawdown_pct: number;
-            /** Prices */
-            prices: {
-                [key: string]: components["schemas"]["PriceInfo"];
-            };
-            /** Positions */
-            positions: components["schemas"]["Position"][];
-            /** Latest */
-            latest: {
-                [key: string]: components["schemas"]["Decision"];
-            };
-            /** Pending */
-            pending: components["schemas"]["Decision"][];
-            /** Activity */
-            activity: components["schemas"]["ActivityItem"][];
             usage: components["schemas"]["Usage"];
-            /** Account Id */
-            account_id: number;
-            /** Quiet */
-            quiet: string;
-            risk_budget: components["schemas"]["RiskBudget"];
-            /** Paused */
-            paused: components["schemas"]["EntryPause"][];
-            /** Errors 24H */
-            errors_24h: number;
-            /** Errors Open */
-            errors_open: number;
-            kill: components["schemas"]["KillInfo"] | null;
         };
         /** Throttle */
         Throttle: {
-            /** Reasons */
-            reasons: ("streak" | "drawdown")[];
             /** Lifts When */
             lifts_when: string;
+            /** Reasons */
+            reasons: ("streak" | "drawdown")[];
         };
         /** Usage */
         Usage: {
             /** Calls Today */
             calls_today: number;
-            /** Daily Budget */
-            daily_budget: number;
-            /** Cost Today Eur */
-            cost_today_eur: string;
-            /** Cost Month Eur */
-            cost_month_eur: string;
             /** Cap Eur */
             cap_eur: string;
+            /** Cost Month Eur */
+            cost_month_eur: string;
+            /** Cost Today Eur */
+            cost_today_eur: string;
+            /** Daily Budget */
+            daily_budget: number;
         };
         /** ValidationError */
         ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
             /** Location */
             loc: (string | number)[];
             /** Message */
             msg: string;
             /** Error Type */
             type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -959,26 +959,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    get_session_token_api_session_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionOut"];
-                };
-            };
-        };
-    };
     health_api_health_get: {
         parameters: {
             query?: never;
@@ -999,7 +979,7 @@ export interface operations {
             };
         };
     };
-    snapshot_api_snapshot_get: {
+    get_session_token_api_session_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -1014,7 +994,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Snapshot"];
+                    "application/json": components["schemas"]["SessionOut"];
                 };
             };
         };
@@ -1070,6 +1050,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    snapshot_api_snapshot_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"];
                 };
             };
         };
