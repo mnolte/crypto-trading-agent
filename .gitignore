@@ -27,6 +27,7 @@ coverage/
 
 # Node / frontend
 node_modules/
+frontend/node_modules/
 frontend/dist/
 .vite/
 *.tsbuildinfo
@@ -41,7 +42,8 @@ pnpm-debug.log*
 # Tests and reports
 playwright-report/
 test-results/
-frontend/screenshots/
+frontend/test-results/
+frontend/playwright-report/
 .playwright/
 junit*.xml
 
@@ -54,8 +56,8 @@ junit*.xml
 *.sqlite3
 data/
 
-# Generated OpenAPI dump (frontend types are generated from it)
-openapi.json
+# openapi.json is committed on purpose: frontend types regenerate without a
+# backend. `make openapi-check` fails when it drifts from the app.
 
 # Logs and local artifacts
 *.log

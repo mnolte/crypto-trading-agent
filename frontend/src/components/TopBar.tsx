@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { AgentStatus } from "../api/client";
+import type { DisplayStatus } from "../lib/status";
 import { Button } from "./Button";
 import { ErrorBadge } from "./ErrorBadge";
 import { SegmentedControl } from "./SegmentedControl";
@@ -9,6 +10,7 @@ import { StatusPill } from "./StatusPill";
 export function TopBar({
   title,
   status,
+  lastKnown,
   errors24h = 0,
   running = false,
   controls = true,
@@ -18,7 +20,8 @@ export function TopBar({
   onFlatten,
 }: {
   title: string;
-  status: AgentStatus;
+  status: DisplayStatus;
+  lastKnown?: { status: AgentStatus; at: number };
   errors24h?: number;
   running?: boolean;
   /** Show the global controls: Paper/Live, Run now, Pause, Stop & flatten. */
@@ -36,7 +39,7 @@ export function TopBar({
     <header className="topbar">
       <div className="topbar__left">
         <h1 className="topbar__title">{title}</h1>
-        <StatusPill status={status} />
+        <StatusPill status={status} lastKnown={lastKnown} />
         <ErrorBadge count={errors24h} href="/activity" />
       </div>
       {controls && (

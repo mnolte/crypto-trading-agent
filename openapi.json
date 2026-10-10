@@ -1,0 +1,1815 @@
+{
+  "components": {
+    "schemas": {
+      "ActivityItem": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "pair": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pair"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "kind",
+          "pair",
+          "text",
+          "decision_id"
+        ],
+        "title": "ActivityItem",
+        "type": "object"
+      },
+      "Decision": {
+        "properties": {
+          "account_id": {
+            "title": "Account Id",
+            "type": "integer"
+          },
+          "action": {
+            "enum": [
+              "BUY",
+              "SELL",
+              "HOLD",
+              "SKIP"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "btc_regime": {
+            "$ref": "#/components/schemas/Regime"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "cycle": {
+            "title": "Cycle",
+            "type": "integer"
+          },
+          "decider": {
+            "enum": [
+              "openai",
+              "rules"
+            ],
+            "title": "Decider",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "execute_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execute At"
+          },
+          "gates": {
+            "items": {
+              "$ref": "#/components/schemas/Gate"
+            },
+            "title": "Gates",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "invalidation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invalidation"
+          },
+          "invalidation_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invalidation Price"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "pair": {
+            "title": "Pair",
+            "type": "string"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Plan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prompt_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Version"
+          },
+          "reasoning": {
+            "title": "Reasoning",
+            "type": "string"
+          },
+          "regime": {
+            "$ref": "#/components/schemas/Regime"
+          },
+          "risk_pct_used": {
+            "title": "Risk Pct Used",
+            "type": "string"
+          },
+          "settings_version": {
+            "title": "Settings Version",
+            "type": "integer"
+          },
+          "shadow_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shadow Id"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/Signal"
+            },
+            "title": "Signals",
+            "type": "array"
+          },
+          "stand_in": {
+            "default": false,
+            "title": "Stand In",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "executed",
+              "pending",
+              "approved",
+              "vetoed",
+              "expired",
+              "none"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "cycle",
+          "at",
+          "pair",
+          "decider",
+          "action",
+          "confidence",
+          "reasoning",
+          "signals",
+          "gates",
+          "status",
+          "regime",
+          "btc_regime",
+          "risk_pct_used",
+          "account_id",
+          "settings_version"
+        ],
+        "title": "Decision",
+        "type": "object"
+      },
+      "EntryPause": {
+        "properties": {
+          "pair": {
+            "title": "Pair",
+            "type": "string"
+          },
+          "until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
+          }
+        },
+        "required": [
+          "pair",
+          "until"
+        ],
+        "title": "EntryPause",
+        "type": "object"
+      },
+      "Gate": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "warn",
+              "fail"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "value"
+        ],
+        "title": "Gate",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthOut": {
+        "properties": {
+          "cycle": {
+            "title": "Cycle",
+            "type": "integer"
+          },
+          "errors_24h": {
+            "title": "Errors 24H",
+            "type": "integer"
+          },
+          "last_cycle_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Cycle At"
+          },
+          "sources": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Sources",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "cycle",
+          "last_cycle_at",
+          "sources",
+          "errors_24h"
+        ],
+        "title": "HealthOut",
+        "type": "object"
+      },
+      "KillInfo": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "closed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Closed",
+            "type": "array"
+          },
+          "drawdown_pct": {
+            "title": "Drawdown Pct",
+            "type": "string"
+          },
+          "equity": {
+            "title": "Equity",
+            "type": "string"
+          },
+          "peak": {
+            "title": "Peak",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "peak",
+          "equity",
+          "drawdown_pct",
+          "closed"
+        ],
+        "title": "KillInfo",
+        "type": "object"
+      },
+      "ModelSettings-Input": {
+        "properties": {
+          "daily_call_budget": {
+            "default": 1000,
+            "title": "Daily Call Budget",
+            "type": "integer"
+          },
+          "decider": {
+            "default": "openai",
+            "enum": [
+              "openai",
+              "rules"
+            ],
+            "title": "Decider",
+            "type": "string"
+          },
+          "model_id": {
+            "default": "gpt-4o-mini",
+            "title": "Model Id",
+            "type": "string"
+          },
+          "monthly_cost_cap_eur": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "10",
+            "title": "Monthly Cost Cap Eur"
+          },
+          "prompt_version": {
+            "default": "decision.v1",
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "rules_prefilter": {
+            "default": true,
+            "title": "Rules Prefilter",
+            "type": "boolean"
+          }
+        },
+        "title": "ModelSettings",
+        "type": "object"
+      },
+      "ModelSettings-Output": {
+        "properties": {
+          "daily_call_budget": {
+            "default": 1000,
+            "title": "Daily Call Budget",
+            "type": "integer"
+          },
+          "decider": {
+            "default": "openai",
+            "enum": [
+              "openai",
+              "rules"
+            ],
+            "title": "Decider",
+            "type": "string"
+          },
+          "model_id": {
+            "default": "gpt-4o-mini",
+            "title": "Model Id",
+            "type": "string"
+          },
+          "monthly_cost_cap_eur": {
+            "default": "10",
+            "title": "Monthly Cost Cap Eur",
+            "type": "string"
+          },
+          "prompt_version": {
+            "default": "decision.v1",
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "rules_prefilter": {
+            "default": true,
+            "title": "Rules Prefilter",
+            "type": "boolean"
+          }
+        },
+        "title": "ModelSettings",
+        "type": "object"
+      },
+      "PaperSettings-Input": {
+        "properties": {
+          "fee_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0.25",
+            "title": "Fee Pct"
+          },
+          "slippage_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0.05",
+            "title": "Slippage Pct"
+          },
+          "start_balance_eur": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "10000",
+            "title": "Start Balance Eur"
+          }
+        },
+        "title": "PaperSettings",
+        "type": "object"
+      },
+      "PaperSettings-Output": {
+        "properties": {
+          "fee_pct": {
+            "default": "0.25",
+            "title": "Fee Pct",
+            "type": "string"
+          },
+          "slippage_pct": {
+            "default": "0.05",
+            "title": "Slippage Pct",
+            "type": "string"
+          },
+          "start_balance_eur": {
+            "default": "10000",
+            "title": "Start Balance Eur",
+            "type": "string"
+          }
+        },
+        "title": "PaperSettings",
+        "type": "object"
+      },
+      "Plan": {
+        "properties": {
+          "entry": {
+            "title": "Entry",
+            "type": "string"
+          },
+          "notional": {
+            "title": "Notional",
+            "type": "string"
+          },
+          "qty": {
+            "title": "Qty",
+            "type": "string"
+          },
+          "rr": {
+            "title": "Rr",
+            "type": "string"
+          },
+          "stop": {
+            "title": "Stop",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry",
+          "stop",
+          "target",
+          "qty",
+          "notional",
+          "rr"
+        ],
+        "title": "Plan",
+        "type": "object"
+      },
+      "Position": {
+        "properties": {
+          "decision_id": {
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "entry": {
+            "title": "Entry",
+            "type": "string"
+          },
+          "last": {
+            "title": "Last",
+            "type": "string"
+          },
+          "opened_at": {
+            "format": "date-time",
+            "title": "Opened At",
+            "type": "string"
+          },
+          "pair": {
+            "title": "Pair",
+            "type": "string"
+          },
+          "qty": {
+            "title": "Qty",
+            "type": "string"
+          },
+          "stop": {
+            "title": "Stop",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "unrealised": {
+            "title": "Unrealised",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pair",
+          "qty",
+          "entry",
+          "stop",
+          "target",
+          "opened_at",
+          "decision_id",
+          "last",
+          "unrealised"
+        ],
+        "title": "Position",
+        "type": "object"
+      },
+      "PriceInfo": {
+        "properties": {
+          "chg_24h_pct": {
+            "title": "Chg 24H Pct",
+            "type": "string"
+          },
+          "last": {
+            "title": "Last",
+            "type": "string"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "last",
+          "chg_24h_pct",
+          "stale"
+        ],
+        "title": "PriceInfo",
+        "type": "object"
+      },
+      "Regime": {
+        "properties": {
+          "age_4h": {
+            "title": "Age 4H",
+            "type": "integer"
+          },
+          "trend": {
+            "enum": [
+              "up",
+              "down",
+              "sideways"
+            ],
+            "title": "Trend",
+            "type": "string"
+          },
+          "volatility": {
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ],
+            "title": "Volatility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trend",
+          "volatility",
+          "age_4h"
+        ],
+        "title": "Regime",
+        "type": "object"
+      },
+      "RiskBudget": {
+        "properties": {
+          "correlated_slots_left": {
+            "title": "Correlated Slots Left",
+            "type": "integer"
+          },
+          "daily_limit_pct": {
+            "title": "Daily Limit Pct",
+            "type": "string"
+          },
+          "drawdown_pct": {
+            "title": "Drawdown Pct",
+            "type": "string"
+          },
+          "full_trades_left": {
+            "title": "Full Trades Left",
+            "type": "integer"
+          },
+          "kill_pct": {
+            "title": "Kill Pct",
+            "type": "string"
+          },
+          "open_risk_cap_pct": {
+            "title": "Open Risk Cap Pct",
+            "type": "string"
+          },
+          "open_risk_pct": {
+            "title": "Open Risk Pct",
+            "type": "string"
+          },
+          "risk_pct_now": {
+            "title": "Risk Pct Now",
+            "type": "string"
+          },
+          "shock_brake_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shock Brake Until"
+          },
+          "throttle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Throttle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "today_loss_pct": {
+            "title": "Today Loss Pct",
+            "type": "string"
+          }
+        },
+        "required": [
+          "open_risk_pct",
+          "open_risk_cap_pct",
+          "today_loss_pct",
+          "daily_limit_pct",
+          "drawdown_pct",
+          "kill_pct",
+          "full_trades_left",
+          "risk_pct_now",
+          "throttle",
+          "shock_brake_until",
+          "correlated_slots_left"
+        ],
+        "title": "RiskBudget",
+        "type": "object"
+      },
+      "RiskSettings-Input": {
+        "description": "Every risk-gate threshold lives here, never as a literal in logic.",
+        "properties": {
+          "cooldown_after_stopout_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "6",
+            "title": "Cooldown After Stopout Hours"
+          },
+          "correlated_max_positions": {
+            "default": 2,
+            "title": "Correlated Max Positions",
+            "type": "integer"
+          },
+          "correlated_threshold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0.8",
+            "title": "Correlated Threshold"
+          },
+          "daily_loss_limit_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "3",
+            "title": "Daily Loss Limit Pct"
+          },
+          "kill_drawdown_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "8",
+            "title": "Kill Drawdown Pct"
+          },
+          "max_cost_pct_of_risk": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "30",
+            "title": "Max Cost Pct Of Risk"
+          },
+          "max_exposure_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "100",
+            "title": "Max Exposure Pct"
+          },
+          "min_rr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "2.0",
+            "title": "Min Rr"
+          },
+          "min_trade_eur": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "10",
+            "title": "Min Trade Eur"
+          },
+          "pending_entry_drift_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0.5",
+            "title": "Pending Entry Drift Pct"
+          },
+          "risk_per_trade_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "1.0",
+            "title": "Risk Per Trade Pct"
+          },
+          "shock_brake_btc_move_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "4",
+            "title": "Shock Brake Btc Move Pct"
+          },
+          "shock_brake_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "2",
+            "title": "Shock Brake Hours"
+          },
+          "stop_max_atr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "5",
+            "title": "Stop Max Atr"
+          },
+          "stop_min_atr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0.5",
+            "title": "Stop Min Atr"
+          },
+          "throttle_consecutive_losses": {
+            "default": 3,
+            "title": "Throttle Consecutive Losses",
+            "type": "integer"
+          },
+          "throttle_drawdown_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "4",
+            "title": "Throttle Drawdown Pct"
+          },
+          "throttle_lift_drawdown_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "2",
+            "title": "Throttle Lift Drawdown Pct"
+          },
+          "throttled_risk_per_trade_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0.5",
+            "title": "Throttled Risk Per Trade Pct"
+          },
+          "time_stop_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "5",
+            "title": "Time Stop Days"
+          },
+          "total_open_risk_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "2.5",
+            "title": "Total Open Risk Pct"
+          },
+          "trailing_stop_enabled": {
+            "default": false,
+            "title": "Trailing Stop Enabled",
+            "type": "boolean"
+          }
+        },
+        "title": "RiskSettings",
+        "type": "object"
+      },
+      "RiskSettings-Output": {
+        "description": "Every risk-gate threshold lives here, never as a literal in logic.",
+        "properties": {
+          "cooldown_after_stopout_hours": {
+            "default": "6",
+            "title": "Cooldown After Stopout Hours",
+            "type": "string"
+          },
+          "correlated_max_positions": {
+            "default": 2,
+            "title": "Correlated Max Positions",
+            "type": "integer"
+          },
+          "correlated_threshold": {
+            "default": "0.8",
+            "title": "Correlated Threshold",
+            "type": "string"
+          },
+          "daily_loss_limit_pct": {
+            "default": "3",
+            "title": "Daily Loss Limit Pct",
+            "type": "string"
+          },
+          "kill_drawdown_pct": {
+            "default": "8",
+            "title": "Kill Drawdown Pct",
+            "type": "string"
+          },
+          "max_cost_pct_of_risk": {
+            "default": "30",
+            "title": "Max Cost Pct Of Risk",
+            "type": "string"
+          },
+          "max_exposure_pct": {
+            "default": "100",
+            "title": "Max Exposure Pct",
+            "type": "string"
+          },
+          "min_rr": {
+            "default": "2.0",
+            "title": "Min Rr",
+            "type": "string"
+          },
+          "min_trade_eur": {
+            "default": "10",
+            "title": "Min Trade Eur",
+            "type": "string"
+          },
+          "pending_entry_drift_pct": {
+            "default": "0.5",
+            "title": "Pending Entry Drift Pct",
+            "type": "string"
+          },
+          "risk_per_trade_pct": {
+            "default": "1.0",
+            "title": "Risk Per Trade Pct",
+            "type": "string"
+          },
+          "shock_brake_btc_move_pct": {
+            "default": "4",
+            "title": "Shock Brake Btc Move Pct",
+            "type": "string"
+          },
+          "shock_brake_hours": {
+            "default": "2",
+            "title": "Shock Brake Hours",
+            "type": "string"
+          },
+          "stop_max_atr": {
+            "default": "5",
+            "title": "Stop Max Atr",
+            "type": "string"
+          },
+          "stop_min_atr": {
+            "default": "0.5",
+            "title": "Stop Min Atr",
+            "type": "string"
+          },
+          "throttle_consecutive_losses": {
+            "default": 3,
+            "title": "Throttle Consecutive Losses",
+            "type": "integer"
+          },
+          "throttle_drawdown_pct": {
+            "default": "4",
+            "title": "Throttle Drawdown Pct",
+            "type": "string"
+          },
+          "throttle_lift_drawdown_pct": {
+            "default": "2",
+            "title": "Throttle Lift Drawdown Pct",
+            "type": "string"
+          },
+          "throttled_risk_per_trade_pct": {
+            "default": "0.5",
+            "title": "Throttled Risk Per Trade Pct",
+            "type": "string"
+          },
+          "time_stop_days": {
+            "default": "5",
+            "title": "Time Stop Days",
+            "type": "string"
+          },
+          "total_open_risk_pct": {
+            "default": "2.5",
+            "title": "Total Open Risk Pct",
+            "type": "string"
+          },
+          "trailing_stop_enabled": {
+            "default": false,
+            "title": "Trailing Stop Enabled",
+            "type": "boolean"
+          }
+        },
+        "title": "RiskSettings",
+        "type": "object"
+      },
+      "SessionOut": {
+        "description": "The X-Local-Token for the served UI.\n\nNo CORS headers are sent, so other sites can call this but cannot read\nthe response.",
+        "properties": {
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "SessionOut",
+        "type": "object"
+      },
+      "Settings-Input": {
+        "description": "The one validated JSON document stored in the settings table.\n\nUnknown keys are dropped on load; new fields added later take their default.",
+        "properties": {
+          "active_markets": {
+            "default": [
+              "BTC-EUR",
+              "ETH-EUR",
+              "SOL-EUR",
+              "XRP-EUR",
+              "ADA-EUR",
+              "LINK-EUR",
+              "AVAX-EUR",
+              "DOGE-EUR",
+              "LTC-EUR"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Active Markets",
+            "type": "array"
+          },
+          "cycle_offset_s": {
+            "default": 45,
+            "title": "Cycle Offset S",
+            "type": "integer"
+          },
+          "data_source": {
+            "default": "bitvavo",
+            "enum": [
+              "bitvavo",
+              "sim"
+            ],
+            "title": "Data Source",
+            "type": "string"
+          },
+          "execution_mode": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "supervised",
+              "manual"
+            ],
+            "title": "Execution Mode",
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelSettings-Input",
+            "default": {
+              "daily_call_budget": 1000,
+              "decider": "openai",
+              "model_id": "gpt-4o-mini",
+              "monthly_cost_cap_eur": "10",
+              "prompt_version": "decision.v1",
+              "rules_prefilter": true
+            }
+          },
+          "paper": {
+            "$ref": "#/components/schemas/PaperSettings-Input",
+            "default": {
+              "fee_pct": "0.25",
+              "slippage_pct": "0.05",
+              "start_balance_eur": "10000"
+            }
+          },
+          "risk": {
+            "$ref": "#/components/schemas/RiskSettings-Input",
+            "default": {
+              "cooldown_after_stopout_hours": "6",
+              "correlated_max_positions": 2,
+              "correlated_threshold": "0.8",
+              "daily_loss_limit_pct": "3",
+              "kill_drawdown_pct": "8",
+              "max_cost_pct_of_risk": "30",
+              "max_exposure_pct": "100",
+              "min_rr": "2.0",
+              "min_trade_eur": "10",
+              "pending_entry_drift_pct": "0.5",
+              "risk_per_trade_pct": "1.0",
+              "shock_brake_btc_move_pct": "4",
+              "shock_brake_hours": "2",
+              "stop_max_atr": "5",
+              "stop_min_atr": "0.5",
+              "throttle_consecutive_losses": 3,
+              "throttle_drawdown_pct": "4",
+              "throttle_lift_drawdown_pct": "2",
+              "throttled_risk_per_trade_pct": "0.5",
+              "time_stop_days": "5",
+              "total_open_risk_pct": "2.5",
+              "trailing_stop_enabled": false
+            }
+          },
+          "schema_version": {
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "veto_window_s": {
+            "default": 60,
+            "title": "Veto Window S",
+            "type": "integer"
+          }
+        },
+        "title": "Settings",
+        "type": "object"
+      },
+      "Settings-Output": {
+        "description": "The one validated JSON document stored in the settings table.\n\nUnknown keys are dropped on load; new fields added later take their default.",
+        "properties": {
+          "active_markets": {
+            "default": [
+              "BTC-EUR",
+              "ETH-EUR",
+              "SOL-EUR",
+              "XRP-EUR",
+              "ADA-EUR",
+              "LINK-EUR",
+              "AVAX-EUR",
+              "DOGE-EUR",
+              "LTC-EUR"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Active Markets",
+            "type": "array"
+          },
+          "cycle_offset_s": {
+            "default": 45,
+            "title": "Cycle Offset S",
+            "type": "integer"
+          },
+          "data_source": {
+            "default": "bitvavo",
+            "enum": [
+              "bitvavo",
+              "sim"
+            ],
+            "title": "Data Source",
+            "type": "string"
+          },
+          "execution_mode": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "supervised",
+              "manual"
+            ],
+            "title": "Execution Mode",
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelSettings-Output",
+            "default": {
+              "daily_call_budget": 1000,
+              "decider": "openai",
+              "model_id": "gpt-4o-mini",
+              "monthly_cost_cap_eur": "10",
+              "prompt_version": "decision.v1",
+              "rules_prefilter": true
+            }
+          },
+          "paper": {
+            "$ref": "#/components/schemas/PaperSettings-Output",
+            "default": {
+              "fee_pct": "0.25",
+              "slippage_pct": "0.05",
+              "start_balance_eur": "10000"
+            }
+          },
+          "risk": {
+            "$ref": "#/components/schemas/RiskSettings-Output",
+            "default": {
+              "cooldown_after_stopout_hours": "6",
+              "correlated_max_positions": 2,
+              "correlated_threshold": "0.8",
+              "daily_loss_limit_pct": "3",
+              "kill_drawdown_pct": "8",
+              "max_cost_pct_of_risk": "30",
+              "max_exposure_pct": "100",
+              "min_rr": "2.0",
+              "min_trade_eur": "10",
+              "pending_entry_drift_pct": "0.5",
+              "risk_per_trade_pct": "1.0",
+              "shock_brake_btc_move_pct": "4",
+              "shock_brake_hours": "2",
+              "stop_max_atr": "5",
+              "stop_min_atr": "0.5",
+              "throttle_consecutive_losses": 3,
+              "throttle_drawdown_pct": "4",
+              "throttle_lift_drawdown_pct": "2",
+              "throttled_risk_per_trade_pct": "0.5",
+              "time_stop_days": "5",
+              "total_open_risk_pct": "2.5",
+              "trailing_stop_enabled": false
+            }
+          },
+          "schema_version": {
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "veto_window_s": {
+            "default": 60,
+            "title": "Veto Window S",
+            "type": "integer"
+          }
+        },
+        "title": "Settings",
+        "type": "object"
+      },
+      "Signal": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "read": {
+            "enum": [
+              "bullish",
+              "bearish",
+              "neutral",
+              "trending",
+              "ranging",
+              "low",
+              "normal",
+              "high"
+            ],
+            "title": "Read",
+            "type": "string"
+          },
+          "tf": {
+            "enum": [
+              "1h",
+              "4h",
+              "1d"
+            ],
+            "title": "Tf",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "tf",
+          "read"
+        ],
+        "title": "Signal",
+        "type": "object"
+      },
+      "Snapshot": {
+        "properties": {
+          "account_id": {
+            "title": "Account Id",
+            "type": "integer"
+          },
+          "activity": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityItem"
+            },
+            "title": "Activity",
+            "type": "array"
+          },
+          "cash": {
+            "title": "Cash",
+            "type": "string"
+          },
+          "cycle": {
+            "title": "Cycle",
+            "type": "integer"
+          },
+          "cycle_in_progress": {
+            "title": "Cycle In Progress",
+            "type": "boolean"
+          },
+          "drawdown_pct": {
+            "title": "Drawdown Pct",
+            "type": "number"
+          },
+          "equity": {
+            "title": "Equity",
+            "type": "string"
+          },
+          "errors_24h": {
+            "title": "Errors 24H",
+            "type": "integer"
+          },
+          "errors_open": {
+            "title": "Errors Open",
+            "type": "integer"
+          },
+          "exposure_pct": {
+            "title": "Exposure Pct",
+            "type": "number"
+          },
+          "kill": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KillInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latest": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Decision"
+            },
+            "title": "Latest",
+            "type": "object"
+          },
+          "mode": {
+            "const": "paper",
+            "title": "Mode",
+            "type": "string"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run At"
+          },
+          "paused": {
+            "items": {
+              "$ref": "#/components/schemas/EntryPause"
+            },
+            "title": "Paused",
+            "type": "array"
+          },
+          "pending": {
+            "items": {
+              "$ref": "#/components/schemas/Decision"
+            },
+            "title": "Pending",
+            "type": "array"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/Position"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "prices": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PriceInfo"
+            },
+            "title": "Prices",
+            "type": "object"
+          },
+          "quiet": {
+            "title": "Quiet",
+            "type": "string"
+          },
+          "risk_budget": {
+            "$ref": "#/components/schemas/RiskBudget"
+          },
+          "source": {
+            "enum": [
+              "bitvavo",
+              "sim"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "start_equity": {
+            "title": "Start Equity",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "paused",
+              "killed",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "today_pnl": {
+            "title": "Today Pnl",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage"
+          }
+        },
+        "required": [
+          "status",
+          "mode",
+          "source",
+          "cycle",
+          "next_run_at",
+          "cycle_in_progress",
+          "equity",
+          "cash",
+          "start_equity",
+          "today_pnl",
+          "exposure_pct",
+          "drawdown_pct",
+          "prices",
+          "positions",
+          "latest",
+          "pending",
+          "activity",
+          "usage",
+          "account_id",
+          "quiet",
+          "risk_budget",
+          "paused",
+          "errors_24h",
+          "errors_open",
+          "kill"
+        ],
+        "title": "Snapshot",
+        "type": "object"
+      },
+      "Throttle": {
+        "properties": {
+          "lifts_when": {
+            "title": "Lifts When",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "enum": [
+                "streak",
+                "drawdown"
+              ],
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reasons",
+          "lifts_when"
+        ],
+        "title": "Throttle",
+        "type": "object"
+      },
+      "Usage": {
+        "properties": {
+          "calls_today": {
+            "title": "Calls Today",
+            "type": "integer"
+          },
+          "cap_eur": {
+            "title": "Cap Eur",
+            "type": "string"
+          },
+          "cost_month_eur": {
+            "title": "Cost Month Eur",
+            "type": "string"
+          },
+          "cost_today_eur": {
+            "title": "Cost Today Eur",
+            "type": "string"
+          },
+          "daily_budget": {
+            "title": "Daily Budget",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "calls_today",
+          "daily_budget",
+          "cost_today_eur",
+          "cost_month_eur",
+          "cap_eur"
+        ],
+        "title": "Usage",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Trading Agent",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/health": {
+      "get": {
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/api/session": {
+      "get": {
+        "operationId": "get_session_token_api_session_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Session Token"
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "operationId": "read_settings_api_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings-Output"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Settings"
+      },
+      "put": {
+        "operationId": "write_settings_api_settings_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Settings-Input"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings-Output"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Write Settings"
+      }
+    },
+    "/api/snapshot": {
+      "get": {
+        "operationId": "snapshot_api_snapshot_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Snapshot"
+      }
+    }
+  }
+}

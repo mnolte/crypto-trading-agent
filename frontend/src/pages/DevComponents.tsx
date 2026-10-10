@@ -113,6 +113,10 @@ export function DevComponents() {
           <StatusPill status="paused" />
           <StatusPill status="killed" />
           <StatusPill status="error" />
+          <StatusPill
+            status="disconnected"
+            lastKnown={{ status: "running", at: Date.UTC(2024, 9, 9, 10, 32, 0) }}
+          />
           <ErrorBadge count={2} />
           <ErrorBadge count={1} />
         </div>

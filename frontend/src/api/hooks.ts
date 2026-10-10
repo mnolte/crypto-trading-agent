@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { api, type HealthOut, type SettingsOut, type Snapshot } from "./client";
 
 export function useSnapshot() {
@@ -29,9 +29,13 @@ export function useHealth() {
 /**
  * Subscribe to the snapshot WebSocket. The server pushes {"type":"snapshot"}
  * after every change; on reconnect (with backoff) we refetch the snapshot.
+ *
+ * `connected` is true only after a fresh snapshot arrived on the current
+ * socket — the UI shows "Disconnected" the moment the stream drops.
  */
-export function useSnapshotStream() {
+export function useSnapshotStream(): { connected: boolean } {
   const client = useQueryClient();
+  const [connected, setConnected] = useState(false);
   useEffect(() => {
     let ws: WebSocket | null = null;
     let attempt = 0;
@@ -43,7 +47,6 @@ export function useSnapshotStream() {
       ws = new WebSocket(`${proto}://${location.host}/ws`);
       ws.onopen = () => {
         attempt = 0;
-        void client.invalidateQueries({ queryKey: ["snapshot"] });
       };
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data as string) as {
@@ -51,10 +54,12 @@ export function useSnapshotStream() {
           data?: Snapshot;
         };
         if (message.type === "snapshot" && message.data) {
+          setConnected(true);
           client.setQueryData(["snapshot"], message.data);
         }
       };
       ws.onclose = () => {
+        setConnected(false);
         if (closed) return;
         attempt += 1;
         const delay = Math.min(30_000, 500 * 2 ** attempt);
@@ -65,8 +70,10 @@ export function useSnapshotStream() {
     connect();
     return () => {
       closed = true;
+      setConnected(false);
       window.clearTimeout(timer);
       ws?.close();
     };
   }, [client]);
+  return { connected };
 }
