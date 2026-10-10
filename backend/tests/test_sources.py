@@ -6,6 +6,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import httpx
+import keyring
+import pytest
 import respx
 from fastapi.testclient import TestClient
 
@@ -178,3 +180,40 @@ def test_writes_require_token(client: TestClient) -> None:
     assert client.delete("/api/secrets/openai").status_code == 403
     assert client.post("/api/secrets/openai/test").status_code == 403
     assert client.put("/api/markets/BTC-EUR", json={"active": True}).status_code == 403
+
+
+def test_reads_survive_missing_keyring_backend(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A headless host (CI, a server without dbus) has no keyring backend:
+    get_password raises NoKeyringError. Reads must degrade to env/.env —
+    /api/health and /api/sources keep answering."""
+    monkeypatch.setattr(
+        keyring,
+        "get_password",
+        _raise_no_keyring,
+    )
+    assert client.get("/api/health").status_code == 200
+    openai = next(s for s in client.get("/api/sources").json() if s["id"] == "openai")
+    assert openai["key_set"] is False
+
+
+def test_secret_write_reports_missing_keyring_backend(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With no keyring backend a key cannot be stored — a clear 503, not a
+    bare 500."""
+    monkeypatch.setattr(keyring, "set_password", _raise_no_keyring)
+    monkeypatch.setattr(keyring, "delete_password", _raise_no_keyring)
+    token = _token(client)
+    resp = client.put(
+        "/api/secrets/openai", json={"key": "sk-test-0000"}, headers={"X-Local-Token": token}
+    )
+    assert resp.status_code == 503
+    assert "keyring" in resp.json()["detail"].lower()
+    resp = client.delete("/api/secrets/openai", headers={"X-Local-Token": token})
+    assert resp.status_code == 503
+
+
+def _raise_no_keyring(*args: object) -> None:
+    raise keyring.errors.NoKeyringError

@@ -54,13 +54,22 @@ def _env_file_value(name: str) -> str | None:
     return None
 
 
+class SecretStoreError(RuntimeError):
+    """The OS keyring is unavailable or locked, so a secret cannot be stored."""
+
+
 def get_secret(source: str) -> str | None:
     """Return the API key for a source, or None.
 
     Order: OS keyring, then a ``{SOURCE}_API_KEY`` environment variable, then the
-    same variable in ``.env``.
+    same variable in ``.env``. A missing or broken keyring backend (headless
+    host, locked collection) degrades to the env/.env fallback — it never
+    breaks callers.
     """
-    stored = keyring.get_password(KEYRING_SERVICE, source)
+    try:
+        stored = keyring.get_password(KEYRING_SERVICE, source)
+    except Exception:
+        stored = None
     if stored:
         return stored
     name = f"{source.upper().replace('-', '_')}_API_KEY"
@@ -68,7 +77,12 @@ def get_secret(source: str) -> str | None:
 
 
 def set_secret(source: str, value: str) -> None:
-    keyring.set_password(KEYRING_SERVICE, source, value)
+    try:
+        keyring.set_password(KEYRING_SERVICE, source, value)
+    except Exception as exc:
+        raise SecretStoreError(
+            f"cannot store a key for {source}: no OS keyring backend available"
+        ) from exc
 
 
 def delete_secret(source: str) -> None:
@@ -76,6 +90,10 @@ def delete_secret(source: str) -> None:
         keyring.delete_password(KEYRING_SERVICE, source)
     except keyring.errors.PasswordDeleteError:
         pass
+    except Exception as exc:
+        raise SecretStoreError(
+            f"cannot delete the key for {source}: no OS keyring backend available"
+        ) from exc
 
 
 def secret_status(source: str) -> dict[str, object]:

@@ -25,7 +25,7 @@ from app.agent.market.universe import (
 )
 from app.api.deps import AppState, get_state, require_token
 from app.api.routes import broadcast_snapshot
-from app.config import delete_secret, set_secret
+from app.config import SecretStoreError, delete_secret, set_secret
 from app.db import MarketRow
 from app.sources import SourceStatus, get_spec, test_source_key
 
@@ -171,7 +171,10 @@ def put_secret(
         raise HTTPException(status_code=422, detail="source does not use an API key")
     if not body.key.strip():
         raise HTTPException(status_code=422, detail="key must not be empty")
-    set_secret(source_id, body.key.strip())
+    try:
+        set_secret(source_id, body.key.strip())
+    except SecretStoreError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"ok": True}
 
 
@@ -181,7 +184,10 @@ def remove_secret(
 ) -> dict[str, bool]:
     if get_spec(source_id) is None:
         raise HTTPException(status_code=404, detail="unknown source")
-    delete_secret(source_id)
+    try:
+        delete_secret(source_id)
+    except SecretStoreError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"ok": True}
 
 
