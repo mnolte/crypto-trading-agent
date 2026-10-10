@@ -13,6 +13,7 @@ Local-only rules from the spec:
 
 from __future__ import annotations
 
+import asyncio
 import secrets
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -24,8 +25,12 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from app.agent.market import make_market_client
+from app.agent.market.base import MarketClient, MarketInfo
+from app.agent.market.bitvavo import BitvavoClient
 from app.config import LOCAL_HOSTS
 from app.models import RiskBudget, Settings, Snapshot, Usage
+from app.sources import SourceRegistry
 
 TOKEN_HEADER = "x-local-token"
 
@@ -99,10 +104,29 @@ class AppState:
     session_factory: sessionmaker[Session]
     settings: Settings
     settings_version: int
+    market_client: MarketClient
+    sources: SourceRegistry
     status: Literal["running", "paused", "killed", "error"] = "paused"  # restarts paused
     cycle: int = 0
     account_id: int = 1
+    market_rules: dict[str, MarketInfo] = field(default_factory=dict)
+    tasks: list[asyncio.Task[None]] = field(default_factory=list)
     ws_clients: set[WebSocket] = field(default_factory=set)
+
+
+def build_market_client(settings: Settings, sources: SourceRegistry) -> MarketClient:
+    """The market client for the configured source, wired so every request
+    outcome lands in the source registry."""
+    client = make_market_client(settings)
+    if isinstance(client, BitvavoClient):
+        client.on_event = lambda error: sources.record(
+            "bitvavo",
+            error,
+            rate_limit_remaining=client.rate_limit_remaining,
+            rate_limit_limit=client.rate_limit_limit,
+            rate_limit_reset_at=client.rate_limit_reset_at,
+        )
+    return client
 
 
 def get_state(request: Request) -> AppState:

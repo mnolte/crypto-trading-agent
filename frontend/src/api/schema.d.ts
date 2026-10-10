@@ -21,6 +21,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/markets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Markets */
+        get: operations["list_markets_api_markets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/markets/{market}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Market */
+        put: operations["update_market_api_markets__market__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/secrets/{source_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Secret */
+        put: operations["put_secret_api_secrets__source_id__put"];
+        post?: never;
+        /** Remove Secret */
+        delete: operations["remove_secret_api_secrets__source_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/secrets/{source_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Secret */
+        post: operations["test_secret_api_secrets__source_id__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/session": {
         parameters: {
             query?: never;
@@ -66,6 +135,40 @@ export interface paths {
         /** Snapshot */
         get: operations["snapshot_api_snapshot_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sources */
+        get: operations["list_sources_api_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/{source_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Source */
+        put: operations["update_source_api_sources__source_id__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -212,6 +315,194 @@ export interface components {
             equity: string;
             /** Peak */
             peak: string;
+        };
+        /** MarketOut */
+        MarketOut: {
+            /** Active */
+            active: boolean;
+            /** Checked At */
+            checked_at: string | null;
+            /** Daily Candles */
+            daily_candles: number | null;
+            /** Eligible */
+            eligible: boolean;
+            /** Failed Rule */
+            failed_rule: string | null;
+            /** Market */
+            market: string;
+            /** Paused */
+            paused: boolean;
+            /** Spread Pct */
+            spread_pct: number | null;
+            /** Status */
+            status: string;
+            /** Volume 30D Eur */
+            volume_30d_eur: number | null;
+            /** Warming Up */
+            warming_up: boolean;
+        };
+        /**
+         * MarketSettings
+         * @description Market-data and eligibility thresholds — all tunable, never literals
+         *     in logic. The shared ADX threshold is used by the reads, the regime,
+         *     Rules condition C6 and Insights.
+         */
+        "MarketSettings-Input": {
+            /**
+             * Adx Threshold
+             * @default 25
+             */
+            adx_threshold: number | string;
+            /**
+             * Eligibility Beyond Pct
+             * @default 20
+             */
+            eligibility_beyond_pct: number | string;
+            /**
+             * Eligibility Fail Days
+             * @default 3
+             */
+            eligibility_fail_days: number;
+            /**
+             * Eligibility Recover Days
+             * @default 3
+             */
+            eligibility_recover_days: number;
+            /**
+             * History 1D
+             * @default 300
+             */
+            history_1d: number;
+            /**
+             * History 1H
+             * @default 800
+             */
+            history_1h: number;
+            /**
+             * History 4H
+             * @default 300
+             */
+            history_4h: number;
+            /**
+             * Max Avg Spread Pct
+             * @default 0.15
+             */
+            max_avg_spread_pct: number | string;
+            /**
+             * Min Avg Daily Volume Eur
+             * @default 1000000
+             */
+            min_avg_daily_volume_eur: number | string;
+            /**
+             * Min Daily Candles
+             * @default 300
+             */
+            min_daily_candles: number;
+            /**
+             * Stablecoin Bases
+             * @default [
+             *       "USDC",
+             *       "EURC",
+             *       "USDT",
+             *       "DAI",
+             *       "FDUSD",
+             *       "TUSD",
+             *       "PYUSD",
+             *       "EUR",
+             *       "USD",
+             *       "GBP"
+             *     ]
+             */
+            stablecoin_bases: string[];
+            /**
+             * Structure Min Range Bars
+             * @default 12
+             */
+            structure_min_range_bars: number;
+        };
+        /**
+         * MarketSettings
+         * @description Market-data and eligibility thresholds — all tunable, never literals
+         *     in logic. The shared ADX threshold is used by the reads, the regime,
+         *     Rules condition C6 and Insights.
+         */
+        "MarketSettings-Output": {
+            /**
+             * Adx Threshold
+             * @default 25
+             */
+            adx_threshold: string;
+            /**
+             * Eligibility Beyond Pct
+             * @default 20
+             */
+            eligibility_beyond_pct: string;
+            /**
+             * Eligibility Fail Days
+             * @default 3
+             */
+            eligibility_fail_days: number;
+            /**
+             * Eligibility Recover Days
+             * @default 3
+             */
+            eligibility_recover_days: number;
+            /**
+             * History 1D
+             * @default 300
+             */
+            history_1d: number;
+            /**
+             * History 1H
+             * @default 800
+             */
+            history_1h: number;
+            /**
+             * History 4H
+             * @default 300
+             */
+            history_4h: number;
+            /**
+             * Max Avg Spread Pct
+             * @default 0.15
+             */
+            max_avg_spread_pct: string;
+            /**
+             * Min Avg Daily Volume Eur
+             * @default 1000000
+             */
+            min_avg_daily_volume_eur: string;
+            /**
+             * Min Daily Candles
+             * @default 300
+             */
+            min_daily_candles: number;
+            /**
+             * Stablecoin Bases
+             * @default [
+             *       "USDC",
+             *       "EURC",
+             *       "USDT",
+             *       "DAI",
+             *       "FDUSD",
+             *       "TUSD",
+             *       "PYUSD",
+             *       "EUR",
+             *       "USD",
+             *       "GBP"
+             *     ]
+             */
+            stablecoin_bases: string[];
+            /**
+             * Structure Min Range Bars
+             * @default 12
+             */
+            structure_min_range_bars: number;
+        };
+        /** MarketUpdateIn */
+        MarketUpdateIn: {
+            /** Active */
+            active: boolean;
         };
         /** ModelSettings */
         "ModelSettings-Input": {
@@ -636,6 +927,18 @@ export interface components {
              */
             trailing_stop_enabled: boolean;
         };
+        /** SecretIn */
+        SecretIn: {
+            /** Key */
+            key: string;
+        };
+        /** SecretTestOut */
+        SecretTestOut: {
+            /** Error */
+            error?: string | null;
+            /** Ok */
+            ok: boolean;
+        };
         /**
          * SessionOut
          * @description The X-Local-Token for the served UI.
@@ -681,11 +984,44 @@ export interface components {
              */
             data_source: "bitvavo" | "sim";
             /**
+             * Disabled Sources
+             * @default []
+             */
+            disabled_sources: string[];
+            /**
              * Execution Mode
              * @default auto
              * @enum {string}
              */
             execution_mode: "auto" | "supervised" | "manual";
+            /**
+             * @default {
+             *       "adx_threshold": "25",
+             *       "eligibility_beyond_pct": "20",
+             *       "eligibility_fail_days": 3,
+             *       "eligibility_recover_days": 3,
+             *       "history_1d": 300,
+             *       "history_1h": 800,
+             *       "history_4h": 300,
+             *       "max_avg_spread_pct": "0.15",
+             *       "min_avg_daily_volume_eur": "1000000",
+             *       "min_daily_candles": 300,
+             *       "stablecoin_bases": [
+             *         "USDC",
+             *         "EURC",
+             *         "USDT",
+             *         "DAI",
+             *         "FDUSD",
+             *         "TUSD",
+             *         "PYUSD",
+             *         "EUR",
+             *         "USD",
+             *         "GBP"
+             *       ],
+             *       "structure_min_range_bars": 12
+             *     }
+             */
+            market: components["schemas"]["MarketSettings-Input"];
             /**
              * @default {
              *       "daily_call_budget": 1000,
@@ -777,11 +1113,44 @@ export interface components {
              */
             data_source: "bitvavo" | "sim";
             /**
+             * Disabled Sources
+             * @default []
+             */
+            disabled_sources: string[];
+            /**
              * Execution Mode
              * @default auto
              * @enum {string}
              */
             execution_mode: "auto" | "supervised" | "manual";
+            /**
+             * @default {
+             *       "adx_threshold": "25",
+             *       "eligibility_beyond_pct": "20",
+             *       "eligibility_fail_days": 3,
+             *       "eligibility_recover_days": 3,
+             *       "history_1d": 300,
+             *       "history_1h": 800,
+             *       "history_4h": 300,
+             *       "max_avg_spread_pct": "0.15",
+             *       "min_avg_daily_volume_eur": "1000000",
+             *       "min_daily_candles": 300,
+             *       "stablecoin_bases": [
+             *         "USDC",
+             *         "EURC",
+             *         "USDT",
+             *         "DAI",
+             *         "FDUSD",
+             *         "TUSD",
+             *         "PYUSD",
+             *         "EUR",
+             *         "USD",
+             *         "GBP"
+             *       ],
+             *       "structure_min_range_bars": 12
+             *     }
+             */
+            market: components["schemas"]["MarketSettings-Output"];
             /**
              * @default {
              *       "daily_call_budget": 1000,
@@ -917,6 +1286,45 @@ export interface components {
             today_pnl: string;
             usage: components["schemas"]["Usage"];
         };
+        /** SourceOut */
+        SourceOut: {
+            /** Disabled Reason */
+            disabled_reason: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Failures */
+            failures: number;
+            /** Freshness Limit S */
+            freshness_limit_s: number | null;
+            /** Id */
+            id: string;
+            /** Key Last4 */
+            key_last4: string | null;
+            /**
+             * Key Requirement
+             * @enum {string}
+             */
+            key_requirement: "none" | "optional" | "required";
+            /** Key Set */
+            key_set: boolean;
+            /** Last Error */
+            last_error: string | null;
+            /** Last Success At */
+            last_success_at: string | null;
+            /** Name */
+            name: string;
+            /** Purpose */
+            purpose: string;
+            /** Rate Limit */
+            rate_limit: string | null;
+            /** Rate Limit Remaining */
+            rate_limit_remaining: number | null;
+        };
+        /** SourceUpdateIn */
+        SourceUpdateIn: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /** Throttle */
         Throttle: {
             /** Lifts When */
@@ -975,6 +1383,170 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthOut"];
+                };
+            };
+        };
+    };
+    list_markets_api_markets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketOut"][];
+                };
+            };
+        };
+    };
+    update_market_api_markets__market__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                market: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarketUpdateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_secret_api_secrets__source_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SecretIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_secret_api_secrets__source_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_secret_api_secrets__source_id__test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecretTestOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1070,6 +1642,63 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+        };
+    };
+    list_sources_api_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOut"][];
+                };
+            };
+        };
+    };
+    update_source_api_sources__source_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceUpdateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

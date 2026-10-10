@@ -39,6 +39,52 @@ class SettingsRow(Base):
     updated_at: Mapped[datetime]
 
 
+class CandleRow(Base):
+    """One closed candle per market and timeframe.
+
+    Prices and volume are stored as their decimal strings so stored candles
+    stay exact; they only become floats inside indicator maths.
+    """
+
+    __tablename__ = "candles"
+
+    market: Mapped[str] = mapped_column(primary_key=True)
+    tf: Mapped[str] = mapped_column(primary_key=True)
+    open_time_ms: Mapped[int] = mapped_column(primary_key=True)
+    open: Mapped[str]
+    high: Mapped[str]
+    low: Mapped[str]
+    close: Mapped[str]
+    volume: Mapped[str]
+
+
+class MarketRow(Base):
+    """Eligibility and activation state for one Bitvavo EUR market.
+
+    The streak counters implement the anti-flapping buffer: a market fails
+    only after ``eligibility_fail_days`` consecutive daily checks below a
+    threshold (or at once when 20% beyond it), and needs
+    ``eligibility_recover_days`` consecutive passing checks to return.
+    """
+
+    __tablename__ = "markets"
+
+    market: Mapped[str] = mapped_column(primary_key=True)
+    base: Mapped[str] = mapped_column(default="")
+    quote: Mapped[str] = mapped_column(default="EUR")
+    status: Mapped[str] = mapped_column(default="")
+    eligible: Mapped[bool] = mapped_column(default=False)
+    failed_rule: Mapped[str | None]
+    volume_30d_eur: Mapped[float | None]
+    spread_pct: Mapped[float | None]
+    daily_candles: Mapped[int | None]
+    below_streak: Mapped[int] = mapped_column(default=0)
+    within_streak: Mapped[int] = mapped_column(default=0)
+    checked_at: Mapped[datetime | None]
+    active: Mapped[bool] = mapped_column(default=False)
+    activated_at: Mapped[datetime | None]
+
+
 def make_engine(db_path: Path) -> Engine:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     return create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
