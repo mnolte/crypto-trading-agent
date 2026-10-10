@@ -42,6 +42,7 @@ follow the spec and list the difference in the PR under "Design differences".
 make dev        # backend (Uvicorn with reload) + Vite dev server
 make run        # build the UI, serve everything on 127.0.0.1:8000
 make test       # pytest + Vitest (+ Playwright where present)
+make ci         # the same checks as the CI jobs (backend, frontend, api-types, e2e)
 uv run ruff check . && uv run mypy .     # backend lint and types
 cd frontend && corepack pnpm lint && corepack pnpm typecheck
 ```

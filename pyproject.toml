@@ -21,6 +21,7 @@ dev = [
     "respx>=0.22,<1",
     "ruff>=0.6,<1",
     "mypy>=1.11,<2",
+    "pytest-socket>=0.8.1",
 ]
 
 [tool.uv]
@@ -36,6 +37,8 @@ packages = ["backend/app"]
 [tool.ruff]
 line-length = 100
 src = ["backend"]
+# Protected files: never let the formatter touch spec/design/prompt docs.
+exclude = ["docs", "design", "backend/prompts"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "C4", "RUF"]
@@ -53,3 +56,5 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
 asyncio_mode = "auto"
+# No real network in tests: every outbound socket fails unless it's localhost.
+addopts = "--disable-socket --allow-hosts=127.0.0.1,localhost"
