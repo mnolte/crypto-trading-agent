@@ -14,6 +14,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from app import repo
 from app.agent.market.universe import (
@@ -99,12 +100,14 @@ class MarketOut(BaseModel):
     checked_at: datetime | None
 
 
-def _market_out(state: AppState, row: MarketRow) -> MarketOut:
-    session = state.session_factory()
+def _market_out(state: AppState, row: MarketRow, session: Session | None = None) -> MarketOut:
+    close_after = session is None
+    session = session or state.session_factory()
     try:
         warming = warming_up(session, row.market, state.settings.market)
     finally:
-        session.close()
+        if close_after:
+            session.close()
     return MarketOut(
         market=row.market,
         eligible=row.eligible,
@@ -182,8 +185,11 @@ def put_secret(
 def remove_secret(
     source_id: str, state: Annotated[AppState, Depends(get_state)]
 ) -> dict[str, bool]:
-    if get_spec(source_id) is None:
+    spec = get_spec(source_id)
+    if spec is None:
         raise HTTPException(status_code=404, detail="unknown source")
+    if spec.key == "none":
+        raise HTTPException(status_code=422, detail="source does not use an API key")
     try:
         delete_secret(source_id)
     except SecretStoreError as exc:
@@ -209,9 +215,9 @@ def list_markets(state: Annotated[AppState, Depends(get_state)]) -> list[MarketO
     session = state.session_factory()
     try:
         rows = repo.list_market_rows(session)
+        return [_market_out(state, row, session) for row in rows]
     finally:
         session.close()
-    return [_market_out(state, row) for row in rows]
 
 
 @router.put("/markets/{market}", dependencies=[Depends(require_token)])

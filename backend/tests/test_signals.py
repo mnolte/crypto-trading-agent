@@ -301,7 +301,7 @@ def test_reads_boundaries() -> None:
     assert by_name["Price vs EMA 200"] == "bearish"
     assert by_name["OBV trend"] == "neutral"  # beyond ±0.1 required
     assert by_name["EMA 20 vs 50"] == "bullish"
-    assert by_name["ADX 14"] == "ranging"  # above 25 is trending
+    assert by_name["ADX 14"] == "trending"  # at the threshold = trending
     assert by_name["ATR %"] == "normal"  # above the 80th is high
     assert by_name["Volume x avg"] == "normal"  # above 1.5 is high
 

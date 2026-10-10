@@ -214,6 +214,8 @@ class BitvavoClient:
             if candle.open_time not in seen:
                 seen.add(candle.open_time)
                 unique.append(candle)
+        if start is not None:
+            unique = [c for c in unique if c.open_time >= start]
         return sorted(unique, key=lambda c: c.open_time)
 
     async def order_book(self, market: str, depth: int = 50) -> OrderBook:

@@ -422,7 +422,7 @@ def reads_for_tf(values: TfValues, tf: Tf, adx_threshold: float) -> list[Signal]
         read = "bullish" if values.ema20 > values.ema50 else "bearish"
         out.append(_sig("EMA 20 vs 50", tf, read))
     if values.adx14 is not None:
-        read = "trending" if values.adx14 > adx_threshold else "ranging"
+        read = "trending" if values.adx14 >= adx_threshold else "ranging"
         out.append(_sig("ADX 14", tf, read))
     if values.atr_percentile is not None:
         p = values.atr_percentile
