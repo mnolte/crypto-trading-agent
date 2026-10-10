@@ -600,6 +600,11 @@
             "title": "Stablecoin Bases",
             "type": "array"
           },
+          "stale_grace_s": {
+            "default": 900,
+            "title": "Stale Grace S",
+            "type": "integer"
+          },
           "structure_min_range_bars": {
             "default": 12,
             "title": "Structure Min Range Bars",
@@ -680,6 +685,11 @@
             },
             "title": "Stablecoin Bases",
             "type": "array"
+          },
+          "stale_grace_s": {
+            "default": 900,
+            "title": "Stale Grace S",
+            "type": "integer"
           },
           "structure_min_range_bars": {
             "default": 12,
@@ -1445,6 +1455,135 @@
         "title": "RiskSettings",
         "type": "object"
       },
+      "RulesSettings-Input": {
+        "description": "Rules-decider thresholds \u2014 tunable without code changes; every Rules\ndecision stores the settings version it used.",
+        "properties": {
+          "buy_max_atr_above_ema20": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "1.5",
+            "title": "Buy Max Atr Above Ema20"
+          },
+          "buy_min_conds": {
+            "default": 4,
+            "title": "Buy Min Conds",
+            "type": "integer"
+          },
+          "prefilter_min_conds": {
+            "default": 3,
+            "title": "Prefilter Min Conds",
+            "type": "integer"
+          },
+          "stop_atr_pad": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0.2",
+            "title": "Stop Atr Pad"
+          },
+          "stop_lookback_bars": {
+            "default": 6,
+            "title": "Stop Lookback Bars",
+            "type": "integer"
+          },
+          "stop_max_atr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "5",
+            "title": "Stop Max Atr"
+          },
+          "target_max_atr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "6",
+            "title": "Target Max Atr"
+          },
+          "target_rr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "2.5",
+            "title": "Target Rr"
+          }
+        },
+        "title": "RulesSettings",
+        "type": "object"
+      },
+      "RulesSettings-Output": {
+        "description": "Rules-decider thresholds \u2014 tunable without code changes; every Rules\ndecision stores the settings version it used.",
+        "properties": {
+          "buy_max_atr_above_ema20": {
+            "default": "1.5",
+            "title": "Buy Max Atr Above Ema20",
+            "type": "string"
+          },
+          "buy_min_conds": {
+            "default": 4,
+            "title": "Buy Min Conds",
+            "type": "integer"
+          },
+          "prefilter_min_conds": {
+            "default": 3,
+            "title": "Prefilter Min Conds",
+            "type": "integer"
+          },
+          "stop_atr_pad": {
+            "default": "0.2",
+            "title": "Stop Atr Pad",
+            "type": "string"
+          },
+          "stop_lookback_bars": {
+            "default": 6,
+            "title": "Stop Lookback Bars",
+            "type": "integer"
+          },
+          "stop_max_atr": {
+            "default": "5",
+            "title": "Stop Max Atr",
+            "type": "string"
+          },
+          "target_max_atr": {
+            "default": "6",
+            "title": "Target Max Atr",
+            "type": "string"
+          },
+          "target_rr": {
+            "default": "2.5",
+            "title": "Target Rr",
+            "type": "string"
+          }
+        },
+        "title": "RulesSettings",
+        "type": "object"
+      },
       "SecretIn": {
         "properties": {
           "key": {
@@ -1574,6 +1713,7 @@
                 "USD",
                 "GBP"
               ],
+              "stale_grace_s": 900,
               "structure_min_range_bars": 12
             }
           },
@@ -1621,6 +1761,19 @@
               "time_stop_days": "5",
               "total_open_risk_pct": "2.5",
               "trailing_stop_enabled": false
+            }
+          },
+          "rules": {
+            "$ref": "#/components/schemas/RulesSettings-Input",
+            "default": {
+              "buy_max_atr_above_ema20": "1.5",
+              "buy_min_conds": 4,
+              "prefilter_min_conds": 3,
+              "stop_atr_pad": "0.2",
+              "stop_lookback_bars": 6,
+              "stop_max_atr": "5",
+              "target_max_atr": "6",
+              "target_rr": "2.5"
             }
           },
           "schema_version": {
@@ -1715,6 +1868,7 @@
                 "USD",
                 "GBP"
               ],
+              "stale_grace_s": 900,
               "structure_min_range_bars": 12
             }
           },
@@ -1762,6 +1916,19 @@
               "time_stop_days": "5",
               "total_open_risk_pct": "2.5",
               "trailing_stop_enabled": false
+            }
+          },
+          "rules": {
+            "$ref": "#/components/schemas/RulesSettings-Output",
+            "default": {
+              "buy_max_atr_above_ema20": "1.5",
+              "buy_min_conds": 4,
+              "prefilter_min_conds": 3,
+              "stop_atr_pad": "0.2",
+              "stop_lookback_bars": 6,
+              "stop_max_atr": "5",
+              "target_max_atr": "6",
+              "target_rr": "2.5"
             }
           },
           "schema_version": {
@@ -2242,6 +2409,236 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/agent/acknowledge-kill": {
+      "post": {
+        "operationId": "agent_acknowledge_kill_api_agent_acknowledge_kill_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Acknowledge Kill"
+      }
+    },
+    "/api/agent/flatten": {
+      "post": {
+        "operationId": "agent_flatten_api_agent_flatten_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Flatten"
+      }
+    },
+    "/api/agent/pause": {
+      "post": {
+        "operationId": "agent_pause_api_agent_pause_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Pause"
+      }
+    },
+    "/api/agent/resume": {
+      "post": {
+        "operationId": "agent_resume_api_agent_resume_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Resume"
+      }
+    },
+    "/api/agent/run-now": {
+      "post": {
+        "operationId": "agent_run_now_api_agent_run_now_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Run Now"
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "health_api_health_get",
@@ -2345,6 +2742,108 @@
           }
         },
         "summary": "Update Market"
+      }
+    },
+    "/api/paper/reset": {
+      "post": {
+        "description": "Start a new paper account; decisions, calls, verdicts and outcomes\nstay tagged with the account they belonged to. Clears Killed too.",
+        "operationId": "paper_reset_api_paper_reset_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Paper Reset"
+      }
+    },
+    "/api/positions/{pair}/close": {
+      "post": {
+        "operationId": "position_close_api_positions__pair__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pair",
+            "required": true,
+            "schema": {
+              "title": "Pair",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Position Close"
       }
     },
     "/api/secrets/{source_id}": {

@@ -4,6 +4,91 @@
  */
 
 export interface paths {
+    "/api/agent/acknowledge-kill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Agent Acknowledge Kill */
+        post: operations["agent_acknowledge_kill_api_agent_acknowledge_kill_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/flatten": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Agent Flatten */
+        post: operations["agent_flatten_api_agent_flatten_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Agent Pause */
+        post: operations["agent_pause_api_agent_pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Agent Resume */
+        post: operations["agent_resume_api_agent_resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/run-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Agent Run Now */
+        post: operations["agent_run_now_api_agent_run_now_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -49,6 +134,44 @@ export interface paths {
         /** Update Market */
         put: operations["update_market_api_markets__market__put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/paper/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Paper Reset
+         * @description Start a new paper account; decisions, calls, verdicts and outcomes
+         *     stay tagged with the account they belonged to. Clears Killed too.
+         */
+        post: operations["paper_reset_api_paper_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/positions/{pair}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Position Close */
+        post: operations["position_close_api_positions__pair__close_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -415,6 +538,11 @@ export interface components {
              */
             stablecoin_bases: string[];
             /**
+             * Stale Grace S
+             * @default 900
+             */
+            stale_grace_s: number;
+            /**
              * Structure Min Range Bars
              * @default 12
              */
@@ -493,6 +621,11 @@ export interface components {
              *     ]
              */
             stablecoin_bases: string[];
+            /**
+             * Stale Grace S
+             * @default 900
+             */
+            stale_grace_s: number;
             /**
              * Structure Min Range Bars
              * @default 12
@@ -927,6 +1060,100 @@ export interface components {
              */
             trailing_stop_enabled: boolean;
         };
+        /**
+         * RulesSettings
+         * @description Rules-decider thresholds — tunable without code changes; every Rules
+         *     decision stores the settings version it used.
+         */
+        "RulesSettings-Input": {
+            /**
+             * Buy Max Atr Above Ema20
+             * @default 1.5
+             */
+            buy_max_atr_above_ema20: number | string;
+            /**
+             * Buy Min Conds
+             * @default 4
+             */
+            buy_min_conds: number;
+            /**
+             * Prefilter Min Conds
+             * @default 3
+             */
+            prefilter_min_conds: number;
+            /**
+             * Stop Atr Pad
+             * @default 0.2
+             */
+            stop_atr_pad: number | string;
+            /**
+             * Stop Lookback Bars
+             * @default 6
+             */
+            stop_lookback_bars: number;
+            /**
+             * Stop Max Atr
+             * @default 5
+             */
+            stop_max_atr: number | string;
+            /**
+             * Target Max Atr
+             * @default 6
+             */
+            target_max_atr: number | string;
+            /**
+             * Target Rr
+             * @default 2.5
+             */
+            target_rr: number | string;
+        };
+        /**
+         * RulesSettings
+         * @description Rules-decider thresholds — tunable without code changes; every Rules
+         *     decision stores the settings version it used.
+         */
+        "RulesSettings-Output": {
+            /**
+             * Buy Max Atr Above Ema20
+             * @default 1.5
+             */
+            buy_max_atr_above_ema20: string;
+            /**
+             * Buy Min Conds
+             * @default 4
+             */
+            buy_min_conds: number;
+            /**
+             * Prefilter Min Conds
+             * @default 3
+             */
+            prefilter_min_conds: number;
+            /**
+             * Stop Atr Pad
+             * @default 0.2
+             */
+            stop_atr_pad: string;
+            /**
+             * Stop Lookback Bars
+             * @default 6
+             */
+            stop_lookback_bars: number;
+            /**
+             * Stop Max Atr
+             * @default 5
+             */
+            stop_max_atr: string;
+            /**
+             * Target Max Atr
+             * @default 6
+             */
+            target_max_atr: string;
+            /**
+             * Target Rr
+             * @default 2.5
+             */
+            target_rr: string;
+        };
         /** SecretIn */
         SecretIn: {
             /** Key */
@@ -1018,6 +1245,7 @@ export interface components {
              *         "USD",
              *         "GBP"
              *       ],
+             *       "stale_grace_s": 900,
              *       "structure_min_range_bars": 12
              *     }
              */
@@ -1068,6 +1296,19 @@ export interface components {
              *     }
              */
             risk: components["schemas"]["RiskSettings-Input"];
+            /**
+             * @default {
+             *       "buy_max_atr_above_ema20": "1.5",
+             *       "buy_min_conds": 4,
+             *       "prefilter_min_conds": 3,
+             *       "stop_atr_pad": "0.2",
+             *       "stop_lookback_bars": 6,
+             *       "stop_max_atr": "5",
+             *       "target_max_atr": "6",
+             *       "target_rr": "2.5"
+             *     }
+             */
+            rules: components["schemas"]["RulesSettings-Input"];
             /**
              * Schema Version
              * @default 1
@@ -1147,6 +1388,7 @@ export interface components {
              *         "USD",
              *         "GBP"
              *       ],
+             *       "stale_grace_s": 900,
              *       "structure_min_range_bars": 12
              *     }
              */
@@ -1197,6 +1439,19 @@ export interface components {
              *     }
              */
             risk: components["schemas"]["RiskSettings-Output"];
+            /**
+             * @default {
+             *       "buy_max_atr_above_ema20": "1.5",
+             *       "buy_min_conds": 4,
+             *       "prefilter_min_conds": 3,
+             *       "stop_atr_pad": "0.2",
+             *       "stop_lookback_bars": 6,
+             *       "stop_max_atr": "5",
+             *       "target_max_atr": "6",
+             *       "target_rr": "2.5"
+             *     }
+             */
+            rules: components["schemas"]["RulesSettings-Output"];
             /**
              * Schema Version
              * @default 1
@@ -1367,6 +1622,161 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    agent_acknowledge_kill_api_agent_acknowledge_kill_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_flatten_api_agent_flatten_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_pause_api_agent_pause_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_resume_api_agent_resume_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_run_now_api_agent_run_now_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_api_health_get: {
         parameters: {
             query?: never;
@@ -1431,6 +1841,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MarketOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    paper_reset_api_paper_reset_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    position_close_api_positions__pair__close_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                pair: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"];
                 };
             };
             /** @description Validation Error */

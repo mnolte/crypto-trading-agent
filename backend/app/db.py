@@ -85,6 +85,139 @@ class MarketRow(Base):
     activated_at: Mapped[datetime | None]
 
 
+class AccountRow(Base):
+    """One paper account. A reset starts a new row; the unacknowledged kill
+    fields persist the Killed state across restarts."""
+
+    __tablename__ = "accounts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    started_at: Mapped[datetime]
+    start_balance: Mapped[str]
+    cash: Mapped[str]
+    peak_equity: Mapped[str]
+    day_start_equity: Mapped[str]
+    day_start_date: Mapped[str]  # ISO date in Europe/Amsterdam
+    active: Mapped[bool] = mapped_column(default=True)
+    kill_at: Mapped[datetime | None]
+    kill_peak: Mapped[str | None]
+    kill_equity: Mapped[str | None]
+    kill_closed: Mapped[str | None]  # JSON list of pairs flattened by the kill
+
+
+class PositionRow(Base):
+    """One open paper position per pair on the current account."""
+
+    __tablename__ = "positions"
+
+    pair: Mapped[str] = mapped_column(primary_key=True)
+    account_id: Mapped[int]
+    qty: Mapped[str]
+    entry: Mapped[str]
+    stop: Mapped[str]
+    target: Mapped[str]
+    opened_at: Mapped[datetime]
+    decision_id: Mapped[str]
+    last: Mapped[str]
+    invalidation_price: Mapped[str | None]
+    highest_close: Mapped[str | None]  # highest 1h close since entry (trailing)
+    r_unit: Mapped[str]  # entry - stop at fill: the R multiple for exits
+
+
+class TradeRow(Base):
+    """One closed paper trade, tagged with the account it belonged to."""
+
+    __tablename__ = "trades"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    account_id: Mapped[int]
+    pair: Mapped[str]
+    qty: Mapped[str]
+    entry: Mapped[str]
+    exit: Mapped[str]
+    opened_at: Mapped[datetime]
+    closed_at: Mapped[datetime]
+    fee_eur: Mapped[str]  # both sides
+    realised_eur: Mapped[str]
+    realised_r: Mapped[str]
+    exit_reason: Mapped[str]
+    decision_id: Mapped[str]
+
+
+class DecisionRow(Base):
+    """One decision per pair per cycle — BUY, SELL, HOLD and SKIP alike."""
+
+    __tablename__ = "decisions"
+
+    id: Mapped[str] = mapped_column(primary_key=True)
+    cycle: Mapped[int]
+    at: Mapped[datetime]
+    account_id: Mapped[int]
+    pair: Mapped[str]
+    decider: Mapped[str]
+    model: Mapped[str | None]
+    prompt_version: Mapped[str | None]
+    action: Mapped[str]
+    confidence: Mapped[float]
+    reasoning: Mapped[str]
+    invalidation: Mapped[str | None]
+    signals: Mapped[str]  # JSON list[Signal]
+    plan: Mapped[str | None]  # JSON Plan when one was sized
+    gates: Mapped[str]  # JSON list[Gate]
+    status: Mapped[str]
+    execute_at: Mapped[datetime | None]
+    error: Mapped[str | None]
+    regime: Mapped[str]  # JSON Regime
+    btc_regime: Mapped[str]  # JSON Regime
+    invalidation_price: Mapped[str | None]
+    risk_pct_used: Mapped[str]
+    settings_version: Mapped[int]
+    shadow_id: Mapped[str | None]
+    stand_in: Mapped[bool] = mapped_column(default=False)
+    raw_brief: Mapped[str | None]  # filled by the OpenAI layer (PR 5)
+    raw_response: Mapped[str | None]
+
+
+class ActivityRow(Base):
+    """The activity log: cycle starts, decisions, skips, fills, exits, errors."""
+
+    __tablename__ = "activity"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    at: Mapped[datetime]
+    kind: Mapped[str]
+    pair: Mapped[str | None]
+    text: Mapped[str]
+    decision_id: Mapped[str | None]
+
+
+class EquitySnapshotRow(Base):
+    """One equity reading per cycle for the performance curve."""
+
+    __tablename__ = "equity_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    account_id: Mapped[int]
+    at: Mapped[datetime]
+    cycle: Mapped[int]
+    equity: Mapped[str]
+    cash: Mapped[str]
+
+
+class ExitTickRow(Base):
+    """Prices at real fills and at watcher checks within 0.5% of a stop or
+    target — What-if replays exits from these stored ticks."""
+
+    __tablename__ = "exit_ticks"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    account_id: Mapped[int]
+    pair: Mapped[str]
+    at: Mapped[datetime]
+    price: Mapped[str]
+    kind: Mapped[str]  # "fill" | "watch"
+
+
 def make_engine(db_path: Path) -> Engine:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     return create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})

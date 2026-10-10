@@ -218,6 +218,22 @@ class RiskSettings(BaseModel):
     trailing_stop_enabled: bool = False
 
 
+class RulesSettings(BaseModel):
+    """Rules-decider thresholds — tunable without code changes; every Rules
+    decision stores the settings version it used."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    prefilter_min_conds: int = 3  # of C2..C6, plus C1 and a position or setup
+    buy_min_conds: int = 4  # of C2..C6 for a Rules BUY
+    buy_max_atr_above_ema20: Decimal = Decimal("1.5")
+    stop_lookback_bars: int = 6
+    stop_atr_pad: Decimal = Decimal("0.2")
+    stop_max_atr: Decimal = Decimal("5")
+    target_max_atr: Decimal = Decimal("6")
+    target_rr: Decimal = Decimal("2.5")
+
+
 class ModelSettings(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -255,6 +271,7 @@ class MarketSettings(BaseModel):
     history_4h: int = 300
     history_1d: int = 300
     structure_min_range_bars: int = 12
+    stale_grace_s: int = 900  # freshness: close + interval + grace (1h → 75 min)
     stablecoin_bases: list[str] = [
         "USDC",
         "EURC",
@@ -284,6 +301,7 @@ class Settings(BaseModel):
     cycle_offset_s: int = 45
     data_source: Literal["bitvavo", "sim"] = "bitvavo"
     risk: RiskSettings = RiskSettings()
+    rules: RulesSettings = RulesSettings()
     model: ModelSettings = ModelSettings()
     paper: PaperSettings = PaperSettings()
     market: MarketSettings = MarketSettings()

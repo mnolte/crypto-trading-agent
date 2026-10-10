@@ -35,7 +35,10 @@ def test_migrations_use_ta_db_path(env_paths: Path) -> None:
     assert "settings" in tables
     assert "candles" in tables
     assert "markets" in tables
-    assert _alembic_version(db_path) == "0002"
+    assert "positions" in tables
+    assert "trades" in tables
+    assert "decisions" in tables
+    assert _alembic_version(db_path) == "0003"
 
 
 def test_alembic_cli_respects_ta_db_path(env_paths: Path) -> None:
@@ -46,7 +49,7 @@ def test_alembic_cli_respects_ta_db_path(env_paths: Path) -> None:
     cfg.set_main_option("script_location", str(ALEMBIC_DIR))
     command.upgrade(cfg, "head")
 
-    assert _alembic_version(db_path) == "0002"
+    assert _alembic_version(db_path) == "0003"
 
 
 def test_migrations_dont_touch_default_path(env_paths: Path) -> None:
