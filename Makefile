@@ -62,4 +62,5 @@ ci-api-types:
 
 ci-e2e:
 	$(FE) exec playwright install chromium
+	$(FE) build
 	$(FE) e2e

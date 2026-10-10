@@ -13,15 +13,14 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  TA_DATA_DIR: ${{ runner.temp }}/ta-data
-  TA_DB_PATH: ${{ runner.temp }}/ta-data/agent.db
-
 jobs:
   backend:
     name: backend
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      TA_DATA_DIR: /tmp/ta-data
+      TA_DB_PATH: /tmp/ta-data/agent.db
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
@@ -47,9 +46,16 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
       - run: corepack enable
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "dir=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm lint
       - run: corepack pnpm typecheck
@@ -60,6 +66,9 @@ jobs:
     name: api-types
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      TA_DATA_DIR: /tmp/ta-data
+      TA_DB_PATH: /tmp/ta-data/agent.db
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
@@ -68,10 +77,19 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
       - run: uv sync --frozen
-      - run: corepack enable && corepack pnpm --dir frontend install --frozen-lockfile
+      - run: corepack enable
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "dir=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+        working-directory: frontend
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - run: (cd frontend && corepack pnpm install --frozen-lockfile)
       # Regenerate both artifacts, then fail if the tree changed.
       - name: Regenerate openapi.json and schema.d.ts
         run: |
@@ -86,6 +104,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [backend, frontend]
+    env:
+      TA_DATA_DIR: /tmp/ta-data
+      TA_DB_PATH: /tmp/ta-data/agent.db
     defaults:
       run:
         working-directory: frontend
@@ -97,13 +118,22 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
       - run: uv sync --frozen
         working-directory: .
       - run: corepack enable
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "dir=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm exec playwright install --with-deps chromium
+      # The app serves the built SPA — dist/ must exist for the suite to load a page.
+      - run: corepack pnpm build
       - run: corepack pnpm e2e
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
@@ -150,6 +180,23 @@ jobs:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # gitleaks-action needs token permissions beyond contents:read, so the
+      # binary is run directly — pinned version, checksum-verified.
+      - name: Install gitleaks 8.30.1
+        run: |
+          curl -sL -o /tmp/gitleaks.tar.gz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  /tmp/gitleaks.tar.gz" \
+            | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+      - name: Scan changed commits for secrets
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="origin/${{ github.base_ref }}...HEAD"
+          elif [ "${{ github.event_name }}" = "push" ] && \
+               [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            RANGE="${{ github.event.before }}..HEAD"
+          else
+            RANGE="--all"
+          fi
+          /tmp/gitleaks git -v --log-opts="$RANGE" .
