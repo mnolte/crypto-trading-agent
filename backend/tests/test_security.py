@@ -28,17 +28,12 @@ def test_session_has_no_cors_headers(client: TestClient) -> None:
 def test_write_requires_local_token(client: TestClient) -> None:
     assert client.put("/api/settings", json={}).status_code == 403
     assert (
-        client.put(
-            "/api/settings", json={}, headers={"X-Local-Token": "wrong"}
-        ).status_code
-        == 403
+        client.put("/api/settings", json={}, headers={"X-Local-Token": "wrong"}).status_code == 403
     )
 
 
 def test_write_with_local_token(client: TestClient) -> None:
-    response = client.put(
-        "/api/settings", json={}, headers={"X-Local-Token": _token(client)}
-    )
+    response = client.put("/api/settings", json={}, headers={"X-Local-Token": _token(client)})
     assert response.status_code == 200
 
 
@@ -54,9 +49,7 @@ def test_local_hosts_allowed(client: TestClient, host: str) -> None:
     assert client.get("/api/health", headers={"Host": host}).status_code == 200
 
 
-@pytest.mark.parametrize(
-    "host", ["evil.example", "169.254.169.254", "127.0.0.1.evil.com", ""]
-)
+@pytest.mark.parametrize("host", ["evil.example", "169.254.169.254", "127.0.0.1.evil.com", ""])
 def test_foreign_hosts_rejected(client: TestClient, host: str) -> None:
     assert client.get("/api/health", headers={"Host": host}).status_code == 403
 
