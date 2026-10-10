@@ -41,6 +41,7 @@ pnpm-debug.log*
 # Tests and reports
 playwright-report/
 test-results/
+frontend/screenshots/
 .playwright/
 junit*.xml
 
@@ -52,6 +53,9 @@ junit*.xml
 *.sqlite
 *.sqlite3
 data/
+
+# Generated OpenAPI dump (frontend types are generated from it)
+openapi.json
 
 # Logs and local artifacts
 *.log

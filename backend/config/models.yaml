@@ -1,0 +1,7 @@
+# Model prices per million tokens, in USD as billed by OpenAI.
+# Used for the cost estimate in Settings and the LLM inspector; an unknown
+# model shows its cost as unknown instead of guessing.
+models:
+  gpt-4o-mini:
+    input_per_mtok_usd: 0.15
+    output_per_mtok_usd: 0.60
