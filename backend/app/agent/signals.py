@@ -209,15 +209,17 @@ def swing_points(
 ) -> tuple[list[tuple[int, float]], list[tuple[int, float]]]:
     """(index, price) of bars that are the strict high/low of ``side`` bars
     on each side."""
-    highs: list[tuple[int, float]] = []
-    lows: list[tuple[int, float]] = []
-    for i in range(side, len(high) - side):
-        window_h = high[i - side : i + side + 1]
-        window_l = low[i - side : i + side + 1]
-        if high[i] > np.max(np.delete(window_h, side)):
-            highs.append((i, float(high[i])))
-        if low[i] < np.min(np.delete(window_l, side)):
-            lows.append((i, float(low[i])))
+    span = 2 * side + 1
+    if len(high) < span:
+        return [], []
+    # Window j covers bars j..j+2*side; its centre is bar j+side. Vectorised:
+    # a bar is a swing high when it strictly exceeds both flanks' maxima.
+    wh = np.lib.stride_tricks.sliding_window_view(high, span)
+    wl = np.lib.stride_tricks.sliding_window_view(low, span)
+    hi_hit = wh[:, side] > np.maximum(wh[:, :side].max(axis=1), wh[:, side + 1 :].max(axis=1))
+    lo_hit = wl[:, side] < np.minimum(wl[:, :side].min(axis=1), wl[:, side + 1 :].min(axis=1))
+    highs = [(int(i), float(high[i])) for i in np.flatnonzero(hi_hit) + side]
+    lows = [(int(i), float(low[i])) for i in np.flatnonzero(lo_hit) + side]
     return highs, lows
 
 

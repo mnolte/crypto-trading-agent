@@ -67,12 +67,18 @@ def check_buy(
     gates: list[Gate] = []
 
     entry, stop, target = ctx.entry, ctx.stop, ctx.target
-    stop_dist = entry - stop
     equity = broker.equity()
 
+    # The expected fill is one slippage step above the signal price. Every
+    # gate and the sizing run on it so a BUY that only works at the signal
+    # price — worse R/R, a fatter cost share, more real risk — is a SKIP.
+    fill_entry = entry * (1 + paper.slippage_pct / HUNDRED)
+    stop_dist = entry - stop
+    fill_dist = fill_entry - stop
+
     # -- Min reward/risk -------------------------------------------------
-    rr = (target - entry) / stop_dist if stop_dist > 0 else ZERO
-    if stop_dist <= 0 or rr < risk.min_rr:
+    rr = (target - fill_entry) / fill_dist if fill_dist > 0 else ZERO
+    if stop_dist <= 0 or fill_dist <= 0 or rr < risk.min_rr:
         gates.append(_gate("Min reward/risk", "fail", f"R/R {_fmt(rr)} < {_fmt(risk.min_rr)}"))
         return BuyVerdict("skip", gates, skip_reason="Min reward/risk")
     gates.append(_gate("Min reward/risk", "pass", f"R/R {_fmt(rr)}"))
@@ -81,7 +87,7 @@ def check_buy(
     # Round-trip taker fees + slippage both ways must stay under
     # max_cost_pct_of_risk % of the stop distance.
     cost_pct = paper.fee_pct * 2 + paper.slippage_pct * 2
-    stop_dist_pct = stop_dist / entry * HUNDRED if entry > 0 else ZERO
+    stop_dist_pct = fill_dist / fill_entry * HUNDRED if fill_entry > 0 else ZERO
     if stop_dist_pct <= 0 or cost_pct > risk.max_cost_pct_of_risk / HUNDRED * stop_dist_pct:
         gates.append(
             _gate(
@@ -161,15 +167,12 @@ def check_buy(
     gates.append(_gate("Daily loss limit", "pass", "under limit"))
 
     # ------------------------------------------------------------------ sizing
-    if stop_dist <= 0 or entry <= 0:
+    if fill_dist <= 0 or fill_entry <= 0:
         gates.append(_gate("Sizing", "fail", "no stop distance"))
         return BuyVerdict("skip", gates, skip_reason="Sizing")
 
     # Size on the slipped fill price so the real open risk, not the planned
     # one, stays inside every cap.
-    fill_entry = entry * (1 + paper.slippage_pct / HUNDRED)
-    fill_dist = fill_entry - stop
-
     qty = equity * ctx.risk_pct / HUNDRED / fill_dist
     gates.append(
         _gate(
@@ -209,7 +212,7 @@ def check_buy(
     decimals = market.quantity_decimals if market and market.quantity_decimals is not None else 8
     step = Decimal(1).scaleb(-decimals)
     qty = qty.quantize(step, rounding=ROUND_DOWN)
-    notional = qty * entry
+    notional = qty * fill_entry
 
     if qty <= 0 or notional < risk.min_trade_eur:
         gates.append(
@@ -241,6 +244,7 @@ def check_buy(
 
     plan = Plan(
         entry=entry,
+        fill_entry=fill_entry,
         stop=stop,
         target=target,
         qty=qty,

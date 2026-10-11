@@ -46,7 +46,7 @@ def _ctx(**kw: object) -> BuyContext:
         "now": NOW,
         "entry": Decimal("100"),
         "stop": Decimal("96"),  # 4% away → clears the 2% fee gate
-        "target": Decimal("110"),  # R/R 2.5
+        "target": Decimal("110"),  # R/R 2.5 on signal, ~2.46 on the fill
         "atr_1h": Decimal("1.5"),
         "has_position": False,
         "last_stop_out_at": None,
@@ -65,20 +65,38 @@ def _settings() -> Settings:
 def test_min_rr_boundary() -> None:
     ok = check_buy(_ctx(), _broker(), None, _settings())
     assert ok.outcome == "fill" and ok.gates[0].status == "pass"
-    # R/R exactly 2.0 (target 108 over a 4 EUR stop) passes; just under fails.
-    edge = check_buy(_ctx(target=Decimal("108")), _broker(), None, _settings())
+    # R/R is measured on the expected fill 100.05: exactly 2.0 is
+    # (108.15-100.05)/(100.05-96); just under fails.
+    edge = check_buy(_ctx(target=Decimal("108.15")), _broker(), None, _settings())
     assert edge.outcome == "fill"
-    bad = check_buy(_ctx(target=Decimal("107.99")), _broker(), None, _settings())
+    bad = check_buy(_ctx(target=Decimal("108.14")), _broker(), None, _settings())
     assert bad.outcome == "skip" and bad.skip_reason == "Min reward/risk"
     assert bad.gates[0].status == "fail"
 
 
+def test_rr_gate_uses_expected_fill_price() -> None:
+    """R/R passes on the signal price but fails at the expected fill → SKIP."""
+    # Signal R/R: (108.09-100)/(100-96) = 2.02 >= 2.
+    # Fill R/R:   (108.09-100.05)/(100.05-96) = 1.985 < 2.
+    v = check_buy(_ctx(target=Decimal("108.09")), _broker(), None, _settings())
+    assert v.outcome == "skip" and v.skip_reason == "Min reward/risk"
+    assert v.gates[0].status == "fail"
+    # A passing plan records both the signal price and the expected fill.
+    ok = check_buy(_ctx(), _broker(), None, _settings())
+    assert ok.plan is not None
+    assert ok.plan.entry == Decimal("100")
+    assert ok.plan.fill_entry == Decimal("100.05")
+
+
 def test_fee_gate_boundary() -> None:
-    # Costs 0.6% of price; the gate needs stop distance >= 2% of entry.
-    ok = check_buy(_ctx(stop=Decimal("98"), target=Decimal("110")), _broker(), None, _settings())
+    # Costs 0.6% of price; the gate needs the stop distance >= 2% of the
+    # expected fill: 100.05 x 2% = 2.001 -> stop 98.049 is the boundary.
+    ok = check_buy(
+        _ctx(stop=Decimal("98.049"), target=Decimal("110")), _broker(), None, _settings()
+    )
     assert ok.outcome == "fill"
     tight = check_buy(
-        _ctx(stop=Decimal("98.01"), target=Decimal("110")),
+        _ctx(stop=Decimal("98.05"), target=Decimal("110")),
         _broker(),
         None,
         _settings(),
@@ -168,7 +186,7 @@ def test_sizing_risk_pct_of_equity() -> None:
     assert v.plan.qty == (Decimal("100") / Decimal("4.05")).quantize(
         Decimal("0.00000001"), rounding=ROUND_DOWN
     )
-    assert v.plan.notional == v.plan.qty * Decimal("100")
+    assert v.plan.notional == v.plan.qty * Decimal("100.05")
 
 
 def test_open_risk_cap_sizes_down_third() -> None:
@@ -201,7 +219,7 @@ def test_open_risk_cap_sizes_down_third() -> None:
     assert v.plan.qty == (Decimal("50") / Decimal("4.05")).quantize(
         Decimal("0.00000001"), rounding=ROUND_DOWN
     )
-    assert v.plan.notional == v.plan.qty * Decimal("100")
+    assert v.plan.notional == v.plan.qty * Decimal("100.05")
 
 
 def test_open_risk_cap_reached_skips() -> None:
@@ -312,6 +330,17 @@ def test_breakeven_moves_stop_to_entry_plus_fees() -> None:
     # It never moves back down.
     check_exit(pos, Decimal("105"), Decimal("1"), NOW, s)
     assert pos.stop == expected
+
+
+def test_breakeven_position_counts_zero_open_risk() -> None:
+    """After the +1R breakeven move the stop sits above entry, so the
+    position adds nothing to the open-risk cap."""
+    s = _settings()
+    pos = _pos()
+    assert pos.open_risk == Decimal("4")  # (100-96) x 1 before the move
+    check_exit(pos, Decimal("104"), Decimal("1"), NOW, s)
+    assert pos.stop > pos.entry
+    assert pos.open_risk == Decimal("0")
 
 
 def test_trailing_stop_never_moves_down() -> None:

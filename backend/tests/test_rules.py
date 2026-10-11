@@ -203,10 +203,11 @@ def test_rules_buy_levels() -> None:
     atr = Decimal("1.0")
     min_low = min(c.low for c in candles[-6:])
     expected_stop = min_low - Decimal("0.2") * atr
-    # Widened to the 2% fee-gate floor when tighter.
-    fee_floor = Decimal("100") * Decimal("0.02")
-    if Decimal("100") - expected_stop < fee_floor:
-        expected_stop = Decimal("100") - fee_floor
+    # Widened to the 2% fee-gate floor measured on the expected fill 100.05.
+    fill_entry = Decimal("100.05")
+    fee_floor = fill_entry * Decimal("0.02")
+    if fill_entry - expected_stop < fee_floor:
+        expected_stop = fill_entry - fee_floor
     assert d.stop == expected_stop
     # No resistance within 6 x ATR → entry + 2.5R.
     risk = Decimal("100") - d.stop

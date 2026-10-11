@@ -208,14 +208,14 @@ class RulesDecider:
         stop = min(lows) - rules.stop_atr_pad * atr
         paper = settings.paper
         risk = settings.risk
+        # Mirror the fee gate on the expected fill price so a widened stop
+        # still passes it.
+        fill_entry = entry * (1 + paper.slippage_pct / 100)
         min_stop_dist = (
-            (paper.fee_pct * 2 + paper.slippage_pct * 2)
-            / 100
-            / (risk.max_cost_pct_of_risk / 100)
-            * entry
+            (paper.fee_pct * 2 + paper.slippage_pct * 2) / risk.max_cost_pct_of_risk * fill_entry
         )
-        if entry - stop < min_stop_dist:
-            stop = entry - min_stop_dist
+        if fill_entry - stop < min_stop_dist:
+            stop = fill_entry - min_stop_dist
         if entry - stop > rules.stop_max_atr * atr:
             return Draft(
                 action="HOLD",

@@ -450,7 +450,13 @@ class Engine:
             settings=settings.market,
             now=now,
         )
-        self._check_pair_shock(session, pair, candles["1h"], now)
+        self._check_pair_shock(
+            session,
+            pair,
+            candles["1h"][-1],
+            Decimal(str(signals.tf["1h"].atr14)) if signals.tf["1h"].atr14 else None,
+            now,
+        )
 
         pos = self.broker.positions.get(pair)
         prev_4h = compute_tf_values(candles["4h"][:-1], "4h") if len(candles["4h"]) > 1 else None
@@ -764,18 +770,19 @@ class Engine:
                     self._trigger_shock(session, now, settings, "BTC move")
 
     def _check_pair_shock(
-        self, session: Session, pair: str, candles_1h: list[Candle], now: datetime
+        self,
+        session: Session,
+        pair: str,
+        last_1h: Candle,
+        atr_1h: Decimal | None,
+        now: datetime,
     ) -> None:
         """Any active pair's last closed 1h candle range above 3 x ATR(1h)."""
         settings = self._settings()
-        if len(candles_1h) < 16:
+        if atr_1h is None or atr_1h <= 0:
             return
-        values = compute_tf_values(candles_1h, "1h")
-        if not values.atr14:
-            return
-        atr = Decimal(str(values.atr14))
-        rng = candles_1h[-1].high - candles_1h[-1].low
-        if rng > 3 * atr:
+        rng = last_1h.high - last_1h.low
+        if rng > 3 * atr_1h:
             self._trigger_shock(session, now, settings, f"{pair} candle range")
 
     def _trigger_shock(

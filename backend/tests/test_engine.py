@@ -619,8 +619,15 @@ async def test_throttle_halves_risk_after_three_losses(env: Path) -> None:
     assert risk <= Decimal("50.01")
 
 
-async def test_2000_cycles_no_nan(env: Path) -> None:
-    """Spec soak: 2,000 cycles on the simulated market, no NaN anywhere."""
+@pytest.mark.parametrize(
+    "cycles",
+    [200, pytest.param(2000, marks=pytest.mark.slow)],
+)
+async def test_n_cycles_no_nan(env: Path, cycles: int) -> None:
+    """Spec soak: N cycles on the simulated market, no NaN anywhere.
+
+    200 runs in the normal suite; the 2000-cycle spec soak is ``slow``
+    and runs via ``make soak``."""
     e = EngineEnv(
         env / "agent.db",
         markets=["SOL-EUR"],
@@ -630,9 +637,9 @@ async def test_2000_cycles_no_nan(env: Path) -> None:
             execution_mode="auto",
         ),
     )
-    # One long series covering the whole 2000-cycle span; the market serves
+    # One long series covering the whole cycle span; the market serves
     # only bars already closed at the fake now.
-    horizon = NOW + timedelta(seconds=2000 * 900 + 7200)
+    horizon = NOW + timedelta(seconds=cycles * 900 + 7200)
     e.market.series[("SOL-EUR", "1h")] = _series(
         1400,
         HOUR,
@@ -704,7 +711,7 @@ async def test_2000_cycles_no_nan(env: Path) -> None:
                 return False
         return True
 
-    for i in range(2000):
+    for i in range(cycles):
         e.clock.advance(seconds=900)
         e.market.now = e.clock()
         await e.engine.run_cycle()

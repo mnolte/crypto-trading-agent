@@ -745,6 +745,8 @@ export interface components {
         Plan: {
             /** Entry */
             entry: string;
+            /** Fill Entry */
+            fill_entry: string;
             /** Notional */
             notional: string;
             /** Qty */

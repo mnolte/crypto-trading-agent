@@ -59,5 +59,8 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
 asyncio_mode = "auto"
+markers = [
+    "slow: long-running soaks; excluded from the suite, run via `make soak`",
+]
 # No real network in tests: every outbound socket fails unless it's localhost.
 addopts = "--disable-socket --allow-hosts=127.0.0.1,localhost"

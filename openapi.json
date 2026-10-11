@@ -869,6 +869,10 @@
             "title": "Entry",
             "type": "string"
           },
+          "fill_entry": {
+            "title": "Fill Entry",
+            "type": "string"
+          },
           "notional": {
             "title": "Notional",
             "type": "string"
@@ -892,6 +896,7 @@
         },
         "required": [
           "entry",
+          "fill_entry",
           "stop",
           "target",
           "qty",

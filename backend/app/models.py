@@ -38,7 +38,8 @@ class Gate(BaseModel):
 
 
 class Plan(BaseModel):
-    entry: MoneyDecimal
+    entry: MoneyDecimal  # signal price the decider proposed
+    fill_entry: MoneyDecimal  # expected fill: entry plus entry slippage
     stop: MoneyDecimal
     target: MoneyDecimal
     qty: MoneyDecimal

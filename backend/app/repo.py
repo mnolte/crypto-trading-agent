@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import cast
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import Table, delete, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
@@ -62,6 +63,34 @@ def upsert_candles(session: Session, market: str, tf: Tf, candles: list[Candle])
     """Insert closed candles; existing bars are left untouched."""
     if not candles:
         return
+    # Candles are append-mostly: bars newer than the stored max always go in.
+    # Bars at or below it are almost all duplicates — skip them unless the
+    # table is missing some of those slots (a gap a later fetch can heal).
+    newest = session.scalar(
+        select(func.max(CandleRow.open_time_ms)).where(
+            CandleRow.market == market, CandleRow.tf == tf
+        )
+    )
+    if newest is not None:
+        head = [c for c in candles if int(c.open_time.timestamp() * 1000) <= newest]
+        tail = [c for c in candles if int(c.open_time.timestamp() * 1000) > newest]
+        if head:
+            head_min = int(head[0].open_time.timestamp() * 1000)
+            stored = session.scalar(
+                select(func.count())
+                .select_from(CandleRow)
+                .where(
+                    CandleRow.market == market,
+                    CandleRow.tf == tf,
+                    CandleRow.open_time_ms >= head_min,
+                    CandleRow.open_time_ms <= newest,
+                )
+            )
+            if stored == len(head):
+                head = []
+        candles = head + tail
+    if not candles:
+        return
     rows = [
         {
             "market": market,
@@ -75,7 +104,9 @@ def upsert_candles(session: Session, market: str, tf: Tf, candles: list[Candle])
         }
         for c in candles
     ]
-    session.execute(sqlite_insert(CandleRow).values(rows).on_conflict_do_nothing())
+    session.execute(
+        sqlite_insert(cast(Table, CandleRow.__table__)).values(rows).on_conflict_do_nothing()
+    )
     session.commit()
 
 

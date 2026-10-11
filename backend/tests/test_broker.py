@@ -129,6 +129,37 @@ def test_day_start_rolls_at_amsterdam_midnight(session: Session) -> None:
     assert broker.today_pnl(after - timedelta(hours=2)) == Decimal("0")
 
 
+def test_day_start_rolls_once_across_dst_fallback() -> None:
+    """DST fallback on 2026-10-25 (CEST→CET): the day is 25 hours long and
+    day-start must roll exactly once at 00:00 Europe/Amsterdam — not at UTC
+    midnight and not again inside the repeated 02:00 hour."""
+    broker = PaperBroker(_account(day_start="10000", day="2026-10-24"), PaperSettings())
+    # 00:00 Amsterdam on 25 Oct = 22:00 UTC 24 Oct (still CEST, UTC+2).
+    assert broker.today_pnl(datetime(2026, 10, 24, 21, 59, 59, tzinfo=UTC)) == Decimal("0")
+    assert broker.day_start_equity == Decimal("10000")  # still the 24th there
+    broker.today_pnl(datetime(2026, 10, 24, 22, 0, tzinfo=UTC))  # 00:00 CEST 25th
+    # Sentinel: any further roll inside the 25th would overwrite with equity.
+    broker.day_start_equity = Decimal("42")
+    # The repeated local hour: 00:30 UTC is 02:30 CEST, 01:30 UTC is 02:30
+    # CET — same Amsterdam date, so no second roll anywhere in it.
+    for ts in (
+        datetime(2026, 10, 25, 0, 30, tzinfo=UTC),
+        datetime(2026, 10, 25, 1, 0, tzinfo=UTC),  # the fallback instant
+        datetime(2026, 10, 25, 1, 30, tzinfo=UTC),
+        datetime(2026, 10, 25, 2, 30, tzinfo=UTC),
+        datetime(2026, 10, 25, 12, 0, tzinfo=UTC),
+        datetime(2026, 10, 25, 22, 59, 59, tzinfo=UTC),  # 23:59:59 CET
+    ):
+        broker.today_pnl(ts)
+        assert broker.day_start_equity == Decimal("42"), f"re-rolled at {ts}"
+    # Next roll at 00:00 CET 26 Oct = 23:00 UTC 25 Oct — once per Amsterdam day.
+    broker.today_pnl(datetime(2026, 10, 25, 23, 0, tzinfo=UTC))
+    assert broker.day_start_equity == broker.equity()
+    broker.day_start_equity = Decimal("43")
+    broker.today_pnl(datetime(2026, 10, 25, 23, 30, tzinfo=UTC))
+    assert broker.day_start_equity == Decimal("43")
+
+
 def test_positions_roundtrip_through_db(session: Session) -> None:
     broker = PaperBroker(_account(), PaperSettings())
     broker.buy(
