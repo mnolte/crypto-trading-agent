@@ -27,6 +27,8 @@ from app.db import (
     ActivityRow,
     BriefingRow,
     DecisionRow,
+    EntryPauseRow,
+    LlmCallRow,
     MarketRow,
     make_engine,
     make_session_factory,
@@ -343,6 +345,15 @@ def test_briefing_bad_number_retries_then_template(
     assert client.calls == 2  # one regeneration, not more
     assert row.source == "template"
     assert row.reason == "the number check rejected the model's text"
+    # Both calls are audited with their own request/response bytes.
+    session = sessions()
+    try:
+        calls = session.scalars(select(LlmCallRow)).all()
+        assert len(calls) == 2
+        assert {c.id for c in calls} >= {row.llm_call_id}
+        assert len({c.request_json for c in calls}) == 2  # the retry kept its own payload
+    finally:
+        session.close()
 
 
 def test_briefing_retry_with_good_numbers_is_used(
@@ -419,6 +430,39 @@ def test_pause_endpoints(sim_client: TestClient) -> None:
     assert sim_client.get("/api/snapshot").json()["paused"] == []
 
 
+def test_pause_naive_until_is_treated_as_utc(sim_client: TestClient) -> None:
+    """A timezone-naive ``until`` is read as UTC, not a 500."""
+    state = _state(sim_client)
+    session = state.session_factory()
+    try:
+        session.merge(MarketRow(market="DOGE-EUR", eligible=True))
+        session.commit()
+    finally:
+        session.close()
+    naive = (datetime.now(UTC) + timedelta(hours=1)).replace(tzinfo=None).isoformat()
+    out = sim_client.put(
+        "/api/markets/DOGE-EUR/pause",
+        headers={"X-Local-Token": _token(sim_client)},
+        json={"until": naive},
+    )
+    assert out.status_code == 200, out.text
+
+
+def test_expired_pause_is_pruned_from_db(sessions: sessionmaker[Session]) -> None:
+    session = sessions()
+    try:
+        repo.set_entry_pause(session, "DOGE-EUR", NOW - HOUR, at=NOW - 2 * HOUR)
+        session.commit()
+    finally:
+        session.close()
+    session = sessions()  # a fresh session — expired rows must not linger
+    try:
+        assert repo.list_entry_pauses(session, NOW) == []
+        assert session.scalars(select(EntryPauseRow)).all() == []
+    finally:
+        session.close()
+
+
 def test_pause_until_must_be_future(sim_client: TestClient) -> None:
     state = _state(sim_client)
     session = state.session_factory()
@@ -447,6 +491,17 @@ def test_pause_unknown_market_404(sim_client: TestClient) -> None:
 
 def test_writes_require_token(sim_client: TestClient) -> None:
     assert sim_client.put("/api/agent/entry-pause", json={"until": None}).status_code == 403
+
+
+def test_briefing_time_must_be_hh_mm(sim_client: TestClient) -> None:
+    """A malformed briefing time is rejected at the settings boundary —
+    it must never reach scheduled_today."""
+    doc = sim_client.get("/api/settings").json()
+    doc["learning"]["briefing_time"] = "25:99"
+    out = sim_client.put(
+        "/api/settings", headers={"X-Local-Token": _token(sim_client)}, json=doc
+    )
+    assert out.status_code == 422
 
 
 def test_glossary_endpoint(sim_client: TestClient) -> None:

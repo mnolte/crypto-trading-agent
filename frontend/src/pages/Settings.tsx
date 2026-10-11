@@ -215,7 +215,7 @@ export function Settings() {
               <MarketRow
                 key={m.market}
                 market={m}
-                pause={pausedMap.get(m.market)}
+                pause={pausedMap.get(m.market) ?? pausedMap.get("*")}
                 pending={updateMarket.isPending}
                 onToggle={(active) =>
                   updateMarket.mutate(

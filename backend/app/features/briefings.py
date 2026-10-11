@@ -219,7 +219,12 @@ def compute_facts(
         ),
         "trades_opened": opened_out,
         "trades_closed": closed_out,
+        # Counts the template/model legitimately writes — the number check
+        # only allows literals from this tree.
+        "trades_opened_count": len(opened_out),
+        "trades_closed_count": len(closed_out),
         "open_positions": positions_out,
+        "open_positions_count": len(positions_out),
         "skips": list(skip_groups.values()),
         "alerts": alerts,
         "quiet": quiet,
@@ -300,7 +305,8 @@ def text_numbers_ok(text: str, facts: dict[str, Any]) -> list[Decimal]:
 def _eur(value: str | None) -> str:
     if value is None:
         return "unknown"
-    return f"€{abs(Decimal(value)):,.2f}"
+    # Signed: the number check compares against the facts, sign included.
+    return f"€{Decimal(value):,.2f}"
 
 
 def template_text(facts: dict[str, Any]) -> str:
@@ -310,15 +316,10 @@ def template_text(facts: dict[str, Any]) -> str:
     change = facts.get("equity_change_24h_eur")
     line = f"Equity {_eur(equity if isinstance(equity, str) else None)}"
     if isinstance(change, str):
-        sign = "up" if Decimal(change) >= 0 else "down"
-        line += f", {sign} {_eur(change)} over 24h"
+        line += f", {_eur(change)} over 24h"
     vs = facts.get("vs_btc_points_mtd")
     if isinstance(vs, (int, float)):
-        line += (
-            f"; {abs(vs):.2f} points "
-            + ("ahead of" if vs >= 0 else "behind")
-            + " holding BTC this month"
-        )
+        line += f"; {vs:+.2f} points vs holding BTC this month"
     parts.append(line + ".")
 
     opened = facts.get("trades_opened") or []
@@ -495,7 +496,7 @@ async def generate_briefing(
     key = api_key if api_key is not None else key_fn()
     reason: str | None = None
     text: str | None = None
-    call_row: LlmCallRow | None = None
+    call_rows: list[LlmCallRow] = []
     prices = prices or budget.ModelPrices()
 
     if key is None:
@@ -514,17 +515,17 @@ async def generate_briefing(
     if reason is None and prompt is not None:
         assert key is not None  # "no OpenAI key" was set above otherwise
         payload = briefing_payload(facts, settings.model.model_id, prompt)
-        call_row = _call_row(
-            payload,
-            now=now,
-            account_id=account.id,
-            cycle=cycle,
-            prompt_version=prompt.version,
-            in_checks=[CheckOut(name="Facts computed", status="pass", detail="")],
-        )
         client = client_factory(key)
-        bad_attempts = 0
         for _attempt in range(2):
+            call_row = _call_row(
+                payload,
+                now=now,
+                account_id=account.id,
+                cycle=cycle,
+                prompt_version=prompt.version,
+                in_checks=[CheckOut(name="Facts computed", status="pass", detail="")],
+            )
+            call_rows.append(call_row)
             try:
                 result = await client.call(payload)
             except Exception as exc:  # the transport itself blew up
@@ -539,7 +540,6 @@ async def generate_briefing(
                 text = candidate
                 checks = [CheckOut(name="Numbers match facts", status="pass", detail="")]
             else:
-                bad_attempts += 1
                 checks = [
                     CheckOut(
                         name="Numbers match facts",
@@ -563,7 +563,6 @@ async def generate_briefing(
                 settings.model.model_id,
                 prompt,
             )
-            call_row.request_json = json.dumps(payload, separators=(",", ":"))
         await client.aclose()
         if text is None and reason is None:
             reason = "the number check rejected the model's text"
@@ -577,10 +576,10 @@ async def generate_briefing(
         text=text or template_text(facts),
         source="model" if text is not None else "template",
         reason=reason,
-        llm_call_id=call_row.id if call_row is not None else None,
+        llm_call_id=call_rows[-1].id if call_rows else None,
     )
     repo.add_briefing(session, row)
-    if call_row is not None:
+    for call_row in call_rows:
         repo.add_llm_call(session, call_row)
     if reason is not None:
         repo.add_activity(session, "alert", f"briefing fell back to template: {reason}", at=now)

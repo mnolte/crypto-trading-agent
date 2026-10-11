@@ -11,7 +11,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, PlainSerializer
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
 
 # Money travels as a string in JSON: Decimals are exact and the frontend only
 # formats them.
@@ -337,7 +337,9 @@ class LearningSettings(BaseModel):
 
     plain_language: bool = True
     quiet_line: bool = True
-    briefing_time: str = "08:00"  # HH:MM Europe/Amsterdam
+    briefing_time: str = Field(
+        default="08:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$"
+    )  # HH:MM Europe/Amsterdam
     weekly_review: Literal["mon_08", "sun_20", "off"] = "mon_08"
     ask_daily_limit: int = 100
     insights_min_decisions: int = 30

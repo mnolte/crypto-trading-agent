@@ -238,7 +238,7 @@ export function Dashboard() {
         <LatestDecision
           decision={latest}
           pair={selected}
-          pause={selected ? paused.get(selected) : undefined}
+          pause={selected ? (paused.get(selected) ?? paused.get("*")) : undefined}
           onOpen={(id) => setDecisionId(id)}
         />
       </div>

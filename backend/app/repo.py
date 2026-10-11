@@ -866,6 +866,7 @@ def delete_all_data(session: Session) -> None:
         EntryPauseRow,
         BriefingRow,
         AlertRow,
+        SettingsHistoryRow,
     ):
         session.execute(delete(table))
     session.commit()
@@ -928,6 +929,8 @@ def list_entry_pauses(session: Session, now: datetime | None = None) -> list[Ent
             session.delete(row)
         else:
             active.append(row)
+    if len(active) < len(rows):
+        session.commit()  # actually persist the prune; callers only read
     return active
 
 

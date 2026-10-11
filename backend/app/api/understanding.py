@@ -40,13 +40,16 @@ def _pause_out(row: EntryPauseRow) -> EntryPause:
 
 def _set_pause(state: AppState, pair: str, body: EntryPauseIn) -> EntryPause:
     now = utcnow()
-    if body.until is not None and body.until <= now:
+    # Naive datetimes are UTC by the repo's convention; comparing a naive
+    # value against the aware `now` would raise TypeError (500).
+    until = repo.aware_utc(body.until) if body.until is not None else None
+    if until is not None and until <= now:
         raise HTTPException(status_code=422, detail="until must be in the future")
     session = state.session_factory()
     try:
-        row = repo.set_entry_pause(session, pair, body.until, at=now)
+        row = repo.set_entry_pause(session, pair, until, at=now)
         label = "all coins" if pair == "*" else pair
-        when = "until resumed" if body.until is None else f"until {body.until.isoformat()}"
+        when = "until resumed" if until is None else f"until {until.isoformat()}"
         repo.add_activity(session, "pause", f"entries paused on {label} {when}", at=now)
         session.commit()
         return _pause_out(row)

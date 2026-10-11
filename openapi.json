@@ -1332,6 +1332,7 @@
           },
           "briefing_time": {
             "default": "08:00",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
             "title": "Briefing Time",
             "type": "string"
           },

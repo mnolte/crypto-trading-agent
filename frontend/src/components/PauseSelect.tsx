@@ -24,6 +24,9 @@ export function PauseSelect({
   const busy = pauseEntries.isPending || resumeEntries.isPending;
   const paused = pause !== undefined;
   const until = pause?.until;
+  // The pause in force comes from the global "*" row — this select can't
+  // clear it, only the All-coins control can.
+  const globalPause = pair !== "*" && pause?.pair === "*";
   const onError = (e: unknown) =>
     setError(e instanceof Error ? e.message : String(e));
 
@@ -44,7 +47,7 @@ export function PauseSelect({
         className="input input--sm"
         aria-label={pair === "*" ? "Pause new entries on all coins" : `Pause new entries on ${pair}`}
         value={value}
-        disabled={busy}
+        disabled={busy || globalPause}
         onChange={(e) => {
           const v = e.target.value;
           setError(null);
@@ -82,6 +85,7 @@ export function PauseSelect({
           }}
         />
       )}
+      {globalPause && <span className="card__meta">on all coins</span>}
       {error && <span className="pause-select__error">{error}</span>}
     </span>
   );
