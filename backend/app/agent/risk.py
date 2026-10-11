@@ -200,11 +200,23 @@ def check_buy(
     # Exposure cap (spot: no leverage).
     exposure_cap = equity * risk.max_exposure_pct / HUNDRED
     exposure_room = exposure_cap - broker.exposure()
-    qty = min(qty, exposure_room / fill_entry) if exposure_room > 0 else ZERO
+    if exposure_room <= 0:
+        gates.append(
+            _gate(
+                "Max total exposure",
+                "fail",
+                f"{_fmt(risk.max_exposure_pct)}% cap reached",
+            )
+        )
+        return BuyVerdict("skip", gates, skip_reason="Max total exposure")
+    qty = min(qty, exposure_room / fill_entry)
     gates.append(_gate("Max total exposure", "pass", f"room {_fmt(exposure_room)} EUR"))
 
     # Cash available incl. the buy-side fee.
     cash_room = broker.cash / (fill_entry * (1 + paper.fee_pct / HUNDRED))
+    if cash_room <= 0:
+        gates.append(_gate("Cash available incl. fees", "fail", f"cash {_fmt(broker.cash)} EUR"))
+        return BuyVerdict("skip", gates, skip_reason="Cash available incl. fees")
     qty = min(qty, cash_room)
     gates.append(_gate("Cash available incl. fees", "pass", f"cash {_fmt(broker.cash)} EUR"))
 

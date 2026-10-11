@@ -75,7 +75,7 @@ def upsert_candles(session: Session, market: str, tf: Tf, candles: list[Candle])
         head = [c for c in candles if int(c.open_time.timestamp() * 1000) <= newest]
         tail = [c for c in candles if int(c.open_time.timestamp() * 1000) > newest]
         if head:
-            head_min = int(head[0].open_time.timestamp() * 1000)
+            head_min = min(int(c.open_time.timestamp() * 1000) for c in head)
             stored = session.scalar(
                 select(func.count())
                 .select_from(CandleRow)
