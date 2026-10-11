@@ -9,6 +9,7 @@ tables; the engine passes it a session and controls commit batching.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -80,6 +81,16 @@ class HeldPosition:
         )
 
 
+@dataclass
+class BrokerState:
+    cash: Decimal
+    peak_equity: Decimal
+    day_start_equity: Decimal
+    day_start_date: date
+    positions: dict[str, HeldPosition]
+    account_values: dict[str, str | datetime | None]
+
+
 class PaperBroker:
     """The paper account bound to one ``accounts`` row."""
 
@@ -101,6 +112,35 @@ class PaperBroker:
             else self._ams_date(datetime.now(UTC))
         )
         self.positions: dict[str, HeldPosition] = {}
+
+    def capture_state(self) -> BrokerState:
+        account_fields = (
+            "cash",
+            "peak_equity",
+            "day_start_equity",
+            "day_start_date",
+            "kill_at",
+            "kill_peak",
+            "kill_equity",
+            "kill_closed",
+        )
+        return BrokerState(
+            cash=self.cash,
+            peak_equity=self.peak_equity,
+            day_start_equity=self.day_start_equity,
+            day_start_date=self._day_start_date,
+            positions=deepcopy(self.positions),
+            account_values={name: getattr(self.account, name) for name in account_fields},
+        )
+
+    def restore_state(self, state: BrokerState) -> None:
+        self.cash = state.cash
+        self.peak_equity = state.peak_equity
+        self.day_start_equity = state.day_start_equity
+        self._day_start_date = state.day_start_date
+        self.positions = state.positions
+        for name, value in state.account_values.items():
+            setattr(self.account, name, value)
 
     # ------------------------------------------------------------------ load
 

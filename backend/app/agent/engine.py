@@ -25,7 +25,7 @@ from typing import Literal, cast
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import repo
-from app.agent.broker.paper import PaperBroker
+from app.agent.broker.paper import BrokerState, PaperBroker
 from app.agent.deciders.base import DecideContext, Decider, Draft, RiskView
 from app.agent.market.base import (
     Candle,
@@ -199,48 +199,78 @@ class Engine:
         await self.run_cycle()
         return True
 
+    def _capture_execution_state(
+        self,
+    ) -> tuple[BrokerState, dict[str, Decision], dict[str, Decision]]:
+        """Broker plus the in-memory decision indexes — everything that must
+        survive a failed commit unchanged."""
+        return (self.broker.capture_state(), dict(self.pending), dict(self.latest))
+
+    def _restore_execution_state(
+        self,
+        state: tuple[BrokerState, dict[str, Decision], dict[str, Decision]],
+    ) -> None:
+        broker_state, pending, latest = state
+        self.broker.restore_state(broker_state)
+        self.pending = pending
+        self.latest = latest
+
     async def flatten(self) -> list[str]:
         """Close every position at market and pause the agent."""
-        session = self._sessions()
-        closed: list[str] = []
-        now = self.clock()
-        try:
-            for pair in list(self.broker.positions):
-                price = await self._price(pair)
-                if price <= 0:
-                    repo.add_activity(
-                        session,
-                        "error",
-                        f"flatten skipped {pair}: no current price",
-                        pair=pair,
-                        at=now,
-                    )
-                    continue
-                await self._close_position(session, pair, price, now, "flatten")
-                closed.append(pair)
-            self.pause()
-            self.broker.persist(session, now)
-            repo.add_activity(session, "exit", f"Stop & flatten: closed {len(closed)} position(s)")
-            session.commit()
-        finally:
-            session.close()
+        async with self._execution_lock:
+            session = self._sessions()
+            state = self._capture_execution_state()
+            closed: list[str] = []
+            now = self.clock()
+            try:
+                for pair in list(self.broker.positions):
+                    price = await self._price(pair)
+                    if price <= 0:
+                        repo.add_activity(
+                            session,
+                            "error",
+                            f"flatten skipped {pair}: no current price",
+                            pair=pair,
+                            at=now,
+                        )
+                        continue
+                    await self._close_position(session, pair, price, now, "flatten")
+                    closed.append(pair)
+                self.pause()
+                self.broker.persist(session, now)
+                repo.add_activity(
+                    session, "exit", f"Stop & flatten: closed {len(closed)} position(s)"
+                )
+                session.commit()
+            except Exception:
+                session.rollback()
+                self._restore_execution_state(state)
+                raise
+            finally:
+                session.close()
         await self._push()
         return closed
 
     async def close_position(self, pair: str) -> bool:
         """Close one open position at market (the dashboard Close button)."""
-        if pair not in self.broker.positions:
-            return False
-        session = self._sessions()
-        try:
+        async with self._execution_lock:
+            if pair not in self.broker.positions:
+                return False
             price = await self._price(pair)
             if price <= 0:
                 raise MarketDataError(f"no current price for {pair}")
-            await self._close_position(session, pair, price, self.clock(), "manual")
-            self.broker.persist(session, self.clock())
-            session.commit()
-        finally:
-            session.close()
+            session = self._sessions()
+            state = self._capture_execution_state()
+            try:
+                await self._close_position(session, pair, price, self.clock(), "manual")
+                self.broker.persist(session, self.clock())
+                session.commit()
+            except Exception:
+                session.rollback()
+                self._restore_execution_state(state)
+                raise
+            finally:
+                session.close()
         await self._push()
         return True
 
@@ -575,28 +605,45 @@ class Engine:
         *,
         btc_regime: Regime | None = None,
     ) -> Decision:
-        if draft.action == "BUY" and self._settings().execution_mode == "auto":
+        if draft.action == "SELL" or (
+            draft.action == "BUY" and self._settings().execution_mode == "auto"
+        ):
+            # Snapshot inside the lock: a concurrent fill committed while we
+            # waited must survive our rollback.
             async with self._execution_lock:
-                return await self._execute_draft_unlocked(
-                    session,
-                    pair,
-                    draft,
-                    signals,
-                    candles,
-                    price,
-                    now,
-                    btc_regime=btc_regime,
-                )
-        return await self._execute_draft_unlocked(
-            session,
-            pair,
-            draft,
-            signals,
-            candles,
-            price,
-            now,
-            btc_regime=btc_regime,
-        )
+                state = self._capture_execution_state()
+                try:
+                    return await self._execute_draft_unlocked(
+                        session,
+                        pair,
+                        draft,
+                        signals,
+                        candles,
+                        price,
+                        now,
+                        btc_regime=btc_regime,
+                    )
+                except Exception:
+                    session.rollback()
+                    self._restore_execution_state(state)
+                    raise
+        # No awaits until commit — broker mutations stay atomic here.
+        state = self._capture_execution_state()
+        try:
+            return await self._execute_draft_unlocked(
+                session,
+                pair,
+                draft,
+                signals,
+                candles,
+                price,
+                now,
+                btc_regime=btc_regime,
+            )
+        except Exception:
+            session.rollback()
+            self._restore_execution_state(state)
+            raise
 
     async def _execute_draft_unlocked(
         self,
@@ -745,8 +792,13 @@ class Engine:
 
     async def tick(self) -> None:
         """One 30-second watcher pass: prices, exits, kill, shock brake."""
+        async with self._execution_lock:
+            await self._tick_locked()
+
+    async def _tick_locked(self) -> None:
         now = self.clock()
         session = self._sessions()
+        state = self._capture_execution_state()
         try:
             settings = self._settings()
             await self._tick_shock_btc(session, now, settings)
@@ -756,6 +808,10 @@ class Engine:
             await self._tick_risk_notifications(session, now, settings)
             self.broker.persist(session, now)
             session.commit()
+        except Exception:
+            session.rollback()
+            self._restore_execution_state(state)
+            raise
         finally:
             session.close()
 
@@ -852,18 +908,20 @@ class Engine:
                 and row.execute_at is not None
                 and repo.aware_utc(row.execute_at) <= now
             ):
-                async with self._execution_lock:
-                    await self._approve_pending(session, row.id, now)
-                    self.broker.persist(session, now)
-                    session.commit()
+                await self._approve_pending(session, row.id, now)
 
     async def approve_pending(self, decision_id: str) -> Decision:
         async with self._execution_lock:
             session = self._sessions()
+            state = self._capture_execution_state()
             try:
                 decision = await self._approve_pending(session, decision_id, self.clock())
                 self.broker.persist(session, self.clock())
                 session.commit()
+            except Exception:
+                session.rollback()
+                self._restore_execution_state(state)
+                raise
             finally:
                 session.close()
         await self._push()
@@ -945,6 +1003,7 @@ class Engine:
     async def veto_pending(self, decision_id: str) -> Decision:
         async with self._execution_lock:
             session = self._sessions()
+            state = self._capture_execution_state()
             try:
                 row = repo.get_decision_row(session, decision_id)
                 if (
@@ -966,6 +1025,10 @@ class Engine:
                 session.commit()
                 decision = decision_from_row(row)
                 self.latest[row.pair] = decision
+            except Exception:
+                session.rollback()
+                self._restore_execution_state(state)
+                raise
             finally:
                 session.close()
         await self._push()

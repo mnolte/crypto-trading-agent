@@ -44,10 +44,20 @@ from app.sources import SourceRegistry
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 
+SOURCE_RECOVERY_RESOLVE_S = 3600
 
-async def _resolve_source_error_after_recovery(state: AppState, source_id: str) -> None:
-    await asyncio.sleep(3600)
-    if state.sources.status(source_id).runtime.failures != 0:
+
+async def _resolve_source_error_after_recovery(
+    state: AppState,
+    source_id: str,
+    generation: int,
+    generations: dict[str, int],
+) -> None:
+    await asyncio.sleep(SOURCE_RECOVERY_RESOLVE_S)
+    if (
+        generations.get(source_id) != generation
+        or state.sources.status(source_id).runtime.failures != 0
+    ):
         return
     session = state.session_factory()
     try:
@@ -144,8 +154,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         state.broker = broker
         state.account_id = account.id
         notification_dispatcher = notifications.NotificationDispatcher(state)
+        source_recovery_generations: dict[str, int] = {}
 
         def source_failed(source_id: str, error: str) -> None:
+            source_recovery_generations[source_id] = (
+                source_recovery_generations.get(source_id, 0) + 1
+            )
             session = state.session_factory()
             try:
                 repo.add_activity(
@@ -163,9 +177,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             )
 
         def source_recovered(source_id: str) -> None:
+            generation = source_recovery_generations.get(source_id, 0) + 1
+            source_recovery_generations[source_id] = generation
             _track_task(
                 state,
-                asyncio.create_task(_resolve_source_error_after_recovery(state, source_id)),
+                asyncio.create_task(
+                    _resolve_source_error_after_recovery(
+                        state,
+                        source_id,
+                        generation,
+                        source_recovery_generations,
+                    )
+                ),
             )
 
         state.sources.on_failure_threshold = source_failed
@@ -203,10 +226,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if state is not None:
             if state.agent_engine is not None:
                 await state.agent_engine.stop()
-            for task in state.tasks:
+            tasks = list(state.tasks)
+            state.tasks.clear()
+            for task in tasks:
                 task.cancel()
-            if state.tasks:
-                await asyncio.gather(*state.tasks, return_exceptions=True)
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
             await state.market_client.aclose()
         if db_engine is not None:
             db_engine.dispose()

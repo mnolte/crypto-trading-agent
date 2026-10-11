@@ -1067,6 +1067,11 @@ export interface components {
             fill_price?: string | null;
             /** Next Id */
             next_id?: string | null;
+            /**
+             * Outcome Failures
+             * @default []
+             */
+            outcome_failures: components["schemas"]["OutcomeFailureOut"][];
             /** Outcome Pending Until */
             outcome_pending_until?: string | null;
             /**
@@ -1772,6 +1777,13 @@ export interface components {
              *     }
              */
             smtp: components["schemas"]["SmtpSettings"];
+        };
+        /** OutcomeFailureOut */
+        OutcomeFailureOut: {
+            /** Horizon */
+            horizon: number;
+            /** Reason */
+            reason: string;
         };
         /** OutcomeOut */
         OutcomeOut: {

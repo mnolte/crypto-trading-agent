@@ -49,6 +49,7 @@ from app.db import (
     AccountRow,
     DecisionRow,
     MarketRow,
+    OutcomeFailureRow,
     OutcomeRow,
     PositionRow,
     TradeRow,
@@ -73,6 +74,7 @@ from app.models import (
     IndicatorsOut,
     LevelOut,
     LiquidityOut,
+    OutcomeFailureOut,
     OutcomeOut,
     PerformanceOut,
     PerfTotals,
@@ -289,6 +291,14 @@ def get_decision(request: Request, decision_id: str) -> DecisionDetail:
         outcome_rows = session.scalars(
             select(OutcomeRow).where(OutcomeRow.decision_id == row.id).order_by(OutcomeRow.horizon)
         ).all()
+        terminal_rows = session.scalars(
+            select(OutcomeFailureRow)
+            .where(
+                OutcomeFailureRow.decision_id == row.id,
+                OutcomeFailureRow.terminal.is_(True),
+            )
+            .order_by(OutcomeFailureRow.horizon)
+        ).all()
         outcomes = [
             OutcomeOut(
                 horizon=item.horizon,
@@ -313,7 +323,13 @@ def get_decision(request: Request, decision_id: str) -> DecisionDetail:
             )
             for item in outcome_rows
         ]
-        completed_horizons = {item.horizon for item in outcome_rows}
+        outcome_failures = [
+            OutcomeFailureOut(horizon=item.horizon, reason=item.last_error)
+            for item in terminal_rows
+        ]
+        completed_horizons = {item.horizon for item in outcome_rows} | {
+            item.horizon for item in terminal_rows
+        }
         next_horizon = next(
             (hours for hours in (4, 24, 72) if hours not in completed_horizons), None
         )
@@ -326,6 +342,7 @@ def get_decision(request: Request, decision_id: str) -> DecisionDetail:
             execution_mode=state.settings.execution_mode,
             fill_price=fill_price,
             outcomes=outcomes,
+            outcome_failures=outcome_failures,
             outcome_pending_until=(
                 repo.aware_utc(row.at) + timedelta(hours=next_horizon)
                 if next_horizon is not None
@@ -774,16 +791,19 @@ def export_indicators(
         for i, c in enumerate(candles):
             w.writerow(
                 [
-                    c.open_time.isoformat(),
-                    str(c.open),
-                    str(c.high),
-                    str(c.low),
-                    str(c.close),
-                    str(c.volume),
-                    *[
-                        "" if series[n][i].value is None else f"{series[n][i].value:.6f}"
-                        for n in names
-                    ],
+                    _csv_safe(value)
+                    for value in (
+                        c.open_time.isoformat(),
+                        str(c.open),
+                        str(c.high),
+                        str(c.low),
+                        str(c.close),
+                        str(c.volume),
+                        *[
+                            "" if series[n][i].value is None else f"{series[n][i].value:.6f}"
+                            for n in names
+                        ],
+                    )
                 ]
             )
         return Response(
@@ -1115,6 +1135,18 @@ def get_prompts() -> list[PromptInfo]:
 # -------------------------------------------------------------------- exports
 
 
+def _csv_safe(value: object) -> object:
+    """Guard against spreadsheet formula injection (=, +, -, @) while leaving
+    plain numbers — negative P&L strings included — untouched."""
+    if not isinstance(value, str) or not value.startswith(("=", "+", "-", "@")):
+        return value
+    try:
+        Decimal(value)
+    except ArithmeticError:
+        return "'" + value
+    return value
+
+
 @router.get("/api/export/trades.csv")
 def export_trades(
     request: Request,
@@ -1158,19 +1190,22 @@ def export_trades(
         for t in rows:
             w.writerow(
                 [
-                    t.id,
-                    t.account_id,
-                    t.pair,
-                    t.qty,
-                    t.entry,
-                    t.exit,
-                    t.opened_at.isoformat(),
-                    t.closed_at.isoformat(),
-                    t.fee_eur,
-                    t.realised_eur,
-                    t.realised_r,
-                    t.exit_reason,
-                    t.decision_id,
+                    _csv_safe(value)
+                    for value in (
+                        t.id,
+                        t.account_id,
+                        t.pair,
+                        t.qty,
+                        t.entry,
+                        t.exit,
+                        t.opened_at.isoformat(),
+                        t.closed_at.isoformat(),
+                        t.fee_eur,
+                        t.realised_eur,
+                        t.realised_r,
+                        t.exit_reason,
+                        t.decision_id,
+                    )
                 ]
             )
         return Response(
@@ -1191,6 +1226,11 @@ def export_decisions(request: Request) -> Response:
         rows = session.scalars(
             select(DecisionRow).order_by(DecisionRow.at.desc(), DecisionRow.id.desc())
         ).all()
+        outcomes_by_decision: dict[str, list[OutcomeRow]] = {}
+        for outcome in session.scalars(
+            select(OutcomeRow).order_by(OutcomeRow.decision_id, OutcomeRow.horizon)
+        ).all():
+            outcomes_by_decision.setdefault(outcome.decision_id, []).append(outcome)
         buf = io.StringIO()
         w = csv.writer(buf)
         w.writerow(
@@ -1216,43 +1256,41 @@ def export_decisions(request: Request) -> Response:
             ]
         )
         for d in rows:
-            outcomes = session.scalars(
-                select(OutcomeRow)
-                .where(OutcomeRow.decision_id == d.id)
-                .order_by(OutcomeRow.horizon)
-            ).all()
             w.writerow(
                 [
-                    d.id,
-                    d.cycle,
-                    d.at.isoformat(),
-                    d.account_id,
-                    d.pair,
-                    d.decider,
-                    d.model or "",
-                    d.prompt_version or "",
-                    d.action,
-                    d.confidence,
-                    d.reasoning,
-                    d.invalidation or "",
-                    d.invalidation_price or "",
-                    d.status,
-                    d.error or "",
-                    d.risk_pct_used,
-                    d.settings_version,
-                    json.dumps(
-                        [
-                            {
-                                "horizon": outcome.horizon,
-                                "label": outcome.label,
-                                "forward_return_pct": outcome.forward_return_pct,
-                                "best_move_r": outcome.best_move_r,
-                                "worst_move_r": outcome.worst_move_r,
-                            }
-                            for outcome in outcomes
-                        ],
-                        separators=(",", ":"),
-                    ),
+                    _csv_safe(value)
+                    for value in (
+                        d.id,
+                        d.cycle,
+                        d.at.isoformat(),
+                        d.account_id,
+                        d.pair,
+                        d.decider,
+                        d.model or "",
+                        d.prompt_version or "",
+                        d.action,
+                        d.confidence,
+                        d.reasoning,
+                        d.invalidation or "",
+                        d.invalidation_price or "",
+                        d.status,
+                        d.error or "",
+                        d.risk_pct_used,
+                        d.settings_version,
+                        json.dumps(
+                            [
+                                {
+                                    "horizon": outcome.horizon,
+                                    "label": outcome.label,
+                                    "forward_return_pct": outcome.forward_return_pct,
+                                    "best_move_r": outcome.best_move_r,
+                                    "worst_move_r": outcome.worst_move_r,
+                                }
+                                for outcome in outcomes_by_decision.get(d.id, [])
+                            ],
+                            separators=(",", ":"),
+                        ),
+                    )
                 ]
             )
         return Response(

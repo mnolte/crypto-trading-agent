@@ -596,6 +596,14 @@
             ],
             "title": "Next Id"
           },
+          "outcome_failures": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/OutcomeFailureOut"
+            },
+            "title": "Outcome Failures",
+            "type": "array"
+          },
           "outcome_pending_until": {
             "anyOf": [
               {
@@ -2376,6 +2384,24 @@
           }
         },
         "title": "NotificationSettings",
+        "type": "object"
+      },
+      "OutcomeFailureOut": {
+        "properties": {
+          "horizon": {
+            "title": "Horizon",
+            "type": "integer"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "horizon",
+          "reason"
+        ],
+        "title": "OutcomeFailureOut",
         "type": "object"
       },
       "OutcomeOut": {

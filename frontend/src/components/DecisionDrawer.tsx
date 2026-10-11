@@ -158,13 +158,19 @@ export function DecisionDrawer({
 
           <section aria-label="Outcome" className="drawer-section">
             <h2 className="card__title">Outcome</h2>
-            {data.outcomes.length > 0 ? (
+            {data.outcomes.length > 0 || data.outcome_failures.length > 0 ? (
               <>
                 <div className="kv-box">
                   {data.outcomes.map((outcome) => (
                     <div className="kv" key={outcome.horizon}>
                       <span>{outcome.horizon}h · {outcome.label}</span>
                       <span className="num">{formatChange(outcome.forward_return_pct)} · {outcome.first_touch ?? "neither"}</span>
+                    </div>
+                  ))}
+                  {data.outcome_failures.map((failure) => (
+                    <div className="kv" key={`failure-${failure.horizon}`}>
+                      <span>{failure.horizon}h · unavailable</span>
+                      <span>{failure.reason}</span>
                     </div>
                   ))}
                 </div>

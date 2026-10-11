@@ -422,6 +422,11 @@ class OutcomeOut(BaseModel):
     method_version: str
 
 
+class OutcomeFailureOut(BaseModel):
+    horizon: int
+    reason: str
+
+
 class DecisionDetail(BaseModel):
     decision: Decision
     raw_brief: str | None = None
@@ -431,6 +436,7 @@ class DecisionDetail(BaseModel):
     execution_mode: ExecMode
     fill_price: MoneyDecimal | None = None
     outcomes: list[OutcomeOut] = []
+    outcome_failures: list[OutcomeFailureOut] = []
     outcome_pending_until: datetime | None = None
 
 

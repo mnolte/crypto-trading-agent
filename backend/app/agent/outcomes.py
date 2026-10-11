@@ -233,7 +233,17 @@ def run_outcomes(session: Session, now: datetime) -> int:
                 failure.attempts += 1
                 failure.last_error = str(exc)
                 failure.last_at = now
+                became_terminal = failure.attempts == MAX_OUTCOME_ATTEMPTS
                 failure.terminal = failure.attempts >= MAX_OUTCOME_ATTEMPTS
+                if became_terminal:
+                    repo.add_activity(
+                        session,
+                        "error",
+                        f"outcome unavailable at {horizon}h: {exc}",
+                        pair=decision.pair,
+                        decision_id=decision.id,
+                        at=now,
+                    )
                 continue
             failure = session.get(OutcomeFailureRow, (decision.id, horizon))
             if failure is not None:
