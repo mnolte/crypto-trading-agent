@@ -298,7 +298,7 @@ export function Indicators() {
             <p className="card__meta" style={{ margin: 0, lineHeight: 1.5 }}>
               Reads: RSI above 55 bullish, below 45 bearish · VWAP and EMA 200
               distance beyond ±0.1% · OBV trend beyond ±0.1 · EMA 20 vs 50
-              crossover · ADX above {data?.adx_threshold ?? 25} trending.
+              crossover · ADX {data?.adx_threshold ?? 25} or more trending.
             </p>
           </Card>
 
