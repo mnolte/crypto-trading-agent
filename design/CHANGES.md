@@ -2,6 +2,11 @@
 
 Newest first. Each entry names the screens it touches.
 
+## 2026-10-11 — ADX wording
+
+- Indicators: ADX pane label and the reads footnote say "25 or more = trending"
+  (inclusive, ≥ 25), matching the spec.
+
 ## 2026-10-10 — Spec review fixes
 
 - Settings: the cycle-interval selector is gone (cycles are fixed at 15 minutes in v0.1);

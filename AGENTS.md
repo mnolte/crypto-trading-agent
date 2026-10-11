@@ -42,13 +42,9 @@ follow the spec and list the difference in the PR under "Design differences".
 make dev        # backend (Uvicorn with reload) + Vite dev server
 make run        # build the UI, serve everything on 127.0.0.1:8000
 make test       # pytest + Vitest (+ Playwright where present)
-make ci         # the same checks as the CI jobs (backend, frontend, api-types, e2e)
 uv run ruff check . && uv run mypy .     # backend lint and types
-cd frontend && corepack pnpm lint && corepack pnpm typecheck
+pnpm --dir frontend lint && pnpm --dir frontend typecheck
 ```
-
-Frontend commands run from inside `frontend/` via `corepack pnpm` (the pnpm
-version is pinned in `frontend/package.json`).
 
 Run `make test` and the lint/type checks before every commit. Do not mark a PR ready
 with failing checks.
@@ -105,8 +101,3 @@ Never break these, even if a task seems to ask for it:
 - Change a default number from the spec without saying so in the PR.
 - Reformat or rewrite files unrelated to your step.
 - Edit `docs/SPEC.md`, `design/` or prompt files; ask Marc to change them.
-- Never delete `data/` or any database, backup or log outside a test's own temporary
-  folder. Tests and smoke runs use a temporary `TA_DATA_DIR` and `TA_DB_PATH`.
-- Never kill processes by name (no `pkill -f vite`, `pkill -f uvicorn`). Start
-  servers in the background, keep their PIDs, and stop only those PIDs. Other
-  projects run on this machine.

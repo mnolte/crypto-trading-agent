@@ -152,6 +152,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/costs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Costs
+         * @description Estimated model spend per feature for one month, against the cap.
+         *     ``month`` is ``YYYY-MM`` on the Amsterdam clock (default: current).
+         */
+        get: operations["get_costs_api_costs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data": {
         parameters: {
             query?: never;
@@ -307,6 +328,127 @@ export interface paths {
          */
         get: operations["export_indicators_api_indicators__pair__export_csv_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/llm-calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Calls
+         * @description Call history plus, when ``skipped``, the cycles the pre-filter
+         *     decided not to send — merged newest-first.
+         */
+        get: operations["list_calls_api_llm_calls_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/llm-calls/export.jsonl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Calls
+         * @description Labelled calls as JSONL — verdict, the brief and the parsed output.
+         *     ``outcome`` is null until the outcome worker lands in a later PR.
+         */
+        get: operations["export_calls_api_llm_calls_export_jsonl_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/llm-calls/{call_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Call */
+        get: operations["get_call_api_llm_calls__call_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/llm-calls/{call_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Call
+         * @description The whole call record as one JSON file.
+         */
+        get: operations["download_call_api_llm_calls__call_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/llm-calls/{call_id}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replay Call
+         * @description Re-send the stored request, optionally on another model or prompt
+         *     version. Replays count against the daily budget and pause at 80% of the
+         *     monthly cap.
+         */
+        post: operations["replay_call_api_llm_calls__call_id__replay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/llm-calls/{call_id}/verdict": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Verdict
+         * @description Mark a call Correct or Wrong, with an optional note; null clears.
+         */
+        put: operations["set_verdict_api_llm_calls__call_id__verdict_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -670,6 +812,42 @@ export interface components {
              */
             time: string;
         };
+        /**
+         * CheckOut
+         * @description One input or output check result shown on a call card.
+         */
+        CheckOut: {
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pass" | "warn" | "fail";
+        };
+        /**
+         * CostsOut
+         * @description Estimated spend per feature for one month, against the cap.
+         */
+        CostsOut: {
+            /** By Feature */
+            by_feature: {
+                [key: string]: string;
+            };
+            /** Cap Eur */
+            cap_eur: string;
+            /** Month */
+            month: string;
+            /** Spent Eur */
+            spent_eur: string;
+            /** Spent Usd */
+            spent_usd: string | null;
+        };
         /** Decision */
         Decision: {
             /** Account Id */
@@ -711,6 +889,11 @@ export interface components {
             /** Pair */
             pair: string;
             plan?: components["schemas"]["Plan"] | null;
+            /**
+             * Prefilter
+             * @default true
+             */
+            prefilter: boolean;
             /** Prompt Version */
             prompt_version?: string | null;
             /** Reasoning */
@@ -929,6 +1112,160 @@ export interface components {
             spread_pct: number | null;
             /** Vol24H Vs 30D */
             vol24h_vs_30d: number | null;
+        };
+        /** LlmCallAttemptOut */
+        LlmCallAttemptOut: {
+            /** At */
+            at: string | null;
+            /** Error */
+            error?: string | null;
+            /** Http Status */
+            http_status?: number | null;
+            /** Latency Ms */
+            latency_ms?: number | null;
+            /** Outcome */
+            outcome: string;
+        };
+        /**
+         * LlmCallDetail
+         * @description Everything stored for one call: the exact request and response, the
+         *     checks, retries, cost and the decision it produced.
+         */
+        LlmCallDetail: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Attempts */
+            attempts: components["schemas"]["LlmCallAttemptOut"][];
+            /** Brief */
+            brief: string | null;
+            /** Cost Eur */
+            cost_eur: string | null;
+            /** Cost Usd */
+            cost_usd: string | null;
+            /** Cycle */
+            cycle: number | null;
+            /** Decision Action */
+            decision_action?: ("BUY" | "SELL" | "HOLD" | "SKIP") | null;
+            /** Decision Id */
+            decision_id: string | null;
+            /** Feature */
+            feature: string;
+            /** Id */
+            id: string;
+            /** Input Checks */
+            input_checks: components["schemas"]["CheckOut"][];
+            /** Input Tokens */
+            input_tokens: number | null;
+            /** Latency Ms */
+            latency_ms: number | null;
+            /** Model */
+            model: string;
+            /** Output Checks */
+            output_checks: components["schemas"]["CheckOut"][];
+            /** Output Schema */
+            output_schema: string | null;
+            /** Output Tokens */
+            output_tokens: number | null;
+            /** Pair */
+            pair: string;
+            /** Parsed */
+            parsed: {
+                [key: string]: unknown;
+            } | null;
+            /** Prompt Version */
+            prompt_version: string;
+            /** Replay Of */
+            replay_of: string | null;
+            /** Replays */
+            replays: components["schemas"]["ReplayInfo"][];
+            /** Request Id */
+            request_id: string | null;
+            /** Request Json */
+            request_json: string | null;
+            /** Response Raw */
+            response_raw: string | null;
+            /** Status */
+            status: string;
+            /** System Prompt */
+            system_prompt: string | null;
+            /** Verdict */
+            verdict: string | null;
+            /** Verdict At */
+            verdict_at: string | null;
+            /** Verdict Note */
+            verdict_note: string | null;
+        };
+        /**
+         * LlmCallListItem
+         * @description One call-history row; ``kind == "skipped"`` is a decision row where
+         *     the Rules pre-filter passed nothing to the model.
+         */
+        LlmCallListItem: {
+            /** Action */
+            action?: ("BUY" | "SELL" | "HOLD" | "SKIP") | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Cost Eur */
+            cost_eur?: string | null;
+            /** Decision Id */
+            decision_id?: string | null;
+            /** Feature */
+            feature?: string | null;
+            /** Final Action */
+            final_action?: ("BUY" | "SELL" | "HOLD" | "SKIP") | null;
+            /** Id */
+            id: string;
+            /** Input Tokens */
+            input_tokens?: number | null;
+            /**
+             * Issues
+             * @default 0
+             */
+            issues: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "call" | "skipped";
+            /** Latency Ms */
+            latency_ms?: number | null;
+            /** Model */
+            model?: string | null;
+            /** Output Tokens */
+            output_tokens?: number | null;
+            /** Pair */
+            pair: string;
+            /** Prompt Version */
+            prompt_version?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Verdict */
+            verdict?: string | null;
+        };
+        /** LlmCallListOut */
+        LlmCallListOut: {
+            /** Items */
+            items: components["schemas"]["LlmCallListItem"][];
+        };
+        /** LlmCallReplayIn */
+        LlmCallReplayIn: {
+            /** Model */
+            model?: string | null;
+            /** Prompt Version */
+            prompt_version?: string | null;
+        };
+        /** LlmCallVerdictIn */
+        LlmCallVerdictIn: {
+            /** Note */
+            note?: string | null;
+            /** Verdict */
+            verdict: ("correct" | "wrong") | null;
         };
         /** MarketOut */
         MarketOut: {
@@ -1380,6 +1717,24 @@ export interface components {
              * @enum {string}
              */
             volatility: "low" | "normal" | "high";
+        };
+        /** ReplayInfo */
+        ReplayInfo: {
+            /** Action */
+            action: ("BUY" | "SELL" | "HOLD" | "SKIP") | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Differs */
+            differs: boolean;
+            /** Id */
+            id: string;
+            /** Model */
+            model: string;
+            /** Prompt Version */
+            prompt_version: string;
         };
         /** RiskBudget */
         RiskBudget: {
@@ -2550,6 +2905,37 @@ export interface operations {
             };
         };
     };
+    get_costs_api_costs_get: {
+        parameters: {
+            query?: {
+                month?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_all_data_api_data_delete: {
         parameters: {
             query?: never;
@@ -2782,6 +3168,212 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_calls_api_llm_calls_get: {
+        parameters: {
+            query?: {
+                pair?: string | null;
+                status?: string | null;
+                issues?: boolean;
+                verdict?: ("correct" | "wrong" | "unreviewed") | null;
+                outcome?: ("accepted" | "rejected") | null;
+                skipped?: boolean;
+                before?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmCallListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_calls_api_llm_calls_export_jsonl_get: {
+        parameters: {
+            query?: {
+                verdict?: ("correct" | "wrong" | "unreviewed") | null;
+                outcome?: ("accepted" | "rejected") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_call_api_llm_calls__call_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmCallDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_call_api_llm_calls__call_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replay_call_api_llm_calls__call_id__replay_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LlmCallReplayIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmCallDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_verdict_api_llm_calls__call_id__verdict_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LlmCallVerdictIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmCallDetail"];
                 };
             };
             /** @description Validation Error */

@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app import repo
 from app.agent.broker.paper import PaperBroker
-from app.agent.deciders.base import DecideContext, Decider, Draft
+from app.agent.deciders.base import DecideContext, Decider, Draft, RiskView
 from app.agent.market.base import (
     Candle,
     MarketClient,
@@ -95,6 +95,7 @@ class Engine:
         settings_version: Callable[[], int],
         broker: PaperBroker,
         decider: Decider,
+        openai_decider: Decider | None = None,
         clock: Clock = utcnow,
         sleep: Sleeper = asyncio.sleep,
         broadcast: Callable[[], Awaitable[None]] | None = None,
@@ -106,6 +107,7 @@ class Engine:
         self._settings_version = settings_version
         self.broker = broker
         self.decider = decider
+        self.openai_decider = openai_decider
         self.clock = clock
         self._sleep = sleep
         self._broadcast = broadcast
@@ -493,7 +495,12 @@ class Engine:
 
         pos = self.broker.positions.get(pair)
         prev_4h = compute_tf_values(candles["4h"][:-1], "4h") if len(candles["4h"]) > 1 else None
-        draft = self.decider.decide(
+        decider = (
+            self.openai_decider
+            if self.openai_decider is not None and settings.model.decider == "openai"
+            else self.decider
+        )
+        draft = await decider.decide(
             DecideContext(
                 pair=pair,
                 now=now,
@@ -505,10 +512,14 @@ class Engine:
                 position_target=pos.target if pos else None,
                 candles_1h=candles["1h"],
                 candles_4h=candles["4h"],
+                candles_1d=candles["1d"],
                 prev_4h_ema20=prev_4h.ema20 if prev_4h else None,
                 prev_4h_ema50=prev_4h.ema50 if prev_4h else None,
                 btc_regime=context.get("btc_regime"),  # type: ignore[arg-type]
                 settings=settings,
+                cycle=self.cycle,
+                position=pos,
+                context_candles={k: v for k, v in context.items() if isinstance(v, list)},
             )
         )
         return await self._execute_draft(
@@ -600,6 +611,19 @@ class Engine:
             if pair in self.broker.positions:
                 await self._close_position(session, pair, price, now, "model_sell")
                 status = "executed"
+        # A non-BUY decision on a held pair arms the invalidation re-eval
+        # at the price the decider set (crossing it triggers one model call).
+        pos = self.broker.positions.get(pair)
+        if draft.action != "BUY" and pos is not None and draft.invalidation_price is not None:
+            pos.invalidation_price = draft.invalidation_price
+            repo.save_position_row(
+                session,
+                pos.to_model(),
+                self.broker.account_id,
+                pos.invalidation_price,
+                pos.highest_close,
+                pos.r_unit,
+            )
         return self._record_decision(
             session,
             pair,
@@ -973,9 +997,9 @@ class Engine:
             cycle=self.cycle,
             at=now,
             pair=pair,
-            decider=self.decider.name,
-            model=None,
-            prompt_version=None,
+            decider=cast("Literal['openai', 'rules']", draft.decider or self.decider.name),
+            model=draft.model,
+            prompt_version=draft.prompt_version,
             action=final_action,
             confidence=draft.confidence,
             reasoning=draft.reasoning,
@@ -985,13 +1009,14 @@ class Engine:
             gates=gates,
             status=status,
             execute_at=None,
-            error=error,
+            error=error or draft.error,
             regime=regime,
             btc_regime=btc_regime,
             invalidation_price=draft.invalidation_price,
             risk_pct_used=self._risk_pct(session),
             account_id=self.broker.account_id,
             settings_version=self._settings_version(),
+            prefilter=draft.prefilter,
         )
         if status == "pending":
             decision.execute_at = (
@@ -1000,10 +1025,33 @@ class Engine:
                 else None
             )
             self.pending[decision.id] = decision
-        repo.save_decision(session, decision)
+        repo.save_decision(
+            session,
+            decision,
+            raw_brief=draft.raw_brief,
+            raw_response=draft.raw_response,
+        )
+        if draft.llm_call_id:
+            call_row = repo.get_llm_call(session, draft.llm_call_id)
+            if call_row is not None:
+                call_row.decision_id = decision.id
         self.latest[pair] = decision
         session.commit()
         return decision
+
+    def risk_view(self, session: Session) -> RiskView:
+        """The risk state the OpenAI decider puts in the brief."""
+        settings = self._settings()
+        _, reasons = self._risk_state(session)
+        return RiskView(
+            throttle_on=bool(reasons),
+            correlated_slots_left=max(
+                0, settings.risk.correlated_max_positions - len(self.broker.positions)
+            ),
+            shock_brake_on=(
+                self.shock_brake_until is not None and self.shock_brake_until > self.clock()
+            ),
+        )
 
     def risk_budget(self) -> RiskBudget:
         """The risk meter for the snapshot, computed fresh each time."""

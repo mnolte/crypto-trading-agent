@@ -63,7 +63,6 @@ to `.env`, which git ignores:
 | `TA_PORT` | `8000` | Port for the app |
 | `TA_DB_PATH` | `data/agent.db` | SQLite database |
 | `TA_DATA_DIR` | `data/` | Daily backups and other local data |
-| `TA_DATA_SOURCE` | `bitvavo` | Market data source: `bitvavo` (public API) or `sim` (deterministic simulated market) |
 | `OPENAI_API_KEY` | – | Fallback when the key is not in the keyring |
 
 Keys for other data sources follow the same pattern, for example `COINGECKO_API_KEY`.

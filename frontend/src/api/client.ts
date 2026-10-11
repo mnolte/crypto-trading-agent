@@ -34,6 +34,14 @@ export type IndicatorRowOut = components["schemas"]["IndicatorRowOut"];
 export type LevelOut = components["schemas"]["LevelOut"];
 export type Signal = components["schemas"]["Signal"];
 export type Gate = components["schemas"]["Gate"];
+export type CheckOut = components["schemas"]["CheckOut"];
+export type LlmCallListItem = components["schemas"]["LlmCallListItem"];
+export type LlmCallListOut = components["schemas"]["LlmCallListOut"];
+export type LlmCallDetail = components["schemas"]["LlmCallDetail"];
+export type LlmCallAttemptOut = components["schemas"]["LlmCallAttemptOut"];
+export type ReplayInfo = components["schemas"]["ReplayInfo"];
+export type CostsOut = components["schemas"]["CostsOut"];
+export type Usage = components["schemas"]["Usage"];
 
 let localToken: string | null = null;
 

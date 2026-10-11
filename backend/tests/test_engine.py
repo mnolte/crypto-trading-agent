@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app import repo
 from app.agent.broker.paper import HeldPosition, PaperBroker
+from app.agent.deciders.base import DecideContext, Draft
 from app.agent.deciders.rules import RulesDecider
 from app.agent.engine import Engine, KilledRefusal
 from app.agent.market.base import Candle, MarketDataError, MarketInfo, OrderBook, Ticker24h
@@ -28,6 +29,7 @@ from app.config import get_env
 from app.db import (
     AccountRow,
     DecisionRow,
+    LlmCallRow,
     TradeRow,
     make_engine,
     make_session_factory,
@@ -765,3 +767,122 @@ async def test_n_cycles_no_nan(env: Path, cycles: int) -> None:
     s.close()
     assert rows
     assert all(math.isfinite(r.confidence) for r in rows)
+
+
+# ------------------------------------------------------------- openai path ==
+
+
+class _StubOpenAIDecider:
+    """A decider that answers like the OpenAI layer did: its draft carries
+    the audit fields the decision row and llm_call link need."""
+
+    name = "openai"
+
+    def __init__(self, sessions: sessionmaker[Session]) -> None:
+        self.sessions = sessions
+        self.calls = 0
+
+    async def decide(self, ctx: DecideContext) -> Draft:
+        self.calls += 1
+        session = self.sessions()
+        try:
+            row = LlmCallRow(
+                id=f"stub-call-{self.calls}",
+                at=ctx.now,
+                cycle=ctx.cycle,
+                account_id=1,
+                pair=ctx.pair,
+                decision_id=None,
+                feature="decision",
+                replay_of=None,
+                model="gpt-4o-mini",
+                prompt_version="decision.v1",
+                status="ok",
+                attempts="[]",
+                latency_ms=1,
+                input_tokens=10,
+                output_tokens=5,
+                cost_usd="0.0001",
+                cost_eur="0.0001",
+                request_id=None,
+                request_json='{"input":"{}"}',
+                response_raw="{}",
+                parsed='{"action":"HOLD"}',
+                input_checks="[]",
+                output_checks="[]",
+                verdict=None,
+                verdict_note=None,
+                verdict_at=None,
+            )
+            repo.add_llm_call(session, row)
+            session.commit()
+        finally:
+            session.close()
+        return Draft(
+            action="HOLD",
+            confidence=0.4,
+            reasoning="model said hold",
+            signals=[],
+            prefilter=True,
+            decider="openai",
+            model="gpt-4o-mini",
+            prompt_version="decision.v1",
+            llm_call_id=f"stub-call-{self.calls}",
+            raw_brief='{"input":"{}"}',
+            raw_response="{}",
+        )
+
+
+async def test_openai_decider_path_records_model_and_links_call(env: Path) -> None:
+    e = EngineEnv(
+        env / "agent.db",
+        markets=["SOL-EUR"],
+        settings=Settings(
+            active_markets=["SOL-EUR"],
+            data_source="sim",
+            execution_mode="auto",
+            model={"decider": "openai"},
+        ),
+    )
+    stub = _StubOpenAIDecider(e.sessions)
+    e.engine.openai_decider = stub
+    e.market.add_zigzag("SOL-EUR")
+    e.market.add_zigzag("BTC-EUR")
+    e.market.add_zigzag("USDC-EUR")
+    await e.engine.run_cycle()
+    assert stub.calls == 1
+    s = e.session()
+    try:
+        rows = _decisions(s)
+        assert len(rows) == 1
+        row = rows[0]
+        assert row.decider == "openai"
+        assert row.model == "gpt-4o-mini"
+        assert row.prompt_version == "decision.v1"
+        assert row.prefilter is True
+        assert row.raw_brief == '{"input":"{}"}'
+        call = repo.get_llm_call(s, "stub-call-1")
+        assert call is not None
+        assert call.decision_id == row.id
+    finally:
+        s.close()
+
+
+async def test_openai_decider_not_used_when_decider_is_rules(env: Path) -> None:
+    e = EngineEnv(
+        env / "agent.db",
+        markets=["SOL-EUR"],
+        settings=Settings(
+            active_markets=["SOL-EUR"],
+            data_source="sim",
+            execution_mode="auto",
+            model={"decider": "rules"},
+        ),
+    )
+    stub = _StubOpenAIDecider(e.sessions)
+    e.engine.openai_decider = stub
+    e.market.add_zigzag("SOL-EUR")
+    e.market.add_zigzag("BTC-EUR")
+    e.market.add_zigzag("USDC-EUR")
+    await e.engine.run_cycle()
+    assert stub.calls == 0

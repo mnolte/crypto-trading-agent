@@ -19,6 +19,7 @@ from app.db import (
     DecisionRow,
     EquitySnapshotRow,
     ExitTickRow,
+    LlmCallRow,
     MarketRow,
     PositionRow,
     SettingsRow,
@@ -374,7 +375,12 @@ def trades_today(session: Session, account_id: int, now: datetime | None = None)
 # ---------------------------------------------------------------- decisions --
 
 
-def save_decision(session: Session, decision: Decision) -> None:
+def save_decision(
+    session: Session,
+    decision: Decision,
+    raw_brief: str | None = None,
+    raw_response: str | None = None,
+) -> None:
     row = session.get(DecisionRow, decision.id)
     if row is None:
         row = DecisionRow(
@@ -394,6 +400,8 @@ def save_decision(session: Session, decision: Decision) -> None:
             btc_regime="{}",
             risk_pct_used="0",
             settings_version=0,
+            raw_brief=None,
+            raw_response=None,
         )
     row.cycle = decision.cycle
     row.at = decision.at
@@ -421,6 +429,11 @@ def save_decision(session: Session, decision: Decision) -> None:
     row.settings_version = decision.settings_version
     row.shadow_id = decision.shadow_id
     row.stand_in = decision.stand_in
+    row.prefilter = decision.prefilter
+    if raw_brief is not None:
+        row.raw_brief = raw_brief
+    if raw_response is not None:
+        row.raw_response = raw_response
     session.merge(row)
 
 
@@ -464,6 +477,7 @@ def expire_pending(session: Session, account_id: int) -> int:
 
 def list_decision_rows(
     session: Session,
+    account_id: int | None = None,
     pair: str | None = None,
     action: str | None = None,
     status: str | None = None,
@@ -473,6 +487,8 @@ def list_decision_rows(
 ) -> list[DecisionRow]:
     """Newest-first decision history for the drawer and activity links."""
     conds = []
+    if account_id is not None:
+        conds.append(DecisionRow.account_id == account_id)
     if pair is not None:
         conds.append(DecisionRow.pair == pair)
     if action is not None:
@@ -489,7 +505,204 @@ def list_decision_rows(
     return list(session.scalars(stmt).all())
 
 
-# ----------------------------------------------------------------- activity --
+def decision_actions(session: Session, ids: list[str]) -> dict[str, str]:
+    """id → action for a batch of decision ids (inspector list rendering)."""
+    if not ids:
+        return {}
+    rows = session.execute(
+        select(DecisionRow.id, DecisionRow.action).where(DecisionRow.id.in_(ids))
+    ).all()
+    return dict(rows)
+
+
+def list_prefilter_skips(
+    session: Session,
+    account_id: int,
+    pair: str | None = None,
+    before: datetime | None = None,
+    limit: int = 50,
+) -> list[DecisionRow]:
+    """Decisions where the Rules pre-filter passed nothing to the model —
+    the inspector's "skipped" rows."""
+    conds = [
+        DecisionRow.account_id == account_id,
+        DecisionRow.prefilter.is_(False),
+    ]
+    if pair is not None:
+        conds.append(DecisionRow.pair == pair)
+    if before is not None:
+        conds.append(DecisionRow.at < _utc_naive(before))
+    return list(
+        session.scalars(
+            select(DecisionRow)
+            .where(*conds)
+            .order_by(DecisionRow.at.desc(), DecisionRow.id.desc())
+            .limit(limit)
+        ).all()
+    )
+
+
+# ---------------------------------------------------------------- llm calls --
+
+
+def add_llm_call(session: Session, row: LlmCallRow) -> LlmCallRow:
+    session.add(row)
+    return row
+
+
+def get_llm_call(session: Session, call_id: str) -> LlmCallRow | None:
+    return session.get(LlmCallRow, call_id)
+
+
+def list_replays(session: Session, replay_of: str) -> list[LlmCallRow]:
+    return list(
+        session.scalars(
+            select(LlmCallRow)
+            .where(LlmCallRow.replay_of == replay_of)
+            .order_by(LlmCallRow.at.asc())
+        ).all()
+    )
+
+
+def list_llm_calls(
+    session: Session,
+    account_id: int,
+    pair: str | None = None,
+    status: str | None = None,
+    verdict: str | None = None,
+    outcome: str | None = None,
+    before: datetime | None = None,
+    limit: int = 50,
+) -> list[LlmCallRow]:
+    """Newest-first stored model calls for the inspector.
+
+    ``verdict`` accepts "correct", "wrong" or "unreviewed" (NULL). ``outcome``
+    accepts "accepted" (no failed output check) or "rejected".
+    """
+    conds = [LlmCallRow.account_id == account_id]
+    if pair is not None:
+        conds.append(LlmCallRow.pair == pair)
+    if status is not None:
+        conds.append(LlmCallRow.status == status)
+    if verdict == "unreviewed":
+        conds.append(LlmCallRow.verdict.is_(None))
+    elif verdict is not None:
+        conds.append(LlmCallRow.verdict == verdict)
+    if outcome == "accepted":
+        conds.append(LlmCallRow.output_checks.not_like('%"status": "fail"%'))
+    elif outcome == "rejected":
+        conds.append(LlmCallRow.output_checks.like('%"status": "fail"%'))
+    if before is not None:
+        conds.append(LlmCallRow.at < _utc_naive(before))
+    return list(
+        session.scalars(
+            select(LlmCallRow)
+            .where(*conds)
+            .order_by(LlmCallRow.at.desc(), LlmCallRow.id.desc())
+            .limit(limit)
+        ).all()
+    )
+
+
+def list_llm_calls_with_issues(
+    session: Session,
+    account_id: int,
+    pair: str | None = None,
+    before: datetime | None = None,
+    limit: int = 50,
+) -> list[LlmCallRow]:
+    """Calls with at least one warning or failed output check."""
+    conds = [
+        LlmCallRow.account_id == account_id,
+        (
+            LlmCallRow.output_checks.like('%"status": "warn"%')
+            | LlmCallRow.output_checks.like('%"status": "fail"%')
+        ),
+    ]
+    if pair is not None:
+        conds.append(LlmCallRow.pair == pair)
+    if before is not None:
+        conds.append(LlmCallRow.at < _utc_naive(before))
+    return list(
+        session.scalars(
+            select(LlmCallRow)
+            .where(*conds)
+            .order_by(LlmCallRow.at.desc(), LlmCallRow.id.desc())
+            .limit(limit)
+        ).all()
+    )
+
+
+def llm_calls_since(
+    session: Session,
+    account_id: int,
+    since: datetime,
+    features: tuple[str, ...],
+) -> int:
+    """Calls actually sent (blocked input doesn't count) since ``since`` —
+    the daily budget counter."""
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(LlmCallRow)
+            .where(
+                LlmCallRow.account_id == account_id,
+                LlmCallRow.at >= _utc_naive(since),
+                LlmCallRow.feature.in_(features),
+                LlmCallRow.status != "input_blocked",
+            )
+        )
+        or 0
+    )
+
+
+def llm_cost_between(
+    session: Session,
+    account_id: int,
+    start: datetime,
+    end: datetime | None = None,
+    feature: str | None = None,
+) -> Decimal:
+    """Estimated EUR spend in the window; unknown-priced calls count as 0."""
+    conds = [
+        LlmCallRow.account_id == account_id,
+        LlmCallRow.at >= _utc_naive(start),
+    ]
+    if end is not None:
+        conds.append(LlmCallRow.at < _utc_naive(end))
+    if feature is not None:
+        conds.append(LlmCallRow.feature == feature)
+    total = Decimal("0")
+    for cost in session.scalars(select(LlmCallRow.cost_eur).where(*conds)).all():
+        if cost is not None:
+            total += Decimal(cost)
+    return total
+
+
+def llm_cost_usd_between(
+    session: Session,
+    account_id: int,
+    start: datetime,
+    end: datetime | None = None,
+) -> Decimal | None:
+    """Estimated USD spend in the window.
+
+    ``None`` when any successful call's price was unknown — failed or
+    input-blocked calls sent nothing billable and count as 0."""
+    conds = [
+        LlmCallRow.account_id == account_id,
+        LlmCallRow.at >= _utc_naive(start),
+    ]
+    if end is not None:
+        conds.append(LlmCallRow.at < _utc_naive(end))
+    total = Decimal("0")
+    rows = session.execute(select(LlmCallRow.cost_usd, LlmCallRow.status).where(*conds)).all()
+    for cost, status in rows:
+        if cost is not None:
+            total += Decimal(cost)
+        elif status == "ok":
+            return None
+    return total
 
 
 def add_activity(
@@ -567,6 +780,7 @@ def delete_all_data(session: Session) -> None:
         ActivityRow,
         EquitySnapshotRow,
         ExitTickRow,
+        LlmCallRow,
     ):
         session.execute(delete(table))
     session.commit()

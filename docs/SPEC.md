@@ -92,7 +92,7 @@ Rules that hold everywhere:
 - Both deciders implement one `Decider` protocol and return the same `Decision` model, so the GUI and risk layer don't care which one ran.
 - Each pair is decided in its own call with only its own data, so one pair's inputs never leak into another's decision.
 - The API binds to 127.0.0.1 only. Every write endpoint requires an `X-Local-Token` header generated at startup (the UI reads it from GET /api/session, which other sites can call but not read), so other sites open in the browser can't trigger trades.
-- Every request must use Host 127.0.0.1 or localhost, which blocks DNS rebinding. The WebSocket accepts only connections whose Origin is the app itself, because browsers don't apply CORS to WebSockets and any open site could otherwise read the snapshot. No CORS headers are sent; in make dev, Vite proxies /api and /ws to the backend so the UI stays same-origin. Exactly one engine instance runs per database; Uvicorn runs with a single worker. Bind address, port, database path and data folder come from environment variables, so the same build can later run on a VPS behind a reverse proxy without code changes.
+- Every request must use Host 127.0.0.1 or localhost, which blocks DNS rebinding. The WebSocket accepts only connections whose Origin is the app itself, because browsers don't apply CORS to WebSockets and any open site could otherwise read the snapshot. No CORS headers are sent; in make dev, Vite proxies /api and /ws to the backend so the UI stays same-origin. Exactly one engine instance runs per database; Uvicorn runs with a single worker. Bind address, port, database path and data folder come from environment variables (TA_HOST default 127.0.0.1, TA_PORT 8000, TA_DB_PATH data/agent.db, TA_DATA_DIR data/; listed in .env.example), so the same build can later run on a VPS behind a reverse proxy without code changes.
 
 ## The agent cycle
 
@@ -154,7 +154,7 @@ Every indicator is computed in `signals.py` on closed candles only, in UTC, exac
 | Correlation with BTC | Pearson correlation of 1h log returns over the last 30 days |
 | EUR/USD move | Inverse of the USDC-EUR return over 1h and 24h, in % |
 
-**Reads** (bullish / bearish / neutral): RSI above 55 or below 45; price vs VWAP and vs EMA 200 beyond ±0.1%; OBV trend beyond ±0.1; EMA 20 above or below EMA 50; ADX above 25 is labelled trending, otherwise ranging. ATR % and ATR percentile read low below the 30th percentile, normal from the 30th to the 80th, high above the 80th. Volume × average reads high above 1.5, low below 0.7, otherwise normal. The ADX threshold of 25 is one config value, used by these reads, the regime, Rules condition C6 and Insights.
+**Reads** (bullish / bearish / neutral): RSI above 55 or below 45; price vs VWAP and vs EMA 200 beyond ±0.1%; OBV trend beyond ±0.1; EMA 20 above or below EMA 50; ADX at 25 or more (≥ 25) is labelled trending, below 25 ranging. ATR % and ATR percentile read low below the 30th percentile, normal from the 30th to the 80th, high above the 80th. Volume × average reads high above 1.5, low below 0.7, otherwise normal. The ADX threshold of 25 is one config value, used by these reads, the regime, Rules condition C6 and Insights.
 
 **Regime** (computed in `signals.py` for every pair and for BTC-EUR, stored with every decision):
 
@@ -799,7 +799,7 @@ Everything the agent knows survives a restart, and it always restarts paused.
 
 - Logs: structured JSON lines in `logs/app.log`, rotated at 10 MB, 5 files kept. Secrets are never logged.
 - Errors: every error also lands in the activity log with kind "error"; the header shows an error badge with the count of the last 24h, linking to the filtered activity log. An error resolves itself when its cause has not recurred for 1 hour (for example a source that recovers); others are dismissed with a short note from the activity log. Errors that affected a decision or a fill are flagged and count for Readiness.
-- Backups: a daily copy of the SQLite database at 03:00 using SQLite's backup API, into `backups/`, keeping the last 14.
+- Backups: a daily copy of the SQLite database at 03:00 using SQLite's backup API, into `backups/` inside the data folder, keeping the last 14.
 - Health: `GET /api/health` reports engine state, last cycle, source status and recent errors, for later monitoring on the VPS.
 
 ## Testing and acceptance criteria

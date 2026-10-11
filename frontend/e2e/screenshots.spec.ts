@@ -5,6 +5,7 @@ const PAGES = [
   { path: "/indicators", name: "indicators" },
   { path: "/performance", name: "performance" },
   { path: "/settings", name: "settings" },
+  { path: "/inspector", name: "inspector" },
   { path: "/dev/components", name: "components" },
 ];
 

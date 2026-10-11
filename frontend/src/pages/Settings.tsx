@@ -6,6 +6,7 @@ import type {
   SourceOut,
 } from "../api/client";
 import {
+  useCosts,
   useDeleteData,
   useMarkets,
   usePrompts,
@@ -41,12 +42,18 @@ function toDraft(data: SettingsOut): SettingsType {
   return JSON.parse(JSON.stringify(data)) as SettingsType;
 }
 
+const FEATURE_LABEL: Record<string, string> = {
+  decision: "Decisions",
+  replay: "Replays",
+};
+
 export function Settings() {
   const { data } = useSettings();
   const { data: markets } = useMarkets();
   const { data: sources } = useSources();
   const { data: prompts } = usePrompts();
   const { data: snapshot } = useSnapshot();
+  const { data: costs } = useCosts();
 
   const [draft, setDraft] = useState<SettingsType | null>(null);
   const [original, setOriginal] = useState<SettingsType | null>(null);
@@ -383,8 +390,19 @@ export function Settings() {
               />
               <span className="card__meta">
                 {snapshot
-                  ? `${formatEur(snapshot.usage.cost_month_eur)} of ${formatEur(snapshot.usage.cap_eur)}. At 100% decisions use Rules until the 1st.`
+                  ? `${formatEur(snapshot.usage.cost_month_eur)} of ${formatEur(snapshot.usage.cap_eur)}`
                   : ""}
+              </span>
+              <span className="card__meta" style={{ fontSize: "var(--fs-caption)" }}>
+                {costs && Object.keys(costs.by_feature).length > 0
+                  ? `${Object.entries(costs.by_feature)
+                      .map(
+                        ([feature, eur]) =>
+                          `${FEATURE_LABEL[feature] ?? feature} ${formatEur(eur)}`,
+                      )
+                      .join(" · ")}. `
+                  : ""}
+                At 80%: replays pause. At 100%: decisions use Rules until the 1st.
               </span>
             </div>
           </div>

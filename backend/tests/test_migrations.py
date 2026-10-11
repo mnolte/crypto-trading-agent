@@ -6,10 +6,17 @@ from pathlib import Path
 
 import sqlalchemy as sa
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 from alembic import command
 from app.config import get_env
 from app.db import ALEMBIC_DIR, ALEMBIC_INI, run_migrations
+
+
+def _head() -> str | None:
+    cfg = Config(str(ALEMBIC_INI))
+    cfg.set_main_option("script_location", str(ALEMBIC_DIR))
+    return ScriptDirectory.from_config(cfg).get_current_head()
 
 
 def _alembic_version(db_path: Path) -> str | None:
@@ -38,7 +45,8 @@ def test_migrations_use_ta_db_path(env_paths: Path) -> None:
     assert "positions" in tables
     assert "trades" in tables
     assert "decisions" in tables
-    assert _alembic_version(db_path) == "0003"
+    assert "llm_calls" in tables
+    assert _alembic_version(db_path) == _head()
 
 
 def test_alembic_cli_respects_ta_db_path(env_paths: Path) -> None:
@@ -49,7 +57,7 @@ def test_alembic_cli_respects_ta_db_path(env_paths: Path) -> None:
     cfg.set_main_option("script_location", str(ALEMBIC_DIR))
     command.upgrade(cfg, "head")
 
-    assert _alembic_version(db_path) == "0003"
+    assert _alembic_version(db_path) == _head()
 
 
 def test_migrations_dont_touch_default_path(env_paths: Path) -> None:

@@ -177,6 +177,49 @@ class DecisionRow(Base):
     stand_in: Mapped[bool] = mapped_column(default=False)
     raw_brief: Mapped[str | None]  # filled by the OpenAI layer (PR 5)
     raw_response: Mapped[str | None]
+    # False means the Rules pre-filter skipped the pair without a model call.
+    prefilter: Mapped[bool] = mapped_column(default=True)
+
+
+class LlmCallRow(Base):
+    """One model call (or a blocked one): the inspector's unit of audit.
+
+    ``request_json``/``response_raw`` store the exact bytes sent and
+    returned; ``attempts`` is a JSON list of per-try results. An
+    ``input_blocked`` row means an input check failed before anything was
+    transmitted — ``request_json`` then holds the request that would have
+    been sent. ``feature`` scopes the cost: "decision" or "replay" in v0.1;
+    Ask, briefings and shadows land in later PRs.
+    """
+
+    __tablename__ = "llm_calls"
+
+    id: Mapped[str] = mapped_column(primary_key=True)
+    at: Mapped[datetime]
+    cycle: Mapped[int | None]
+    account_id: Mapped[int]
+    pair: Mapped[str]
+    decision_id: Mapped[str | None]  # the decision this call produced
+    feature: Mapped[str]  # "decision" | "replay"
+    replay_of: Mapped[str | None]  # original call for replays
+    model: Mapped[str]
+    prompt_version: Mapped[str]
+    status: Mapped[str]  # "ok" | "invalid_output" | "timeout" | "api_error" | "input_blocked"
+    attempts: Mapped[str]  # JSON list of {at, outcome, error, http_status, latency_ms}
+    latency_ms: Mapped[int | None]
+    input_tokens: Mapped[int | None]
+    output_tokens: Mapped[int | None]
+    cost_usd: Mapped[str | None]  # Decimal; NULL = unknown model price
+    cost_eur: Mapped[str | None]
+    request_id: Mapped[str | None]  # OpenAI's x-request-id
+    request_json: Mapped[str | None]  # exact request body sent (bytes as text)
+    response_raw: Mapped[str | None]  # exact raw response body
+    parsed: Mapped[str | None]  # JSON parsed model output
+    input_checks: Mapped[str]  # JSON list[Check]
+    output_checks: Mapped[str]  # JSON list[Check]
+    verdict: Mapped[str | None]  # "correct" | "wrong" | None
+    verdict_note: Mapped[str | None]
+    verdict_at: Mapped[datetime | None]
 
 
 class ActivityRow(Base):

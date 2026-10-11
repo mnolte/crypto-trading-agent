@@ -15,6 +15,9 @@ const Indicators = lazy(() =>
 const Performance = lazy(() =>
   import("./pages/Performance").then((m) => ({ default: m.Performance })),
 );
+const Inspector = lazy(() =>
+  import("./pages/Inspector").then((m) => ({ default: m.Inspector })),
+);
 const Settings = lazy(() =>
   import("./pages/Settings").then((m) => ({ default: m.Settings })),
 );
@@ -46,10 +49,7 @@ export default function App() {
               path="/reviews"
               element={<Placeholder title="Reviews" step="Evidence" />}
             />
-            <Route
-              path="/inspector"
-              element={<Placeholder title="LLM inspector" step="OpenAI decider" />}
-            />
+            <Route path="/inspector" element={<Inspector />} />
             <Route
               path="/readiness"
               element={<Placeholder title="Readiness" step="Understanding and safety" />}
