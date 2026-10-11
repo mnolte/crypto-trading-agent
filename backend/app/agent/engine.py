@@ -537,6 +537,7 @@ class Engine:
         )
 
         pos = self.broker.positions.get(pair)
+        pause = repo.active_entry_pause(session, pair, now)
         prev_4h = compute_tf_values(candles["4h"][:-1], "4h") if len(candles["4h"]) > 1 else None
         decider = (
             self.openai_decider
@@ -563,6 +564,7 @@ class Engine:
                 cycle=self.cycle,
                 position=pos,
                 context_candles={k: v for k, v in context.items() if isinstance(v, list)},
+                entries_paused=pause is not None,
             )
         )
         return await self._execute_draft(
@@ -667,6 +669,7 @@ class Engine:
 
         if draft.action == "BUY":
             correlated = await self._correlated_open(session, pair, candles["1h"])
+            pause = repo.active_entry_pause(session, pair, now)
             ctx = BuyContext(
                 pair=pair,
                 now=now,
@@ -682,6 +685,10 @@ class Engine:
                     self.broker.today_loss_pct(now) >= settings.risk.daily_loss_limit_pct
                 ),
                 risk_pct=self._risk_pct(session),
+                entry_paused_until=(
+                    repo.aware_utc(pause.until) if pause is not None and pause.until else None
+                ),
+                entry_paused_indefinite=pause is not None and pause.until is None,
             )
             verdict = check_buy(ctx, self.broker, self.market_rules.get(pair), settings)
             gates = verdict.gates
@@ -951,6 +958,7 @@ class Engine:
         candles = drop_forming(repo.load_candles(session, row.pair, "1h", CORR_BARS), "1h", now)
         atr_1h = self._atr_1h(session, row.pair, now)
         correlated = await self._correlated_open(session, row.pair, candles)
+        pause = repo.active_entry_pause(session, row.pair, now)
         verdict = check_buy(
             BuyContext(
                 pair=row.pair,
@@ -966,6 +974,10 @@ class Engine:
                 daily_loss_hit=self.broker.today_loss_pct(now)
                 >= settings.risk.daily_loss_limit_pct,
                 risk_pct=self._risk_pct(session),
+                entry_paused_until=(
+                    repo.aware_utc(pause.until) if pause is not None and pause.until else None
+                ),
+                entry_paused_indefinite=pause is not None and pause.until is None,
             ),
             self.broker,
             self.market_rules.get(row.pair),
@@ -1083,6 +1095,7 @@ class Engine:
         self.status = "killed"
         account = self.broker.account
         account.kill_at = now
+        account.last_kill_at = now
         account.kill_peak = str(self.broker.peak_equity)
         account.kill_equity = str(self.broker.equity())
         account.kill_closed = json.dumps(closed)
@@ -1337,15 +1350,16 @@ class Engine:
         room_cash = self.broker.cash
         per_trade_risk = equity * settings.risk.risk_per_trade_pct / 100
         left = 0
-        if per_trade_risk > 0:
-            left = (
-                int(min(room_risk / per_trade_risk, room_cash / (equity * Decimal("0.03"))))
-                if equity > 0
-                else 0
-            )
+        limited_by: Literal["risk", "cash"] = "risk"
+        if per_trade_risk > 0 and equity > 0:
+            by_risk = room_risk / per_trade_risk
+            by_cash = room_cash / (equity * Decimal("0.03"))
+            left = int(min(by_risk, by_cash))
+            limited_by = "cash" if by_cash < by_risk else "risk"
         session = self._sessions()
         try:
             risk_pct_now, reasons = self._risk_state(session)
+            correlated_detail = self._correlated_detail(session, settings)
         finally:
             session.close()
         lifts = ", ".join(
@@ -1361,11 +1375,37 @@ class Engine:
             drawdown_pct=dd,
             kill_pct=settings.risk.kill_drawdown_pct,
             full_trades_left=max(0, left),
+            room_limited_by=limited_by,
             risk_pct_now=risk_pct_now,
             throttle=throttle,
             shock_brake_until=self.shock_brake_until,
             correlated_slots_left=max(0, settings.risk.correlated_max_positions - correlated_used),
+            correlated_detail=correlated_detail,
         )
+
+    def _correlated_detail(self, session: Session, settings: Settings) -> str | None:
+        """The strongest 30-day correlation between two open positions —
+        e.g. "BTC + ETH 0.86" — or None when fewer than two are open."""
+        pairs = list(self.broker.positions)
+        if len(pairs) < 2:
+            return None
+        series = {
+            pair: drop_forming(
+                repo.load_candles(session, pair, "1h", CORR_BARS), "1h", self.clock()
+            )
+            for pair in pairs
+        }
+        best: tuple[str, str, float] | None = None
+        for i, a in enumerate(pairs):
+            for b in pairs[i + 1 :]:
+                corr = aligned_correlation(series[a], series[b], CORR_BARS)
+                if corr is not None and (best is None or corr > best[2]):
+                    best = (a, b, corr)
+        if best is None:
+            return None
+        base_a = best[0].split("-")[0]
+        base_b = best[1].split("-")[0]
+        return f"{base_a} + {base_b} {best[2]:.2f}"
 
     async def _notify(self, event: str, title: str, body: str) -> None:
         if self._notify_event is None:

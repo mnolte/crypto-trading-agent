@@ -1,0 +1,157 @@
+# Plain-language glossary: one to two sentences per term, written for a
+# non-trader. Terms get a dotted underline and this tooltip when
+# plain-language mode is on; Ask answers "what does X mean?" from the same
+# file. Keys are lowercase; the UI matches case-insensitively.
+
+- term: r
+  definition: >-
+    R is the amount you risk: entry minus stop. 2.1R means the target would
+    earn 2.1 times what the stop would lose. The agent needs at least 2.0.
+- term: r/r
+  definition: >-
+    Reward-to-risk: the target distance divided by the stop distance. The
+    agent only buys when the reward is at least twice the risk after
+    slippage.
+- term: atr
+  definition: >-
+    Average True Range — how much the price typically moves in one bar. The
+    agent uses it to place stops and targets.
+- term: drawdown
+  definition: >-
+    How far equity is below its highest point so far. At −8% the kill switch
+    closes everything.
+- term: equity
+  definition: >-
+    Cash plus the euro value of open positions — what the account is worth
+    right now.
+- term: cash
+  definition: The euros not currently held in coins.
+- term: p&l
+  definition: >-
+    Profit and loss: realised gains and losses on closed trades, plus the
+    paper gains or losses still open.
+- term: exposure
+  definition: Share of your equity currently held in coins rather than euros.
+- term: flatten
+  definition: Close every open position at the market price at once.
+- term: vwap
+  definition: >-
+    Volume-weighted average price — the average price of the session weighted
+    by traded volume. Buying below it is buying cheaper than the average
+    participant.
+- term: obv
+  definition: >-
+    On-balance volume: a running total that adds volume on up bars and
+    subtracts it on down bars. Rising OBV means buyers are more active.
+- term: adx
+  definition: >-
+    Average Directional Index — how strong a trend is, regardless of
+    direction. Above 25 the market is trending.
+- term: rsi
+  definition: >-
+    Relative Strength Index — how fast price has risen or fallen recently.
+    Very high readings can mean the move is overdone.
+- term: ema
+  definition: >-
+    Exponential moving average — an average price that weighs recent bars
+    more. Two EMAs crossing is a common trend signal.
+- term: ema 200
+  definition: >-
+    The 200-bar exponential moving average on the daily chart — the long-term
+    trend line the agent respects.
+- term: pre-filter
+  definition: >-
+    The Rules check that decides whether the model is asked at all. It saves
+    model calls when nothing looks promising.
+- term: fee gate
+  definition: >-
+    The check that skips a trade when round-trip fees and slippage would eat
+    too much of the risked amount.
+- term: open risk
+  definition: >-
+    What you would lose if every open position hit its stop at the same time.
+- term: correlated
+  definition: >-
+    At most 2 open positions that move together (30-day correlation above
+    0.8). Two coins that move as one count as one bet, not two.
+- term: risk throttle
+  definition: >-
+    A safety halving of the risk per trade after 3 losses in a row or a
+    deeper drawdown. It lifts when the trigger clears.
+- term: shock brake
+  definition: >-
+    An emergency pause on new entries after a very fast market move. Exits
+    keep working; entries resume when the brake expires.
+- term: kill switch
+  definition: >-
+    The last-resort safety: at an 8% drawdown from peak equity everything is
+    sold and the agent stops until you acknowledge it.
+- term: daily loss limit
+  definition: >-
+    No new entries once today's realised losses reach 3% of equity, measured
+    on the Amsterdam day.
+- term: stop
+  definition: The price at which a losing position is sold to cap the loss.
+- term: target
+  definition: The price at which a winning position is sold to take profit.
+- term: breakeven
+  definition: >-
+    Once a trade is up 1R the stop moves to the entry price, so it can no
+    longer lose more than fees.
+- term: time stop
+  definition: >-
+    A trade closed for taking too long: after about 5 days without reaching
+    the target the agent gives up on it.
+- term: cooldown
+  definition: >-
+    After a stop-out the same coin may not be re-entered for 6 hours, so a
+    bad trade is not chased.
+- term: trailing stop
+  definition: >-
+    An optional stop that follows the price up and never moves down. Off by
+    default in v0.1.
+- term: invalidation
+  definition: >-
+    If price crosses this, the model is asked again at once. Not an exit.
+- term: regime
+  definition: >-
+    The market's current character: trend from 4h and daily EMAs with 4h ADX
+    above 25, volatility from the 1h ATR percentile.
+- term: veto
+  definition: >-
+    In supervised mode you get a short window to veto a trade before it
+    fills. In manual mode every trade waits for your approval.
+- term: pending
+  definition: A proposed trade waiting for your approval or the veto window to end.
+- term: skip
+  definition: >-
+    A BUY the model proposed but a safety gate refused — the decision and the
+    blocking gate are recorded.
+- term: slippage
+  definition: >-
+    The small difference between the price you wanted and the price you got.
+    The paper broker charges a fixed 0.05% per fill.
+- term: spread
+  definition: >-
+    The gap between the best buy and sell price. Wide spreads make trading
+    expensive, so illiquid markets are not eligible.
+- term: profit factor
+  definition: >-
+    Gross winnings divided by gross losses. Above 1 means the strategy earns
+    more than it loses.
+- term: warming up
+  definition: >-
+    A market that is still downloading the history the indicators need. It
+    shows data but is not traded yet.
+- term: eligible
+  definition: >-
+    A market that passes the volume, spread and history checks and may be
+    traded.
+- term: stale
+  definition: >-
+    Market data older than its interval plus a grace period. A stale pair is
+    held, never traded.
+- term: paper trading
+  definition: >-
+    Trading a simulated account with real prices. No real money is ever at
+    risk.

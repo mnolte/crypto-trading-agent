@@ -64,14 +64,14 @@ def _settings() -> Settings:
 
 def test_min_rr_boundary() -> None:
     ok = check_buy(_ctx(), _broker(), None, _settings())
-    assert ok.outcome == "fill" and ok.gates[0].status == "pass"
+    assert ok.outcome == "fill" and ok.gates[-1].status == "pass"
     # R/R is measured on the expected fill 100.05: exactly 2.0 is
     # (108.15-100.05)/(100.05-96); just under fails.
     edge = check_buy(_ctx(target=Decimal("108.15")), _broker(), None, _settings())
     assert edge.outcome == "fill"
     bad = check_buy(_ctx(target=Decimal("108.14")), _broker(), None, _settings())
     assert bad.outcome == "skip" and bad.skip_reason == "Min reward/risk"
-    assert bad.gates[0].status == "fail"
+    assert bad.gates[-1].status == "fail"
 
 
 def test_rr_gate_uses_expected_fill_price() -> None:
@@ -80,7 +80,7 @@ def test_rr_gate_uses_expected_fill_price() -> None:
     # Fill R/R:   (108.09-100.05)/(100.05-96) = 1.985 < 2.
     v = check_buy(_ctx(target=Decimal("108.09")), _broker(), None, _settings())
     assert v.outcome == "skip" and v.skip_reason == "Min reward/risk"
-    assert v.gates[0].status == "fail"
+    assert v.gates[-1].status == "fail"
     # A passing plan records both the signal price and the expected fill.
     ok = check_buy(_ctx(), _broker(), None, _settings())
     assert ok.plan is not None

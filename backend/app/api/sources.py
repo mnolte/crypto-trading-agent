@@ -27,7 +27,7 @@ from app.agent.market.universe import (
 from app.api.deps import AppState, get_state, require_token
 from app.api.routes import broadcast_snapshot
 from app.config import SecretStoreError, delete_secret, set_secret
-from app.db import MarketRow
+from app.db import MarketRow, utcnow
 from app.sources import SourceStatus, get_spec, test_source_key
 
 router = APIRouter(prefix="/api")
@@ -105,6 +105,7 @@ def _market_out(state: AppState, row: MarketRow, session: Session | None = None)
     session = session or state.session_factory()
     try:
         warming = warming_up(session, row.market, state.settings.market)
+        paused = repo.active_entry_pause(session, row.market, utcnow()) is not None
     finally:
         if close_after:
             session.close()
@@ -114,7 +115,7 @@ def _market_out(state: AppState, row: MarketRow, session: Session | None = None)
         failed_rule=row.failed_rule,
         active=row.active,
         warming_up=warming,
-        paused=False,  # per-coin pauses land with the entry-pause PR
+        paused=paused,
         status=row.status,
         volume_30d_eur=row.volume_30d_eur,
         spread_pct=row.spread_pct,
