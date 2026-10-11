@@ -13,7 +13,7 @@ def test_settings_defaults(client: TestClient) -> None:
     body = client.get("/api/settings").json()
     assert body["active_markets"] == DEFAULT_MARKETS
     assert body["execution_mode"] == "auto"
-    assert body["data_source"] == "bitvavo"
+    assert body["data_source"] == "sim"
     assert body["model"]["decider"] == "openai"
     assert body["model"]["model_id"] == "gpt-4o-mini"
     assert body["model"]["prompt_version"] == "decision.v1"
@@ -53,6 +53,7 @@ def test_settings_unknown_keys_dropped(env_paths: object) -> None:
     session = make_session_factory(engine)()
     try:
         settings = load_settings(session)
+        assert settings.data_source == "bitvavo"
         doc = settings.model_dump()
         doc["bogus_key"] = {"not": "real"}
         assert "bogus_key" not in type(settings).model_validate(doc).model_dump()
@@ -73,7 +74,7 @@ def test_snapshot_shape(client: TestClient) -> None:
     snap = client.get("/api/snapshot").json()
     assert snap["status"] == "paused"
     assert snap["mode"] == "paper"
-    assert snap["source"] == "bitvavo"
+    assert snap["source"] == "sim"
     assert snap["equity"] == "10000"  # money travels as strings
     assert snap["cash"] == "10000"
     assert snap["today_pnl"] == "0"

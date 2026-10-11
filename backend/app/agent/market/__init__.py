@@ -29,7 +29,8 @@ def make_market_client(
 ) -> MarketClient:
     """Build the market client selected by the data_source setting."""
     if settings.data_source == "sim":
-        return SimMarket()
+        # Wall-clock now: the sim walk covers real time so prices are fresh.
+        return SimMarket(now=None)
     return BitvavoClient(on_event=on_event)
 
 

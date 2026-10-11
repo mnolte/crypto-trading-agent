@@ -137,10 +137,12 @@ class SimMarket:
         self,
         seed: int = 1,
         markets: list[str] | None = None,
-        now: datetime = DEFAULT_NOW,
+        now: datetime | None = DEFAULT_NOW,
     ) -> None:
         self.seed = seed
-        self._now = now if now.tzinfo is not None else now.replace(tzinfo=UTC)
+        # ``now=None`` tracks the wall clock (the app factory uses this for
+        # demos/e2e); a datetime pins the walk to a fixed instant (tests).
+        self._now = (now if now.tzinfo is not None else now.replace(tzinfo=UTC)) if now else None
         self.market_names = list(markets or [*DEFAULT_MARKETS, "USDC-EUR"])
         self._walks = {m: _MarketWalk(seed, m) for m in self.market_names}
 
@@ -148,13 +150,13 @@ class SimMarket:
 
     @property
     def now(self) -> datetime:
-        return self._now
+        return self._now or datetime.now(UTC)
 
     def set_now(self, now: datetime) -> None:
         self._now = now if now.tzinfo is not None else now.replace(tzinfo=UTC)
 
     def advance(self, seconds: float) -> None:
-        self._now += timedelta(seconds=seconds)
+        self._now = self.now + timedelta(seconds=seconds)
 
     # -- MarketClient --------------------------------------------------------
 
@@ -178,10 +180,9 @@ class SimMarket:
         end: datetime | None = None,
     ) -> list[Candle]:
         walk = self._walk(market)
-        horizon = end or self._now
-        needed = horizon
+        needed = end or self.now
         if start is not None:
-            needed = max(horizon, start)
+            needed = max(needed, start)
         walk.ensure(needed)
         bars: list[Candle] = walk.candles
         if interval != "1h":
@@ -191,7 +192,7 @@ class SimMarket:
         if end is not None:
             bars = [c for c in bars if c.open_time <= end]
         else:
-            bars = [c for c in bars if c.open_time <= self._now]
+            bars = [c for c in bars if c.open_time <= self.now]
         return bars[-limit:]
 
     async def order_book(self, market: str, depth: int = 50) -> OrderBook:
@@ -213,7 +214,7 @@ class SimMarket:
         return OrderBook(market=market, bids=bids, asks=asks)
 
     async def ticker_price(self, market: str) -> Decimal:
-        closed = drop_forming(await self.candles(market, "1h", 2), "1h", self._now)
+        closed = drop_forming(await self.candles(market, "1h", 2), "1h", self.now)
         if not closed:
             return Decimal("0")
         return closed[-1].close
@@ -222,7 +223,7 @@ class SimMarket:
         names = [market] if market else self.market_names
         out: list[Ticker24h] = []
         for name in names:
-            closed = drop_forming(await self.candles(name, "1h", 25), "1h", self._now)
+            closed = drop_forming(await self.candles(name, "1h", 25), "1h", self.now)
             if not closed:
                 continue
             day = closed[-24:]

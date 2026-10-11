@@ -14,6 +14,7 @@ export function TopBar({
   errors24h = 0,
   running = false,
   controls = true,
+  controlsDisabled,
   actions,
   onRunNow,
   onTogglePause,
@@ -26,6 +27,8 @@ export function TopBar({
   running?: boolean;
   /** Show the global controls: Paper/Live, Run now, Pause, Stop & flatten. */
   controls?: boolean;
+  /** Tooltip reason shown while Run now and Pause/Resume are disabled. */
+  controlsDisabled?: string;
   actions?: ReactNode;
   onRunNow?: () => void;
   onTogglePause?: () => void;
@@ -34,7 +37,7 @@ export function TopBar({
   const noEngine = !onRunNow && !onTogglePause && !onFlatten;
   const controlTitle = noEngine
     ? "Available once the engine lands (build step 3)"
-    : undefined;
+    : controlsDisabled;
   return (
     <header className="topbar">
       <div className="topbar__left">
@@ -61,7 +64,7 @@ export function TopBar({
           <Button
             variant="secondary"
             title={controlTitle}
-            disabled={noEngine}
+            disabled={noEngine || !!controlsDisabled}
             onClick={onRunNow}
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -75,7 +78,7 @@ export function TopBar({
           <Button
             variant="secondary"
             title={controlTitle}
-            disabled={noEngine}
+            disabled={noEngine || !!controlsDisabled}
             onClick={onTogglePause}
             icon={
               running ? (
@@ -94,7 +97,7 @@ export function TopBar({
           </Button>
           <Button
             variant="danger"
-            title={controlTitle}
+            title={noEngine ? controlTitle : undefined}
             disabled={noEngine}
             onClick={onFlatten}
             icon={

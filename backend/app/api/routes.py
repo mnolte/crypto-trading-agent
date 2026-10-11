@@ -13,8 +13,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app import repo
-from app.agent.broker.paper import AMSTERDAM, PaperBroker
+from app.agent.broker.paper import PaperBroker
 from app.agent.engine import Engine, KilledRefusal
+from app.agent.market.base import MarketDataError
 from app.api.deps import (
     AppState,
     build_market_client,
@@ -23,6 +24,7 @@ from app.api.deps import (
     get_state,
     require_token,
 )
+from app.db import AMSTERDAM
 from app.models import Settings, Snapshot
 
 router = APIRouter(prefix="/api")
@@ -95,6 +97,8 @@ async def write_settings(request: Request, settings: Settings) -> Settings:
     if settings.data_source != old_source:
         old_client = state.market_client
         state.market_client = build_market_client(settings, state.sources)
+        if state.agent_engine is not None:
+            state.agent_engine.client = state.market_client
         await old_client.aclose()
     await broadcast_snapshot(state)
     return state.settings
@@ -130,7 +134,10 @@ async def agent_resume(state: Annotated[AppState, Depends(get_state)]) -> Snapsh
 
 @router.post("/agent/run-now", dependencies=[Depends(require_token)])
 async def agent_run_now(state: Annotated[AppState, Depends(get_state)]) -> Snapshot:
-    started = await _engine(state).run_now()
+    try:
+        started = await _engine(state).run_now()
+    except KilledRefusal as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not started:
         raise HTTPException(status_code=409, detail="a cycle is already running")
     await broadcast_snapshot(state)
@@ -160,7 +167,10 @@ async def agent_acknowledge_kill(
 
 @router.post("/positions/{pair}/close", dependencies=[Depends(require_token)])
 async def position_close(pair: str, state: Annotated[AppState, Depends(get_state)]) -> Snapshot:
-    closed = await _engine(state).close_position(pair)
+    try:
+        closed = await _engine(state).close_position(pair)
+    except MarketDataError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     if not closed:
         raise HTTPException(status_code=404, detail="no open position on this pair")
     await broadcast_snapshot(state)

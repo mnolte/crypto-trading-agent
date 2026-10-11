@@ -11,6 +11,7 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import IO
+from zoneinfo import ZoneInfo
 
 from alembic.config import Config
 from sqlalchemy import create_engine
@@ -281,3 +282,6 @@ class EngineLock:
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+AMSTERDAM = ZoneInfo("Europe/Amsterdam")

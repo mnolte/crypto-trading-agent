@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.agent.market.base import Candle
 from app.db import (
+    AMSTERDAM,
     AccountRow,
     ActivityRow,
     CandleRow,
@@ -27,6 +28,22 @@ from app.db import (
 from app.models import Decision, Position, Settings, Tf
 
 SETTINGS_ROW_ID = 1
+
+
+def _utc_naive(dt: datetime) -> datetime:
+    """SQLite stores datetimes naive; an aware bound is normalised to naive
+    UTC so comparisons stay correct regardless of the client's offset."""
+    return dt.astimezone(UTC).replace(tzinfo=None) if dt.tzinfo else dt
+
+
+def aware_utc(dt: datetime) -> datetime:
+    """Naive datetimes read back from SQLite are UTC by convention."""
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+
+
+def _epoch_ms(dt: datetime) -> int:
+    """UTC epoch milliseconds; naive input is UTC by the same convention."""
+    return int(aware_utc(dt).timestamp() * 1000)
 
 
 def load_settings(session: Session) -> Settings:
@@ -72,10 +89,10 @@ def upsert_candles(session: Session, market: str, tf: Tf, candles: list[Candle])
         )
     )
     if newest is not None:
-        head = [c for c in candles if int(c.open_time.timestamp() * 1000) <= newest]
-        tail = [c for c in candles if int(c.open_time.timestamp() * 1000) > newest]
+        head = [c for c in candles if _epoch_ms(c.open_time) <= newest]
+        tail = [c for c in candles if _epoch_ms(c.open_time) > newest]
         if head:
-            head_min = min(int(c.open_time.timestamp() * 1000) for c in head)
+            head_min = min(_epoch_ms(c.open_time) for c in head)
             stored = session.scalar(
                 select(func.count())
                 .select_from(CandleRow)
@@ -95,7 +112,7 @@ def upsert_candles(session: Session, market: str, tf: Tf, candles: list[Candle])
         {
             "market": market,
             "tf": tf,
-            "open_time_ms": int(c.open_time.timestamp() * 1000),
+            "open_time_ms": _epoch_ms(c.open_time),
             "open": str(c.open),
             "high": str(c.high),
             "low": str(c.low),
@@ -110,13 +127,19 @@ def upsert_candles(session: Session, market: str, tf: Tf, candles: list[Candle])
     session.commit()
 
 
-def load_candles(session: Session, market: str, tf: Tf, limit: int) -> list[Candle]:
-    """The newest ``limit`` candles for a market/timeframe, ascending."""
+def load_candles(
+    session: Session, market: str, tf: Tf, limit: int, end: datetime | None = None
+) -> list[Candle]:
+    """The newest ``limit`` candles for a market/timeframe, ascending.
+
+    ``end`` caps the view at candle opens at or before that instant — the
+    frozen read the Indicators screen uses for a past decision.
+    """
+    conds = [CandleRow.market == market, CandleRow.tf == tf]
+    if end is not None:
+        conds.append(CandleRow.open_time_ms <= _epoch_ms(end))
     rows = session.scalars(
-        select(CandleRow)
-        .where(CandleRow.market == market, CandleRow.tf == tf)
-        .order_by(CandleRow.open_time_ms.desc())
-        .limit(limit)
+        select(CandleRow).where(*conds).order_by(CandleRow.open_time_ms.desc()).limit(limit)
     ).all()
     return [
         Candle(
@@ -219,8 +242,21 @@ def save_position_row(
     highest_close: Decimal | None,
     r_unit: Decimal,
 ) -> None:
-    row = session.get(PositionRow, pos.pair)
+    """Persist the current account's open position.
+
+    ``pair`` is the positions table's sole primary key because v0.1 allows one
+    open position per pair. A stale row from an old account is removed before
+    the current account's row is written; account reset is the normal path
+    that clears old rows.
+    """
+    row = session.scalar(
+        select(PositionRow).where(
+            PositionRow.pair == pos.pair,
+            PositionRow.account_id == account_id,
+        )
+    )
     if row is None:
+        session.execute(delete(PositionRow).where(PositionRow.pair == pos.pair))
         row = PositionRow(
             pair=pos.pair,
             account_id=account_id,
@@ -249,9 +285,9 @@ def save_position_row(
     session.merge(row)
 
 
-def delete_position_row(session: Session, pair: str) -> None:
+def delete_position_row(session: Session, pair: str, account_id: int) -> None:
     row = session.get(PositionRow, pair)
-    if row is not None:
+    if row is not None and row.account_id == account_id:
         session.delete(row)
 
 
@@ -268,6 +304,33 @@ def list_trades(session: Session, account_id: int, limit: int = 500) -> list[Tra
         session.scalars(
             select(TradeRow)
             .where(TradeRow.account_id == account_id)
+            .order_by(TradeRow.closed_at.desc(), TradeRow.id.desc())
+            .limit(limit)
+        ).all()
+    )
+
+
+def list_trade_rows(
+    session: Session,
+    account_id: int,
+    pair: str | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    limit: int = 500,
+) -> list[TradeRow]:
+    """Closed trades for the account, newest first. ``start``/``end`` filter
+    on the close time."""
+    conds = [TradeRow.account_id == account_id]
+    if pair is not None:
+        conds.append(TradeRow.pair == pair)
+    if start is not None:
+        conds.append(TradeRow.closed_at >= _utc_naive(start))
+    if end is not None:
+        conds.append(TradeRow.closed_at <= _utc_naive(end))
+    return list(
+        session.scalars(
+            select(TradeRow)
+            .where(*conds)
             .order_by(TradeRow.closed_at.desc(), TradeRow.id.desc())
             .limit(limit)
         ).all()
@@ -298,6 +361,14 @@ def losing_streak(session: Session, account_id: int) -> int:
         else:
             break
     return streak
+
+
+def trades_today(session: Session, account_id: int, now: datetime | None = None) -> list[TradeRow]:
+    """Trades closed today on the Amsterdam clock — the same day boundary
+    the daily loss limit uses."""
+    now = now or utcnow()
+    midnight_ams = now.astimezone(AMSTERDAM).replace(hour=0, minute=0, second=0, microsecond=0)
+    return list_trade_rows(session, account_id, start=midnight_ams, end=now, limit=500)
 
 
 # ---------------------------------------------------------------- decisions --
@@ -391,6 +462,33 @@ def expire_pending(session: Session, account_id: int) -> int:
     return len(rows)
 
 
+def list_decision_rows(
+    session: Session,
+    pair: str | None = None,
+    action: str | None = None,
+    status: str | None = None,
+    after: datetime | None = None,
+    before: datetime | None = None,
+    limit: int | None = 50,
+) -> list[DecisionRow]:
+    """Newest-first decision history for the drawer and activity links."""
+    conds = []
+    if pair is not None:
+        conds.append(DecisionRow.pair == pair)
+    if action is not None:
+        conds.append(DecisionRow.action == action)
+    if status is not None:
+        conds.append(DecisionRow.status == status)
+    if after is not None:
+        conds.append(DecisionRow.at >= _utc_naive(after))
+    if before is not None:
+        conds.append(DecisionRow.at < _utc_naive(before))
+    stmt = select(DecisionRow).where(*conds).order_by(DecisionRow.at.desc(), DecisionRow.id.desc())
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return list(session.scalars(stmt).all())
+
+
 # ----------------------------------------------------------------- activity --
 
 
@@ -417,6 +515,61 @@ def recent_activity(session: Session, limit: int = 100) -> list[ActivityRow]:
     return list(
         session.scalars(select(ActivityRow).order_by(ActivityRow.id.desc()).limit(limit)).all()
     )
+
+
+def list_activity(
+    session: Session,
+    pair: str | None = None,
+    kind: str | None = None,
+    before: int | None = None,
+    limit: int = 50,
+) -> list[ActivityRow]:
+    """Newest-first activity rows; ``before`` is a row-id cursor."""
+    conds = []
+    if pair is not None:
+        conds.append(ActivityRow.pair == pair)
+    if kind is not None:
+        conds.append(ActivityRow.kind == kind)
+    if before is not None:
+        conds.append(ActivityRow.id < before)
+    return list(
+        session.scalars(
+            select(ActivityRow).where(*conds).order_by(ActivityRow.id.desc()).limit(limit)
+        ).all()
+    )
+
+
+def list_equity_snapshots(
+    session: Session, account_id: int, start: datetime, end: datetime
+) -> list[EquitySnapshotRow]:
+    return list(
+        session.scalars(
+            select(EquitySnapshotRow)
+            .where(
+                EquitySnapshotRow.account_id == account_id,
+                EquitySnapshotRow.at >= _utc_naive(start),
+                EquitySnapshotRow.at <= _utc_naive(end),
+            )
+            .order_by(EquitySnapshotRow.at.asc(), EquitySnapshotRow.id.asc())
+        ).all()
+    )
+
+
+def delete_all_data(session: Session) -> None:
+    """Wipe every table except settings (``DELETE /api/data``)."""
+    for table in (
+        CandleRow,
+        MarketRow,
+        AccountRow,
+        PositionRow,
+        TradeRow,
+        DecisionRow,
+        ActivityRow,
+        EquitySnapshotRow,
+        ExitTickRow,
+    ):
+        session.execute(delete(table))
+    session.commit()
 
 
 # ------------------------------------------------------------ equity snaps --

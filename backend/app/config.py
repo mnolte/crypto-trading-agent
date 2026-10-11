@@ -13,6 +13,7 @@ import os
 import warnings
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 import keyring
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -34,6 +35,9 @@ class EnvConfig(BaseSettings):
     ta_port: int = 8000
     ta_db_path: Path = REPO_ROOT / "data" / "agent.db"
     ta_data_dir: Path = REPO_ROOT / "data"
+    # Test/dev hook: force the market data source on first boot. Once set it
+    # is stored in settings like a manual change.
+    ta_data_source: Literal["bitvavo", "sim"] | None = None
 
 
 @lru_cache

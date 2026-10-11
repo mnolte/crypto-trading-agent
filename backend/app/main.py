@@ -27,7 +27,7 @@ from app.agent.market.universe import (
     run_eligibility_check,
     warming_up,
 )
-from app.api import routes, ws
+from app.api import routes, screens, ws
 from app.api import sources as source_routes
 from app.api.deps import (
     AppState,
@@ -84,6 +84,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         session = session_factory()
         try:
             settings = repo.load_settings(session)
+            if env.ta_data_source is not None and settings.data_source != env.ta_data_source:
+                # TA_DATA_SOURCE (tests, e2e, dev): stored like a manual change.
+                settings.data_source = env.ta_data_source
+                repo.save_settings(session, settings)
             settings_version = repo.settings_version(session)
         finally:
             session.close()
@@ -145,6 +149,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Trading Agent", version="0.1.0", lifespan=lifespan)
     app.add_middleware(LocalOnlyMiddleware)
     app.include_router(routes.router)
+    app.include_router(screens.router)
     app.include_router(source_routes.router)
     app.include_router(ws.router)
     if FRONTEND_DIST.is_dir():

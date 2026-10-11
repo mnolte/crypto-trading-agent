@@ -38,6 +38,7 @@ def env_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]
     data = tmp_path / "data"
     monkeypatch.setenv("TA_DB_PATH", str(data / "agent.db"))
     monkeypatch.setenv("TA_DATA_DIR", str(data))
+    monkeypatch.setenv("TA_DATA_SOURCE", "sim")
     get_env.cache_clear()
     yield data
     get_env.cache_clear()
@@ -53,12 +54,22 @@ def sim_market(monkeypatch: pytest.MonkeyPatch) -> SimMarket:
 
 
 @pytest.fixture
-def client(env_paths: Path) -> Iterator[TestClient]:
+def client(env_paths: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    async def _no_refresh(_state: object) -> None:
+        return None
+
+    monkeypatch.setattr("app.main.refresh_market_data", _no_refresh)
     with TestClient(create_app(), base_url="http://127.0.0.1") as c:
         yield c
 
 
 @pytest.fixture
-def sim_client(env_paths: Path, sim_market: SimMarket) -> Iterator[TestClient]:
+def sim_client(
+    env_paths: Path, sim_market: SimMarket, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[TestClient]:
+    async def _no_refresh(_state: object) -> None:
+        return None
+
+    monkeypatch.setattr("app.main.refresh_market_data", _no_refresh)
     with TestClient(create_app(), base_url="http://127.0.0.1") as c:
         yield c

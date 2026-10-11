@@ -173,6 +173,9 @@ class Snapshot(BaseModel):
     errors_24h: int
     errors_open: int
     kill: KillInfo | None
+    today_trades: int = 0
+    today_won: int = 0
+    return_since_start_pct: float = 0.0
 
 
 # ---------------------------------------------------------------- settings --
@@ -309,3 +312,225 @@ class Settings(BaseModel):
     # Source ids the user disabled on the Sources page; the registry keeps
     # the runtime status.
     disabled_sources: list[str] = []
+
+
+# ---------------------------------------------------------- screen payloads --
+# Response shapes for the PR-4 screens. Everything the UI renders arrives
+# computed; the frontend only formats.
+
+
+class CandlePoint(BaseModel):
+    time: datetime
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+
+
+class SeriesPoint(BaseModel):
+    time: datetime
+    value: float | None
+
+
+class TrendPoint(BaseModel):
+    time: datetime
+    value: Literal["up", "down", "sideways"]
+
+
+class ChartMarker(BaseModel):
+    """A trade fill or decision stamped on the bar where it happened."""
+
+    time: datetime
+    kind: Literal["buy", "sell", "decision"]
+    action: Action | None = None
+    label: str
+    decision_id: str | None = None
+
+
+class PositionLines(BaseModel):
+    entry: MoneyDecimal
+    stop: MoneyDecimal
+    target: MoneyDecimal
+
+
+class CandleFeed(BaseModel):
+    """Dashboard chart: candles plus trade markers and open-position lines."""
+
+    pair: str
+    tf: Tf
+    candles: list[CandlePoint]
+    markers: list[ChartMarker]
+    position: PositionLines | None
+
+
+class DecisionListOut(BaseModel):
+    items: list[Decision]
+
+
+class DecisionDetail(BaseModel):
+    decision: Decision
+    raw_brief: str | None = None
+    raw_response: str | None = None
+    prev_id: str | None = None
+    next_id: str | None = None
+    execution_mode: ExecMode
+    fill_price: MoneyDecimal | None = None
+
+
+class LevelOut(BaseModel):
+    kind: Literal["support", "resistance", "prev_day_high", "prev_day_low"]
+    price: float
+    dist_pct: float | None  # signed distance from last price, %
+    dist_atr: float | None  # same distance in 1h ATRs
+
+
+class IndicatorCell(BaseModel):
+    text: str | None
+    read: SignalRead | None
+
+
+class IndicatorRowOut(BaseModel):
+    name: str
+    threshold: str
+    cells: dict[str, IndicatorCell]  # keyed "1h" | "4h" | "1d"
+
+
+class LiquidityOut(BaseModel):
+    spread_pct: float | None
+    depth_eur: float | None
+    vol24h_vs_30d: float | None
+
+
+class HealthOut(BaseModel):
+    bars_loaded: int
+    bars_requested: int
+    newest_closed_age_s: int | None
+    stale_limit_s: int
+    stale: bool
+    missing_bars: int
+    source: str
+
+
+class IndicatorsOut(BaseModel):
+    """The whole Indicators screen in one payload.
+
+    ``frozen_*`` is set when the payload is pinned to a past decision
+    (``?at=<decision id>``): every value is computed from candles that were
+    closed at that moment.
+    """
+
+    pair: str
+    tf: Tf
+    frozen: bool
+    frozen_at: datetime | None
+    frozen_decision_id: str | None
+    frozen_cycle: int | None
+    candles: list[CandlePoint]
+    series: dict[str, list[SeriesPoint]]
+    regime_band: list[TrendPoint]
+    regime: Regime
+    btc_regime: Regime | None
+    current: list[IndicatorRowOut]
+    levels: list[LevelOut]
+    structure: list[str]
+    context: dict[str, float | None]
+    liquidity: LiquidityOut
+    health: HealthOut
+    markers: list[ChartMarker]
+    adx_threshold: float
+
+
+class EquityPoint(BaseModel):
+    at: datetime
+    equity: MoneyDecimal
+
+
+class DrawdownPoint(BaseModel):
+    at: datetime
+    pct: float
+
+
+class PerfTotals(BaseModel):
+    return_pct: float | None
+    benchmark_return_pct: float | None
+    vs_btc_pct: float | None
+    max_drawdown_pct: float | None
+    trades: int
+    open_now: int
+    win_rate_pct: float | None
+    wins: int
+    avg_r: float | None
+    profit_factor: float | None
+    fees_eur: MoneyDecimal
+    time_in_market_pct: float | None
+
+
+class PerPairPerf(BaseModel):
+    pair: str
+    trades: int
+    realised_eur: MoneyDecimal
+    avg_r: float | None
+    fees_eur: MoneyDecimal
+
+
+class PerformanceOut(BaseModel):
+    start: datetime
+    end: datetime
+    equity: list[EquityPoint]
+    benchmark: list[SeriesPoint]
+    drawdown: list[DrawdownPoint]
+    kill_line_pct: float
+    totals: PerfTotals
+    per_pair: list[PerPairPerf]
+
+
+class TradeOut(BaseModel):
+    id: int
+    pair: str
+    qty: MoneyDecimal
+    entry: MoneyDecimal
+    exit: MoneyDecimal
+    opened_at: datetime
+    closed_at: datetime
+    fee_eur: MoneyDecimal
+    realised_eur: MoneyDecimal
+    realised_r: float
+    exit_reason: str
+    decision_id: str
+
+
+class TradeListOut(BaseModel):
+    items: list[TradeOut]
+
+
+class ActivityOut(BaseModel):
+    id: int
+    at: datetime
+    kind: str
+    pair: str | None
+    text: str
+    decision_id: str | None
+
+
+class ActivityListOut(BaseModel):
+    items: list[ActivityOut]
+    next_before: int | None
+
+
+class FlattenPreview(BaseModel):
+    count: int
+    pairs: list[str]
+    est_fees_eur: MoneyDecimal
+    unrealised_eur: MoneyDecimal
+
+
+class PromptInfo(BaseModel):
+    id: str
+    model: str
+    temperature: float
+    max_output_tokens: int
+
+
+class DeleteDataRequest(BaseModel):
+    confirm: Literal["DELETE"]

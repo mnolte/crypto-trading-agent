@@ -12,20 +12,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
-from app.db import AccountRow, TradeRow
+from app.db import AMSTERDAM, AccountRow, TradeRow
 from app.models import PaperSettings, Position
 from app.repo import (
     add_trade,
+    aware_utc,
     delete_position_row,
     list_position_rows,
     save_position_row,
 )
-
-AMSTERDAM = ZoneInfo("Europe/Amsterdam")
 
 HUNDRED = Decimal("100")
 
@@ -66,7 +64,7 @@ class HeldPosition:
             entry=self.entry,
             stop=self.stop,
             target=self.target,
-            opened_at=self.opened_at,
+            opened_at=aware_utc(self.opened_at),
             decision_id=self.decision_id,
             last=self.last,
             unrealised=self.unrealised,
@@ -107,7 +105,7 @@ class PaperBroker:
                 entry=Decimal(row.entry),
                 stop=Decimal(row.stop),
                 target=Decimal(row.target),
-                opened_at=row.opened_at,
+                opened_at=aware_utc(row.opened_at),
                 decision_id=row.decision_id,
                 last=Decimal(row.last),
                 invalidation_price=(
@@ -240,6 +238,8 @@ class PaperBroker:
         reason: str,
     ) -> TradeRow | None:
         """Close a position at the slipped price; returns the trade."""
+        if price <= 0:
+            return None
         pos = self.positions.pop(pair, None)
         if pos is None:
             return None
@@ -250,7 +250,7 @@ class PaperBroker:
         realised = pos.qty * (fill - pos.entry) - buy_fee - sell_fee
         risk = pos.qty * (pos.entry - pos.stop)
         realised_r = realised / risk if risk > 0 else Decimal("0")
-        delete_position_row(session, pair)
+        delete_position_row(session, pair, self.account_id)
         trade = add_trade(
             session,
             TradeRow(
