@@ -32,7 +32,8 @@ jobs:
       - run: uv run mypy .
       # pytest runs with --disable-socket --allow-hosts=127.0.0.1,localhost
       # (addopts in pyproject.toml): any real outbound call fails.
-      - run: uv run pytest
+      # The 2000-cycle soak is marked slow and runs via `make soak`, not CI.
+      - run: uv run pytest -m "not slow"
 
   frontend:
     name: frontend

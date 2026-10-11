@@ -13,12 +13,15 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine as DbEngine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
 from app import repo
+from app.agent.broker.paper import PaperBroker
+from app.agent.deciders.rules import RulesDecider
+from app.agent.engine import Engine
 from app.agent.market.universe import (
     backfill_market,
     run_eligibility_check,
@@ -72,12 +75,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     env = get_env()
     lock = EngineLock(env.ta_db_path)
     lock.acquire()  # raises EngineAlreadyRunningError if another instance holds it
-    engine: Engine | None = None
+    db_engine: DbEngine | None = None
     state: AppState | None = None
     try:
         run_migrations(env.ta_db_path)
-        engine = make_engine(env.ta_db_path)
-        session_factory = make_session_factory(engine)
+        db_engine = make_engine(env.ta_db_path)
+        session_factory = make_session_factory(db_engine)
         session = session_factory()
         try:
             settings = repo.load_settings(session)
@@ -88,7 +91,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         market_client = build_market_client(settings, registry)
         state = AppState(
             local_token=generate_local_token(),
-            engine=engine,
+            engine=db_engine,
             session_factory=session_factory,
             settings=settings,
             settings_version=settings_version,
@@ -97,17 +100,44 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             status="paused",
         )
         app.state.app_state = state
+        # Paper account + engine: positions are restored from the database,
+        # pending decisions from before the restart are marked expired, and
+        # an unacknowledged kill restores the Killed state. Always paused.
+        session = session_factory()
+        try:
+            account = repo.current_account(session, settings.paper.start_balance_eur)
+            broker = PaperBroker(account, settings.paper)
+            broker.load_positions(session)
+        finally:
+            session.close()
+        state.broker = broker
+        state.account_id = account.id
+        agent_engine = Engine(
+            session_factory=session_factory,
+            market_client=market_client,
+            market_rules=state.market_rules,
+            settings=lambda: state.settings,
+            settings_version=lambda: state.settings_version,
+            broker=broker,
+            decider=RulesDecider(),
+            broadcast=lambda: routes.broadcast_snapshot(state),
+        )
+        state.agent_engine = agent_engine
+        await agent_engine.start()
+        state.status = agent_engine.status
         state.tasks.append(asyncio.create_task(refresh_market_data(state)))
         yield
     finally:
         if state is not None:
+            if state.agent_engine is not None:
+                await state.agent_engine.stop()
             for task in state.tasks:
                 task.cancel()
             if state.tasks:
                 await asyncio.gather(*state.tasks, return_exceptions=True)
             await state.market_client.aclose()
-        if engine is not None:
-            engine.dispose()
+        if db_engine is not None:
+            db_engine.dispose()
         lock.release()
 
 

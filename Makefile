@@ -1,4 +1,4 @@
-.PHONY: dev run test test-backend test-frontend test-e2e openapi openapi-check ci ci-backend ci-frontend ci-api-types ci-e2e
+.PHONY: dev run test test-backend test-frontend test-e2e soak openapi openapi-check ci ci-backend ci-frontend ci-api-types ci-e2e
 
 UV := uv
 # corepack must run inside frontend/ so it honours the pinned packageManager.
@@ -17,7 +17,10 @@ run: ## build the UI, serve everything on 127.0.0.1:8000
 test: test-backend test-frontend test-e2e openapi-check ## pytest + Vitest (+ Playwright where present)
 
 test-backend:
-	$(UV) run pytest backend/tests
+	$(UV) run pytest backend/tests -m "not slow"
+
+soak: ## the 2000-cycle engine soak (slow marker, excluded from the suite)
+	$(UV) run pytest backend/tests -m slow -v
 
 test-frontend:
 	$(FE) test:run
@@ -45,7 +48,7 @@ ci-backend:
 	$(UV) run ruff check .
 	$(UV) run ruff format --check .
 	$(UV) run mypy .
-	$(UV) run pytest
+	$(UV) run pytest -m "not slow"
 
 ci-frontend:
 	$(FE) install --frozen-lockfile

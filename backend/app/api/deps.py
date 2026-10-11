@@ -17,7 +17,7 @@ import asyncio
 import secrets
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 from urllib.parse import urlparse
 
 from fastapi import Header, HTTPException, Request, WebSocket
@@ -25,12 +25,23 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from app import repo
+from app.agent.broker.paper import PaperBroker
 from app.agent.market import make_market_client
 from app.agent.market.base import MarketClient, MarketInfo
 from app.agent.market.bitvavo import BitvavoClient
 from app.config import LOCAL_HOSTS
-from app.models import RiskBudget, Settings, Snapshot, Usage
+from app.models import (
+    ActivityItem,
+    RiskBudget,
+    Settings,
+    Snapshot,
+    Usage,
+)
 from app.sources import SourceRegistry
+
+if TYPE_CHECKING:
+    from app.agent.engine import Engine as AgentEngine
 
 TOKEN_HEADER = "x-local-token"
 
@@ -112,6 +123,8 @@ class AppState:
     market_rules: dict[str, MarketInfo] = field(default_factory=dict)
     tasks: list[asyncio.Task[None]] = field(default_factory=list)
     ws_clients: set[WebSocket] = field(default_factory=set)
+    broker: PaperBroker | None = None
+    agent_engine: AgentEngine | None = None
 
 
 def build_market_client(settings: Settings, sources: SourceRegistry) -> MarketClient:
@@ -146,54 +159,104 @@ def require_token(request: Request, x_local_token: str | None = Header(default=N
 def build_snapshot(state: AppState) -> Snapshot:
     """The full snapshot pushed over the WebSocket after every change.
 
-    Until the engine lands (PR 3) this reports the paused agent with the
-    configured paper account.
+    With the engine running this reflects the live paper account: positions
+    at last price, the newest decision per pair, pending approvals and the
+    risk meter. The UI never computes trading values itself.
     """
     settings = state.settings
+    engine = state.agent_engine
+    broker = state.broker
     start = settings.paper.start_balance_eur
-    risk = settings.risk
-    return Snapshot(
-        status=state.status,
-        mode="paper",
-        source=settings.data_source,
-        cycle=state.cycle,
-        next_run_at=None,
-        cycle_in_progress=False,
-        equity=start,
-        cash=start,
-        start_equity=start,
-        today_pnl=Decimal("0"),
-        exposure_pct=0.0,
-        drawdown_pct=0.0,
-        prices={},
-        positions=[],
-        latest={},
-        pending=[],
-        activity=[],
-        usage=Usage(
-            calls_today=0,
-            daily_budget=settings.model.daily_call_budget,
-            cost_today_eur=Decimal("0"),
-            cost_month_eur=Decimal("0"),
-            cap_eur=settings.model.monthly_cost_cap_eur,
-        ),
-        account_id=state.account_id,
-        quiet="",
-        risk_budget=RiskBudget(
-            open_risk_pct=Decimal("0"),
-            open_risk_cap_pct=risk.total_open_risk_pct,
-            today_loss_pct=Decimal("0"),
-            daily_limit_pct=risk.daily_loss_limit_pct,
-            drawdown_pct=Decimal("0"),
-            kill_pct=risk.kill_drawdown_pct,
-            full_trades_left=0,
-            risk_pct_now=risk.risk_per_trade_pct,
-            throttle=None,
-            shock_brake_until=None,
-            correlated_slots_left=risk.correlated_max_positions,
-        ),
-        paused=[],
-        errors_24h=0,
-        errors_open=0,
-        kill=None,
+    usage = Usage(
+        calls_today=0,
+        daily_budget=settings.model.daily_call_budget,
+        cost_today_eur=Decimal("0"),
+        cost_month_eur=Decimal("0"),
+        cap_eur=settings.model.monthly_cost_cap_eur,
     )
+    if engine is None or broker is None:
+        return Snapshot(
+            status=state.status,
+            mode="paper",
+            source=settings.data_source,
+            cycle=state.cycle,
+            next_run_at=None,
+            cycle_in_progress=False,
+            equity=start,
+            cash=start,
+            start_equity=start,
+            today_pnl=Decimal("0"),
+            exposure_pct=0.0,
+            drawdown_pct=0.0,
+            prices={},
+            positions=[],
+            latest={},
+            pending=[],
+            activity=[],
+            usage=usage,
+            account_id=state.account_id,
+            quiet="",
+            risk_budget=RiskBudget(
+                open_risk_pct=Decimal("0"),
+                open_risk_cap_pct=settings.risk.total_open_risk_pct,
+                today_loss_pct=Decimal("0"),
+                daily_limit_pct=settings.risk.daily_loss_limit_pct,
+                drawdown_pct=Decimal("0"),
+                kill_pct=settings.risk.kill_drawdown_pct,
+                full_trades_left=0,
+                risk_pct_now=settings.risk.risk_per_trade_pct,
+                throttle=None,
+                shock_brake_until=None,
+                correlated_slots_left=settings.risk.correlated_max_positions,
+            ),
+            paused=[],
+            errors_24h=0,
+            errors_open=0,
+            kill=None,
+        )
+
+    session = state.session_factory()
+    try:
+        now = engine.clock()
+        equity = broker.equity()
+        cash = broker.cash
+        positions = [p.to_model() for p in broker.positions.values()]
+        activity = [
+            ActivityItem(
+                at=row.at,
+                kind=row.kind,
+                pair=row.pair,
+                text=row.text,
+                decision_id=row.decision_id,
+            )
+            for row in reversed(repo.recent_activity(session, limit=60))
+        ]
+        return Snapshot(
+            status=engine.status,
+            mode="paper",
+            source=settings.data_source,
+            cycle=engine.cycle,
+            next_run_at=engine.next_run_at,
+            cycle_in_progress=engine.cycle_in_progress,
+            equity=equity,
+            cash=cash,
+            start_equity=Decimal(broker.account.start_balance),
+            today_pnl=broker.today_pnl(now),
+            exposure_pct=float(broker.exposure() / equity * 100) if equity > 0 else 0.0,
+            drawdown_pct=float(broker.drawdown_pct()),
+            prices=engine.prices,
+            positions=positions,
+            latest=engine.latest,
+            pending=list(engine.pending.values()),
+            activity=activity,
+            usage=usage,
+            account_id=broker.account_id,
+            quiet="",
+            risk_budget=engine.risk_budget(),
+            paused=[],
+            errors_24h=0,
+            errors_open=0,
+            kill=engine.kill,
+        )
+    finally:
+        session.close()
