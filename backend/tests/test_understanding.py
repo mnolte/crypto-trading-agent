@@ -498,9 +498,7 @@ def test_briefing_time_must_be_hh_mm(sim_client: TestClient) -> None:
     it must never reach scheduled_today."""
     doc = sim_client.get("/api/settings").json()
     doc["learning"]["briefing_time"] = "25:99"
-    out = sim_client.put(
-        "/api/settings", headers={"X-Local-Token": _token(sim_client)}, json=doc
-    )
+    out = sim_client.put("/api/settings", headers={"X-Local-Token": _token(sim_client)}, json=doc)
     assert out.status_code == 422
 
 
