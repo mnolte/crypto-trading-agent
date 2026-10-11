@@ -1,8 +1,18 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { UTCTimestamp } from "lightweight-charts";
-import type { ActivityItem, Decision, Position, Snapshot, Tf } from "../api/client";
+import type {
+  ActivityItem,
+  BriefingOut,
+  Decision,
+  EntryPause,
+  Position,
+  RiskBudget,
+  Snapshot,
+  Tf,
+} from "../api/client";
 import {
+  useBriefings,
   useCandles,
   useDecisions,
   useNow,
@@ -21,8 +31,12 @@ import { Chip } from "../components/Chip";
 import { DataTable } from "../components/DataTable";
 import { DecisionDrawer } from "../components/DecisionDrawer";
 import { EmptyState } from "../components/EmptyState";
+import { GlossaryText } from "../components/Glossary";
+import { GlossaryTerm } from "../components/GlossaryTerm";
 import { KpiTile } from "../components/KpiTile";
+import { Meter } from "../components/Meter";
 import { PairTabs, type PairTabItem } from "../components/PairTabs";
+import { PauseSelect } from "../components/PauseSelect";
 import { RegimeChip } from "../components/RegimeChip";
 import { SegmentedControl } from "../components/SegmentedControl";
 import { SignalChip } from "../components/SignalChip";
@@ -40,6 +54,17 @@ import {
 
 const FIRST_RUN_KEY = "ta.firstRun.dismissed";
 const TFS: Tf[] = ["1h", "4h", "1d"];
+
+/** Tab badge text for an active pause: "18h" for timed, "" for indefinite. */
+function pauseBadge(
+  pause: { until: string | null } | undefined,
+  now: number,
+): string | undefined {
+  if (pause === undefined) return undefined;
+  if (pause.until === null) return "";
+  const left = (new Date(pause.until).getTime() - now) / 1000;
+  return left > 0 ? formatAge(left) : "";
+}
 
 export function Dashboard() {
   const { data: snapshot } = useSnapshot();
@@ -60,15 +85,18 @@ export function Dashboard() {
   const { data: feed } = useCandles(selected, tf);
   const { data: decisions } = useDecisions(selected ?? undefined, 1);
   const latest = decisions?.items[0] ?? null;
+  const { data: briefings } = useBriefings("daily", 1);
 
   const price = selected ? snapshot?.prices[selected] : undefined;
   const openai = sources?.find((s) => s.id === "openai");
   const showFirstRun = openai !== undefined && !openai.key_set && !firstRunDismissed;
 
+  const paused = new Map((snapshot?.paused ?? []).map((p) => [p.pair, p]));
   const pairTabs: PairTabItem[] = markets.map((m) => ({
     id: m,
     chg24h: Number(snapshot?.prices[m]?.chg_24h_pct ?? 0),
     stale: snapshot?.prices[m]?.stale ?? false,
+    paused: pauseBadge(paused.get(m) ?? paused.get("*"), now),
   }));
 
   const candles: Candle[] = (feed?.candles ?? []).map((c) => ({
@@ -134,7 +162,27 @@ export function Dashboard() {
         </Banner>
       )}
 
+      {(settings?.learning.quiet_line ?? true) && snapshot?.quiet && (
+        <div role="status" className="quiet-line">
+          <span className="quiet-line__chip">This cycle</span>
+          <span className="quiet-line__text">
+            <GlossaryText text={snapshot.quiet} />
+          </span>
+          <Link to="/insights" className="quiet-line__link">
+            Why?
+          </Link>
+        </div>
+      )}
+
       <KpiStrip snapshot={snapshot} now={now} />
+
+      <div className="row">
+        <BriefingCard
+          briefing={briefings?.items[0]}
+          at={settings?.learning.briefing_time ?? "08:00"}
+        />
+        <RiskBudgetCard budget={snapshot?.risk_budget} />
+      </div>
 
       <div className="row">
         <Card className="row__main" label="Market chart">
@@ -190,6 +238,7 @@ export function Dashboard() {
         <LatestDecision
           decision={latest}
           pair={selected}
+          pause={selected ? (paused.get(selected) ?? paused.get("*")) : undefined}
           onOpen={(id) => setDecisionId(id)}
         />
       </div>
@@ -263,7 +312,7 @@ function KpiStrip({ snapshot, now }: { snapshot?: Snapshot; now: number }) {
       />
       <KpiTile
         label="Exposure"
-        glossary="Share of your equity currently held in coins rather than euros."
+        glossaryTerm="exposure"
         value={snapshot ? formatPct(snapshot.exposure_pct) : "—"}
         meter={{ pct: snapshot?.exposure_pct ?? 0, color: "accent" }}
         sub="spot, no leverage"
@@ -301,13 +350,124 @@ function KpiStrip({ snapshot, now }: { snapshot?: Snapshot; now: number }) {
   );
 }
 
+function BriefingCard({
+  briefing,
+  at,
+}: {
+  briefing: BriefingOut | undefined;
+  at: string;
+}) {
+  return (
+    <Card
+      className="row__main"
+      title={`Morning briefing · ${at}`}
+      label="Morning briefing"
+      actions={
+        <Link to="/reviews" className="card__link">
+          All briefings and reviews
+        </Link>
+      }
+    >
+      {briefing ? (
+        <>
+          <p className="briefing__text">
+            <GlossaryText text={briefing.text} />
+          </p>
+          <div className="card__meta">
+            {briefing.source === "template"
+              ? `Plain briefing: ${briefing.reason}.`
+              : "Written by the model from figures computed by the agent; every number was checked against those figures."}
+          </div>
+        </>
+      ) : (
+        <EmptyState
+          title="No briefing yet"
+          footer="The first briefing appears at the configured time."
+        />
+      )}
+    </Card>
+  );
+}
+
+function RiskBudgetCard({ budget }: { budget: RiskBudget | undefined }) {
+  if (!budget) return null;
+  const openRisk = Number(budget.open_risk_pct);
+  const openCap = Number(budget.open_risk_cap_pct);
+  const todayLoss = Number(budget.today_loss_pct);
+  const dailyLimit = Number(budget.daily_limit_pct);
+  const drawdown = Number(budget.drawdown_pct);
+  const kill = Number(budget.kill_pct);
+  const room =
+    budget.full_trades_left <= 0
+      ? "No room for another trade."
+      : budget.room_limited_by === "cash"
+        ? `Room for ${budget.full_trades_left} more trade${budget.full_trades_left === 1 ? "" : "s"}, limited by available cash.`
+        : `Room for ${budget.full_trades_left} more trade${budget.full_trades_left === 1 ? "" : "s"}.`;
+  return (
+    <Card className="row__side" title="Risk budget" label="Risk budget">
+      <div className="risk-line">
+        <div className="risk-line__head">
+          <GlossaryTerm term="open risk">Open risk</GlossaryTerm>
+          <span className="num">
+            {openRisk.toFixed(1)}% of {formatPct(openCap)} cap
+          </span>
+        </div>
+        <Meter pct={openCap > 0 ? (openRisk / openCap) * 100 : 0} />
+      </div>
+      <div className="risk-line">
+        <div className="risk-line__head">
+          <span>Today's loss</span>
+          <span className="num">
+            {todayLoss.toFixed(1)}% of {formatPct(dailyLimit)} limit
+          </span>
+        </div>
+        <Meter pct={dailyLimit > 0 ? (todayLoss / dailyLimit) * 100 : 0} />
+      </div>
+      <div className="risk-line">
+        <div className="risk-line__head">
+          <GlossaryTerm term="drawdown">Drawdown</GlossaryTerm>
+          <span className="num">
+            −{drawdown.toFixed(1)}% of −{formatPct(kill)} kill
+          </span>
+        </div>
+        <Meter pct={kill > 0 ? (drawdown / kill) * 100 : 0} color="down" />
+      </div>
+      <div className="kv-box">
+        <span>{room}</span>
+        <div className="kv">
+          <GlossaryTerm term="correlated">Correlated</GlossaryTerm>
+          <span className="num">
+            {budget.correlated_detail ?? `${budget.correlated_slots_left} slots left`}
+          </span>
+        </div>
+        <div className="kv">
+          <span>Risk per trade</span>
+          <span className="num">
+            {budget.risk_pct_now}% · {budget.throttle ? "throttle on" : "throttle off"}
+          </span>
+        </div>
+        <div className="kv">
+          <GlossaryTerm term="shock brake">Shock brake</GlossaryTerm>
+          <span className="num">
+            {budget.shock_brake_until
+              ? `on until ${formatTime(budget.shock_brake_until)}`
+              : "off"}
+          </span>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function LatestDecision({
   decision,
   pair,
+  pause,
   onOpen,
 }: {
   decision: Decision | null;
   pair: string | null;
+  pause: EntryPause | undefined;
   onOpen: (id: string) => void;
 }) {
   return (
@@ -348,9 +508,7 @@ function LatestDecision({
           </div>
           <div className="kv-box">
             <div className="kv">
-              <span title="R is the amount you risk: entry minus stop. 2.1R means the target would earn 2.1 times what the stop would lose.">
-                Risk / reward
-              </span>
+              <GlossaryTerm term="r/r">Risk / reward</GlossaryTerm>
               <span className="num">
                 {decision.plan ? `${formatQty(decision.plan.rr)}R` : "—"}
               </span>
@@ -372,7 +530,13 @@ function LatestDecision({
               </span>
             </div>
           </div>
-          <div style={{ marginTop: "auto" }}>
+          <div style={{ marginTop: "auto" }} className="pause-row">
+            <span className="pause-row__label">
+              Pause new entries on this coin
+            </span>
+            {pair && <PauseSelect pair={pair} pause={pause} />}
+          </div>
+          <div>
             <Button variant="secondary" onClick={() => onOpen(decision.id)}>
               Open full reasoning
             </Button>

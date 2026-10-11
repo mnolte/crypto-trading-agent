@@ -459,7 +459,10 @@ class OpenAIDecider:
         rules_draft = await self.rules.decide(ctx)
         want_call = ctx.holding or not settings.model.rules_prefilter or rules_draft.prefilter
         api_key = self._key()
-        if not want_call or not api_key:
+        # A paused pair can't enter; while flat there's nothing to decide,
+        # so the call is skipped and Rules answers. Holding pairs still
+        # reach the model — SELL decisions keep working during a pause.
+        if not want_call or not api_key or (ctx.entries_paused and not ctx.holding):
             return rules_draft
 
         session = self._sessions()

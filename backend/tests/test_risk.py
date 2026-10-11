@@ -64,14 +64,15 @@ def _settings() -> Settings:
 
 def test_min_rr_boundary() -> None:
     ok = check_buy(_ctx(), _broker(), None, _settings())
-    assert ok.outcome == "fill" and ok.gates[0].status == "pass"
+    assert ok.outcome == "fill"
+    assert next(g for g in ok.gates if g.name == "Min reward/risk").status == "pass"
     # R/R is measured on the expected fill 100.05: exactly 2.0 is
     # (108.15-100.05)/(100.05-96); just under fails.
     edge = check_buy(_ctx(target=Decimal("108.15")), _broker(), None, _settings())
     assert edge.outcome == "fill"
     bad = check_buy(_ctx(target=Decimal("108.14")), _broker(), None, _settings())
     assert bad.outcome == "skip" and bad.skip_reason == "Min reward/risk"
-    assert bad.gates[0].status == "fail"
+    assert next(g for g in bad.gates if g.name == "Min reward/risk").status == "fail"
 
 
 def test_rr_gate_uses_expected_fill_price() -> None:
@@ -80,7 +81,7 @@ def test_rr_gate_uses_expected_fill_price() -> None:
     # Fill R/R:   (108.09-100.05)/(100.05-96) = 1.985 < 2.
     v = check_buy(_ctx(target=Decimal("108.09")), _broker(), None, _settings())
     assert v.outcome == "skip" and v.skip_reason == "Min reward/risk"
-    assert v.gates[0].status == "fail"
+    assert next(g for g in v.gates if g.name == "Min reward/risk").status == "fail"
     # A passing plan records both the signal price and the expected fill.
     ok = check_buy(_ctx(), _broker(), None, _settings())
     assert ok.plan is not None
@@ -148,7 +149,8 @@ def test_correlated_positions_gate() -> None:
         _settings(),
     )
     assert v.outcome == "skip" and v.skip_reason == "Correlated positions"
-    assert "A-EUR" in v.gates[-1].value and "B-EUR" in v.gates[-1].value
+    corr = next(g for g in v.gates if g.name == "Correlated positions")
+    assert "A-EUR" in corr.value and "B-EUR" in corr.value
     ok = check_buy(_ctx(correlated_pairs=["A-EUR"]), _broker(), None, _settings())
     assert ok.outcome == "fill"
 

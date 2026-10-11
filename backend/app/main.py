@@ -31,6 +31,7 @@ from app.agent.market.universe import (
 from app.agent.outcomes import outcome_loop
 from app.api import inspector, notifications, routes, screens, ws
 from app.api import sources as source_routes
+from app.api import understanding as understanding_routes
 from app.api.deps import (
     AppState,
     LocalOnlyMiddleware,
@@ -39,6 +40,7 @@ from app.api.deps import (
 )
 from app.config import REPO_ROOT, get_env
 from app.db import EngineLock, MarketRow, make_engine, make_session_factory, run_migrations, utcnow
+from app.features import briefings as briefings_mod
 from app.operations import backup_loop, configure_logging
 from app.sources import SourceRegistry
 
@@ -221,6 +223,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         state.tasks.append(asyncio.create_task(refresh_market_data(state)))
         state.tasks.append(asyncio.create_task(outcome_loop(session_factory, asyncio.Event())))
         state.tasks.append(asyncio.create_task(backup_loop(env.ta_db_path, env.ta_data_dir)))
+        state.tasks.append(
+            asyncio.create_task(
+                briefings_mod.briefing_loop(
+                    state, session_factory, notify=notification_dispatcher.notify
+                )
+            )
+        )
         yield
     finally:
         if state is not None:
@@ -245,6 +254,7 @@ def create_app() -> FastAPI:
     app.include_router(screens.router)
     app.include_router(source_routes.router)
     app.include_router(inspector.router)
+    app.include_router(understanding_routes.router)
     app.include_router(notifications.router)
     app.include_router(ws.router)
     if FRONTEND_DIST.is_dir():

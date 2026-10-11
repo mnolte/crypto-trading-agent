@@ -2,6 +2,18 @@
 
 Newest first. Each entry names the sections it touches.
 
+## 2026-10-11 — Pauses, plain briefings and the quiet line
+
+- User features → Per-coin pause: a paused pair with no open position gets no model
+  call (shadows included); Rules answers and BUY ends as SKIP at the Entry pause gate,
+  which is checked again when a pending approval fills. With an open position the model
+  is called as usual.
+- User features → Daily briefing: no OpenAI key, a failed call or the monthly cost cap
+  reached → plain template from the computed facts, labelled with the reason; card and
+  email still appear. Weekly reviews follow the same rule.
+- User features → "Why so quiet?": active brakes and pauses are appended, global first
+  (shock brake, pause on all entries, then per-coin pauses).
+
 ## 2026-10-11 — SELL outcome: definition of 1R
 
 - Outcome tracking → Labels: for a SELL, 1R is the position's original risk per unit

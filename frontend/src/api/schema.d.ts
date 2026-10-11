@@ -42,6 +42,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/entry-pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Pause All Entries */
+        put: operations["pause_all_entries_api_agent_entry_pause_put"];
+        post?: never;
+        /** Resume All Entries */
+        delete: operations["resume_all_entries_api_agent_entry_pause_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/flatten": {
         parameters: {
             query?: never;
@@ -125,6 +143,40 @@ export interface paths {
         put?: never;
         /** Agent Run Now */
         post: operations["agent_run_now_api_agent_run_now_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/briefings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Briefings */
+        get: operations["list_briefings_api_briefings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/briefings/{briefing_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Briefing */
+        get: operations["get_briefing_api_briefings__briefing_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -335,6 +387,23 @@ export interface paths {
          * @description Every closed trade (all accounts), newest first.
          */
         get: operations["export_trades_api_export_trades_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/glossary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Glossary */
+        get: operations["get_glossary_api_glossary_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -557,6 +626,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/markets/{market}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Pause Market */
+        put: operations["pause_market_api_markets__market__pause_put"];
+        post?: never;
+        /** Resume Market */
+        delete: operations["resume_market_api_markets__market__pause_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notifications": {
         parameters: {
             query?: never;
@@ -708,6 +795,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Readiness */
+        get: operations["get_readiness_api_readiness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/secrets/{source_id}": {
         parameters: {
             query?: never;
@@ -771,6 +875,23 @@ export interface paths {
         get: operations["read_settings_api_settings_get"];
         /** Write Settings */
         put: operations["write_settings_api_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings History */
+        get: operations["get_settings_history_api_settings_history_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -890,6 +1011,41 @@ export interface components {
             pair: string | null;
             /** Text */
             text: string;
+        };
+        /** BriefingListOut */
+        BriefingListOut: {
+            /** Items */
+            items: components["schemas"]["BriefingOut"][];
+        };
+        /** BriefingOut */
+        BriefingOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Facts */
+            facts: {
+                [key: string]: unknown;
+            };
+            /** Id */
+            id: number;
+            /** Llm Call Id */
+            llm_call_id: string | null;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "model" | "template";
+            /** Text */
+            text: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "daily" | "weekly";
         };
         /**
          * CandleFeed
@@ -1116,6 +1272,14 @@ export interface components {
             /** Until */
             until: string | null;
         };
+        /**
+         * EntryPauseIn
+         * @description ``until`` sets a timed pause; omitted/None pauses until resumed.
+         */
+        EntryPauseIn: {
+            /** Until */
+            until?: string | null;
+        };
         /** EquityPoint */
         EquityPoint: {
             /**
@@ -1173,6 +1337,20 @@ export interface components {
             status: "pass" | "warn" | "fail";
             /** Value */
             value: string;
+        };
+        /** GlossaryOut */
+        GlossaryOut: {
+            /** Plain Language */
+            plain_language: boolean;
+            /** Terms */
+            terms: components["schemas"]["GlossaryTermOut"][];
+        };
+        /** GlossaryTermOut */
+        GlossaryTermOut: {
+            /** Definition */
+            definition: string;
+            /** Term */
+            term: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1263,6 +1441,44 @@ export interface components {
             equity: string;
             /** Peak */
             peak: string;
+        };
+        /**
+         * LearningSettings
+         * @description Learning and explanations: plain-language mode, the quiet line and
+         *     the scheduled model-written notes.
+         */
+        LearningSettings: {
+            /**
+             * Ask Daily Limit
+             * @default 100
+             */
+            ask_daily_limit: number;
+            /**
+             * Briefing Time
+             * @default 08:00
+             */
+            briefing_time: string;
+            /**
+             * Insights Min Decisions
+             * @default 30
+             */
+            insights_min_decisions: number;
+            /**
+             * Plain Language
+             * @default true
+             */
+            plain_language: boolean;
+            /**
+             * Quiet Line
+             * @default true
+             */
+            quiet_line: boolean;
+            /**
+             * Weekly Review
+             * @default mon_08
+             * @enum {string}
+             */
+            weekly_review: "mon_08" | "sun_20" | "off";
         };
         /** LevelOut */
         LevelOut: {
@@ -2018,6 +2234,116 @@ export interface components {
             /** Temperature */
             temperature: number;
         };
+        /** ReadinessOut */
+        ReadinessOut: {
+            /** Account Id */
+            account_id: number;
+            /**
+             * Account Started At
+             * Format: date-time
+             */
+            account_started_at: string;
+            /**
+             * Checked At
+             * Format: date-time
+             */
+            checked_at: string;
+            /** Estimate */
+            estimate: string | null;
+            /** Met */
+            met: number;
+            /** Rows */
+            rows: components["schemas"]["ReadinessRowOut"][];
+            /** Status */
+            status: string;
+            /** Summary */
+            summary: string;
+            /** Total */
+            total: number;
+        };
+        /**
+         * ReadinessRowOut
+         * @description One live-readiness criterion: what it checks, where we stand and
+         *     what is needed, all formatted in code.
+         */
+        ReadinessRowOut: {
+            /** Estimated At */
+            estimated_at?: string | null;
+            /** Hint */
+            hint?: string | null;
+            /** Id */
+            id: string;
+            /** Loosened */
+            loosened?: string | null;
+            /** Met */
+            met: boolean;
+            /** Name */
+            name: string;
+            /** Progress */
+            progress: number;
+            /** Target Text */
+            target_text: string;
+            /** Value Text */
+            value_text: string;
+            /** Why */
+            why: string;
+        };
+        /**
+         * ReadinessSettings
+         * @description The live-readiness thresholds editable in Settings; the other
+         *     criteria (average R, profit factor, beats BTC, no kill, no errors) use
+         *     the spec defaults and live in app.agent.readiness.
+         */
+        "ReadinessSettings-Input": {
+            /**
+             * Calibration Gap Pts
+             * @default 10
+             */
+            calibration_gap_pts: number | string;
+            /**
+             * Max Drawdown Pct
+             * @default 6
+             */
+            max_drawdown_pct: number | string;
+            /**
+             * Min Closed Trades
+             * @default 100
+             */
+            min_closed_trades: number;
+            /**
+             * Min Days Running
+             * @default 30
+             */
+            min_days_running: number;
+        };
+        /**
+         * ReadinessSettings
+         * @description The live-readiness thresholds editable in Settings; the other
+         *     criteria (average R, profit factor, beats BTC, no kill, no errors) use
+         *     the spec defaults and live in app.agent.readiness.
+         */
+        "ReadinessSettings-Output": {
+            /**
+             * Calibration Gap Pts
+             * @default 10
+             */
+            calibration_gap_pts: string;
+            /**
+             * Max Drawdown Pct
+             * @default 6
+             */
+            max_drawdown_pct: string;
+            /**
+             * Min Closed Trades
+             * @default 100
+             */
+            min_closed_trades: number;
+            /**
+             * Min Days Running
+             * @default 30
+             */
+            min_days_running: number;
+        };
         /** Regime */
         Regime: {
             /** Age 4H */
@@ -2058,6 +2384,8 @@ export interface components {
         };
         /** RiskBudget */
         RiskBudget: {
+            /** Correlated Detail */
+            correlated_detail?: string | null;
             /** Correlated Slots Left */
             correlated_slots_left: number;
             /** Daily Limit Pct */
@@ -2074,6 +2402,11 @@ export interface components {
             open_risk_pct: string;
             /** Risk Pct Now */
             risk_pct_now: string;
+            /**
+             * Room Limited By
+             * @enum {string}
+             */
+            room_limited_by: "risk" | "cash";
             /** Shock Brake Until */
             shock_brake_until: string | null;
             throttle: components["schemas"]["Throttle"] | null;
@@ -2485,6 +2818,17 @@ export interface components {
             execution_mode: "auto" | "supervised" | "manual";
             /**
              * @default {
+             *       "ask_daily_limit": 100,
+             *       "briefing_time": "08:00",
+             *       "insights_min_decisions": 30,
+             *       "plain_language": true,
+             *       "quiet_line": true,
+             *       "weekly_review": "mon_08"
+             *     }
+             */
+            learning: components["schemas"]["LearningSettings"];
+            /**
+             * @default {
              *       "adx_threshold": "25",
              *       "eligibility_beyond_pct": "20",
              *       "eligibility_fail_days": 3,
@@ -2582,6 +2926,15 @@ export interface components {
             paper: components["schemas"]["PaperSettings-Input"];
             /**
              * @default {
+             *       "calibration_gap_pts": "10",
+             *       "max_drawdown_pct": "6",
+             *       "min_closed_trades": 100,
+             *       "min_days_running": 30
+             *     }
+             */
+            readiness: components["schemas"]["ReadinessSettings-Input"];
+            /**
+             * @default {
              *       "cooldown_after_stopout_hours": "6",
              *       "correlated_max_positions": 2,
              *       "correlated_threshold": "0.8",
@@ -2675,6 +3028,17 @@ export interface components {
              * @enum {string}
              */
             execution_mode: "auto" | "supervised" | "manual";
+            /**
+             * @default {
+             *       "ask_daily_limit": 100,
+             *       "briefing_time": "08:00",
+             *       "insights_min_decisions": 30,
+             *       "plain_language": true,
+             *       "quiet_line": true,
+             *       "weekly_review": "mon_08"
+             *     }
+             */
+            learning: components["schemas"]["LearningSettings"];
             /**
              * @default {
              *       "adx_threshold": "25",
@@ -2774,6 +3138,15 @@ export interface components {
             paper: components["schemas"]["PaperSettings-Output"];
             /**
              * @default {
+             *       "calibration_gap_pts": "10",
+             *       "max_drawdown_pct": "6",
+             *       "min_closed_trades": 100,
+             *       "min_days_running": 30
+             *     }
+             */
+            readiness: components["schemas"]["ReadinessSettings-Output"];
+            /**
+             * @default {
              *       "cooldown_after_stopout_hours": "6",
              *       "correlated_max_positions": 2,
              *       "correlated_threshold": "0.8",
@@ -2822,6 +3195,25 @@ export interface components {
              * @default 60
              */
             veto_window_s: number;
+        };
+        /** SettingsHistoryItem */
+        SettingsHistoryItem: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Key */
+            key: string;
+            /** New */
+            new: string | null;
+            /** Old */
+            old: string | null;
+        };
+        /** SettingsHistoryOut */
+        SettingsHistoryOut: {
+            /** Items */
+            items: components["schemas"]["SettingsHistoryItem"][];
         };
         /** Signal */
         Signal: {
@@ -3183,6 +3575,74 @@ export interface operations {
             };
         };
     };
+    pause_all_entries_api_agent_entry_pause_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryPauseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryPause"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_all_entries_api_agent_entry_pause_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     agent_flatten_api_agent_flatten_post: {
         parameters: {
             query?: never;
@@ -3314,6 +3774,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_briefings_api_briefings_get: {
+        parameters: {
+            query?: {
+                type?: ("daily" | "weekly") | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefingListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_briefing_api_briefings__briefing_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                briefing_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefingOut"];
                 };
             };
             /** @description Validation Error */
@@ -3681,6 +4204,26 @@ export interface operations {
             };
         };
     };
+    get_glossary_api_glossary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlossaryOut"];
+                };
+            };
+        };
+    };
     health_api_health_get: {
         parameters: {
             query?: never;
@@ -4034,6 +4577,78 @@ export interface operations {
             };
         };
     };
+    pause_market_api_markets__market__pause_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                market: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryPauseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryPause"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_market_api_markets__market__pause_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                market: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_notifications_api_notifications_get: {
         parameters: {
             query?: never;
@@ -4317,6 +4932,26 @@ export interface operations {
             };
         };
     };
+    get_readiness_api_readiness_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessOut"];
+                };
+            };
+        };
+    };
     put_secret_api_secrets__source_id__put: {
         parameters: {
             query?: never;
@@ -4486,6 +5121,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Settings-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_settings_history_api_settings_history_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsHistoryOut"];
                 };
             };
             /** @description Validation Error */

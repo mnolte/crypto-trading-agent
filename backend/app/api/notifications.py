@@ -106,6 +106,7 @@ class NotificationDispatcher:
             rendered = self._render_or_suppress(key, body, now)
             if rendered is not None and await self._deliver_browser(title, rendered):
                 self._last_sent[key] = now
+                self._record(key, now)
         if settings.email_enabled and channels.email:
             key = (event, title, "email")
             if key in self._inflight:
@@ -128,11 +129,29 @@ class NotificationDispatcher:
         self, key: tuple[str, str, str], body: str, now: datetime
     ) -> str | None:
         last = self._last_sent.get(key)
+        if last is None:
+            # Cold start: the alerts table carries the last send across restarts.
+            session = self.state.session_factory()
+            try:
+                last = repo.last_alert_at(session, *key)
+            finally:
+                session.close()
         if last is not None and now - last < timedelta(minutes=30):
             self._repeats[key] = self._repeats.get(key, 0) + 1
             return None
         repeats = self._repeats.pop(key, 0)
         return f"{body} ({repeats} repeats)" if repeats else body
+
+    def _record(self, key: tuple[str, str, str], now: datetime) -> None:
+        """Persist a sent alert so the 30-minute repeat rule survives restarts."""
+        session = self.state.session_factory()
+        try:
+            repo.add_alert(
+                session, key[0], key[2], key[1], repeats=self._repeats.get(key, 0), at=now
+            )
+            session.commit()
+        finally:
+            session.close()
 
     async def _deliver_browser(self, title: str, body: str) -> bool:
         delivered = False
@@ -158,6 +177,7 @@ class NotificationDispatcher:
         try:
             await asyncio.to_thread(_send_email, settings, title, body)
             self._last_sent[key] = utcnow()
+            self._record(key, self._last_sent[key])
             session = self.state.session_factory()
             try:
                 repo.resolve_matching_errors(

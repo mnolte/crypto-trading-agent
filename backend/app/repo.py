@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import cast
@@ -15,8 +16,11 @@ from app.db import (
     AMSTERDAM,
     AccountRow,
     ActivityRow,
+    AlertRow,
+    BriefingRow,
     CandleRow,
     DecisionRow,
+    EntryPauseRow,
     EquitySnapshotRow,
     ErrorRow,
     ExitTickRow,
@@ -25,6 +29,7 @@ from app.db import (
     OutcomeFailureRow,
     OutcomeRow,
     PositionRow,
+    SettingsHistoryRow,
     SettingsRow,
     TradeRow,
     utcnow,
@@ -61,11 +66,17 @@ def load_settings(session: Session) -> Settings:
 
 
 def save_settings(session: Session, settings: Settings) -> int:
-    """Persist the settings document and bump its version. Returns the version."""
+    """Persist the settings document, log every changed leaf to the
+    settings history and bump the version. Returns the version."""
     row = session.get(SettingsRow, SETTINGS_ROW_ID)
     if row is None:
         row = SettingsRow(id=SETTINGS_ROW_ID, version=0, doc="", updated_at=utcnow())
         session.add(row)
+    if row.doc:
+        try:
+            record_settings_history(session, Settings.model_validate_json(row.doc), settings)
+        except Exception:
+            pass  # history must never block a settings save
     row.version += 1
     row.doc = settings.model_dump_json()
     row.updated_at = utcnow()
@@ -852,6 +863,10 @@ def delete_all_data(session: Session) -> None:
         EquitySnapshotRow,
         ExitTickRow,
         LlmCallRow,
+        EntryPauseRow,
+        BriefingRow,
+        AlertRow,
+        SettingsHistoryRow,
     ):
         session.execute(delete(table))
     session.commit()
@@ -898,4 +913,242 @@ def add_exit_tick(
             price=str(price),
             kind=kind,
         )
+    )
+
+
+# ------------------------------------------------------------- entry pauses --
+
+
+def list_entry_pauses(session: Session, now: datetime | None = None) -> list[EntryPauseRow]:
+    """Active pauses only — expired rows are pruned as a side effect."""
+    now = now or utcnow()
+    rows = list(session.scalars(select(EntryPauseRow).order_by(EntryPauseRow.pair)).all())
+    active: list[EntryPauseRow] = []
+    for row in rows:
+        if row.until is not None and aware_utc(row.until) <= now:
+            session.delete(row)
+        else:
+            active.append(row)
+    if len(active) < len(rows):
+        session.commit()  # actually persist the prune; callers only read
+    return active
+
+
+def active_entry_pause(session: Session, pair: str, now: datetime) -> EntryPauseRow | None:
+    """The pause row in force for ``pair``: the global ``"*"`` pause wins
+    over a per-coin one. ``row.until`` NULL means "until I resume"."""
+    rows = {
+        row.pair: row
+        for row in session.scalars(
+            select(EntryPauseRow).where(EntryPauseRow.pair.in_(["*", pair]))
+        ).all()
+    }
+    for key in ("*", pair):
+        row = rows.get(key)
+        if row is not None and (row.until is None or aware_utc(row.until) > now):
+            return row
+    return None
+
+
+def set_entry_pause(
+    session: Session, pair: str, until: datetime | None, at: datetime | None = None
+) -> EntryPauseRow:
+    row = session.get(EntryPauseRow, pair)
+    if row is None:
+        row = EntryPauseRow(pair=pair, until=None, created_at=at or utcnow())
+    row.until = _utc_naive(until) if until is not None else None
+    session.merge(row)
+    return row
+
+
+def clear_entry_pause(session: Session, pair: str) -> None:
+    row = session.get(EntryPauseRow, pair)
+    if row is not None:
+        session.delete(row)
+
+
+# --------------------------------------------------------------- briefings --
+
+
+def add_briefing(session: Session, row: BriefingRow) -> BriefingRow:
+    session.add(row)
+    return row
+
+
+def list_briefings(session: Session, type: str | None = None, limit: int = 30) -> list[BriefingRow]:
+    conds = []
+    if type is not None:
+        conds.append(BriefingRow.type == type)
+    return list(
+        session.scalars(
+            select(BriefingRow).where(*conds).order_by(BriefingRow.at.desc()).limit(limit)
+        ).all()
+    )
+
+
+def get_briefing(session: Session, briefing_id: int) -> BriefingRow | None:
+    return session.get(BriefingRow, briefing_id)
+
+
+def briefing_for_date(session: Session, type: str, for_date: str) -> BriefingRow | None:
+    return session.scalar(
+        select(BriefingRow)
+        .where(BriefingRow.type == type, BriefingRow.for_date == for_date)
+        .limit(1)
+    )
+
+
+# --------------------------------------------------------- settings history --
+
+
+def _flatten_doc(doc: dict[str, object], prefix: str = "") -> dict[str, object]:
+    """Nested dicts become ``"a.b"`` leaf paths; lists are leaf values."""
+    out: dict[str, object] = {}
+    for key, value in doc.items():
+        path = f"{prefix}{key}" if not prefix else f"{prefix}.{key}"
+        if isinstance(value, dict):
+            out.update(_flatten_doc(value, path))
+        else:
+            out[path] = value
+    return out
+
+
+def record_settings_history(
+    session: Session, old: Settings, new: Settings, at: datetime | None = None
+) -> int:
+    """Log every leaf that changed between two settings documents."""
+    at = at or utcnow()
+    old_flat = _flatten_doc(old.model_dump(mode="json"))
+    new_flat = _flatten_doc(new.model_dump(mode="json"))
+    count = 0
+    for key in sorted(set(old_flat) | set(new_flat)):
+        old_v, new_v = old_flat.get(key), new_flat.get(key)
+        if old_v == new_v:
+            continue
+        session.add(
+            SettingsHistoryRow(
+                at=at,
+                key=key,
+                old=json.dumps(old_v) if old_v is not None else None,
+                new=json.dumps(new_v) if new_v is not None else None,
+            )
+        )
+        count += 1
+    return count
+
+
+def list_settings_history(
+    session: Session, key_prefix: str | None = None, limit: int = 200
+) -> list[SettingsHistoryRow]:
+    conds = []
+    if key_prefix is not None:
+        conds.append(SettingsHistoryRow.key.like(f"{key_prefix}%"))
+    return list(
+        session.scalars(
+            select(SettingsHistoryRow)
+            .where(*conds)
+            .order_by(SettingsHistoryRow.id.desc())
+            .limit(limit)
+        ).all()
+    )
+
+
+def latest_settings_change(session: Session, key: str) -> SettingsHistoryRow | None:
+    return session.scalar(
+        select(SettingsHistoryRow)
+        .where(SettingsHistoryRow.key == key)
+        .order_by(SettingsHistoryRow.id.desc())
+        .limit(1)
+    )
+
+
+# ------------------------------------------------------------------- alerts --
+
+
+def add_alert(
+    session: Session,
+    event: str,
+    channel: str,
+    title: str,
+    repeats: int = 0,
+    at: datetime | None = None,
+) -> AlertRow:
+    row = AlertRow(
+        at=at or utcnow(),
+        event=event,
+        channel=channel,
+        title=title,
+        repeats=repeats,
+    )
+    session.add(row)
+    return row
+
+
+def last_alert_at(session: Session, event: str, channel: str, title: str) -> datetime | None:
+    row = session.scalar(
+        select(AlertRow)
+        .where(
+            AlertRow.event == event,
+            AlertRow.channel == channel,
+            AlertRow.title == title,
+        )
+        .order_by(AlertRow.at.desc())
+        .limit(1)
+    )
+    return aware_utc(row.at) if row is not None else None
+
+
+# ----------------------------------------------------- quiet line helpers --
+
+
+def latest_decision_cycle(session: Session, account_id: int) -> int | None:
+    return session.scalar(
+        select(func.max(DecisionRow.cycle)).where(DecisionRow.account_id == account_id)
+    )
+
+
+def decisions_in_cycle(session: Session, account_id: int, cycle: int) -> list[DecisionRow]:
+    return list(
+        session.scalars(
+            select(DecisionRow).where(
+                DecisionRow.account_id == account_id, DecisionRow.cycle == cycle
+            )
+        ).all()
+    )
+
+
+def last_trade_time(session: Session, account_id: int) -> datetime | None:
+    """The most recent open or close time on this account's trades."""
+    opened = session.scalar(
+        select(func.max(TradeRow.opened_at)).where(TradeRow.account_id == account_id)
+    )
+    closed = session.scalar(
+        select(func.max(TradeRow.closed_at)).where(TradeRow.account_id == account_id)
+    )
+    times = [t for t in (opened, closed) if t is not None]
+    return aware_utc(max(times)) if times else None
+
+
+# ------------------------------------------------------------- readiness --
+
+
+def unresolved_errors_affecting(session: Session, since: datetime) -> list[ErrorRow]:
+    """Unresolved errors that touched a decision or a fill, last seen since."""
+    return list(
+        session.scalars(
+            select(ErrorRow).where(
+                ErrorRow.resolved_at.is_(None),
+                ErrorRow.affected_decision_or_fill.is_(True),
+                ErrorRow.last_at >= _utc_naive(since),
+            )
+        ).all()
+    )
+
+
+def first_equity_snapshot(session: Session, account_id: int) -> EquitySnapshotRow | None:
+    return session.scalar(
+        select(EquitySnapshotRow)
+        .where(EquitySnapshotRow.account_id == account_id)
+        .order_by(EquitySnapshotRow.at.asc())
+        .limit(1)
     )

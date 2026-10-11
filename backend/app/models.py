@@ -11,7 +11,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, PlainSerializer
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
 
 # Money travels as a string in JSON: Decimals are exact and the frontend only
 # formats them.
@@ -134,10 +134,14 @@ class RiskBudget(BaseModel):
     drawdown_pct: MoneyDecimal
     kill_pct: MoneyDecimal
     full_trades_left: int  # min(open-risk room, cash room), at a 3% stop
+    room_limited_by: Literal["risk", "cash"]  # which room bound full_trades_left
     risk_pct_now: MoneyDecimal  # 1.0, or 0.5 while throttled
     throttle: Throttle | None
     shock_brake_until: datetime | None
     correlated_slots_left: int
+    # e.g. "BTC + ETH 0.86" — the strongest correlated pair among open
+    # positions; None when nothing is open.
+    correlated_detail: str | None = None
 
 
 class KillInfo(BaseModel):
@@ -325,6 +329,35 @@ class NotificationSettings(BaseModel):
     }
 
 
+class LearningSettings(BaseModel):
+    """Learning and explanations: plain-language mode, the quiet line and
+    the scheduled model-written notes."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    plain_language: bool = True
+    quiet_line: bool = True
+    briefing_time: str = Field(
+        default="08:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$"
+    )  # HH:MM Europe/Amsterdam
+    weekly_review: Literal["mon_08", "sun_20", "off"] = "mon_08"
+    ask_daily_limit: int = 100
+    insights_min_decisions: int = 30
+
+
+class ReadinessSettings(BaseModel):
+    """The live-readiness thresholds editable in Settings; the other
+    criteria (average R, profit factor, beats BTC, no kill, no errors) use
+    the spec defaults and live in app.agent.readiness."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    min_closed_trades: int = 100
+    min_days_running: int = 30
+    max_drawdown_pct: Decimal = Decimal("6")
+    calibration_gap_pts: Decimal = Decimal("10")
+
+
 class Settings(BaseModel):
     """The one validated JSON document stored in the settings table.
 
@@ -345,6 +378,8 @@ class Settings(BaseModel):
     paper: PaperSettings = PaperSettings()
     market: MarketSettings = MarketSettings()
     notifications: NotificationSettings = NotificationSettings()
+    learning: LearningSettings = LearningSettings()
+    readiness: ReadinessSettings = ReadinessSettings()
     # Source ids the user disabled on the Sources page; the registry keeps
     # the runtime status.
     disabled_sources: list[str] = []
@@ -737,3 +772,76 @@ class CostsOut(BaseModel):
     spent_eur: MoneyDecimal
     spent_usd: MoneyDecimal | None  # None when any call's price was unknown
     by_feature: dict[str, MoneyDecimal]
+
+
+# ------------------------------------------------- understanding & safety --
+
+
+class EntryPauseIn(BaseModel):
+    """``until`` sets a timed pause; omitted/None pauses until resumed."""
+
+    until: datetime | None = None
+
+
+class GlossaryTermOut(BaseModel):
+    term: str
+    definition: str
+
+
+class GlossaryOut(BaseModel):
+    terms: list[GlossaryTermOut]
+    plain_language: bool  # the current setting; tooltips render when on
+
+
+class ReadinessRowOut(BaseModel):
+    """One live-readiness criterion: what it checks, where we stand and
+    what is needed, all formatted in code."""
+
+    id: str
+    name: str
+    why: str
+    value_text: str  # "38" / "+4.13% vs -2.10%" / "0 kills"
+    target_text: str  # "≥ 100" / "ahead" / "0"
+    progress: float  # 0..1 for the progress bar
+    met: bool
+    hint: str | None = None  # "≈ 7 Dec" / "needs better trades, not time"
+    estimated_at: datetime | None = None  # count criteria at the current pace
+    loosened: str | None = None  # "was 120, changed 10 Oct" when loosened
+
+
+class ReadinessOut(BaseModel):
+    met: int
+    total: int
+    status: str  # headline: "Not ready for real money yet" / all met
+    summary: str  # why, in one or two sentences
+    estimate: str | None  # "At the current pace, all criteria …"
+    account_id: int
+    account_started_at: datetime
+    checked_at: datetime
+    rows: list[ReadinessRowOut]
+
+
+class BriefingOut(BaseModel):
+    id: int
+    at: datetime
+    type: Literal["daily", "weekly"]
+    facts: dict[str, object]
+    text: str
+    source: Literal["model", "template"]
+    reason: str | None  # why the plain template was used
+    llm_call_id: str | None
+
+
+class BriefingListOut(BaseModel):
+    items: list[BriefingOut]
+
+
+class SettingsHistoryItem(BaseModel):
+    at: datetime
+    key: str
+    old: str | None
+    new: str | None
+
+
+class SettingsHistoryOut(BaseModel):
+    items: list[SettingsHistoryItem]

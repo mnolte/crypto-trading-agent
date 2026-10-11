@@ -48,6 +48,8 @@ class BuyContext:
     shock_brake_until: datetime | None = None
     daily_loss_hit: bool = False
     risk_pct: Decimal = Decimal("1")  # 1.0 normal, 0.5 while throttled
+    entry_paused_until: datetime | None = None  # timed pause ends here
+    entry_paused_indefinite: bool = False  # "until I resume"
 
 
 def _gate(name: str, status: str, value: str) -> Gate:
@@ -75,6 +77,17 @@ def check_buy(
     fill_entry = entry * (1 + paper.slippage_pct / HUNDRED)
     stop_dist = entry - stop
     fill_dist = fill_entry - stop
+
+    # -- Entry pause -------------------------------------------------------
+    # A per-coin or global pause blocks every new entry on the pair; exits
+    # and the model's SELL decisions are untouched (this gate is BUY-only).
+    if ctx.entry_paused_indefinite:
+        gates.append(_gate("Entry pause", "fail", "until resumed"))
+        return BuyVerdict("skip", gates, skip_reason="Entry pause")
+    if ctx.entry_paused_until is not None and ctx.now < ctx.entry_paused_until:
+        gates.append(_gate("Entry pause", "fail", f"until {ctx.entry_paused_until.isoformat()}"))
+        return BuyVerdict("skip", gates, skip_reason="Entry pause")
+    gates.append(_gate("Entry pause", "pass", "open"))
 
     # -- Min reward/risk -------------------------------------------------
     rr = (target - fill_entry) / fill_dist if fill_dist > 0 else ZERO

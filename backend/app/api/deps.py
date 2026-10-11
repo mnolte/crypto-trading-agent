@@ -33,8 +33,10 @@ from app.agent.market import make_market_client
 from app.agent.market.base import MarketClient, MarketInfo
 from app.agent.market.bitvavo import BitvavoClient
 from app.config import LOCAL_HOSTS
+from app.features import quiet as quiet_mod
 from app.models import (
     ActivityItem,
+    EntryPause,
     RiskBudget,
     Settings,
     Snapshot,
@@ -206,6 +208,7 @@ def build_snapshot(state: AppState) -> Snapshot:
                 drawdown_pct=Decimal("0"),
                 kill_pct=settings.risk.kill_drawdown_pct,
                 full_trades_left=0,
+                room_limited_by="risk",
                 risk_pct_now=settings.risk.risk_per_trade_pct,
                 throttle=None,
                 shock_brake_until=None,
@@ -244,6 +247,7 @@ def build_snapshot(state: AppState) -> Snapshot:
             cap_eur=settings.model.monthly_cost_cap_eur,
         )
         errors_24h = repo.error_count_since(session, now - timedelta(hours=24))
+        pauses = repo.list_entry_pauses(session, now)
         return Snapshot(
             status=engine.status,
             mode="paper",
@@ -264,9 +268,24 @@ def build_snapshot(state: AppState) -> Snapshot:
             activity=activity,
             usage=usage,
             account_id=broker.account_id,
-            quiet="",
+            quiet=(
+                quiet_mod.quiet_line(
+                    session,
+                    broker.account_id,
+                    now=now,
+                    shock_brake_until=engine.shock_brake_until,
+                )
+                if settings.learning.quiet_line
+                else ""
+            ),
             risk_budget=engine.risk_budget(),
-            paused=[],
+            paused=[
+                EntryPause(
+                    pair=p.pair,
+                    until=repo.aware_utc(p.until) if p.until is not None else None,
+                )
+                for p in pauses
+            ],
             errors_24h=errors_24h,
             errors_open=repo.unresolved_error_count(session),
             kill=engine.kill,

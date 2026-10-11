@@ -104,6 +104,10 @@ class AccountRow(Base):
     kill_peak: Mapped[str | None]
     kill_equity: Mapped[str | None]
     kill_closed: Mapped[str | None]  # JSON list of pairs flattened by the kill
+    # The last kill-switch event on this account; never cleared by
+    # acknowledge (the readiness check needs the 30-day history). A new
+    # account row starts without one.
+    last_kill_at: Mapped[datetime | None] = mapped_column(default=None)
 
 
 class PositionRow(Base):
@@ -311,6 +315,70 @@ class ExitTickRow(Base):
     at: Mapped[datetime]
     price: Mapped[str]
     kind: Mapped[str]  # "fill" | "watch"
+
+
+class EntryPauseRow(Base):
+    """A pause on new entries for one pair — or ``"*"`` for every coin.
+
+    ``until`` NULL means "until I resume"; a timestamp pauses until that
+    moment and expires automatically. Open positions and SELL decisions are
+    unaffected.
+    """
+
+    __tablename__ = "entry_pauses"
+
+    pair: Mapped[str] = mapped_column(primary_key=True)
+    until: Mapped[datetime | None]
+    created_at: Mapped[datetime]
+
+
+class BriefingRow(Base):
+    """One daily briefing or weekly review: the code-computed facts, the
+    text that was shown, how it was produced and the model call behind it."""
+
+    __tablename__ = "briefings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    at: Mapped[datetime]
+    account_id: Mapped[int]
+    type: Mapped[str]  # "daily" | "weekly"
+    for_date: Mapped[str]  # Amsterdam date the briefing belongs to
+    facts: Mapped[str]  # JSON: every figure the text was allowed to use
+    text: Mapped[str]
+    source: Mapped[str]  # "model" | "template"
+    reason: Mapped[str | None]  # why the plain template was used
+    llm_call_id: Mapped[str | None]
+
+
+class SettingsHistoryRow(Base):
+    """Every settings change: dotted leaf key, old and new JSON values.
+
+    Decisions store the settings version they ran under; this table answers
+    "what changed, and when" — the Readiness screen shows loosened
+    thresholds with their date.
+    """
+
+    __tablename__ = "settings_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    at: Mapped[datetime]
+    key: Mapped[str]
+    old: Mapped[str | None]  # JSON-encoded leaf value (None = key absent)
+    new: Mapped[str | None]
+
+
+class AlertRow(Base):
+    """Sent notifications; the 30-minute repeat rule consults this across
+    restarts so an alert is not re-sent after every boot."""
+
+    __tablename__ = "alerts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    at: Mapped[datetime]
+    event: Mapped[str]
+    channel: Mapped[str]  # "browser" | "email"
+    title: Mapped[str]
+    repeats: Mapped[int] = mapped_column(default=0)
 
 
 def make_engine(db_path: Path) -> Engine:

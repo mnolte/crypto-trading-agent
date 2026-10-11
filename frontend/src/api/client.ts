@@ -45,6 +45,14 @@ export type OutcomeOut = components["schemas"]["OutcomeOut"];
 export type OutcomeScorecardOut = components["schemas"]["OutcomeScorecardOut"];
 export type NotificationSettings = components["schemas"]["NotificationSettings"];
 export type Usage = components["schemas"]["Usage"];
+export type EntryPause = components["schemas"]["EntryPause"];
+export type RiskBudget = components["schemas"]["RiskBudget"];
+export type GlossaryOut = components["schemas"]["GlossaryOut"];
+export type ReadinessOut = components["schemas"]["ReadinessOut"];
+export type ReadinessRowOut = components["schemas"]["ReadinessRowOut"];
+export type BriefingOut = components["schemas"]["BriefingOut"];
+export type BriefingListOut = components["schemas"]["BriefingListOut"];
+export type SettingsHistoryOut = components["schemas"]["SettingsHistoryOut"];
 
 let localToken: string | null = null;
 

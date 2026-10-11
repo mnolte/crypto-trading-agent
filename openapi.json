@@ -130,6 +130,94 @@
         "title": "ActivityOut",
         "type": "object"
       },
+      "BriefingListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BriefingOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "BriefingListOut",
+        "type": "object"
+      },
+      "BriefingOut": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "facts": {
+            "additionalProperties": true,
+            "title": "Facts",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "llm_call_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Call Id"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "source": {
+            "enum": [
+              "model",
+              "template"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "daily",
+              "weekly"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "type",
+          "facts",
+          "text",
+          "source",
+          "reason",
+          "llm_call_id"
+        ],
+        "title": "BriefingOut",
+        "type": "object"
+      },
       "CandleFeed": {
         "description": "Dashboard chart: candles plus trade markers and open-position lines.",
         "properties": {
@@ -740,6 +828,25 @@
         "title": "EntryPause",
         "type": "object"
       },
+      "EntryPauseIn": {
+        "description": "``until`` sets a timed pause; omitted/None pauses until resumed.",
+        "properties": {
+          "until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
+          }
+        },
+        "title": "EntryPauseIn",
+        "type": "object"
+      },
       "EquityPoint": {
         "properties": {
           "at": {
@@ -888,6 +995,45 @@
           "value"
         ],
         "title": "Gate",
+        "type": "object"
+      },
+      "GlossaryOut": {
+        "properties": {
+          "plain_language": {
+            "title": "Plain Language",
+            "type": "boolean"
+          },
+          "terms": {
+            "items": {
+              "$ref": "#/components/schemas/GlossaryTermOut"
+            },
+            "title": "Terms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "terms",
+          "plain_language"
+        ],
+        "title": "GlossaryOut",
+        "type": "object"
+      },
+      "GlossaryTermOut": {
+        "properties": {
+          "definition": {
+            "title": "Definition",
+            "type": "string"
+          },
+          "term": {
+            "title": "Term",
+            "type": "string"
+          }
+        },
+        "required": [
+          "term",
+          "definition"
+        ],
+        "title": "GlossaryTermOut",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1174,6 +1320,49 @@
           "closed"
         ],
         "title": "KillInfo",
+        "type": "object"
+      },
+      "LearningSettings": {
+        "description": "Learning and explanations: plain-language mode, the quiet line and\nthe scheduled model-written notes.",
+        "properties": {
+          "ask_daily_limit": {
+            "default": 100,
+            "title": "Ask Daily Limit",
+            "type": "integer"
+          },
+          "briefing_time": {
+            "default": "08:00",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "title": "Briefing Time",
+            "type": "string"
+          },
+          "insights_min_decisions": {
+            "default": 30,
+            "title": "Insights Min Decisions",
+            "type": "integer"
+          },
+          "plain_language": {
+            "default": true,
+            "title": "Plain Language",
+            "type": "boolean"
+          },
+          "quiet_line": {
+            "default": true,
+            "title": "Quiet Line",
+            "type": "boolean"
+          },
+          "weekly_review": {
+            "default": "mon_08",
+            "enum": [
+              "mon_08",
+              "sun_20",
+              "off"
+            ],
+            "title": "Weekly Review",
+            "type": "string"
+          }
+        },
+        "title": "LearningSettings",
         "type": "object"
       },
       "LevelOut": {
@@ -3075,6 +3264,217 @@
         "title": "PromptInfo",
         "type": "object"
       },
+      "ReadinessOut": {
+        "properties": {
+          "account_id": {
+            "title": "Account Id",
+            "type": "integer"
+          },
+          "account_started_at": {
+            "format": "date-time",
+            "title": "Account Started At",
+            "type": "string"
+          },
+          "checked_at": {
+            "format": "date-time",
+            "title": "Checked At",
+            "type": "string"
+          },
+          "estimate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimate"
+          },
+          "met": {
+            "title": "Met",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ReadinessRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "met",
+          "total",
+          "status",
+          "summary",
+          "estimate",
+          "account_id",
+          "account_started_at",
+          "checked_at",
+          "rows"
+        ],
+        "title": "ReadinessOut",
+        "type": "object"
+      },
+      "ReadinessRowOut": {
+        "description": "One live-readiness criterion: what it checks, where we stand and\nwhat is needed, all formatted in code.",
+        "properties": {
+          "estimated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated At"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "loosened": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loosened"
+          },
+          "met": {
+            "title": "Met",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "progress": {
+            "title": "Progress",
+            "type": "number"
+          },
+          "target_text": {
+            "title": "Target Text",
+            "type": "string"
+          },
+          "value_text": {
+            "title": "Value Text",
+            "type": "string"
+          },
+          "why": {
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "why",
+          "value_text",
+          "target_text",
+          "progress",
+          "met"
+        ],
+        "title": "ReadinessRowOut",
+        "type": "object"
+      },
+      "ReadinessSettings-Input": {
+        "description": "The live-readiness thresholds editable in Settings; the other\ncriteria (average R, profit factor, beats BTC, no kill, no errors) use\nthe spec defaults and live in app.agent.readiness.",
+        "properties": {
+          "calibration_gap_pts": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "10",
+            "title": "Calibration Gap Pts"
+          },
+          "max_drawdown_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "6",
+            "title": "Max Drawdown Pct"
+          },
+          "min_closed_trades": {
+            "default": 100,
+            "title": "Min Closed Trades",
+            "type": "integer"
+          },
+          "min_days_running": {
+            "default": 30,
+            "title": "Min Days Running",
+            "type": "integer"
+          }
+        },
+        "title": "ReadinessSettings",
+        "type": "object"
+      },
+      "ReadinessSettings-Output": {
+        "description": "The live-readiness thresholds editable in Settings; the other\ncriteria (average R, profit factor, beats BTC, no kill, no errors) use\nthe spec defaults and live in app.agent.readiness.",
+        "properties": {
+          "calibration_gap_pts": {
+            "default": "10",
+            "title": "Calibration Gap Pts",
+            "type": "string"
+          },
+          "max_drawdown_pct": {
+            "default": "6",
+            "title": "Max Drawdown Pct",
+            "type": "string"
+          },
+          "min_closed_trades": {
+            "default": 100,
+            "title": "Min Closed Trades",
+            "type": "integer"
+          },
+          "min_days_running": {
+            "default": 30,
+            "title": "Min Days Running",
+            "type": "integer"
+          }
+        },
+        "title": "ReadinessSettings",
+        "type": "object"
+      },
       "Regime": {
         "properties": {
           "age_4h": {
@@ -3175,6 +3575,17 @@
       },
       "RiskBudget": {
         "properties": {
+          "correlated_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correlated Detail"
+          },
           "correlated_slots_left": {
             "title": "Correlated Slots Left",
             "type": "integer"
@@ -3205,6 +3616,14 @@
           },
           "risk_pct_now": {
             "title": "Risk Pct Now",
+            "type": "string"
+          },
+          "room_limited_by": {
+            "enum": [
+              "risk",
+              "cash"
+            ],
+            "title": "Room Limited By",
             "type": "string"
           },
           "shock_brake_until": {
@@ -3242,6 +3661,7 @@
           "drawdown_pct",
           "kill_pct",
           "full_trades_left",
+          "room_limited_by",
           "risk_pct_now",
           "throttle",
           "shock_brake_until",
@@ -3876,6 +4296,17 @@
             "title": "Execution Mode",
             "type": "string"
           },
+          "learning": {
+            "$ref": "#/components/schemas/LearningSettings",
+            "default": {
+              "ask_daily_limit": 100,
+              "briefing_time": "08:00",
+              "insights_min_decisions": 30,
+              "plain_language": true,
+              "quiet_line": true,
+              "weekly_review": "mon_08"
+            }
+          },
           "market": {
             "$ref": "#/components/schemas/MarketSettings-Input",
             "default": {
@@ -3971,6 +4402,15 @@
               "fee_pct": "0.25",
               "slippage_pct": "0.05",
               "start_balance_eur": "10000"
+            }
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/ReadinessSettings-Input",
+            "default": {
+              "calibration_gap_pts": "10",
+              "max_drawdown_pct": "6",
+              "min_closed_trades": 100,
+              "min_days_running": 30
             }
           },
           "risk": {
@@ -4080,6 +4520,17 @@
             "title": "Execution Mode",
             "type": "string"
           },
+          "learning": {
+            "$ref": "#/components/schemas/LearningSettings",
+            "default": {
+              "ask_daily_limit": 100,
+              "briefing_time": "08:00",
+              "insights_min_decisions": 30,
+              "plain_language": true,
+              "quiet_line": true,
+              "weekly_review": "mon_08"
+            }
+          },
           "market": {
             "$ref": "#/components/schemas/MarketSettings-Output",
             "default": {
@@ -4177,6 +4628,15 @@
               "start_balance_eur": "10000"
             }
           },
+          "readiness": {
+            "$ref": "#/components/schemas/ReadinessSettings-Output",
+            "default": {
+              "calibration_gap_pts": "10",
+              "max_drawdown_pct": "6",
+              "min_closed_trades": 100,
+              "min_days_running": 30
+            }
+          },
           "risk": {
             "$ref": "#/components/schemas/RiskSettings-Output",
             "default": {
@@ -4229,6 +4689,65 @@
           }
         },
         "title": "Settings",
+        "type": "object"
+      },
+      "SettingsHistoryItem": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "new": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New"
+          },
+          "old": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old"
+          }
+        },
+        "required": [
+          "at",
+          "key",
+          "old",
+          "new"
+        ],
+        "title": "SettingsHistoryItem",
+        "type": "object"
+      },
+      "SettingsHistoryOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SettingsHistoryItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "SettingsHistoryOut",
         "type": "object"
       },
       "Signal": {
@@ -5100,6 +5619,110 @@
         "summary": "Agent Acknowledge Kill"
       }
     },
+    "/api/agent/entry-pause": {
+      "delete": {
+        "operationId": "resume_all_entries_api_agent_entry_pause_delete",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Resume All Entries Api Agent Entry Pause Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume All Entries"
+      },
+      "put": {
+        "operationId": "pause_all_entries_api_agent_entry_pause_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntryPauseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryPause"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause All Entries"
+      }
+    },
     "/api/agent/flatten": {
       "post": {
         "operationId": "agent_flatten_api_agent_flatten_post",
@@ -5301,6 +5924,105 @@
           }
         },
         "summary": "Agent Run Now"
+      }
+    },
+    "/api/briefings": {
+      "get": {
+        "operationId": "list_briefings_api_briefings_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "daily",
+                    "weekly"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefingListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Briefings"
+      }
+    },
+    "/api/briefings/{briefing_id}": {
+      "get": {
+        "operationId": "get_briefing_api_briefings__briefing_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "briefing_id",
+            "required": true,
+            "schema": {
+              "title": "Briefing Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Briefing"
       }
     },
     "/api/candles/{pair}": {
@@ -5925,6 +6647,24 @@
           }
         },
         "summary": "Export Trades"
+      }
+    },
+    "/api/glossary": {
+      "get": {
+        "operationId": "get_glossary_api_glossary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GlossaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Glossary"
       }
     },
     "/api/health": {
@@ -6626,6 +7366,128 @@
         "summary": "Update Market"
       }
     },
+    "/api/markets/{market}/pause": {
+      "delete": {
+        "operationId": "resume_market_api_markets__market__pause_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "market",
+            "required": true,
+            "schema": {
+              "title": "Market",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Resume Market Api Markets  Market  Pause Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Market"
+      },
+      "put": {
+        "operationId": "pause_market_api_markets__market__pause_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "market",
+            "required": true,
+            "schema": {
+              "title": "Market",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntryPauseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryPause"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause Market"
+      }
+    },
     "/api/notifications": {
       "get": {
         "operationId": "get_notifications_api_notifications_get",
@@ -7032,6 +7894,24 @@
         "summary": "Get Prompts"
       }
     },
+    "/api/readiness": {
+      "get": {
+        "operationId": "get_readiness_api_readiness_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Readiness"
+      }
+    },
     "/api/secrets/{source_id}": {
       "delete": {
         "operationId": "remove_secret_api_secrets__source_id__delete",
@@ -7301,6 +8181,46 @@
           }
         },
         "summary": "Write Settings"
+      }
+    },
+    "/api/settings/history": {
+      "get": {
+        "operationId": "get_settings_history_api_settings_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsHistoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Settings History"
       }
     },
     "/api/snapshot": {
