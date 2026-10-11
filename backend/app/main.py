@@ -20,6 +20,7 @@ from starlette.types import Scope
 
 from app import repo
 from app.agent.broker.paper import PaperBroker
+from app.agent.deciders.openai_decider import OpenAIDecider
 from app.agent.deciders.rules import RulesDecider
 from app.agent.engine import Engine
 from app.agent.market.universe import (
@@ -27,7 +28,7 @@ from app.agent.market.universe import (
     run_eligibility_check,
     warming_up,
 )
-from app.api import routes, screens, ws
+from app.api import inspector, routes, screens, ws
 from app.api import sources as source_routes
 from app.api.deps import (
     AppState,
@@ -126,6 +127,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             decider=RulesDecider(),
             broadcast=lambda: routes.broadcast_snapshot(state),
         )
+        # The OpenAI decider reads the live broker and risk state through
+        # the engine, so it always sees the current account even after a
+        # paper reset swaps broker instances.
+        agent_engine.openai_decider = OpenAIDecider(
+            session_factory=session_factory,
+            market_client=market_client,
+            broker=lambda: agent_engine.broker,
+            risk_view=agent_engine.risk_view,
+            clock=agent_engine.clock,
+        )
         state.agent_engine = agent_engine
         await agent_engine.start()
         state.status = agent_engine.status
@@ -151,6 +162,7 @@ def create_app() -> FastAPI:
     app.include_router(routes.router)
     app.include_router(screens.router)
     app.include_router(source_routes.router)
+    app.include_router(inspector.router)
     app.include_router(ws.router)
     if FRONTEND_DIST.is_dir():
         app.mount("/", SpaStaticFiles(directory=FRONTEND_DIST, html=True), name="ui")

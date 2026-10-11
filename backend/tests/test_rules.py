@@ -163,16 +163,30 @@ def test_conditions_each_boundary() -> None:
     )
     c = evaluate_conditions(_signals(h1, sig.tf["4h"], sig.tf["1d"]), s)
     assert not c["C4"]
-    # C6 respects the shared ADX threshold (25).
-    h1.adx14 = 24.9
+    h1.rsi14 = 45.0
+    c = evaluate_conditions(_signals(h1, sig.tf["4h"], sig.tf["1d"]), s)
+    assert c["C4"]
+    h1.rsi14 = 70.0
+    c = evaluate_conditions(_signals(h1, sig.tf["4h"], sig.tf["1d"]), s)
+    assert c["C4"]
+    h1.rsi14 = 70.1
+    c = evaluate_conditions(_signals(h1, sig.tf["4h"], sig.tf["1d"]), s)
+    assert not c["C4"]
+    h1.rsi14 = 60.0
+    # C6 respects the shared ADX threshold: below it fails, at it passes.
+    adx_threshold = float(s.market.adx_threshold)
+    h1.adx14 = adx_threshold - 0.1
     c = evaluate_conditions(_signals(h1, sig.tf["4h"], sig.tf["1d"]), s)
     assert not c["C6"]
+    h1.adx14 = adx_threshold
+    c = evaluate_conditions(_signals(h1, sig.tf["4h"], sig.tf["1d"]), s)
+    assert c["C6"]
     # Missing values fail, never guess.
     c = evaluate_conditions(_signals(_tf()), s)
     assert not any(c.values())
 
 
-def test_prefilter() -> None:
+async def test_prefilter() -> None:
     decider = RulesDecider()
     # C1 + only 2 of C2..C6 (C3, C4) → no model call.
     h1 = _tf(
@@ -187,16 +201,16 @@ def test_prefilter() -> None:
     )
     h4 = _tf(ema20=102.0, ema50=101.0)
     d1 = _tf(close=105.0, ema200=95.0)
-    d = decider.decide(_ctx(_signals(h1, h4, d1)))
+    d = await decider.decide(_ctx(_signals(h1, h4, d1)))
     assert d.action == "HOLD" and not d.prefilter
     # Holding always passes the pre-filter.
-    d = decider.decide(_ctx(_signals(h1, h4, d1), holding=True))
+    d = await decider.decide(_ctx(_signals(h1, h4, d1), holding=True))
     assert d.prefilter
 
 
-def test_rules_buy_levels() -> None:
+async def test_rules_buy_levels() -> None:
     decider = RulesDecider()
-    d = decider.decide(_ctx(_bullish_signals(resistance=[])))
+    d = await decider.decide(_ctx(_bullish_signals(resistance=[])))
     assert d.action == "BUY"
     assert d.entry == Decimal("100")
     candles = _uptrend_candles(60)
@@ -215,50 +229,50 @@ def test_rules_buy_levels() -> None:
     assert d.confidence == 1.0  # 6 of 6 conditions
 
 
-def test_rules_buy_uses_resistance_target() -> None:
+async def test_rules_buy_uses_resistance_target() -> None:
     decider = RulesDecider()
     # Resistance 103 within 6 x ATR(1) → target 103.
-    d = decider.decide(_ctx(_bullish_signals(resistance=[103.0])))
+    d = await decider.decide(_ctx(_bullish_signals(resistance=[103.0])))
     assert d.action == "BUY" and d.target == Decimal("103")
 
 
-def test_no_buy_in_down_or_sideways_regime() -> None:
+async def test_no_buy_in_down_or_sideways_regime() -> None:
     decider = RulesDecider()
     for trend in ("down", "sideways"):
-        d = decider.decide(_ctx(_bullish_signals(trend=trend)))
+        d = await decider.decide(_ctx(_bullish_signals(trend=trend)))
         assert d.action == "HOLD"
         assert trend in d.reasoning
 
 
-def test_no_buy_when_extended_above_ema20() -> None:
+async def test_no_buy_when_extended_above_ema20() -> None:
     decider = RulesDecider()
     # Price 2 x ATR above EMA 20 (> 1.5 allowed).
-    d = decider.decide(_ctx(_bullish_signals(), price=Decimal("101.5")))
+    d = await decider.decide(_ctx(_bullish_signals(), price=Decimal("101.5")))
     # entry-ema20 = 2.0 > 1.5 x ATR(1.0) -> hold.
     assert d.action == "HOLD"
 
 
-def test_rules_sell_on_broken_1h_trend() -> None:
+async def test_rules_sell_on_broken_1h_trend() -> None:
     decider = RulesDecider()
     h1 = _tf(close=97.0, ema50=98.0, obv_trend=-0.2, atr14=1.0)
     sig = _signals(h1, trend="down")
-    d = decider.decide(_ctx(sig, holding=True))
+    d = await decider.decide(_ctx(sig, holding=True))
     assert d.action == "SELL"
     assert "EMA 50" in d.reasoning
 
 
-def test_rules_sell_on_4h_cross() -> None:
+async def test_rules_sell_on_4h_cross() -> None:
     decider = RulesDecider()
     h1 = _tf(close=100.0, ema50=99.0, obv_trend=0.3, atr14=1.0)
     h4 = _tf(ema20=100.0, ema50=100.5)
     sig = _signals(h1, h4, trend="down")
-    d = decider.decide(_ctx(sig, holding=True, prev_4h=(101.0, 100.5)))
+    d = await decider.decide(_ctx(sig, holding=True, prev_4h=(101.0, 100.5)))
     assert d.action == "SELL"
     assert "crossed" in d.reasoning
 
 
-def test_holding_hold_lists_reasons() -> None:
+async def test_holding_hold_lists_reasons() -> None:
     decider = RulesDecider()
-    d = decider.decide(_ctx(_bullish_signals(), holding=True))
+    d = await decider.decide(_ctx(_bullish_signals(), holding=True))
     assert d.action == "HOLD"
     assert "conditions met" in d.reasoning

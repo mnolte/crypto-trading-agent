@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app import repo
+from app.agent import budget
 from app.agent.broker.paper import PaperBroker
 from app.agent.market import make_market_client
 from app.agent.market.base import MarketClient, MarketInfo
@@ -232,6 +233,15 @@ def build_snapshot(state: AppState) -> Snapshot:
             for row in reversed(repo.recent_activity(session, limit=60))
         ]
         today = repo.trades_today(session, broker.account_id)
+        usage = Usage(
+            calls_today=budget.calls_today(session, broker.account_id, now),
+            daily_budget=settings.model.daily_call_budget,
+            cost_today_eur=repo.llm_cost_between(
+                session, broker.account_id, budget.amsterdam_day_start(now)
+            ),
+            cost_month_eur=budget.month_spend_eur(session, broker.account_id, now),
+            cap_eur=settings.model.monthly_cost_cap_eur,
+        )
         return Snapshot(
             status=engine.status,
             mode="paper",

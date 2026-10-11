@@ -60,7 +60,7 @@ class RulesDecider:
 
     name = "rules"
 
-    def decide(self, ctx: DecideContext) -> Draft:
+    async def decide(self, ctx: DecideContext) -> Draft:
         assert ctx.settings is not None
         settings = ctx.settings
         rules = settings.rules

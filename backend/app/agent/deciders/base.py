@@ -7,6 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Protocol
 
+from app.agent.broker.paper import HeldPosition
 from app.agent.market.base import Candle
 from app.agent.signals import PairSignals
 from app.models import Regime, Settings, Signal
@@ -27,10 +28,15 @@ class DecideContext:
     position_entry: Decimal | None
     candles_1h: list[Candle] = field(default_factory=list)
     candles_4h: list[Candle] = field(default_factory=list)
+    candles_1d: list[Candle] = field(default_factory=list)
     prev_4h_ema20: float | None = None
     prev_4h_ema50: float | None = None
     btc_regime: Regime | None = None
     settings: Settings | None = None
+    cycle: int = 0
+    position: HeldPosition | None = None
+    # Market-wide context the brief may use: btc_1h/btc_4h/btc_1d/usdc_1h.
+    context_candles: dict[str, list[Candle]] = field(default_factory=dict)
 
 
 @dataclass
@@ -40,6 +46,12 @@ class Draft:
     For BUY the decider proposes entry/stop/target; the risk layer sizes it.
     ``prefilter`` records whether the Rules pre-filter would have called the
     model — stored so the inspector can explain skipped cycles later.
+
+    The OpenAI decider fills the audit fields: ``decider`` says which layer
+    actually answered ("openai", or "rules" on a fallback), ``llm_call_id``
+    links the stored call and ``raw_brief``/``raw_response`` hold the exact
+    request and response for the decision drawer. ``error`` carries the
+    check that produced a HOLD.
     """
 
     action: str  # "BUY" | "SELL" | "HOLD"
@@ -52,6 +64,22 @@ class Draft:
     stop: Decimal | None = None
     target: Decimal | None = None
     prefilter: bool = False
+    decider: str = "rules"
+    model: str | None = None
+    prompt_version: str | None = None
+    llm_call_id: str | None = None
+    raw_brief: str | None = None
+    raw_response: str | None = None
+    error: str | None = None
+
+
+@dataclass
+class RiskView:
+    """The engine's risk state at brief time, for the portfolio block."""
+
+    throttle_on: bool
+    correlated_slots_left: int
+    shock_brake_on: bool
 
 
 class Decider(Protocol):
@@ -59,4 +87,4 @@ class Decider(Protocol):
 
     name: str
 
-    def decide(self, ctx: DecideContext) -> Draft: ...
+    async def decide(self, ctx: DecideContext) -> Draft: ...

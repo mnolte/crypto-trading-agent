@@ -392,6 +392,49 @@ def compute_tf_values(candles: list[Candle], tf: Tf) -> TfValues:
 # ----------------------------------------------------------------------- reads
 
 
+def rsi_read(v: float | None) -> SignalRead | None:
+    if v is None:
+        return None
+    return "bullish" if v > 55 else "bearish" if v < 45 else "neutral"
+
+
+def price_rel_read(pct: float | None) -> SignalRead | None:
+    """Read of a % distance from a reference (VWAP, EMA 200)."""
+    if pct is None:
+        return None
+    return "bullish" if pct > 0.1 else "bearish" if pct < -0.1 else "neutral"
+
+
+def obv_read(v: float | None) -> SignalRead | None:
+    if v is None:
+        return None
+    return "bullish" if v > 0.1 else "bearish" if v < -0.1 else "neutral"
+
+
+def ema_cross_read(ema20: float | None, ema50: float | None) -> SignalRead | None:
+    if ema20 is None or ema50 is None:
+        return None
+    return "bullish" if ema20 > ema50 else "bearish"
+
+
+def adx_read(v: float | None, adx_threshold: float) -> SignalRead | None:
+    if v is None:
+        return None
+    return "trending" if v >= adx_threshold else "ranging"
+
+
+def atr_rank_read(p: float | None) -> SignalRead | None:
+    if p is None:
+        return None
+    return "low" if p < 30 else "high" if p > 80 else "normal"
+
+
+def volume_read(v: float | None) -> SignalRead | None:
+    if v is None:
+        return None
+    return "high" if v > 1.5 else "low" if v < 0.7 else "normal"
+
+
 def _sig(name: str, tf: Tf, read: SignalRead) -> Signal:
     return Signal(name=name, tf=tf, read=read)
 
@@ -399,41 +442,31 @@ def _sig(name: str, tf: Tf, read: SignalRead) -> Signal:
 def reads_for_tf(values: TfValues, tf: Tf, adx_threshold: float) -> list[Signal]:
     """Bullish / bearish / neutral (and trending/low/high) labels per spec."""
     out: list[Signal] = []
-    if values.rsi14 is not None:
-        read: SignalRead = (
-            "bullish" if values.rsi14 > 55 else "bearish" if values.rsi14 < 45 else "neutral"
-        )
+    read = rsi_read(values.rsi14)
+    if read is not None:
         out.append(_sig("RSI 14", tf, read))
     for name, pct in (
         ("Price vs VWAP", values.price_vs_vwap_pct),
         ("Price vs EMA 200", values.price_vs_ema200_pct),
     ):
-        if pct is not None:
-            read = "bullish" if pct > 0.1 else "bearish" if pct < -0.1 else "neutral"
+        read = price_rel_read(pct)
+        if read is not None:
             out.append(_sig(name, tf, read))
-    if values.obv_trend is not None:
-        read = (
-            "bullish"
-            if values.obv_trend > 0.1
-            else "bearish"
-            if values.obv_trend < -0.1
-            else "neutral"
-        )
+    read = obv_read(values.obv_trend)
+    if read is not None:
         out.append(_sig("OBV trend", tf, read))
-    if values.ema20 is not None and values.ema50 is not None:
-        read = "bullish" if values.ema20 > values.ema50 else "bearish"
+    read = ema_cross_read(values.ema20, values.ema50)
+    if read is not None:
         out.append(_sig("EMA 20 vs 50", tf, read))
-    if values.adx14 is not None:
-        read = "trending" if values.adx14 >= adx_threshold else "ranging"
+    read = adx_read(values.adx14, adx_threshold)
+    if read is not None:
         out.append(_sig("ADX 14", tf, read))
-    if values.atr_percentile is not None:
-        p = values.atr_percentile
-        read = "low" if p < 30 else "high" if p > 80 else "normal"
+    read = atr_rank_read(values.atr_percentile)
+    if read is not None:
         out.append(_sig("ATR %", tf, read))
         out.append(_sig("ATR percentile", tf, read))
-    if values.volume_ratio is not None:
-        v = values.volume_ratio
-        read = "high" if v > 1.5 else "low" if v < 0.7 else "normal"
+    read = volume_read(values.volume_ratio)
+    if read is not None:
         out.append(_sig("Volume x avg", tf, read))
     return out
 

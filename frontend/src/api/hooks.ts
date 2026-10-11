@@ -4,11 +4,14 @@ import {
   api,
   post,
   type CandleFeed,
+  type CostsOut,
   type DecisionDetail,
   type DecisionListOut,
   type FlattenPreview,
   type HealthOut,
   type IndicatorsOut,
+  type LlmCallDetail,
+  type LlmCallListOut,
   type MarketOut,
   type PerformanceOut,
   type PromptInfo,
@@ -117,6 +120,92 @@ export function useSources() {
     queryKey: ["sources"],
     queryFn: () => api<SourceOut[]>("/api/sources"),
     staleTime: 30_000,
+  });
+}
+
+export function useLlmCalls(filters: {
+  pair?: string;
+  status?: string;
+  verdict?: string;
+  issues?: boolean;
+  skipped?: boolean;
+  limit?: number;
+}) {
+  const qs = new URLSearchParams();
+  if (filters.pair) qs.set("pair", filters.pair);
+  if (filters.status) qs.set("status", filters.status);
+  if (filters.verdict) qs.set("verdict", filters.verdict);
+  if (filters.issues) qs.set("issues", "true");
+  if (filters.skipped === false) qs.set("skipped", "false");
+  if (filters.limit) qs.set("limit", String(filters.limit));
+  return useQuery({
+    queryKey: ["llm-calls", filters],
+    queryFn: () => api<LlmCallListOut>(`/api/llm-calls?${qs}`),
+    staleTime: 10_000,
+  });
+}
+
+export function useLlmCall(id: string | null) {
+  return useQuery({
+    queryKey: ["llm-call", id],
+    queryFn: () => api<LlmCallDetail>(`/api/llm-calls/${id}`),
+    enabled: id !== null,
+  });
+}
+
+export function useCosts(month?: string) {
+  const qs = month ? `?month=${month}` : "";
+  return useQuery({
+    queryKey: ["costs", month ?? "current"],
+    queryFn: () => api<CostsOut>(`/api/costs${qs}`),
+    staleTime: 60_000,
+  });
+}
+
+export function useReplayCall() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      model,
+      promptVersion,
+    }: {
+      id: string;
+      model?: string;
+      promptVersion?: string;
+    }) =>
+      api<LlmCallDetail>(`/api/llm-calls/${id}/replay`, {
+        method: "POST",
+        body: JSON.stringify({
+          model: model || null,
+          prompt_version: promptVersion || null,
+        }),
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["llm-calls"] });
+      void client.invalidateQueries({ queryKey: ["llm-call"] });
+    },
+  });
+}
+
+export function useSetVerdict() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      verdict,
+      note,
+    }: {
+      id: string;
+      verdict: "correct" | "wrong" | null;
+      note?: string;
+    }) =>
+      api<LlmCallDetail>(`/api/llm-calls/${id}/verdict`, {
+        method: "PUT",
+        body: JSON.stringify({ verdict, note: note ?? null }),
+      }),
+    onSuccess: (detail) =>
+      client.setQueryData(["llm-call", detail.id], detail),
   });
 }
 

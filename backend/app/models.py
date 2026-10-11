@@ -79,6 +79,7 @@ class Decision(BaseModel):
     settings_version: int
     shadow_id: str | None = None  # None = live
     stand_in: bool = False  # What-if only: Rules answered for a missing model call
+    prefilter: bool = True  # False = the Rules pre-filter skipped the model call
 
 
 class Position(BaseModel):
@@ -534,3 +535,114 @@ class PromptInfo(BaseModel):
 
 class DeleteDataRequest(BaseModel):
     confirm: Literal["DELETE"]
+
+
+# --------------------------------------------------- LLM inspector payloads --
+
+
+class CheckOut(BaseModel):
+    """One input or output check result shown on a call card."""
+
+    name: str
+    status: Literal["pass", "warn", "fail"]
+    detail: str = ""
+
+
+class LlmCallAttemptOut(BaseModel):
+    at: datetime | None
+    outcome: str  # "sent" | "retried" | "failed"
+    error: str | None = None
+    http_status: int | None = None
+    latency_ms: int | None = None
+
+
+class LlmCallListItem(BaseModel):
+    """One call-history row; ``kind == "skipped"`` is a decision row where
+    the Rules pre-filter passed nothing to the model."""
+
+    kind: Literal["call", "skipped"]
+    id: str  # call id, or decision id for skipped rows
+    at: datetime
+    pair: str
+    feature: str | None = None
+    model: str | None = None
+    prompt_version: str | None = None
+    status: str | None = None  # "ok" | "invalid_output" | "timeout" | "api_error" | "input_blocked"
+    action: Action | None = None  # what the model (or Rules, for skipped) answered
+    final_action: Action | None = None  # the decision the engine recorded
+    issues: int = 0  # warning + failed output checks
+    verdict: str | None = None
+    decision_id: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost_eur: MoneyDecimal | None = None
+    latency_ms: int | None = None
+
+
+class LlmCallListOut(BaseModel):
+    items: list[LlmCallListItem]
+
+
+class ReplayInfo(BaseModel):
+    id: str
+    at: datetime
+    model: str
+    prompt_version: str
+    action: Action | None
+    differs: bool  # parsed action differs from the original call's
+
+
+class LlmCallDetail(BaseModel):
+    """Everything stored for one call: the exact request and response, the
+    checks, retries, cost and the decision it produced."""
+
+    id: str
+    at: datetime
+    cycle: int | None
+    pair: str
+    decision_id: str | None
+    feature: str
+    replay_of: str | None
+    model: str
+    prompt_version: str
+    status: str
+    latency_ms: int | None
+    input_tokens: int | None
+    output_tokens: int | None
+    cost_usd: MoneyDecimal | None
+    cost_eur: MoneyDecimal | None
+    request_id: str | None
+    request_json: str | None  # exact request body sent
+    response_raw: str | None  # exact response body returned
+    system_prompt: str | None  # extracted from request_json
+    brief: str | None  # the market brief, extracted from request_json
+    output_schema: str | None  # the structured-output schema sent
+    parsed: dict[str, object] | None
+    input_checks: list[CheckOut]
+    output_checks: list[CheckOut]
+    attempts: list[LlmCallAttemptOut]
+    replays: list[ReplayInfo]
+    decision_action: Action | None = None
+    verdict: str | None
+    verdict_note: str | None
+    verdict_at: datetime | None
+
+
+class LlmCallReplayIn(BaseModel):
+    model: str | None = None  # None keeps the original model
+    prompt_version: str | None = None
+
+
+class LlmCallVerdictIn(BaseModel):
+    verdict: Literal["correct", "wrong"] | None
+    note: str | None = None
+
+
+class CostsOut(BaseModel):
+    """Estimated spend per feature for one month, against the cap."""
+
+    month: str
+    cap_eur: MoneyDecimal
+    spent_eur: MoneyDecimal
+    spent_usd: MoneyDecimal | None  # None when any call's price was unknown
+    by_feature: dict[str, MoneyDecimal]

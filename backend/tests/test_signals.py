@@ -18,6 +18,7 @@ import pytest
 from app.agent.market.base import Candle, drop_forming
 from app.agent.signals import (
     TfValues,
+    _raw_trend,
     adx,
     atr,
     atr_percentile,
@@ -330,6 +331,18 @@ def test_reads_other_side() -> None:
 
 
 # ---------------------------------------------------------------------- regime
+
+
+def test_raw_trend_adx_boundary() -> None:
+    # White-box on purpose: a real candle series cannot produce an ADX of
+    # exactly the threshold, so the internal seam is called directly.
+    # ADX at the threshold counts as trending; just below it the regime is
+    # sideways even when the EMAs and daily agree.
+    threshold = 25.0
+    assert _raw_trend(threshold, 11.0, 10.0, 105.0, 100.0, threshold) == "up"
+    assert _raw_trend(threshold, 9.0, 10.0, 95.0, 100.0, threshold) == "down"
+    assert _raw_trend(threshold - 0.1, 11.0, 10.0, 105.0, 100.0, threshold) == "sideways"
+    assert _raw_trend(threshold - 0.1, 9.0, 10.0, 95.0, 100.0, threshold) == "sideways"
 
 
 def test_confirm_labels_two_bar_rule() -> None:

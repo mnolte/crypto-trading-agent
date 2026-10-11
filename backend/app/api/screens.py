@@ -403,7 +403,7 @@ def _current_rows(tf_values: dict[str, TfValues], adx_threshold: float) -> list[
         ),
         IndicatorRowOut(
             name="ADX 14",
-            threshold=f"ADX above {adx_threshold:g} trending",
+            threshold=f"ADX {adx_threshold:g} or more trending",
             cells=cells(adx_label),
         ),
         IndicatorRowOut(
@@ -545,11 +545,23 @@ async def get_indicators(
         if at is not None:
             drow = repo.get_decision_row(session, at)
             if drow is None:
-                raise HTTPException(status_code=404, detail="unknown decision")
-            if drow.pair != pair:
-                raise HTTPException(status_code=400, detail="decision is for another pair")
-            frozen_at = repo.aware_utc(drow.at)
-            frozen_cycle = drow.cycle
+                # ``at`` also accepts an llm-call id: freeze at its linked
+                # decision, or at the call's own moment when it produced none.
+                call = repo.get_llm_call(session, at)
+                if call is None:
+                    raise HTTPException(status_code=404, detail="unknown decision")
+                if call.pair != pair:
+                    raise HTTPException(status_code=400, detail="call is for another pair")
+                if call.decision_id:
+                    drow = repo.get_decision_row(session, call.decision_id)
+                else:
+                    frozen_at = repo.aware_utc(call.at)
+                    frozen_cycle = call.cycle
+            if drow is not None:
+                if drow.pair != pair:
+                    raise HTTPException(status_code=400, detail="decision is for another pair")
+                frozen_at = repo.aware_utc(drow.at)
+                frozen_cycle = drow.cycle
 
         ref = frozen_at or now
         candles_by_tf: dict[Tf, list[Candle]] = {}
