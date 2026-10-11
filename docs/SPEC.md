@@ -581,7 +581,7 @@ For each decision, at 4h, 24h and 72h after it:
 
 - BUY: win or loss by first touch, or "open" when neither level is touched within 72h; plus realised R for executed trades.
 - HOLD or SKIP: "avoided" if the hypothetical stop hit first, "missed" if the target hit first, "flat" otherwise.
-- SELL: "good exit" if price is lower after 24h, "early exit" if it is more than 1R higher, "neutral" in between.
+- SELL: "good exit" if price is lower after 24h, "early exit" if it is more than 1R higher, "neutral" in between. Here 1R is the position's original risk per unit (entry fill price minus the stop set at entry), never the stop at exit time, which may sit at breakeven or be trailed. "After 24h" is the close of the last closed 1h candle at exit + 24h, compared with the exit fill price.
 
 **How it runs**
 

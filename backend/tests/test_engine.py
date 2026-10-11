@@ -8,6 +8,7 @@ expiry, and the long-run no-NaN soak.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 from collections.abc import Iterator
@@ -542,6 +543,97 @@ async def test_pending_expires_on_price_drift(env: Path) -> None:
     assert not e.engine.pending
 
 
+async def test_supervised_executes_after_veto_window(env: Path) -> None:
+    settings = Settings(active_markets=["SOL-EUR"], data_source="sim", execution_mode="supervised")
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"], settings=settings)
+    e.market.add_uptrend("SOL-EUR")
+    e.market.add_zigzag("BTC-EUR")
+    e.market.add_zigzag("USDC-EUR")
+    await e.engine.run_cycle()
+    assert e.engine.pending and "SOL-EUR" not in e.broker.positions
+    e.clock.advance(seconds=60)
+    await e.engine.tick()
+    assert not e.engine.pending and "SOL-EUR" in e.broker.positions
+
+
+async def test_veto_prevents_supervised_fill(env: Path) -> None:
+    settings = Settings(active_markets=["SOL-EUR"], data_source="sim", execution_mode="supervised")
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"], settings=settings)
+    e.market.add_uptrend("SOL-EUR")
+    e.market.add_zigzag("BTC-EUR")
+    e.market.add_zigzag("USDC-EUR")
+    await e.engine.run_cycle()
+    decision_id = next(iter(e.engine.pending))
+    decision = await e.engine.veto_pending(decision_id)
+    e.clock.advance(seconds=60)
+    await e.engine.tick()
+    assert decision.status == "vetoed"
+    assert "SOL-EUR" not in e.broker.positions
+
+
+async def test_manual_approval_fills_immediately(env: Path) -> None:
+    settings = Settings(active_markets=["SOL-EUR"], data_source="sim", execution_mode="manual")
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"], settings=settings)
+    e.market.add_uptrend("SOL-EUR")
+    e.market.add_zigzag("BTC-EUR")
+    e.market.add_zigzag("USDC-EUR")
+    await e.engine.run_cycle()
+    decision_id = next(iter(e.engine.pending))
+    decision = await e.engine.approve_pending(decision_id)
+    assert decision.status == "approved"
+    assert "SOL-EUR" in e.broker.positions
+
+
+async def test_concurrent_manual_approvals_recheck_portfolio_risk(env: Path) -> None:
+    settings = Settings(
+        active_markets=["SOL-EUR", "ETH-EUR"],
+        data_source="sim",
+        execution_mode="manual",
+        risk={"total_open_risk_pct": "1.5"},
+    )
+    e = EngineEnv(
+        env / "agent.db",
+        markets=["SOL-EUR", "ETH-EUR"],
+        settings=settings,
+    )
+    e.market.add_uptrend("SOL-EUR")
+    e.market.add_uptrend("ETH-EUR", base=3000)
+    e.market.add_zigzag("BTC-EUR")
+    e.market.add_zigzag("USDC-EUR")
+    await e.engine.run_cycle()
+    assert len(e.engine.pending) == 2
+    await asyncio.gather(
+        *(e.engine.approve_pending(decision_id) for decision_id in list(e.engine.pending))
+    )
+    cap = (
+        Decimal(e.broker.account.start_balance) * settings.risk.total_open_risk_pct / Decimal("100")
+    )
+    assert e.broker.open_risk() <= cap
+
+
+async def test_concurrent_auto_fills_recheck_portfolio_risk(env: Path) -> None:
+    settings = Settings(
+        active_markets=["SOL-EUR", "ETH-EUR"],
+        data_source="sim",
+        execution_mode="auto",
+        risk={"total_open_risk_pct": "1.5"},
+    )
+    e = EngineEnv(
+        env / "agent.db",
+        markets=["SOL-EUR", "ETH-EUR"],
+        settings=settings,
+    )
+    e.market.add_uptrend("SOL-EUR")
+    e.market.add_uptrend("ETH-EUR", base=3000)
+    e.market.add_zigzag("BTC-EUR")
+    e.market.add_zigzag("USDC-EUR")
+    await e.engine.run_cycle()
+    cap = (
+        Decimal(e.broker.account.start_balance) * settings.risk.total_open_risk_pct / Decimal("100")
+    )
+    assert e.broker.open_risk() <= cap
+
+
 async def test_pause_resume_run_now(env: Path) -> None:
     e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
     e.engine.resume()
@@ -624,6 +716,10 @@ async def test_shock_brake_btc_move_triggers(env: Path) -> None:
     e.market.tickers["BTC-EUR"] = Decimal("105")
     await e.engine.tick()
     assert e.engine.shock_brake_until is not None
+    first_until = e.engine.shock_brake_until
+    e.clock.advance(seconds=30)
+    await e.engine.tick()
+    assert e.engine.shock_brake_until == first_until
 
 
 async def test_throttle_halves_risk_after_three_losses(env: Path) -> None:

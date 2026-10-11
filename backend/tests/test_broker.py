@@ -15,7 +15,14 @@ from sqlalchemy.orm import Session
 from app import repo
 from app.agent.broker.paper import HeldPosition, PaperBroker
 from app.config import get_env
-from app.db import AccountRow, PositionRow, make_engine, make_session_factory, run_migrations
+from app.db import (
+    AccountRow,
+    PositionRow,
+    TradeRow,
+    make_engine,
+    make_session_factory,
+    run_migrations,
+)
 from app.models import PaperSettings
 
 NOW = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
@@ -251,3 +258,63 @@ def test_close_removes_position_and_books_trade(session: Session) -> None:
 
     row = last_exit_for_pair(session, 1, "BTC-EUR", "stop")
     assert row is not None
+
+
+def test_failed_buy_commit_restores_broker_state(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A commit that fails after buy() mutated memory must not leave cash
+    deducted or a phantom position in the in-memory broker."""
+    broker = PaperBroker(_account(), PaperSettings())
+    snapshot = broker.capture_state()
+    broker.buy(
+        session, "BTC-EUR", Decimal("100"), Decimal("10"), Decimal("95"), Decimal("110"), "d1", NOW
+    )
+    assert "BTC-EUR" in broker.positions
+
+    def fail() -> None:
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(session, "commit", fail)
+    with pytest.raises(RuntimeError, match="disk full"):
+        session.commit()
+    session.rollback()
+    broker.restore_state(snapshot)
+
+    assert broker.cash == Decimal("10000")
+    assert "BTC-EUR" not in broker.positions
+    assert broker.equity() == Decimal("10000")
+    assert session.scalars(select(PositionRow)).all() == []
+
+
+def test_failed_close_commit_restores_broker_state(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A commit that fails after close() removed the position must bring the
+    position and the pre-close cash back in memory."""
+    broker = PaperBroker(_account(), PaperSettings())
+    broker.buy(
+        session, "BTC-EUR", Decimal("100"), Decimal("5"), Decimal("90"), Decimal("120"), "d1", NOW
+    )
+    session.commit()
+    snapshot = broker.capture_state()
+    cash_before = broker.cash
+
+    broker.close(session, "BTC-EUR", Decimal("110"), NOW, "target")
+    assert "BTC-EUR" not in broker.positions
+
+    def fail() -> None:
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(session, "commit", fail)
+    with pytest.raises(RuntimeError, match="disk full"):
+        session.commit()
+    session.rollback()
+    broker.restore_state(snapshot)
+
+    assert broker.cash == cash_before
+    pos = broker.positions["BTC-EUR"]
+    assert pos.qty == Decimal("5") and pos.stop == Decimal("90")
+    # The database still holds the committed open position and no trade.
+    assert session.get(PositionRow, "BTC-EUR") is not None
+    assert session.scalars(select(TradeRow)).all() == []

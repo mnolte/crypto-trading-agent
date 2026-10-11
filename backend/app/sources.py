@@ -13,6 +13,7 @@ source with a clear message — it never fails cycles.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
@@ -88,6 +89,8 @@ class SourceRegistry:
     def __init__(self, disabled: list[str] | None = None) -> None:
         self._disabled = set(disabled or [])
         self._runtime = {s.id: SourceRuntime() for s in SOURCES}
+        self.on_failure_threshold: Callable[[str, str], None] | None = None
+        self.on_recovered: Callable[[str], None] | None = None
 
     def set_disabled(self, disabled: list[str]) -> None:
         self._disabled = set(disabled)
@@ -125,12 +128,17 @@ class SourceRegistry:
     ) -> None:
         rt = self._runtime[source_id]
         if error is None:
+            recovered = rt.failures > 0
             rt.last_success_at = at or datetime.now().astimezone()
             rt.last_error = None
             rt.failures = 0
+            if recovered and self.on_recovered is not None:
+                self.on_recovered(source_id)
         else:
             rt.last_error = str(error)
             rt.failures += 1
+            if rt.failures == 3 and self.on_failure_threshold is not None:
+                self.on_failure_threshold(source_id, rt.last_error)
         if rate_limit_remaining is not None:
             rt.rate_limit_remaining = rate_limit_remaining
         if rate_limit_limit is not None:

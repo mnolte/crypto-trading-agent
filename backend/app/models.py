@@ -291,6 +291,40 @@ class MarketSettings(BaseModel):
     ]
 
 
+class SmtpSettings(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    host: str = ""
+    port: int = 587
+    tls: bool = True
+    username: str = ""
+    sender: str = ""
+    recipient: str = ""
+
+
+class NotificationEventSettings(BaseModel):
+    browser: bool
+    email: bool
+
+
+class NotificationSettings(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    browser_enabled: bool = False
+    email_enabled: bool = False
+    smtp: SmtpSettings = SmtpSettings()
+    events: dict[str, NotificationEventSettings] = {
+        "kill_switch": NotificationEventSettings(browser=True, email=True),
+        "daily_loss": NotificationEventSettings(browser=True, email=True),
+        "pair_stale": NotificationEventSettings(browser=True, email=False),
+        "source_failing": NotificationEventSettings(browser=True, email=False),
+        "model_failing": NotificationEventSettings(browser=True, email=True),
+        "trade": NotificationEventSettings(browser=False, email=False),
+        "risk_control": NotificationEventSettings(browser=True, email=False),
+        "review": NotificationEventSettings(browser=False, email=True),
+    }
+
+
 class Settings(BaseModel):
     """The one validated JSON document stored in the settings table.
 
@@ -310,6 +344,7 @@ class Settings(BaseModel):
     model: ModelSettings = ModelSettings()
     paper: PaperSettings = PaperSettings()
     market: MarketSettings = MarketSettings()
+    notifications: NotificationSettings = NotificationSettings()
     # Source ids the user disabled on the Sources page; the registry keeps
     # the runtime status.
     disabled_sources: list[str] = []
@@ -369,6 +404,29 @@ class DecisionListOut(BaseModel):
     items: list[Decision]
 
 
+class OutcomeOut(BaseModel):
+    horizon: int
+    reference_at: datetime
+    reference_price: MoneyDecimal
+    forward_return_pct: MoneyDecimal
+    best_move_pct: MoneyDecimal
+    worst_move_pct: MoneyDecimal
+    best_move_r: MoneyDecimal | None
+    worst_move_r: MoneyDecimal | None
+    first_touch: str | None
+    invalidated: bool
+    invalidation_followup_pct: MoneyDecimal | None
+    label: str
+    realised_r: MoneyDecimal | None
+    computed_at: datetime
+    method_version: str
+
+
+class OutcomeFailureOut(BaseModel):
+    horizon: int
+    reason: str
+
+
 class DecisionDetail(BaseModel):
     decision: Decision
     raw_brief: str | None = None
@@ -377,6 +435,9 @@ class DecisionDetail(BaseModel):
     next_id: str | None = None
     execution_mode: ExecMode
     fill_price: MoneyDecimal | None = None
+    outcomes: list[OutcomeOut] = []
+    outcome_failures: list[OutcomeFailureOut] = []
+    outcome_pending_until: datetime | None = None
 
 
 class LevelOut(BaseModel):
@@ -533,6 +594,21 @@ class PromptInfo(BaseModel):
     max_output_tokens: int
 
 
+class ErrorOut(BaseModel):
+    id: int
+    first_at: datetime
+    last_at: datetime
+    pair: str | None
+    text: str
+    affected_decision_or_fill: bool
+    resolved_at: datetime | None
+    resolution_note: str | None
+
+
+class ResolveErrorIn(BaseModel):
+    note: str
+
+
 class DeleteDataRequest(BaseModel):
     confirm: Literal["DELETE"]
 
@@ -636,6 +712,21 @@ class LlmCallReplayIn(BaseModel):
 class LlmCallVerdictIn(BaseModel):
     verdict: Literal["correct", "wrong"] | None
     note: str | None = None
+
+
+class OutcomeScorecardRow(BaseModel):
+    decider: str
+    model: str | None
+    prompt_version: str | None
+    decisions: int
+    buy_win_rate_pct: float | None
+    average_r: float | None
+    missed: int
+    avoided: int
+
+
+class OutcomeScorecardOut(BaseModel):
+    items: list[OutcomeScorecardRow]
 
 
 class CostsOut(BaseModel):

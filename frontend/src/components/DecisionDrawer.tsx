@@ -1,7 +1,14 @@
 import { Link } from "react-router-dom";
 import type { Tf } from "../api/client";
 import { useDecision } from "../api/hooks";
-import { formatEur, formatPrice, formatQty, formatTimeTz } from "../lib/format";
+import {
+  formatChange,
+  formatDateTime,
+  formatEur,
+  formatPrice,
+  formatQty,
+  formatTimeTz,
+} from "../lib/format";
 import { ActionBadge } from "./ActionBadge";
 import { EmptyState } from "./EmptyState";
 import { GateList } from "./GateList";
@@ -146,6 +153,35 @@ export function DecisionDrawer({
               <div className="reasoning reasoning--invalidation">
                 Invalidation: {decision.invalidation}
               </div>
+            )}
+          </section>
+
+          <section aria-label="Outcome" className="drawer-section">
+            <h2 className="card__title">Outcome</h2>
+            {data.outcomes.length > 0 || data.outcome_failures.length > 0 ? (
+              <>
+                <div className="kv-box">
+                  {data.outcomes.map((outcome) => (
+                    <div className="kv" key={outcome.horizon}>
+                      <span>{outcome.horizon}h · {outcome.label}</span>
+                      <span className="num">{formatChange(outcome.forward_return_pct)} · {outcome.first_touch ?? "neither"}</span>
+                    </div>
+                  ))}
+                  {data.outcome_failures.map((failure) => (
+                    <div className="kv" key={`failure-${failure.horizon}`}>
+                      <span>{failure.horizon}h · unavailable</span>
+                      <span>{failure.reason}</span>
+                    </div>
+                  ))}
+                </div>
+                {data.outcome_pending_until && (
+                  <p className="card__meta">Next outcome pending until {formatDateTime(data.outcome_pending_until)}.</p>
+                )}
+              </>
+            ) : (
+              <p className="card__meta" style={{ margin: 0 }}>
+                Pending until {data.outcome_pending_until ? formatDateTime(data.outcome_pending_until) : "the next outcome run"}.
+              </p>
             )}
           </section>
 

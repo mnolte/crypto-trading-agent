@@ -235,6 +235,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/decisions/{decision_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Decision */
+        post: operations["approve_decision_api_decisions__decision_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/decisions/{decision_id}/veto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Veto Decision */
+        post: operations["veto_decision_api_decisions__decision_id__veto_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Errors */
+        get: operations["errors_api_errors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/errors/{error_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Resolve Error */
+        put: operations["resolve_error_api_errors__error_id__resolve_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/export/decisions.csv": {
         parameters: {
             query?: never;
@@ -365,8 +433,7 @@ export interface paths {
         };
         /**
          * Export Calls
-         * @description Labelled calls as JSONL — verdict, the brief and the parsed output.
-         *     ``outcome`` is null until the outcome worker lands in a later PR.
+         * @description Labelled calls as JSONL with their computed forward outcomes.
          */
         get: operations["export_calls_api_llm_calls_export_jsonl_get"];
         put?: never;
@@ -483,6 +550,76 @@ export interface paths {
         get?: never;
         /** Update Market */
         put: operations["update_market_api_markets__market__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Notifications */
+        get: operations["get_notifications_api_notifications_get"];
+        /** Put Notifications */
+        put: operations["put_notifications_api_notifications_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/smtp-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Smtp Password Status */
+        get: operations["smtp_password_status_api_notifications_smtp_password_get"];
+        /** Put Smtp Password */
+        put: operations["put_smtp_password_api_notifications_smtp_password_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Notifications */
+        post: operations["test_notifications_api_notifications_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/outcomes/scorecard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Outcome Scorecard */
+        get: operations["outcome_scorecard_api_outcomes_scorecard_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -930,6 +1067,18 @@ export interface components {
             fill_price?: string | null;
             /** Next Id */
             next_id?: string | null;
+            /**
+             * Outcome Failures
+             * @default []
+             */
+            outcome_failures: components["schemas"]["OutcomeFailureOut"][];
+            /** Outcome Pending Until */
+            outcome_pending_until?: string | null;
+            /**
+             * Outcomes
+             * @default []
+             */
+            outcomes: components["schemas"]["OutcomeOut"][];
             /** Prev Id */
             prev_id?: string | null;
             /** Raw Brief */
@@ -976,6 +1125,31 @@ export interface components {
             at: string;
             /** Equity */
             equity: string;
+        };
+        /** ErrorOut */
+        ErrorOut: {
+            /** Affected Decision Or Fill */
+            affected_decision_or_fill: boolean;
+            /**
+             * First At
+             * Format: date-time
+             */
+            first_at: string;
+            /** Id */
+            id: number;
+            /**
+             * Last At
+             * Format: date-time
+             */
+            last_at: string;
+            /** Pair */
+            pair: string | null;
+            /** Resolution Note */
+            resolution_note: string | null;
+            /** Resolved At */
+            resolved_at: string | null;
+            /** Text */
+            text: string;
         };
         /** FlattenPreview */
         FlattenPreview: {
@@ -1533,6 +1707,147 @@ export interface components {
              */
             rules_prefilter: boolean;
         };
+        /** NotificationEventSettings */
+        NotificationEventSettings: {
+            /** Browser */
+            browser: boolean;
+            /** Email */
+            email: boolean;
+        };
+        /** NotificationSettings */
+        NotificationSettings: {
+            /**
+             * Browser Enabled
+             * @default false
+             */
+            browser_enabled: boolean;
+            /**
+             * Email Enabled
+             * @default false
+             */
+            email_enabled: boolean;
+            /**
+             * Events
+             * @default {
+             *       "daily_loss": {
+             *         "browser": true,
+             *         "email": true
+             *       },
+             *       "kill_switch": {
+             *         "browser": true,
+             *         "email": true
+             *       },
+             *       "model_failing": {
+             *         "browser": true,
+             *         "email": true
+             *       },
+             *       "pair_stale": {
+             *         "browser": true,
+             *         "email": false
+             *       },
+             *       "review": {
+             *         "browser": false,
+             *         "email": true
+             *       },
+             *       "risk_control": {
+             *         "browser": true,
+             *         "email": false
+             *       },
+             *       "source_failing": {
+             *         "browser": true,
+             *         "email": false
+             *       },
+             *       "trade": {
+             *         "browser": false,
+             *         "email": false
+             *       }
+             *     }
+             */
+            events: {
+                [key: string]: components["schemas"]["NotificationEventSettings"];
+            };
+            /**
+             * @default {
+             *       "host": "",
+             *       "port": 587,
+             *       "recipient": "",
+             *       "sender": "",
+             *       "tls": true,
+             *       "username": ""
+             *     }
+             */
+            smtp: components["schemas"]["SmtpSettings"];
+        };
+        /** OutcomeFailureOut */
+        OutcomeFailureOut: {
+            /** Horizon */
+            horizon: number;
+            /** Reason */
+            reason: string;
+        };
+        /** OutcomeOut */
+        OutcomeOut: {
+            /** Best Move Pct */
+            best_move_pct: string;
+            /** Best Move R */
+            best_move_r: string | null;
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+            /** First Touch */
+            first_touch: string | null;
+            /** Forward Return Pct */
+            forward_return_pct: string;
+            /** Horizon */
+            horizon: number;
+            /** Invalidated */
+            invalidated: boolean;
+            /** Invalidation Followup Pct */
+            invalidation_followup_pct: string | null;
+            /** Label */
+            label: string;
+            /** Method Version */
+            method_version: string;
+            /** Realised R */
+            realised_r: string | null;
+            /**
+             * Reference At
+             * Format: date-time
+             */
+            reference_at: string;
+            /** Reference Price */
+            reference_price: string;
+            /** Worst Move Pct */
+            worst_move_pct: string;
+            /** Worst Move R */
+            worst_move_r: string | null;
+        };
+        /** OutcomeScorecardOut */
+        OutcomeScorecardOut: {
+            /** Items */
+            items: components["schemas"]["OutcomeScorecardRow"][];
+        };
+        /** OutcomeScorecardRow */
+        OutcomeScorecardRow: {
+            /** Average R */
+            average_r: number | null;
+            /** Avoided */
+            avoided: number;
+            /** Buy Win Rate Pct */
+            buy_win_rate_pct: number | null;
+            /** Decider */
+            decider: string;
+            /** Decisions */
+            decisions: number;
+            /** Missed */
+            missed: number;
+            /** Model */
+            model: string | null;
+            /** Prompt Version */
+            prompt_version: string | null;
+        };
         /** PaperSettings */
         "PaperSettings-Input": {
             /**
@@ -1735,6 +2050,11 @@ export interface components {
             model: string;
             /** Prompt Version */
             prompt_version: string;
+        };
+        /** ResolveErrorIn */
+        ResolveErrorIn: {
+            /** Note */
+            note: string;
         };
         /** RiskBudget */
         RiskBudget: {
@@ -2205,6 +2525,55 @@ export interface components {
             model: components["schemas"]["ModelSettings-Input"];
             /**
              * @default {
+             *       "browser_enabled": false,
+             *       "email_enabled": false,
+             *       "events": {
+             *         "daily_loss": {
+             *           "browser": true,
+             *           "email": true
+             *         },
+             *         "kill_switch": {
+             *           "browser": true,
+             *           "email": true
+             *         },
+             *         "model_failing": {
+             *           "browser": true,
+             *           "email": true
+             *         },
+             *         "pair_stale": {
+             *           "browser": true,
+             *           "email": false
+             *         },
+             *         "review": {
+             *           "browser": false,
+             *           "email": true
+             *         },
+             *         "risk_control": {
+             *           "browser": true,
+             *           "email": false
+             *         },
+             *         "source_failing": {
+             *           "browser": true,
+             *           "email": false
+             *         },
+             *         "trade": {
+             *           "browser": false,
+             *           "email": false
+             *         }
+             *       },
+             *       "smtp": {
+             *         "host": "",
+             *         "port": 587,
+             *         "recipient": "",
+             *         "sender": "",
+             *         "tls": true,
+             *         "username": ""
+             *       }
+             *     }
+             */
+            notifications: components["schemas"]["NotificationSettings"];
+            /**
+             * @default {
              *       "fee_pct": "0.25",
              *       "slippage_pct": "0.05",
              *       "start_balance_eur": "10000"
@@ -2348,6 +2717,55 @@ export interface components {
             model: components["schemas"]["ModelSettings-Output"];
             /**
              * @default {
+             *       "browser_enabled": false,
+             *       "email_enabled": false,
+             *       "events": {
+             *         "daily_loss": {
+             *           "browser": true,
+             *           "email": true
+             *         },
+             *         "kill_switch": {
+             *           "browser": true,
+             *           "email": true
+             *         },
+             *         "model_failing": {
+             *           "browser": true,
+             *           "email": true
+             *         },
+             *         "pair_stale": {
+             *           "browser": true,
+             *           "email": false
+             *         },
+             *         "review": {
+             *           "browser": false,
+             *           "email": true
+             *         },
+             *         "risk_control": {
+             *           "browser": true,
+             *           "email": false
+             *         },
+             *         "source_failing": {
+             *           "browser": true,
+             *           "email": false
+             *         },
+             *         "trade": {
+             *           "browser": false,
+             *           "email": false
+             *         }
+             *       },
+             *       "smtp": {
+             *         "host": "",
+             *         "port": 587,
+             *         "recipient": "",
+             *         "sender": "",
+             *         "tls": true,
+             *         "username": ""
+             *       }
+             *     }
+             */
+            notifications: components["schemas"]["NotificationSettings"];
+            /**
+             * @default {
              *       "fee_pct": "0.25",
              *       "slippage_pct": "0.05",
              *       "start_balance_eur": "10000"
@@ -2419,6 +2837,44 @@ export interface components {
              * @enum {string}
              */
             tf: "1h" | "4h" | "1d";
+        };
+        /** SmtpPasswordIn */
+        SmtpPasswordIn: {
+            /** Password */
+            password: string;
+        };
+        /** SmtpSettings */
+        SmtpSettings: {
+            /**
+             * Host
+             * @default
+             */
+            host: string;
+            /**
+             * Port
+             * @default 587
+             */
+            port: number;
+            /**
+             * Recipient
+             * @default
+             */
+            recipient: string;
+            /**
+             * Sender
+             * @default
+             */
+            sender: string;
+            /**
+             * Tls
+             * @default true
+             */
+            tls: boolean;
+            /**
+             * Username
+             * @default
+             */
+            username: string;
         };
         /** Snapshot */
         Snapshot: {
@@ -3038,6 +3494,140 @@ export interface operations {
             };
         };
     };
+    approve_decision_api_decisions__decision_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    veto_decision_api_decisions__decision_id__veto_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    errors_api_errors_get: {
+        parameters: {
+            query?: {
+                resolved?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_error_api_errors__error_id__resolve_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                error_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveErrorIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     export_decisions_api_export_decisions_csv_get: {
         parameters: {
             query?: never;
@@ -3188,7 +3778,7 @@ export interface operations {
                 status?: string | null;
                 issues?: boolean;
                 verdict?: ("correct" | "wrong" | "unreviewed") | null;
-                outcome?: ("accepted" | "rejected") | null;
+                outcome?: string | null;
                 skipped?: boolean;
                 before?: string | null;
                 limit?: number;
@@ -3223,7 +3813,7 @@ export interface operations {
         parameters: {
             query?: {
                 verdict?: ("correct" | "wrong" | "unreviewed") | null;
-                outcome?: ("accepted" | "rejected") | null;
+                outcome?: string | null;
             };
             header?: never;
             path?: never;
@@ -3440,6 +4030,173 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_notifications_api_notifications_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettings"];
+                };
+            };
+        };
+    };
+    put_notifications_api_notifications_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    smtp_password_status_api_notifications_smtp_password_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    put_smtp_password_api_notifications_smtp_password_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SmtpPasswordIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_notifications_api_notifications_test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    outcome_scorecard_api_outcomes_scorecard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutcomeScorecardOut"];
                 };
             };
         };

@@ -7,6 +7,8 @@ what the test seeded — no reliance on background timing.
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 from collections.abc import Iterator
 from datetime import datetime, timedelta
@@ -17,7 +19,7 @@ from typing import Any, cast
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from app import repo
@@ -31,6 +33,7 @@ from app.db import (
     DecisionRow,
     EquitySnapshotRow,
     LlmCallRow,
+    OutcomeFailureRow,
     TradeRow,
     utcnow,
 )
@@ -412,6 +415,37 @@ def test_decision_detail_includes_stepper_and_fill(
     assert client.get("/api/decisions/d3").json()["next_id"] == "d-plan"
     assert client.get("/api/decisions/d-plan").json()["next_id"] is None
     assert client.get("/api/decisions/nope").status_code == 404
+
+
+def test_decision_detail_marks_terminal_outcomes_unavailable(
+    screens_client: tuple[TestClient, SimMarket],
+) -> None:
+    """A horizon that exhausted its retries must not still look pending."""
+    client, _ = screens_client
+    account_id = _account_id(client)
+    session = _db(client)
+    try:
+        _add_decision(session, "d-fail", _closed_hour() - 100 * HOUR, account_id=account_id)
+        for horizon in (4, 24, 72):
+            session.add(
+                OutcomeFailureRow(
+                    decision_id="d-fail",
+                    horizon=horizon,
+                    attempts=24,
+                    last_error="no closed candles in outcome horizon",
+                    last_at=utcnow(),
+                    terminal=True,
+                )
+            )
+        session.commit()
+    finally:
+        session.close()
+
+    detail = client.get("/api/decisions/d-fail").json()
+    assert detail["outcome_failures"] == [
+        {"horizon": h, "reason": "no closed candles in outcome horizon"} for h in (4, 24, 72)
+    ]
+    assert detail["outcome_pending_until"] is None
 
 
 # ---------------------------------------------------------------- indicators
@@ -863,6 +897,84 @@ def test_export_trades_and_decisions_csv(
     lines = decisions.strip().splitlines()
     assert lines[0].startswith("id,cycle,at,")
     assert len(lines) == 2 and "d-buy" in lines[1]
+
+
+@pytest.mark.parametrize("prefix", ["=", "+", "-", "@"])
+def test_decisions_csv_sanitizes_formula_prefixes(
+    screens_client: tuple[TestClient, SimMarket], prefix: str
+) -> None:
+    """Text cells that would run as a spreadsheet formula get a leading '."""
+    client, _ = screens_client
+    account_id = _account_id(client)
+    session = _db(client)
+    try:
+        row = _add_decision(session, "d-inj", _closed_hour() - 50 * HOUR, account_id=account_id)
+        row.reasoning = f"{prefix}SUM(A1:A2)+cmd()"
+        row.invalidation = f"{prefix}invalid"
+        row.error = f"{prefix}bad"
+        session.commit()
+    finally:
+        session.close()
+
+    body = list(csv.reader(io.StringIO(client.get("/api/export/decisions.csv").text)))
+    header, data = body[0], next(r for r in body[1:] if r[0] == "d-inj")
+    for field in ("reasoning", "invalidation", "error"):
+        assert data[header.index(field)].startswith(f"'{prefix}")
+
+
+def test_csv_exports_keep_negative_numbers_numeric(
+    screens_client: tuple[TestClient, SimMarket],
+) -> None:
+    """A losing trade's negative P&L stays a plain number, not text."""
+    client, _ = screens_client
+    account_id = _account_id(client)
+    session = _db(client)
+    try:
+        _add_trade(
+            session,
+            account_id=account_id,
+            opened=_closed_hour() - 30 * HOUR,
+            closed=_closed_hour() - 20 * HOUR,
+            realised="-3",
+            realised_r="-0.6",
+        )
+    finally:
+        session.close()
+
+    body = list(csv.reader(io.StringIO(client.get("/api/export/trades.csv").text)))
+    header, data = body[0], body[1]
+    assert data[header.index("realised_eur")] == "-3"
+    assert data[header.index("realised_r")] == "-0.6"
+
+
+def test_decisions_csv_uses_one_outcome_query(
+    screens_client: tuple[TestClient, SimMarket],
+) -> None:
+    """Outcomes load in one grouped query — not one query per decision."""
+    client, _ = screens_client
+    account_id = _account_id(client)
+    session = _db(client)
+    try:
+        for i in range(3):
+            _add_decision(
+                session, f"d-{i}", _closed_hour() - (50 + i) * HOUR, account_id=account_id
+            )
+        engine = session.get_bind()
+    finally:
+        session.close()
+
+    outcome_queries: list[str] = []
+
+    def count(conn: object, cursor: object, statement: str, *_args: object, **_kw: object) -> None:
+        if "FROM outcomes" in statement:
+            outcome_queries.append(statement)
+
+    event.listen(engine, "before_cursor_execute", count)
+    try:
+        client.get("/api/export/decisions.csv")
+    finally:
+        event.remove(engine, "before_cursor_execute", count)
+    assert len(outcome_queries) == 1
 
 
 # ------------------------------------------------------------------ snapshot

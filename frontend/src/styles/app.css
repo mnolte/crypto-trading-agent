@@ -1409,6 +1409,20 @@ input[type="checkbox"].check {
 }
 
 /* Activity feed. */
+.approval-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.approval-card { border-color: var(--accent); }
+.approval-card__head, .approval-actions { display: flex; align-items: center; gap: var(--space-2); }
+.approval-card__head { justify-content: space-between; }
+.approval-actions > * { flex: 1; }
+.approval-progress { height: 6px; overflow: hidden; border-radius: 3px; background: var(--line); }
+.approval-progress > span { display: block; height: 100%; background: var(--accent); }
+.approval-note { grid-column: 1 / -1; margin: 0; }
+
 .activity {
   list-style: none;
   margin: 0;
@@ -1645,6 +1659,10 @@ input[type="checkbox"].check {
 }
 
 /* ----------------------------------------------------- LLM inspector page -- */
+
+.scorecard-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+.scorecard-tile { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-control); color: var(--text-soft); }
+.scorecard-tile strong { color: var(--text); }
 
 .inspector {
   display: flex;

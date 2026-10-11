@@ -3,17 +3,81 @@ secrets (never returned, only "set" + last4) and the markets list."""
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
+from typing import cast
 
 import httpx
 import keyring
 import pytest
 import respx
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
+import app.main
+from app import repo
+from app.api.deps import AppState
 from app.config import get_env
-from app.db import MarketRow, make_engine, make_session_factory
+from app.db import ErrorRow, MarketRow, make_engine, make_session_factory, utcnow
 from app.repo import load_settings
+from app.sources import SourceRegistry
+
+
+def test_source_failure_threshold_and_recovery_callbacks() -> None:
+    registry = SourceRegistry()
+    failures: list[tuple[str, str]] = []
+    recovered: list[str] = []
+    registry.on_failure_threshold = lambda source_id, error: failures.append((source_id, error))
+    registry.on_recovered = recovered.append
+
+    for _ in range(4):
+        registry.record("bitvavo", RuntimeError("offline"))
+    assert failures == [("bitvavo", "offline")]
+    registry.record("bitvavo", None)
+    assert recovered == ["bitvavo"]
+
+
+def test_source_recovery_requires_a_continuous_hour(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Recover at 10:00, fail at 10:30, recover at 10:50: the 10:00 timer
+    must not resolve the error at 11:00 — only the latest generation can,
+    and never while the source is failing again."""
+    monkeypatch.setattr(app.main, "SOURCE_RECOVERY_RESOLVE_S", 0)
+    state = cast(AppState, cast(FastAPI, client.app).state.app_state)
+    session = state.session_factory()
+    try:
+        repo.add_activity(session, "error", "data source failing: bitvavo", at=utcnow())
+        session.commit()
+    finally:
+        session.close()
+
+    def unresolved() -> bool:
+        s = state.session_factory()
+        try:
+            row = s.scalars(
+                select(ErrorRow).where(ErrorRow.text == "data source failing: bitvavo")
+            ).one()
+            return row.resolved_at is None
+        finally:
+            s.close()
+
+    # Generation 3 is the latest recovery; a stale timer must not resolve.
+    generations = {"bitvavo": 3}
+    asyncio.run(app.main._resolve_source_error_after_recovery(state, "bitvavo", 1, generations))
+    assert unresolved()
+
+    # Nor may the latest timer resolve while the source is failing again.
+    state.sources.record("bitvavo", RuntimeError("still down"))
+    asyncio.run(app.main._resolve_source_error_after_recovery(state, "bitvavo", 3, generations))
+    assert unresolved()
+
+    # Recovery without going through the callback (which would need a loop):
+    # the current-generation timer now resolves the error.
+    state.sources.status("bitvavo").runtime.failures = 0
+    asyncio.run(app.main._resolve_source_error_after_recovery(state, "bitvavo", 3, generations))
+    assert not unresolved()
 
 
 def _token(client: TestClient) -> str:

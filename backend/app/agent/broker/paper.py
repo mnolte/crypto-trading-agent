@@ -9,6 +9,7 @@ tables; the engine passes it a session and controls commit batching.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -43,6 +44,15 @@ class HeldPosition:
     invalidation_price: Decimal | None = None
     highest_close: Decimal | None = None  # highest 1h close since entry
     r_unit: Decimal = Decimal("0")  # entry - stop at fill (the R for exits)
+    initial_stop: Decimal | None = None
+
+    def __post_init__(self) -> None:
+        if self.initial_stop is None:
+            self.initial_stop = self.entry - self.r_unit if self.r_unit > 0 else self.stop
+
+    @property
+    def original_stop(self) -> Decimal:
+        return self.initial_stop if self.initial_stop is not None else self.stop
 
     @property
     def notional(self) -> Decimal:
@@ -71,6 +81,16 @@ class HeldPosition:
         )
 
 
+@dataclass
+class BrokerState:
+    cash: Decimal
+    peak_equity: Decimal
+    day_start_equity: Decimal
+    day_start_date: date
+    positions: dict[str, HeldPosition]
+    account_values: dict[str, str | datetime | None]
+
+
 class PaperBroker:
     """The paper account bound to one ``accounts`` row."""
 
@@ -93,6 +113,35 @@ class PaperBroker:
         )
         self.positions: dict[str, HeldPosition] = {}
 
+    def capture_state(self) -> BrokerState:
+        account_fields = (
+            "cash",
+            "peak_equity",
+            "day_start_equity",
+            "day_start_date",
+            "kill_at",
+            "kill_peak",
+            "kill_equity",
+            "kill_closed",
+        )
+        return BrokerState(
+            cash=self.cash,
+            peak_equity=self.peak_equity,
+            day_start_equity=self.day_start_equity,
+            day_start_date=self._day_start_date,
+            positions=deepcopy(self.positions),
+            account_values={name: getattr(self.account, name) for name in account_fields},
+        )
+
+    def restore_state(self, state: BrokerState) -> None:
+        self.cash = state.cash
+        self.peak_equity = state.peak_equity
+        self.day_start_equity = state.day_start_equity
+        self._day_start_date = state.day_start_date
+        self.positions = state.positions
+        for name, value in state.account_values.items():
+            setattr(self.account, name, value)
+
     # ------------------------------------------------------------------ load
 
     def load_positions(self, session: Session) -> None:
@@ -104,6 +153,11 @@ class PaperBroker:
                 qty=Decimal(row.qty),
                 entry=Decimal(row.entry),
                 stop=Decimal(row.stop),
+                initial_stop=(
+                    Decimal(row.initial_stop)
+                    if Decimal(row.initial_stop) != 0
+                    else Decimal(row.entry) - Decimal(row.r_unit)
+                ),
                 target=Decimal(row.target),
                 opened_at=aware_utc(row.opened_at),
                 decision_id=row.decision_id,
@@ -210,6 +264,7 @@ class PaperBroker:
             qty=qty,
             entry=fill,
             stop=stop,
+            initial_stop=stop,
             target=target,
             opened_at=now,
             decision_id=decision_id,
@@ -226,6 +281,7 @@ class PaperBroker:
             invalidation_price,
             pos.highest_close,
             pos.r_unit,
+            pos.original_stop,
         )
         return pos
 
@@ -248,7 +304,7 @@ class PaperBroker:
         sell_fee = pos.qty * fill * self.fee_pct / HUNDRED
         self.cash += pos.qty * fill - sell_fee
         realised = pos.qty * (fill - pos.entry) - buy_fee - sell_fee
-        risk = pos.qty * (pos.entry - pos.stop)
+        risk = pos.qty * pos.r_unit
         realised_r = realised / risk if risk > 0 else Decimal("0")
         delete_position_row(session, pair, self.account_id)
         trade = add_trade(
@@ -264,6 +320,8 @@ class PaperBroker:
                 fee_eur=str(buy_fee + sell_fee),
                 realised_eur=str(realised),
                 realised_r=str(realised_r),
+                initial_stop=str(pos.original_stop),
+                r_unit=str(pos.r_unit),
                 exit_reason=reason,
                 decision_id=pos.decision_id,
             ),

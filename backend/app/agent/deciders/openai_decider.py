@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import math
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -439,6 +439,7 @@ class OpenAIDecider:
         client_factory: Callable[[str], OpenAIResponsesClient] = OpenAIResponsesClient,
         prices: budget.ModelPrices | None = None,
         rules: RulesDecider | None = None,
+        notify: Callable[[str, str, str], Awaitable[None]] | None = None,
     ) -> None:
         self._sessions = session_factory
         self.client = market_client
@@ -449,7 +450,9 @@ class OpenAIDecider:
         self._client_factory = client_factory
         self._prices = prices or budget.ModelPrices()
         self.rules = rules or RulesDecider()
+        self._notify = notify
         self._alerted: set[str] = set()
+        self._model_failures = 0
 
     async def decide(self, ctx: DecideContext) -> Draft:
         settings = ctx.settings or Settings()
@@ -467,7 +470,7 @@ class OpenAIDecider:
 
             used = budget.calls_today(session, account_id, now)
             if used >= settings.model.daily_call_budget:
-                self._alert_once(
+                await self._alert_once(
                     session,
                     now,
                     "budget",
@@ -479,7 +482,7 @@ class OpenAIDecider:
             spent = budget.month_spend_eur(session, account_id, now)
             cap = budget.cap_state(spent, settings.model.monthly_cost_cap_eur)
             if cap == "cap":
-                self._alert_once(
+                await self._alert_once(
                     session,
                     now,
                     "cap",
@@ -489,7 +492,7 @@ class OpenAIDecider:
                 )
                 return rules_draft
             if cap == "warn":
-                self._alert_once(
+                await self._alert_once(
                     session,
                     now,
                     "cap80",
@@ -590,6 +593,7 @@ class OpenAIDecider:
             row.cost_eur = str(eur) if eur is not None else None
 
             if result.status != "ok":
+                await self._track_model_result(result.status, result.error or result.status)
                 repo.add_llm_call(session, row)
                 repo.add_activity(
                     session,
@@ -611,6 +615,7 @@ class OpenAIDecider:
             out, parse_error = parse_model_output(result.output_text)
             if out is None:
                 row.status = "invalid_output"
+            await self._track_model_result(row.status, parse_error or row.status)
             verdict = check_output(out, parse_error, brief, meta, rules_draft.action, settings)
             row.output_checks = _checks_json(verdict.checks)
             repo.add_llm_call(session, row)
@@ -775,7 +780,7 @@ class OpenAIDecider:
         ratio = float(vol24 / avg) if vol24 is not None and avg else None
         return {"spread_pct": spread, "depth_eur": depth, "vol24h_vs_30d": ratio}
 
-    def _alert_once(self, session: Session, now: datetime, kind: str, text: str) -> None:
+    async def _alert_once(self, session: Session, now: datetime, kind: str, text: str) -> None:
         """Budget alerts fire once per period: daily budget once a day,
         monthly-cap alerts once a month (Amsterdam clock)."""
         ams = now.astimezone(AMSTERDAM)
@@ -786,3 +791,17 @@ class OpenAIDecider:
         self._alerted.add(key)
         repo.add_activity(session, "alert", text, at=now)
         session.commit()
+        if self._notify is not None:
+            await self._notify("model_failing", "Model limit reached", text)
+
+    async def _track_model_result(self, status: str, detail: str) -> None:
+        if status == "ok":
+            self._model_failures = 0
+            return
+        self._model_failures += 1
+        if self._model_failures == 3 and self._notify is not None:
+            await self._notify(
+                "model_failing",
+                "Model failing",
+                f"3 model calls failed in a row; latest: {detail}",
+            )

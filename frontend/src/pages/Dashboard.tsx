@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { UTCTimestamp } from "lightweight-charts";
 import type { ActivityItem, Decision, Position, Snapshot, Tf } from "../api/client";
 import {
   useCandles,
   useDecisions,
   useNow,
+  usePendingAction,
   useSettings,
   useSnapshot,
   useSources,
@@ -45,6 +46,7 @@ export function Dashboard() {
   const { data: settings } = useSettings();
   const { data: sources } = useSources();
   const now = useNow();
+  const [searchParams] = useSearchParams();
 
   const [pair, setPair] = useState<string | null>(null);
   const [tf, setTf] = useState<Tf>("1h");
@@ -192,9 +194,22 @@ export function Dashboard() {
         />
       </div>
 
+      {(snapshot?.pending.length ?? 0) > 0 && (
+        <PendingApprovals
+          decisions={snapshot?.pending ?? []}
+          mode={settings?.execution_mode ?? "auto"}
+          vetoWindowSeconds={settings?.veto_window_s ?? 60}
+          now={now}
+          onOpen={setDecisionId}
+        />
+      )}
+
       <div className="row">
         <PositionsCard positions={snapshot?.positions ?? []} />
-        <ActivityCard activity={snapshot?.activity ?? []} />
+        <ActivityCard
+          activity={snapshot?.activity ?? []}
+          errorsOnly={searchParams.get("activity") === "errors"}
+        />
       </div>
 
       {decisionId && (
@@ -377,6 +392,72 @@ function LatestDecision({
   );
 }
 
+function PendingApprovals({
+  decisions,
+  mode,
+  vetoWindowSeconds,
+  now,
+  onOpen,
+}: {
+  decisions: Decision[];
+  mode: "auto" | "supervised" | "manual";
+  vetoWindowSeconds: number;
+  now: number;
+  onOpen: (id: string) => void;
+}) {
+  const approve = usePendingAction("approve");
+  const veto = usePendingAction("veto");
+  return (
+    <section aria-label="Pending approval" className="approval-grid">
+      {decisions.map((decision, index) => {
+        const seconds = decision.execute_at
+          ? Math.max(0, (new Date(decision.execute_at).getTime() - now) / 1000)
+          : null;
+        return (
+          <Card key={decision.id} className="approval-card">
+            <div className="approval-card__head">
+              <span className="card__title">
+                Waiting for you{decisions.length > 1 ? ` · ${index + 1} of ${decisions.length}` : ""}
+              </span>
+              <span className="num" style={{ color: "var(--accent)" }}>
+                {mode === "supervised" && seconds !== null
+                  ? `executes in ${formatCountdown(seconds)}`
+                  : "manual approval"}
+              </span>
+            </div>
+            <div className="decision-line">
+              <ActionBadge action="BUY" />
+              <span className="num">
+                {decision.pair} {decision.plan ? `${formatQty(decision.plan.qty)} ≈ ${formatEur(decision.plan.notional)} · R/R ${formatQty(decision.plan.rr)}` : ""}
+              </span>
+            </div>
+            {mode === "supervised" && seconds !== null && (
+              <div className="approval-progress">
+                <span
+                  style={{
+                    width: `${Math.max(
+                      0,
+                      Math.min(100, 100 * (1 - seconds / Math.max(1, vetoWindowSeconds))),
+                    )}%`,
+                  }}
+                />
+              </div>
+            )}
+            <div className="approval-actions">
+              <Button variant="danger-outline" disabled={veto.isPending} onClick={() => veto.mutate(decision.id)}>Veto</Button>
+              <Button variant="secondary" onClick={() => onOpen(decision.id)}>Details</Button>
+              <Button variant="primary" disabled={approve.isPending} onClick={() => approve.mutate(decision.id)}>Approve now</Button>
+            </div>
+          </Card>
+        );
+      })}
+      <p className="card__meta approval-note">
+        Each trade has its own timer. Risk / reward, size and every gate are checked again at fill.
+      </p>
+    </section>
+  );
+}
+
 function PositionsCard({ positions }: { positions: Position[] }) {
   const now = useNow(30_000);
   return (
@@ -435,17 +516,25 @@ const ACTIVITY_TONE: Record<string, "up" | "down" | "amber" | "neutral"> = {
   kill: "down",
 };
 
-function ActivityCard({ activity }: { activity: ActivityItem[] }) {
+function ActivityCard({
+  activity,
+  errorsOnly,
+}: {
+  activity: ActivityItem[];
+  errorsOnly: boolean;
+}) {
+  const items = errorsOnly ? activity.filter((item) => item.kind === "error") : activity;
   return (
     <Card
       className="row__side"
       title="Activity"
       label="Activity"
-      actions={<span className="card__meta">all pairs</span>}
+      actions={<span className="card__meta">{errorsOnly ? "errors · 24h" : "all pairs"}</span>}
     >
-      {activity.length > 0 ? (
+      <span id="activity" style={{ position: "absolute", marginTop: -80 }} />
+      {items.length > 0 ? (
         <ol className="activity">
-          {activity.slice(0, 20).map((item, i) => (
+          {items.slice(0, 20).map((item, i) => (
             <li key={`${item.at}-${i}`} className="activity__row">
               <span className="activity__time num">{formatTime(item.at)}</span>
               <Chip variant={ACTIVITY_TONE[item.kind] ?? "neutral"}>

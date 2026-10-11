@@ -18,9 +18,12 @@ from app.db import (
     CandleRow,
     DecisionRow,
     EquitySnapshotRow,
+    ErrorRow,
     ExitTickRow,
     LlmCallRow,
     MarketRow,
+    OutcomeFailureRow,
+    OutcomeRow,
     PositionRow,
     SettingsRow,
     TradeRow,
@@ -242,6 +245,7 @@ def save_position_row(
     invalidation_price: Decimal | None,
     highest_close: Decimal | None,
     r_unit: Decimal,
+    initial_stop: Decimal,
 ) -> None:
     """Persist the current account's open position.
 
@@ -264,6 +268,7 @@ def save_position_row(
             qty="0",
             entry="0",
             stop="0",
+            initial_stop=str(initial_stop),
             target="0",
             opened_at=pos.opened_at,
             decision_id=pos.decision_id,
@@ -592,6 +597,12 @@ def list_llm_calls(
         conds.append(LlmCallRow.output_checks.not_like('%"status": "fail"%'))
     elif outcome == "rejected":
         conds.append(LlmCallRow.output_checks.like('%"status": "fail"%'))
+    elif outcome is not None:
+        conds.append(
+            LlmCallRow.decision_id.in_(
+                select(OutcomeRow.decision_id).where(OutcomeRow.label == outcome)
+            )
+        )
     if before is not None:
         conds.append(LlmCallRow.at < _utc_naive(before))
     return list(
@@ -721,7 +732,64 @@ def add_activity(
         decision_id=decision_id,
     )
     session.add(row)
+    if kind == "error":
+        when = at or utcnow()
+        existing = session.scalar(
+            select(ErrorRow).where(
+                ErrorRow.resolved_at.is_(None),
+                ErrorRow.pair == pair,
+                ErrorRow.text == text,
+            )
+        )
+        if existing is None:
+            session.add(
+                ErrorRow(
+                    first_at=when,
+                    last_at=when,
+                    pair=pair,
+                    text=text,
+                    affected_decision_or_fill=decision_id is not None,
+                    resolved_at=None,
+                    resolution_note=None,
+                )
+            )
+        else:
+            existing.last_at = when
+            existing.affected_decision_or_fill = (
+                existing.affected_decision_or_fill or decision_id is not None
+            )
     return row
+
+
+def error_count_since(session: Session, since: datetime) -> int:
+    return int(
+        session.scalar(
+            select(func.count())
+            .select_from(ErrorRow)
+            .where(ErrorRow.resolved_at.is_(None), ErrorRow.last_at >= _utc_naive(since))
+        )
+        or 0
+    )
+
+
+def unresolved_error_count(session: Session) -> int:
+    return int(
+        session.scalar(
+            select(func.count()).select_from(ErrorRow).where(ErrorRow.resolved_at.is_(None))
+        )
+        or 0
+    )
+
+
+def resolve_matching_errors(session: Session, text: str, note: str) -> int:
+    rows = session.scalars(
+        select(ErrorRow).where(ErrorRow.resolved_at.is_(None), ErrorRow.text == text)
+    ).all()
+    now = utcnow()
+    for row in rows:
+        row.resolved_at = now
+        row.resolution_note = note
+    return len(rows)
 
 
 def recent_activity(session: Session, limit: int = 100) -> list[ActivityRow]:
@@ -776,6 +844,9 @@ def delete_all_data(session: Session) -> None:
         AccountRow,
         PositionRow,
         TradeRow,
+        OutcomeRow,
+        OutcomeFailureRow,
+        ErrorRow,
         DecisionRow,
         ActivityRow,
         EquitySnapshotRow,

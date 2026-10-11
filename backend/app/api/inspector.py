@@ -18,6 +18,7 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import repo
@@ -28,7 +29,7 @@ from app.agent.openai_client import OpenAIResponsesClient
 from app.agent.prompts import PromptNotFoundError, load_prompt
 from app.api.deps import AppState, get_state, require_token
 from app.config import get_secret
-from app.db import AMSTERDAM, LlmCallRow, utcnow
+from app.db import AMSTERDAM, DecisionRow, LlmCallRow, OutcomeRow, utcnow
 from app.models import (
     CheckOut,
     CostsOut,
@@ -38,6 +39,8 @@ from app.models import (
     LlmCallListOut,
     LlmCallReplayIn,
     LlmCallVerdictIn,
+    OutcomeScorecardOut,
+    OutcomeScorecardRow,
     Regime,
     ReplayInfo,
 )
@@ -219,7 +222,7 @@ def list_calls(
     status: str | None = None,
     issues: bool = False,
     verdict: Literal["correct", "wrong", "unreviewed"] | None = None,
-    outcome: Literal["accepted", "rejected"] | None = None,
+    outcome: str | None = None,
     skipped: bool = True,
     before: datetime | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
@@ -266,10 +269,9 @@ def list_calls(
 def export_calls(
     request: Request,
     verdict: Literal["correct", "wrong", "unreviewed"] | None = None,
-    outcome: Literal["accepted", "rejected"] | None = None,
+    outcome: str | None = None,
 ) -> Response:
-    """Labelled calls as JSONL — verdict, the brief and the parsed output.
-    ``outcome`` is null until the outcome worker lands in a later PR."""
+    """Labelled calls as JSONL with their computed forward outcomes."""
     state = get_state(request)
     session = _session(state)
     try:
@@ -288,6 +290,15 @@ def export_calls(
         lines = []
         for row in rows:
             _, brief, _ = _request_parts(row)
+            outcomes = (
+                session.scalars(
+                    select(OutcomeRow)
+                    .where(OutcomeRow.decision_id == row.decision_id)
+                    .order_by(OutcomeRow.horizon)
+                ).all()
+                if row.decision_id
+                else []
+            )
             lines.append(
                 json.dumps(
                     {
@@ -299,7 +310,15 @@ def export_calls(
                         "feature": row.feature,
                         "verdict": row.verdict,
                         "verdict_note": row.verdict_note,
-                        "outcome": None,
+                        "outcome": [
+                            {
+                                "horizon": item.horizon,
+                                "label": item.label,
+                                "forward_return_pct": item.forward_return_pct,
+                                "first_touch": item.first_touch,
+                            }
+                            for item in outcomes
+                        ],
                         "brief": json.loads(brief) if brief else None,
                         "parsed": json.loads(row.parsed) if row.parsed else None,
                     }
@@ -522,6 +541,50 @@ def set_verdict(request: Request, call_id: str, body: LlmCallVerdictIn) -> LlmCa
 
 
 # --------------------------------------------------------------------- cost
+
+
+@router.get("/api/outcomes/scorecard", response_model=OutcomeScorecardOut)
+def outcome_scorecard(request: Request) -> OutcomeScorecardOut:
+    state = get_state(request)
+    session = _session(state)
+    try:
+        rows = session.execute(
+            select(DecisionRow, OutcomeRow)
+            .join(OutcomeRow, OutcomeRow.decision_id == DecisionRow.id)
+            .where(
+                DecisionRow.account_id == state.account_id,
+                OutcomeRow.horizon == 72,
+            )
+        ).all()
+        grouped: dict[tuple[str, str | None, str | None], list[tuple[DecisionRow, OutcomeRow]]] = {}
+        for decision, outcome in rows:
+            grouped.setdefault(
+                (decision.decider, decision.model, decision.prompt_version), []
+            ).append((decision, outcome))
+        items: list[OutcomeScorecardRow] = []
+        for (decider, model, prompt), values in grouped.items():
+            buys = [outcome for decision, outcome in values if decision.action == "BUY"]
+            wins = sum(outcome.label == "win" for outcome in buys)
+            realised = [
+                Decimal(outcome.realised_r)
+                for _, outcome in values
+                if outcome.realised_r is not None
+            ]
+            items.append(
+                OutcomeScorecardRow(
+                    decider=decider,
+                    model=model,
+                    prompt_version=prompt,
+                    decisions=len(values),
+                    buy_win_rate_pct=(wins / len(buys) * 100 if buys else None),
+                    average_r=(float(sum(realised) / len(realised)) if realised else None),
+                    missed=sum(outcome.label == "missed" for _, outcome in values),
+                    avoided=sum(outcome.label == "avoided" for _, outcome in values),
+                )
+            )
+        return OutcomeScorecardOut(items=items)
+    finally:
+        session.close()
 
 
 @router.get("/api/costs", response_model=CostsOut)

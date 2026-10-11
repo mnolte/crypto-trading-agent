@@ -30,6 +30,10 @@ test.beforeAll(async ({ request }) => {
     await request.post("/api/agent/acknowledge-kill", { headers });
   }
 
+  const settingsResponse = await request.get("/api/settings");
+  const settings = (await settingsResponse.json()) as Record<string, unknown>;
+  settings.execution_mode = "manual";
+  await request.put("/api/settings", { headers, data: settings });
   await request.post("/api/agent/run-now", { headers });
 
   // Wait for the cycle to finish (candles fetched + decisions written).
