@@ -2,6 +2,12 @@
 
 Newest first. Each entry names the sections it touches.
 
+## 2026-10-11 — SELL outcome: definition of 1R
+
+- Outcome tracking → Labels: for a SELL, 1R is the position's original risk per unit
+  (entry fill price minus the stop set at entry), not the stop at exit time. "After
+  24h" is the close of the last closed 1h candle at exit + 24h vs the exit fill price.
+
 ## 2026-10-11 — ADX wording
 
 - Indicator definitions → Reads: "ADX above 25" is now "ADX at 25 or more (≥ 25)",

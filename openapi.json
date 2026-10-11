@@ -596,6 +596,26 @@
             ],
             "title": "Next Id"
           },
+          "outcome_pending_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Pending Until"
+          },
+          "outcomes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/OutcomeOut"
+            },
+            "title": "Outcomes",
+            "type": "array"
+          },
           "prev_id": {
             "anyOf": [
               {
@@ -729,6 +749,78 @@
           "equity"
         ],
         "title": "EquityPoint",
+        "type": "object"
+      },
+      "ErrorOut": {
+        "properties": {
+          "affected_decision_or_fill": {
+            "title": "Affected Decision Or Fill",
+            "type": "boolean"
+          },
+          "first_at": {
+            "format": "date-time",
+            "title": "First At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_at": {
+            "format": "date-time",
+            "title": "Last At",
+            "type": "string"
+          },
+          "pair": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pair"
+          },
+          "resolution_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Note"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "first_at",
+          "last_at",
+          "pair",
+          "text",
+          "affected_decision_or_fill",
+          "resolved_at",
+          "resolution_note"
+        ],
+        "title": "ErrorOut",
         "type": "object"
       },
       "FlattenPreview": {
@@ -2200,6 +2292,304 @@
         "title": "ModelSettings",
         "type": "object"
       },
+      "NotificationEventSettings": {
+        "properties": {
+          "browser": {
+            "title": "Browser",
+            "type": "boolean"
+          },
+          "email": {
+            "title": "Email",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "browser",
+          "email"
+        ],
+        "title": "NotificationEventSettings",
+        "type": "object"
+      },
+      "NotificationSettings": {
+        "properties": {
+          "browser_enabled": {
+            "default": false,
+            "title": "Browser Enabled",
+            "type": "boolean"
+          },
+          "email_enabled": {
+            "default": false,
+            "title": "Email Enabled",
+            "type": "boolean"
+          },
+          "events": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/NotificationEventSettings"
+            },
+            "default": {
+              "daily_loss": {
+                "browser": true,
+                "email": true
+              },
+              "kill_switch": {
+                "browser": true,
+                "email": true
+              },
+              "model_failing": {
+                "browser": true,
+                "email": true
+              },
+              "pair_stale": {
+                "browser": true,
+                "email": false
+              },
+              "review": {
+                "browser": false,
+                "email": true
+              },
+              "risk_control": {
+                "browser": true,
+                "email": false
+              },
+              "source_failing": {
+                "browser": true,
+                "email": false
+              },
+              "trade": {
+                "browser": false,
+                "email": false
+              }
+            },
+            "title": "Events",
+            "type": "object"
+          },
+          "smtp": {
+            "$ref": "#/components/schemas/SmtpSettings",
+            "default": {
+              "host": "",
+              "port": 587,
+              "recipient": "",
+              "sender": "",
+              "tls": true,
+              "username": ""
+            }
+          }
+        },
+        "title": "NotificationSettings",
+        "type": "object"
+      },
+      "OutcomeOut": {
+        "properties": {
+          "best_move_pct": {
+            "title": "Best Move Pct",
+            "type": "string"
+          },
+          "best_move_r": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Move R"
+          },
+          "computed_at": {
+            "format": "date-time",
+            "title": "Computed At",
+            "type": "string"
+          },
+          "first_touch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Touch"
+          },
+          "forward_return_pct": {
+            "title": "Forward Return Pct",
+            "type": "string"
+          },
+          "horizon": {
+            "title": "Horizon",
+            "type": "integer"
+          },
+          "invalidated": {
+            "title": "Invalidated",
+            "type": "boolean"
+          },
+          "invalidation_followup_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invalidation Followup Pct"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "method_version": {
+            "title": "Method Version",
+            "type": "string"
+          },
+          "realised_r": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realised R"
+          },
+          "reference_at": {
+            "format": "date-time",
+            "title": "Reference At",
+            "type": "string"
+          },
+          "reference_price": {
+            "title": "Reference Price",
+            "type": "string"
+          },
+          "worst_move_pct": {
+            "title": "Worst Move Pct",
+            "type": "string"
+          },
+          "worst_move_r": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worst Move R"
+          }
+        },
+        "required": [
+          "horizon",
+          "reference_at",
+          "reference_price",
+          "forward_return_pct",
+          "best_move_pct",
+          "worst_move_pct",
+          "best_move_r",
+          "worst_move_r",
+          "first_touch",
+          "invalidated",
+          "invalidation_followup_pct",
+          "label",
+          "realised_r",
+          "computed_at",
+          "method_version"
+        ],
+        "title": "OutcomeOut",
+        "type": "object"
+      },
+      "OutcomeScorecardOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OutcomeScorecardRow"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "OutcomeScorecardOut",
+        "type": "object"
+      },
+      "OutcomeScorecardRow": {
+        "properties": {
+          "average_r": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average R"
+          },
+          "avoided": {
+            "title": "Avoided",
+            "type": "integer"
+          },
+          "buy_win_rate_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buy Win Rate Pct"
+          },
+          "decider": {
+            "title": "Decider",
+            "type": "string"
+          },
+          "decisions": {
+            "title": "Decisions",
+            "type": "integer"
+          },
+          "missed": {
+            "title": "Missed",
+            "type": "integer"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "prompt_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Version"
+          }
+        },
+        "required": [
+          "decider",
+          "model",
+          "prompt_version",
+          "decisions",
+          "buy_win_rate_pct",
+          "average_r",
+          "missed",
+          "avoided"
+        ],
+        "title": "OutcomeScorecardRow",
+        "type": "object"
+      },
       "PaperSettings-Input": {
         "properties": {
           "fee_pct": {
@@ -2742,6 +3132,19 @@
           "differs"
         ],
         "title": "ReplayInfo",
+        "type": "object"
+      },
+      "ResolveErrorIn": {
+        "properties": {
+          "note": {
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "title": "ResolveErrorIn",
         "type": "object"
       },
       "RiskBudget": {
@@ -3487,6 +3890,55 @@
               "rules_prefilter": true
             }
           },
+          "notifications": {
+            "$ref": "#/components/schemas/NotificationSettings",
+            "default": {
+              "browser_enabled": false,
+              "email_enabled": false,
+              "events": {
+                "daily_loss": {
+                  "browser": true,
+                  "email": true
+                },
+                "kill_switch": {
+                  "browser": true,
+                  "email": true
+                },
+                "model_failing": {
+                  "browser": true,
+                  "email": true
+                },
+                "pair_stale": {
+                  "browser": true,
+                  "email": false
+                },
+                "review": {
+                  "browser": false,
+                  "email": true
+                },
+                "risk_control": {
+                  "browser": true,
+                  "email": false
+                },
+                "source_failing": {
+                  "browser": true,
+                  "email": false
+                },
+                "trade": {
+                  "browser": false,
+                  "email": false
+                }
+              },
+              "smtp": {
+                "host": "",
+                "port": 587,
+                "recipient": "",
+                "sender": "",
+                "tls": true,
+                "username": ""
+              }
+            }
+          },
           "paper": {
             "$ref": "#/components/schemas/PaperSettings-Input",
             "default": {
@@ -3642,6 +4094,55 @@
               "rules_prefilter": true
             }
           },
+          "notifications": {
+            "$ref": "#/components/schemas/NotificationSettings",
+            "default": {
+              "browser_enabled": false,
+              "email_enabled": false,
+              "events": {
+                "daily_loss": {
+                  "browser": true,
+                  "email": true
+                },
+                "kill_switch": {
+                  "browser": true,
+                  "email": true
+                },
+                "model_failing": {
+                  "browser": true,
+                  "email": true
+                },
+                "pair_stale": {
+                  "browser": true,
+                  "email": false
+                },
+                "review": {
+                  "browser": false,
+                  "email": true
+                },
+                "risk_control": {
+                  "browser": true,
+                  "email": false
+                },
+                "source_failing": {
+                  "browser": true,
+                  "email": false
+                },
+                "trade": {
+                  "browser": false,
+                  "email": false
+                }
+              },
+              "smtp": {
+                "host": "",
+                "port": 587,
+                "recipient": "",
+                "sender": "",
+                "tls": true,
+                "username": ""
+              }
+            }
+          },
           "paper": {
             "$ref": "#/components/schemas/PaperSettings-Output",
             "default": {
@@ -3740,6 +4241,55 @@
           "read"
         ],
         "title": "Signal",
+        "type": "object"
+      },
+      "SmtpPasswordIn": {
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "SmtpPasswordIn",
+        "type": "object"
+      },
+      "SmtpSettings": {
+        "properties": {
+          "host": {
+            "default": "",
+            "title": "Host",
+            "type": "string"
+          },
+          "port": {
+            "default": 587,
+            "title": "Port",
+            "type": "integer"
+          },
+          "recipient": {
+            "default": "",
+            "title": "Recipient",
+            "type": "string"
+          },
+          "sender": {
+            "default": "",
+            "title": "Sender",
+            "type": "string"
+          },
+          "tls": {
+            "default": true,
+            "title": "Tls",
+            "type": "boolean"
+          },
+          "username": {
+            "default": "",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "title": "SmtpSettings",
         "type": "object"
       },
       "Snapshot": {
@@ -5036,6 +5586,225 @@
         "summary": "Get Decision"
       }
     },
+    "/api/decisions/{decision_id}/approve": {
+      "post": {
+        "operationId": "approve_decision_api_decisions__decision_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Decision"
+      }
+    },
+    "/api/decisions/{decision_id}/veto": {
+      "post": {
+        "operationId": "veto_decision_api_decisions__decision_id__veto_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Veto Decision"
+      }
+    },
+    "/api/errors": {
+      "get": {
+        "operationId": "errors_api_errors_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "resolved",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Resolved",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ErrorOut"
+                  },
+                  "title": "Response Errors Api Errors Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Errors"
+      }
+    },
+    "/api/errors/{error_id}/resolve": {
+      "put": {
+        "operationId": "resolve_error_api_errors__error_id__resolve_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "error_id",
+            "required": true,
+            "schema": {
+              "title": "Error Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveErrorIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Error"
+      }
+    },
     "/api/export/decisions.csv": {
       "get": {
         "description": "Every stored decision (all accounts), newest first.",
@@ -5395,10 +6164,6 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "accepted",
-                    "rejected"
-                  ],
                   "type": "string"
                 },
                 {
@@ -5475,7 +6240,7 @@
     },
     "/api/llm-calls/export.jsonl": {
       "get": {
-        "description": "Labelled calls as JSONL \u2014 verdict, the brief and the parsed output.\n``outcome`` is null until the outcome worker lands in a later PR.",
+        "description": "Labelled calls as JSONL with their computed forward outcomes.",
         "operationId": "export_calls_api_llm_calls_export_jsonl_get",
         "parameters": [
           {
@@ -5506,10 +6271,6 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "accepted",
-                    "rejected"
-                  ],
                   "type": "string"
                 },
                 {
@@ -5837,6 +6598,222 @@
           }
         },
         "summary": "Update Market"
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "operationId": "get_notifications_api_notifications_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Notifications"
+      },
+      "put": {
+        "operationId": "put_notifications_api_notifications_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Notifications"
+      }
+    },
+    "/api/notifications/smtp-password": {
+      "get": {
+        "operationId": "smtp_password_status_api_notifications_smtp_password_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Smtp Password Status Api Notifications Smtp Password Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Smtp Password Status"
+      },
+      "put": {
+        "operationId": "put_smtp_password_api_notifications_smtp_password_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmtpPasswordIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Smtp Password Api Notifications Smtp Password Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Smtp Password"
+      }
+    },
+    "/api/notifications/test": {
+      "post": {
+        "operationId": "test_notifications_api_notifications_test_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Test Notifications Api Notifications Test Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Notifications"
+      }
+    },
+    "/api/outcomes/scorecard": {
+      "get": {
+        "operationId": "outcome_scorecard_api_outcomes_scorecard_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutcomeScorecardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Outcome Scorecard"
       }
     },
     "/api/paper/reset": {

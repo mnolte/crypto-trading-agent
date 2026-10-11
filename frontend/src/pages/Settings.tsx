@@ -14,9 +14,11 @@ import {
   useResetPaper,
   useSaveSecret,
   useSaveSettings,
+  useSaveSmtpPassword,
   useSettings,
   useSnapshot,
   useSources,
+  useTestNotifications,
   useTestSecret,
   useUpdateMarket,
   useUpdateSource,
@@ -47,6 +49,17 @@ const FEATURE_LABEL: Record<string, string> = {
   replay: "Replays",
 };
 
+const NOTIFICATION_LABEL: Record<string, string> = {
+  kill_switch: "Kill switch fired",
+  daily_loss: "Daily loss limit reached",
+  pair_stale: "Pair stale for 2 cycles",
+  source_failing: "Data source failing",
+  model_failing: "Model failing or budget reached",
+  trade: "Trade opened or closed",
+  risk_control: "Shock brake or risk throttle",
+  review: "Morning briefing and weekly review",
+};
+
 export function Settings() {
   const { data } = useSettings();
   const { data: markets } = useMarkets();
@@ -62,11 +75,14 @@ export function Settings() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [smtpPassword, setSmtpPassword] = useState("");
 
   const save = useSaveSettings();
   const reset = useResetPaper();
   const deleteData = useDeleteData();
   const updateMarket = useUpdateMarket();
+  const testNotifications = useTestNotifications();
+  const saveSmtpPassword = useSaveSmtpPassword();
 
   useEffect(() => {
     if (data && original === null) {
@@ -91,6 +107,10 @@ export function Settings() {
     setDraft((d) => (d ? { ...d, model: { ...d.model, [key]: value } } : d));
   const setPaper = (key: string, value: unknown) =>
     setDraft((d) => (d ? { ...d, paper: { ...d.paper, [key]: value } } : d));
+  const setNotifications = (key: string, value: unknown) =>
+    setDraft((d) =>
+      d ? { ...d, notifications: { ...d.notifications, [key]: value } } : d,
+    );
 
   const setNumber = (value: string, apply: (parsed: number) => void) => {
     const parsed = parseNumberInput(value);
@@ -228,7 +248,6 @@ export function Settings() {
               label="Execution"
               htmlFor="exec-mode"
               className="field--grow"
-              hint="Supervised and manual need the approval flow, which arrives in a later step."
             >
               <Select
                 id="exec-mode"
@@ -238,20 +257,8 @@ export function Settings() {
                 }
               >
                 <option value="auto">Automatic</option>
-                <option
-                  value="supervised"
-                  disabled
-                  title="Approval flow arrives in a later build step"
-                >
-                  Supervised (veto window)
-                </option>
-                <option
-                  value="manual"
-                  disabled
-                  title="Approval flow arrives in a later build step"
-                >
-                  Manual approval
-                </option>
+                <option value="supervised">Supervised (veto window)</option>
+                <option value="manual">Manual approval</option>
               </Select>
             </FormField>
             <FormField
@@ -446,6 +453,86 @@ export function Settings() {
               Delete all data…
             </Button>
           </div>
+        </Card>
+
+        <Card title="Notifications" heading="section" className="settings-card">
+          <div className="settings-row">
+            <label className="check-label">
+              <input
+                type="checkbox"
+                checked={draft?.notifications.browser_enabled ?? false}
+                onChange={(e) => {
+                  setNotifications("browser_enabled", e.target.checked);
+                  if (e.target.checked && "Notification" in window) {
+                    void Notification.requestPermission();
+                  }
+                }}
+              />
+              <span>Browser notifications</span>
+            </label>
+            <label className="check-label">
+              <input
+                type="checkbox"
+                checked={draft?.notifications.email_enabled ?? false}
+                onChange={(e) => setNotifications("email_enabled", e.target.checked)}
+              />
+              <span>Email</span>
+            </label>
+          </div>
+          <DataTable
+            columns={[
+              { key: "event", label: "Event" },
+              { key: "browser", label: "Browser", numeric: true },
+              { key: "email", label: "Email", numeric: true },
+            ]}
+          >
+            {Object.entries(draft?.notifications.events ?? {}).map(([event, channels]) => (
+              <tr key={event}>
+                <td>{NOTIFICATION_LABEL[event] ?? event}</td>
+                {(["browser", "email"] as const).map((channel) => (
+                  <td className="num" key={channel}>
+                    <input
+                      type="checkbox"
+                      aria-label={`${event} ${channel}`}
+                      checked={channels[channel]}
+                      onChange={(e) =>
+                        setNotifications("events", {
+                          ...draft?.notifications.events,
+                          [event]: { ...channels, [channel]: e.target.checked },
+                        })
+                      }
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </DataTable>
+          <div className="settings-fields">
+            <FormField label="SMTP host"><Input value={draft?.notifications.smtp.host ?? ""} onChange={(e) => setNotifications("smtp", { ...draft?.notifications.smtp, host: e.target.value })} /></FormField>
+            <NumField label="Port" value={draft?.notifications.smtp.port} int onChange={(v) => setNotifications("smtp", { ...draft?.notifications.smtp, port: v })} />
+            <FormField label="TLS"><label className="check-label"><input type="checkbox" checked={draft?.notifications.smtp.tls ?? true} onChange={(e) => setNotifications("smtp", { ...draft?.notifications.smtp, tls: e.target.checked })} /><span>STARTTLS</span></label></FormField>
+            <FormField label="Username"><Input value={draft?.notifications.smtp.username ?? ""} onChange={(e) => setNotifications("smtp", { ...draft?.notifications.smtp, username: e.target.value })} /></FormField>
+            <FormField label="Sender"><Input value={draft?.notifications.smtp.sender ?? ""} onChange={(e) => setNotifications("smtp", { ...draft?.notifications.smtp, sender: e.target.value })} /></FormField>
+            <FormField label="Recipient"><Input value={draft?.notifications.smtp.recipient ?? ""} onChange={(e) => setNotifications("smtp", { ...draft?.notifications.smtp, recipient: e.target.value })} /></FormField>
+            <FormField label="SMTP password"><span style={{ display: "flex", gap: 8 }}><Input type="password" value={smtpPassword} placeholder="Stored in OS keyring" onChange={(e) => setSmtpPassword(e.target.value)} /><Button variant="secondary" disabled={!smtpPassword || saveSmtpPassword.isPending} onClick={() => saveSmtpPassword.mutate(smtpPassword, { onSuccess: () => setSmtpPassword("") })}>Save</Button></span></FormField>
+          </div>
+          <div className="settings-row">
+            <Button
+              variant="secondary"
+              disabled={testNotifications.isPending}
+              onClick={() => testNotifications.mutate()}
+            >
+              {testNotifications.isPending ? "Sending…" : "Send test"}
+            </Button>
+            {testNotifications.data && (
+              <span className="card__meta" role="status">
+                Test sent{testNotifications.data.browser ? " · browser" : ""}{testNotifications.data.email ? " · email" : ""}
+              </span>
+            )}
+          </div>
+          <p className="card__meta" style={{ margin: 0 }}>
+            Event defaults follow the safety policy. The SMTP password is stored in the OS keyring and is never returned.
+          </p>
         </Card>
 
         <Card

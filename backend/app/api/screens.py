@@ -44,7 +44,16 @@ from app.agent.signals import (
 )
 from app.api.deps import AppState, get_state, require_token
 from app.api.routes import broadcast_snapshot
-from app.db import AMSTERDAM, AccountRow, DecisionRow, MarketRow, PositionRow, TradeRow, utcnow
+from app.db import (
+    AMSTERDAM,
+    AccountRow,
+    DecisionRow,
+    MarketRow,
+    OutcomeRow,
+    PositionRow,
+    TradeRow,
+    utcnow,
+)
 from app.models import (
     ActivityListOut,
     ActivityOut,
@@ -64,6 +73,7 @@ from app.models import (
     IndicatorsOut,
     LevelOut,
     LiquidityOut,
+    OutcomeOut,
     PerformanceOut,
     PerfTotals,
     PerPairPerf,
@@ -276,6 +286,37 @@ def get_decision(request: Request, decision_id: str) -> DecisionDetail:
                 )
                 if trade is not None:
                     fill_price = Decimal(trade.entry)
+        outcome_rows = session.scalars(
+            select(OutcomeRow).where(OutcomeRow.decision_id == row.id).order_by(OutcomeRow.horizon)
+        ).all()
+        outcomes = [
+            OutcomeOut(
+                horizon=item.horizon,
+                reference_at=repo.aware_utc(item.reference_at),
+                reference_price=Decimal(item.reference_price),
+                forward_return_pct=Decimal(item.forward_return_pct),
+                best_move_pct=Decimal(item.best_move_pct),
+                worst_move_pct=Decimal(item.worst_move_pct),
+                best_move_r=Decimal(item.best_move_r) if item.best_move_r else None,
+                worst_move_r=Decimal(item.worst_move_r) if item.worst_move_r else None,
+                first_touch=item.first_touch,
+                invalidated=item.invalidated,
+                invalidation_followup_pct=(
+                    Decimal(item.invalidation_followup_pct)
+                    if item.invalidation_followup_pct
+                    else None
+                ),
+                label=item.label,
+                realised_r=Decimal(item.realised_r) if item.realised_r else None,
+                computed_at=repo.aware_utc(item.computed_at),
+                method_version=item.method_version,
+            )
+            for item in outcome_rows
+        ]
+        completed_horizons = {item.horizon for item in outcome_rows}
+        next_horizon = next(
+            (hours for hours in (4, 24, 72) if hours not in completed_horizons), None
+        )
         return DecisionDetail(
             decision=decision_out(row),
             raw_brief=row.raw_brief,
@@ -284,6 +325,12 @@ def get_decision(request: Request, decision_id: str) -> DecisionDetail:
             next_id=next_row.id if next_row else None,
             execution_mode=state.settings.execution_mode,
             fill_price=fill_price,
+            outcomes=outcomes,
+            outcome_pending_until=(
+                repo.aware_utc(row.at) + timedelta(hours=next_horizon)
+                if next_horizon is not None
+                else None
+            ),
         )
     finally:
         session.close()
@@ -1165,9 +1212,15 @@ def export_decisions(request: Request) -> Response:
                 "error",
                 "risk_pct_used",
                 "settings_version",
+                "outcomes",
             ]
         )
         for d in rows:
+            outcomes = session.scalars(
+                select(OutcomeRow)
+                .where(OutcomeRow.decision_id == d.id)
+                .order_by(OutcomeRow.horizon)
+            ).all()
             w.writerow(
                 [
                     d.id,
@@ -1187,6 +1240,19 @@ def export_decisions(request: Request) -> Response:
                     d.error or "",
                     d.risk_pct_used,
                     d.settings_version,
+                    json.dumps(
+                        [
+                            {
+                                "horizon": outcome.horizon,
+                                "label": outcome.label,
+                                "forward_return_pct": outcome.forward_return_pct,
+                                "best_move_r": outcome.best_move_r,
+                                "worst_move_r": outcome.worst_move_r,
+                            }
+                            for outcome in outcomes
+                        ],
+                        separators=(",", ":"),
+                    ),
                 ]
             )
         return Response(

@@ -28,7 +28,8 @@ from app.agent.market.universe import (
     run_eligibility_check,
     warming_up,
 )
-from app.api import inspector, routes, screens, ws
+from app.agent.outcomes import outcome_loop
+from app.api import inspector, notifications, routes, screens, ws
 from app.api import sources as source_routes
 from app.api.deps import (
     AppState,
@@ -38,9 +39,33 @@ from app.api.deps import (
 )
 from app.config import REPO_ROOT, get_env
 from app.db import EngineLock, MarketRow, make_engine, make_session_factory, run_migrations, utcnow
+from app.operations import backup_loop, configure_logging
 from app.sources import SourceRegistry
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
+
+
+async def _resolve_source_error_after_recovery(state: AppState, source_id: str) -> None:
+    await asyncio.sleep(3600)
+    if state.sources.status(source_id).runtime.failures != 0:
+        return
+    session = state.session_factory()
+    try:
+        repo.resolve_matching_errors(
+            session,
+            f"data source failing: {source_id}",
+            "source recovered for 1 hour",
+        )
+        session.commit()
+    finally:
+        session.close()
+
+
+def _track_task(state: AppState, task: asyncio.Task[None]) -> None:
+    state.tasks.append(task)
+    task.add_done_callback(
+        lambda completed: state.tasks.remove(completed) if completed in state.tasks else None
+    )
 
 
 async def refresh_market_data(state: AppState) -> None:
@@ -74,6 +99,7 @@ async def refresh_market_data(state: AppState) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     env = get_env()
+    configure_logging(env.ta_data_dir)
     lock = EngineLock(env.ta_db_path)
     lock.acquire()  # raises EngineAlreadyRunningError if another instance holds it
     db_engine: DbEngine | None = None
@@ -117,6 +143,33 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             session.close()
         state.broker = broker
         state.account_id = account.id
+        notification_dispatcher = notifications.NotificationDispatcher(state)
+
+        def source_failed(source_id: str, error: str) -> None:
+            session = state.session_factory()
+            try:
+                repo.add_activity(
+                    session,
+                    "error",
+                    f"data source failing: {source_id}",
+                )
+                session.commit()
+            finally:
+                session.close()
+            notification_dispatcher.schedule(
+                "source_failing",
+                f"Data source failing · {source_id}",
+                f"3 failures in a row; latest: {error}",
+            )
+
+        def source_recovered(source_id: str) -> None:
+            _track_task(
+                state,
+                asyncio.create_task(_resolve_source_error_after_recovery(state, source_id)),
+            )
+
+        state.sources.on_failure_threshold = source_failed
+        state.sources.on_recovered = source_recovered
         agent_engine = Engine(
             session_factory=session_factory,
             market_client=market_client,
@@ -126,6 +179,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             broker=broker,
             decider=RulesDecider(),
             broadcast=lambda: routes.broadcast_snapshot(state),
+            notify=notification_dispatcher.notify,
         )
         # The OpenAI decider reads the live broker and risk state through
         # the engine, so it always sees the current account even after a
@@ -136,11 +190,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             broker=lambda: agent_engine.broker,
             risk_view=agent_engine.risk_view,
             clock=agent_engine.clock,
+            notify=notification_dispatcher.notify,
         )
         state.agent_engine = agent_engine
         await agent_engine.start()
         state.status = agent_engine.status
         state.tasks.append(asyncio.create_task(refresh_market_data(state)))
+        state.tasks.append(asyncio.create_task(outcome_loop(session_factory, asyncio.Event())))
+        state.tasks.append(asyncio.create_task(backup_loop(env.ta_db_path, env.ta_data_dir)))
         yield
     finally:
         if state is not None:
@@ -163,6 +220,7 @@ def create_app() -> FastAPI:
     app.include_router(screens.router)
     app.include_router(source_routes.router)
     app.include_router(inspector.router)
+    app.include_router(notifications.router)
     app.include_router(ws.router)
     if FRONTEND_DIST.is_dir():
         app.mount("/", SpaStaticFiles(directory=FRONTEND_DIST, html=True), name="ui")

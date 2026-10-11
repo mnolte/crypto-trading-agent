@@ -43,6 +43,15 @@ class HeldPosition:
     invalidation_price: Decimal | None = None
     highest_close: Decimal | None = None  # highest 1h close since entry
     r_unit: Decimal = Decimal("0")  # entry - stop at fill (the R for exits)
+    initial_stop: Decimal | None = None
+
+    def __post_init__(self) -> None:
+        if self.initial_stop is None:
+            self.initial_stop = self.entry - self.r_unit if self.r_unit > 0 else self.stop
+
+    @property
+    def original_stop(self) -> Decimal:
+        return self.initial_stop if self.initial_stop is not None else self.stop
 
     @property
     def notional(self) -> Decimal:
@@ -104,6 +113,11 @@ class PaperBroker:
                 qty=Decimal(row.qty),
                 entry=Decimal(row.entry),
                 stop=Decimal(row.stop),
+                initial_stop=(
+                    Decimal(row.initial_stop)
+                    if Decimal(row.initial_stop) != 0
+                    else Decimal(row.entry) - Decimal(row.r_unit)
+                ),
                 target=Decimal(row.target),
                 opened_at=aware_utc(row.opened_at),
                 decision_id=row.decision_id,
@@ -210,6 +224,7 @@ class PaperBroker:
             qty=qty,
             entry=fill,
             stop=stop,
+            initial_stop=stop,
             target=target,
             opened_at=now,
             decision_id=decision_id,
@@ -226,6 +241,7 @@ class PaperBroker:
             invalidation_price,
             pos.highest_close,
             pos.r_unit,
+            pos.original_stop,
         )
         return pos
 
@@ -248,7 +264,7 @@ class PaperBroker:
         sell_fee = pos.qty * fill * self.fee_pct / HUNDRED
         self.cash += pos.qty * fill - sell_fee
         realised = pos.qty * (fill - pos.entry) - buy_fee - sell_fee
-        risk = pos.qty * (pos.entry - pos.stop)
+        risk = pos.qty * pos.r_unit
         realised_r = realised / risk if risk > 0 else Decimal("0")
         delete_position_row(session, pair, self.account_id)
         trade = add_trade(
@@ -264,6 +280,8 @@ class PaperBroker:
                 fee_eur=str(buy_fee + sell_fee),
                 realised_eur=str(realised),
                 realised_r=str(realised_r),
+                initial_stop=str(pos.original_stop),
+                r_unit=str(pos.r_unit),
                 exit_reason=reason,
                 decision_id=pos.decision_id,
             ),

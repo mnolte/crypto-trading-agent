@@ -42,7 +42,7 @@ from app.agent.signals import (
     compute_pair_signals,
     compute_tf_values,
 )
-from app.db import AccountRow, utcnow
+from app.db import AccountRow, DecisionRow, utcnow
 from app.models import (
     Decision,
     Gate,
@@ -70,6 +70,7 @@ CORR_BARS = 720
 
 Clock = Callable[[], datetime]
 Sleeper = Callable[[float], Awaitable[None]]
+Notifier = Callable[[str, str, str], Awaitable[None]]
 
 
 def _stale_limit_s(tf: str, settings: Settings) -> int:
@@ -99,6 +100,7 @@ class Engine:
         clock: Clock = utcnow,
         sleep: Sleeper = asyncio.sleep,
         broadcast: Callable[[], Awaitable[None]] | None = None,
+        notify: Notifier | None = None,
     ) -> None:
         self._sessions = session_factory
         self.client = market_client
@@ -111,6 +113,7 @@ class Engine:
         self.clock = clock
         self._sleep = sleep
         self._broadcast = broadcast
+        self._notify_event = notify
 
         self.status: Literal["running", "paused", "killed", "error"] = "paused"
         self.cycle = 0
@@ -124,8 +127,12 @@ class Engine:
         self.tasks: list[asyncio.Task[None]] = []
 
         self._btc_window: deque[tuple[datetime, Decimal]] = deque()
+        self._stale_cycles: dict[str, int] = {}
+        self._daily_loss_notified = False
+        self._notified_throttle: tuple[str, ...] = ()
         self._throttle_dd = False
         self._cycle_lock = asyncio.Lock()
+        self._execution_lock = asyncio.Lock()
         self._stop = asyncio.Event()
 
     # ============================================================ lifecycle ==
@@ -269,6 +276,9 @@ class Engine:
         self.latest.clear()
         self.pending.clear()
         self._btc_window.clear()
+        self._stale_cycles.clear()
+        self._daily_loss_notified = False
+        self._notified_throttle = ()
         self._throttle_dd = False
 
     # ================================================================= loops ==
@@ -432,6 +442,7 @@ class Engine:
             candles = {}
 
         if not candles.get("1h") or not candles.get("4h") or not candles.get("1d"):
+            await self._note_stale_pair(pair)
             return self._record_decision(
                 session,
                 pair,
@@ -457,6 +468,7 @@ class Engine:
         )
         if stale_tf is not None:
             self._mark_stale(pair, candles["1h"][-1].close)
+            await self._note_stale_pair(pair)
             return self._record_decision(
                 session,
                 pair,
@@ -473,6 +485,7 @@ class Engine:
                 error=f"{stale_tf} stale",
             )
 
+        self._stale_cycles.pop(pair, None)
         price = candles["1h"][-1].close
         self._update_price(session, pair, price, candles["1h"], now)
         signals = compute_pair_signals(
@@ -485,7 +498,7 @@ class Engine:
             settings=settings.market,
             now=now,
         )
-        self._check_pair_shock(
+        await self._check_pair_shock(
             session,
             pair,
             candles["1h"][-1],
@@ -562,6 +575,41 @@ class Engine:
         *,
         btc_regime: Regime | None = None,
     ) -> Decision:
+        if draft.action == "BUY" and self._settings().execution_mode == "auto":
+            async with self._execution_lock:
+                return await self._execute_draft_unlocked(
+                    session,
+                    pair,
+                    draft,
+                    signals,
+                    candles,
+                    price,
+                    now,
+                    btc_regime=btc_regime,
+                )
+        return await self._execute_draft_unlocked(
+            session,
+            pair,
+            draft,
+            signals,
+            candles,
+            price,
+            now,
+            btc_regime=btc_regime,
+        )
+
+    async def _execute_draft_unlocked(
+        self,
+        session: Session,
+        pair: str,
+        draft: Draft,
+        signals: PairSignals,
+        candles: dict[str, list[Candle]],
+        price: Decimal,
+        now: datetime,
+        *,
+        btc_regime: Regime | None = None,
+    ) -> Decision:
         settings = self._settings()
         gates: list[Gate] = []
         status: Literal["executed", "pending", "approved", "vetoed", "expired", "none"] = "none"
@@ -623,6 +671,7 @@ class Engine:
                 pos.invalidation_price,
                 pos.highest_close,
                 pos.r_unit,
+                pos.original_stop,
             )
         return self._record_decision(
             session,
@@ -669,6 +718,7 @@ class Engine:
             pair=pair,
             at=now,
         )
+        await self._notify("trade", f"Trade opened · {pair}", f"BUY {plan.qty} @ {pos.entry}")
 
     async def _close_position(
         self, session: Session, pair: str, price: Decimal, now: datetime, reason: str
@@ -685,6 +735,11 @@ class Engine:
                 pair=pair,
                 at=now,
             )
+            await self._notify(
+                "trade",
+                f"Trade closed · {pair}",
+                f"{reason} @ {trade.exit}; realised {trade.realised_eur} EUR",
+            )
 
     # --------------------------------------------------------------- watcher ==
 
@@ -698,6 +753,7 @@ class Engine:
             await self._tick_positions(session, now, settings)
             await self._tick_pending(session, now)
             await self._tick_kill(session, now, settings)
+            await self._tick_risk_notifications(session, now, settings)
             self.broker.persist(session, now)
             session.commit()
         finally:
@@ -737,6 +793,7 @@ class Engine:
                 pos.invalidation_price,
                 pos.highest_close,
                 pos.r_unit,
+                pos.original_stop,
             )
             if self._near_level(pos, price):
                 repo.add_exit_tick(session, self.broker.account_id, pair, price, "watch", at=now)
@@ -770,7 +827,7 @@ class Engine:
         return Decimal(str(values.atr14)) if values.atr14 else None
 
     async def _tick_pending(self, session: Session, now: datetime) -> None:
-        """Pending approvals expire early when price drifts > the setting."""
+        """Expire drifted approvals and execute elapsed supervised veto windows."""
         settings = self._settings()
         for row in repo.pending_decisions(session, self.broker.account_id):
             if row.plan is None:
@@ -790,6 +847,152 @@ class Engine:
                     pair=row.pair,
                     at=now,
                 )
+            elif (
+                settings.execution_mode == "supervised"
+                and row.execute_at is not None
+                and repo.aware_utc(row.execute_at) <= now
+            ):
+                async with self._execution_lock:
+                    await self._approve_pending(session, row.id, now)
+                    self.broker.persist(session, now)
+                    session.commit()
+
+    async def approve_pending(self, decision_id: str) -> Decision:
+        async with self._execution_lock:
+            session = self._sessions()
+            try:
+                decision = await self._approve_pending(session, decision_id, self.clock())
+                self.broker.persist(session, self.clock())
+                session.commit()
+            finally:
+                session.close()
+        await self._push()
+        return decision
+
+    async def _approve_pending(
+        self, session: Session, decision_id: str, now: datetime, price: Decimal | None = None
+    ) -> Decision:
+        row = repo.get_decision_row(session, decision_id)
+        if row is not None:
+            session.refresh(row)
+        if row is None or row.account_id != self.broker.account_id or row.status != "pending":
+            raise PendingRefusal("decision is not pending")
+        if row.plan is None:
+            raise PendingRefusal("pending decision has no plan")
+        old_plan = Plan.model_validate_json(row.plan)
+        price = price if price is not None else await self._price(row.pair)
+        if price <= 0:
+            raise PendingRefusal("no current price")
+        settings = self._settings()
+        drift = abs(price - old_plan.entry) / old_plan.entry * 100
+        if drift > settings.risk.pending_entry_drift_pct:
+            row.status = "expired"
+            self.pending.pop(row.id, None)
+            session.commit()
+            raise PendingRefusal("pending decision expired because price moved too far")
+        candles = drop_forming(repo.load_candles(session, row.pair, "1h", CORR_BARS), "1h", now)
+        atr_1h = self._atr_1h(session, row.pair, now)
+        correlated = await self._correlated_open(session, row.pair, candles)
+        verdict = check_buy(
+            BuyContext(
+                pair=row.pair,
+                now=now,
+                entry=price,
+                stop=old_plan.stop,
+                target=old_plan.target,
+                atr_1h=atr_1h,
+                has_position=row.pair in self.broker.positions,
+                last_stop_out_at=self._last_stop_out(session, row.pair),
+                correlated_pairs=correlated,
+                shock_brake_until=self.shock_brake_until,
+                daily_loss_hit=self.broker.today_loss_pct(now)
+                >= settings.risk.daily_loss_limit_pct,
+                risk_pct=self._risk_pct(session),
+            ),
+            self.broker,
+            self.market_rules.get(row.pair),
+            settings,
+        )
+        row.gates = json.dumps([gate.model_dump(mode="json") for gate in verdict.gates])
+        if verdict.outcome == "skip" or verdict.plan is None:
+            row.action = "SKIP"
+            row.status = "expired"
+            row.error = verdict.skip_reason
+            self.pending.pop(row.id, None)
+            repo.add_activity(
+                session, "skip", f"SKIP {row.pair}: {verdict.skip_reason}", pair=row.pair, at=now
+            )
+        else:
+            draft = Draft(
+                action="BUY",
+                confidence=row.confidence,
+                reasoning=row.reasoning,
+                signals=[],
+                invalidation=row.invalidation,
+                invalidation_price=Decimal(row.invalidation_price)
+                if row.invalidation_price
+                else None,
+            )
+            await self._fill_buy(session, row.pair, verdict.plan, draft, price, now, row.id)
+            row.plan = verdict.plan.model_dump_json()
+            row.status = "approved"
+            row.execute_at = now.replace(tzinfo=None)
+            self.pending.pop(row.id, None)
+        decision = decision_from_row(row)
+        self.latest[row.pair] = decision
+        return decision
+
+    async def veto_pending(self, decision_id: str) -> Decision:
+        async with self._execution_lock:
+            session = self._sessions()
+            try:
+                row = repo.get_decision_row(session, decision_id)
+                if (
+                    row is None
+                    or row.account_id != self.broker.account_id
+                    or row.status != "pending"
+                ):
+                    raise PendingRefusal("decision is not pending")
+                row.status = "vetoed"
+                row.execute_at = self.clock().replace(tzinfo=None)
+                self.pending.pop(row.id, None)
+                repo.add_activity(
+                    session,
+                    "decision",
+                    f"pending {row.pair} vetoed",
+                    pair=row.pair,
+                    at=self.clock(),
+                )
+                session.commit()
+                decision = decision_from_row(row)
+                self.latest[row.pair] = decision
+            finally:
+                session.close()
+        await self._push()
+        return decision
+
+    async def _tick_risk_notifications(
+        self, session: Session, now: datetime, settings: Settings
+    ) -> None:
+        daily_loss_hit = self.broker.today_loss_pct(now) >= settings.risk.daily_loss_limit_pct
+        if daily_loss_hit and not self._daily_loss_notified:
+            await self._notify(
+                "daily_loss",
+                "Daily loss limit reached",
+                f"Today loss reached {self.broker.today_loss_pct(now):.2f}%",
+            )
+        self._daily_loss_notified = daily_loss_hit
+        reasons = tuple(self._risk_state(session)[1])
+        if reasons != self._notified_throttle:
+            if reasons:
+                await self._notify(
+                    "risk_control",
+                    "Risk throttle on",
+                    f"Active reasons: {', '.join(reasons)}",
+                )
+            elif self._notified_throttle:
+                await self._notify("risk_control", "Risk throttle lifted", "Full risk restored")
+            self._notified_throttle = reasons
 
     async def _tick_kill(self, session: Session, now: datetime, settings: Settings) -> None:
         if self.status == "killed":
@@ -827,12 +1030,9 @@ class Engine:
             drawdown_pct=self.broker.drawdown_pct(),
             closed=closed,
         )
-        repo.add_activity(
-            session,
-            "alert",
-            f"KILL SWITCH: drawdown hit, flattened {len(closed)} position(s)",
-            at=now,
-        )
+        message = f"Drawdown hit; flattened {len(closed)} position(s)"
+        repo.add_activity(session, "alert", f"KILL SWITCH: {message}", at=now)
+        await self._notify("kill_switch", "Kill switch fired", message)
         await self._push()
 
     async def _tick_shock_btc(self, session: Session, now: datetime, settings: Settings) -> None:
@@ -847,9 +1047,9 @@ class Engine:
                 prices = [p for _, p in self._btc_window]
                 lo, hi = min(prices), max(prices)
                 if lo > 0 and (hi - lo) / lo * 100 > settings.risk.shock_brake_btc_move_pct:
-                    self._trigger_shock(session, now, settings, "BTC move")
+                    await self._trigger_shock(session, now, settings, "BTC move")
 
-    def _check_pair_shock(
+    async def _check_pair_shock(
         self,
         session: Session,
         pair: str,
@@ -863,21 +1063,18 @@ class Engine:
             return
         rng = last_1h.high - last_1h.low
         if rng > 3 * atr_1h:
-            self._trigger_shock(session, now, settings, f"{pair} candle range")
+            await self._trigger_shock(session, now, settings, f"{pair} candle range")
 
-    def _trigger_shock(
+    async def _trigger_shock(
         self, session: Session, now: datetime, settings: Settings, source: str
     ) -> None:
-        until = now + timedelta(hours=float(settings.risk.shock_brake_hours))
-        if self.shock_brake_until is not None and self.shock_brake_until >= until:
+        if self.shock_brake_until is not None and self.shock_brake_until > now:
             return
+        until = now + timedelta(hours=float(settings.risk.shock_brake_hours))
         self.shock_brake_until = until
-        repo.add_activity(
-            session,
-            "alert",
-            f"shock brake ON ({source}) until {until.isoformat()}",
-            at=now,
-        )
+        message = f"{source}; entries paused until {until.isoformat()}"
+        repo.add_activity(session, "alert", f"shock brake ON ({message})", at=now)
+        await self._notify("risk_control", "Shock brake on", message)
 
     # ---------------------------------------------------------------- helpers
 
@@ -961,6 +1158,16 @@ class Engine:
             chg_24h_pct=chg if chg else (old.chg_24h_pct if old else Decimal("0")),
             stale=stale,
         )
+
+    async def _note_stale_pair(self, pair: str) -> None:
+        count = self._stale_cycles.get(pair, 0) + 1
+        self._stale_cycles[pair] = count
+        if count == 2:
+            await self._notify(
+                "pair_stale",
+                f"Pair stale · {pair}",
+                "Market data was stale for 2 cycles in a row",
+            )
 
     def _mark_stale(self, pair: str, last: Decimal) -> None:
         old = self.prices.get(pair)
@@ -1097,9 +1304,54 @@ class Engine:
             correlated_slots_left=max(0, settings.risk.correlated_max_positions - correlated_used),
         )
 
+    async def _notify(self, event: str, title: str, body: str) -> None:
+        if self._notify_event is None:
+            return
+        try:
+            await self._notify_event(event, title, body)
+        except Exception:
+            return
+
     async def _push(self) -> None:
         if self._broadcast is not None:
             await self._broadcast()
+
+
+def decision_from_row(row: DecisionRow) -> Decision:
+    return Decision(
+        id=row.id,
+        cycle=row.cycle,
+        at=repo.aware_utc(row.at),
+        pair=row.pair,
+        decider=cast("Literal['openai', 'rules']", row.decider),
+        model=row.model,
+        prompt_version=row.prompt_version,
+        action=cast("Literal['BUY', 'SELL', 'HOLD', 'SKIP']", row.action),
+        confidence=row.confidence,
+        reasoning=row.reasoning,
+        invalidation=row.invalidation,
+        signals=json.loads(row.signals or "[]"),
+        plan=json.loads(row.plan) if row.plan else None,
+        gates=json.loads(row.gates or "[]"),
+        status=cast(
+            "Literal['executed', 'pending', 'approved', 'vetoed', 'expired', 'none']", row.status
+        ),
+        execute_at=repo.aware_utc(row.execute_at) if row.execute_at else None,
+        error=row.error,
+        regime=json.loads(row.regime or "{}"),
+        btc_regime=json.loads(row.btc_regime or "{}"),
+        invalidation_price=Decimal(row.invalidation_price) if row.invalidation_price else None,
+        risk_pct_used=Decimal(row.risk_pct_used),
+        account_id=row.account_id,
+        settings_version=row.settings_version,
+        shadow_id=row.shadow_id,
+        stand_in=row.stand_in,
+        prefilter=row.prefilter,
+    )
+
+
+class PendingRefusal(RuntimeError):
+    """Approval actions only apply to pending decisions."""
 
 
 class KilledRefusal(RuntimeError):

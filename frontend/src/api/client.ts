@@ -41,6 +41,9 @@ export type LlmCallDetail = components["schemas"]["LlmCallDetail"];
 export type LlmCallAttemptOut = components["schemas"]["LlmCallAttemptOut"];
 export type ReplayInfo = components["schemas"]["ReplayInfo"];
 export type CostsOut = components["schemas"]["CostsOut"];
+export type OutcomeOut = components["schemas"]["OutcomeOut"];
+export type OutcomeScorecardOut = components["schemas"]["OutcomeScorecardOut"];
+export type NotificationSettings = components["schemas"]["NotificationSettings"];
 export type Usage = components["schemas"]["Usage"];
 
 let localToken: string | null = null;

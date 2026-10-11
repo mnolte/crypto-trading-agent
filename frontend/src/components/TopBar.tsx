@@ -43,7 +43,7 @@ export function TopBar({
       <div className="topbar__left">
         <h1 className="topbar__title">{title}</h1>
         <StatusPill status={status} lastKnown={lastKnown} />
-        <ErrorBadge count={errors24h} href="/activity" />
+        <ErrorBadge count={errors24h} href="/?activity=errors#activity" />
       </div>
       {controls && (
         <div className="topbar__actions">

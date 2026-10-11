@@ -9,6 +9,7 @@ import {
   useCosts,
   useLlmCall,
   useLlmCalls,
+  useOutcomeScorecard,
   useReplayCall,
   useSetVerdict,
   useSettings,
@@ -75,10 +76,12 @@ export function Inspector() {
   const [params, setParams] = useSearchParams();
   const { data: snapshot } = useSnapshot();
   const { data: settings } = useSettings();
+  const { data: scorecard } = useOutcomeScorecard();
 
   const [pair, setPair] = useState("");
   const [status, setStatus] = useState("");
   const [verdict, setVerdict] = useState("");
+  const [outcome, setOutcome] = useState("");
   const [issuesOnly, setIssuesOnly] = useState(false);
   const [showSkipped, setShowSkipped] = useState(true);
   const [drawerId, setDrawerId] = useState<string | null>(null);
@@ -88,6 +91,7 @@ export function Inspector() {
     pair: pair || undefined,
     status: status || undefined,
     verdict: verdict || undefined,
+    outcome: outcome || undefined,
     issues: issuesOnly,
     skipped: showSkipped,
   });
@@ -111,6 +115,23 @@ export function Inspector() {
 
   return (
     <AppShell title="LLM inspector">
+      <Card title="Outcome scorecard" label="Outcome scorecard">
+        {(scorecard?.items.length ?? 0) > 0 ? (
+          <div className="scorecard-grid">
+            {scorecard?.items.map((row) => (
+              <div className="scorecard-tile" key={`${row.decider}-${row.model}-${row.prompt_version}`}>
+                <strong>{row.model ?? row.decider} · {row.prompt_version ?? "rules"}</strong>
+                <span className="num">{row.decisions} decisions</span>
+                <span>BUY win rate <span className="num">{row.buy_win_rate_pct === null ? "—" : `${row.buy_win_rate_pct.toFixed(1)}%`}</span></span>
+                <span>Average R <span className="num">{row.average_r === null ? "—" : row.average_r.toFixed(2)}</span></span>
+                <span>Missed / avoided <span className="num">{row.missed} / {row.avoided}</span></span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="Outcomes are still pending" footer="The scorecard fills after decisions reach their outcome horizons." />
+        )}
+      </Card>
       <div className="inspector">
         <Card
           title="LLM calls"
@@ -161,6 +182,19 @@ export function Inspector() {
                 <option value="unreviewed">Unreviewed</option>
                 <option value="correct">Correct</option>
                 <option value="wrong">Wrong</option>
+              </Select>
+            </FormField>
+            <FormField label="Outcome" htmlFor="flt-outcome">
+              <Select id="flt-outcome" value={outcome} onChange={(e) => setOutcome(e.target.value)}>
+                <option value="">Any</option>
+                <option value="win">Win</option>
+                <option value="loss">Loss</option>
+                <option value="missed">Missed</option>
+                <option value="avoided">Avoided</option>
+                <option value="flat">Flat</option>
+                <option value="good exit">Good exit</option>
+                <option value="early exit">Early exit</option>
+                <option value="neutral">Neutral</option>
               </Select>
             </FormField>
           </div>

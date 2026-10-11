@@ -14,6 +14,21 @@ from fastapi.testclient import TestClient
 from app.config import get_env
 from app.db import MarketRow, make_engine, make_session_factory
 from app.repo import load_settings
+from app.sources import SourceRegistry
+
+
+def test_source_failure_threshold_and_recovery_callbacks() -> None:
+    registry = SourceRegistry()
+    failures: list[tuple[str, str]] = []
+    recovered: list[str] = []
+    registry.on_failure_threshold = lambda source_id, error: failures.append((source_id, error))
+    registry.on_recovered = recovered.append
+
+    for _ in range(4):
+        registry.record("bitvavo", RuntimeError("offline"))
+    assert failures == [("bitvavo", "offline")]
+    registry.record("bitvavo", None)
+    assert recovered == ["bitvavo"]
 
 
 def _token(client: TestClient) -> str:

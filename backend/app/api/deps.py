@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import secrets
 from dataclasses import dataclass, field
+from datetime import timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Literal
 from urllib.parse import urlparse
@@ -242,6 +243,7 @@ def build_snapshot(state: AppState) -> Snapshot:
             cost_month_eur=budget.month_spend_eur(session, broker.account_id, now),
             cap_eur=settings.model.monthly_cost_cap_eur,
         )
+        errors_24h = repo.error_count_since(session, now - timedelta(hours=24))
         return Snapshot(
             status=engine.status,
             mode="paper",
@@ -265,8 +267,8 @@ def build_snapshot(state: AppState) -> Snapshot:
             quiet="",
             risk_budget=engine.risk_budget(),
             paused=[],
-            errors_24h=0,
-            errors_open=0,
+            errors_24h=errors_24h,
+            errors_open=repo.unresolved_error_count(session),
             kill=engine.kill,
             today_trades=len(today),
             today_won=sum(1 for t in today if Decimal(t.realised_eur) > 0),

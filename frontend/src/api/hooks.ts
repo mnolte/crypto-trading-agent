@@ -13,6 +13,8 @@ import {
   type LlmCallDetail,
   type LlmCallListOut,
   type MarketOut,
+  type NotificationSettings,
+  type OutcomeScorecardOut,
   type PerformanceOut,
   type PromptInfo,
   type Settings,
@@ -127,6 +129,7 @@ export function useLlmCalls(filters: {
   pair?: string;
   status?: string;
   verdict?: string;
+  outcome?: string;
   issues?: boolean;
   skipped?: boolean;
   limit?: number;
@@ -135,6 +138,7 @@ export function useLlmCalls(filters: {
   if (filters.pair) qs.set("pair", filters.pair);
   if (filters.status) qs.set("status", filters.status);
   if (filters.verdict) qs.set("verdict", filters.verdict);
+  if (filters.outcome) qs.set("outcome", filters.outcome);
   if (filters.issues) qs.set("issues", "true");
   if (filters.skipped === false) qs.set("skipped", "false");
   if (filters.limit) qs.set("limit", String(filters.limit));
@@ -150,6 +154,14 @@ export function useLlmCall(id: string | null) {
     queryKey: ["llm-call", id],
     queryFn: () => api<LlmCallDetail>(`/api/llm-calls/${id}`),
     enabled: id !== null,
+  });
+}
+
+export function useOutcomeScorecard() {
+  return useQuery({
+    queryKey: ["outcome-scorecard"],
+    queryFn: () => api<OutcomeScorecardOut>("/api/outcomes/scorecard"),
+    staleTime: 60_000,
   });
 }
 
@@ -211,6 +223,30 @@ export function useSetVerdict() {
   });
 }
 
+export function useNotifications() {
+  return useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => api<NotificationSettings>("/api/notifications"),
+    staleTime: 60_000,
+  });
+}
+
+export function useSaveSmtpPassword() {
+  return useMutation({
+    mutationFn: (password: string) =>
+      api<{ set: boolean; last4: string | null }>("/api/notifications/smtp-password", {
+        method: "PUT",
+        body: JSON.stringify({ password }),
+      }),
+  });
+}
+
+export function useTestNotifications() {
+  return useMutation({
+    mutationFn: () => post<{ browser: boolean; email: boolean }>("/api/notifications/test"),
+  });
+}
+
 export function usePrompts() {
   return useQuery({
     queryKey: ["prompts"],
@@ -253,6 +289,15 @@ export function useAcknowledgeKill() {
 }
 export function useResetPaper() {
   return useAgentAction("/api/paper/reset");
+}
+
+export function usePendingAction(action: "approve" | "veto") {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      post<Snapshot>(`/api/decisions/${id}/${action}`),
+    onSuccess: (snapshot) => client.setQueryData(["snapshot"], snapshot),
+  });
 }
 
 export function useClosePosition() {
@@ -373,11 +418,19 @@ export function useSnapshotStream(): { connected: boolean } {
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data as string) as {
           type: string;
-          data?: Snapshot;
+          data?: Snapshot | { title: string; body: string };
         };
         if (message.type === "snapshot" && message.data) {
           setConnected(true);
-          client.setQueryData(["snapshot"], message.data);
+          client.setQueryData(["snapshot"], message.data as Snapshot);
+        } else if (
+          message.type === "alert" &&
+          message.data &&
+          "title" in message.data &&
+          "Notification" in window &&
+          Notification.permission === "granted"
+        ) {
+          new Notification(message.data.title, { body: message.data.body });
         }
       };
       ws.onclose = () => {

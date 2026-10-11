@@ -116,6 +116,7 @@ class PositionRow(Base):
     qty: Mapped[str]
     entry: Mapped[str]
     stop: Mapped[str]
+    initial_stop: Mapped[str] = mapped_column(default="0")
     target: Mapped[str]
     opened_at: Mapped[datetime]
     decision_id: Mapped[str]
@@ -141,6 +142,8 @@ class TradeRow(Base):
     fee_eur: Mapped[str]  # both sides
     realised_eur: Mapped[str]
     realised_r: Mapped[str]
+    initial_stop: Mapped[str] = mapped_column(default="0")
+    r_unit: Mapped[str] = mapped_column(default="0")
     exit_reason: Mapped[str]
     decision_id: Mapped[str]
 
@@ -220,6 +223,54 @@ class LlmCallRow(Base):
     verdict: Mapped[str | None]  # "correct" | "wrong" | None
     verdict_note: Mapped[str | None]
     verdict_at: Mapped[datetime | None]
+
+
+class OutcomeRow(Base):
+    __tablename__ = "outcomes"
+
+    decision_id: Mapped[str] = mapped_column(primary_key=True)
+    horizon: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int]
+    pair: Mapped[str]
+    action: Mapped[str]
+    reference_at: Mapped[datetime]
+    reference_price: Mapped[str]
+    forward_return_pct: Mapped[str]
+    best_move_pct: Mapped[str]
+    worst_move_pct: Mapped[str]
+    best_move_r: Mapped[str | None]
+    worst_move_r: Mapped[str | None]
+    first_touch: Mapped[str | None]
+    invalidated: Mapped[bool]
+    invalidation_followup_pct: Mapped[str | None]
+    label: Mapped[str]
+    realised_r: Mapped[str | None]
+    computed_at: Mapped[datetime]
+    method_version: Mapped[str]
+
+
+class OutcomeFailureRow(Base):
+    __tablename__ = "outcome_failures"
+
+    decision_id: Mapped[str] = mapped_column(primary_key=True)
+    horizon: Mapped[int] = mapped_column(primary_key=True)
+    attempts: Mapped[int] = mapped_column(default=0)
+    last_error: Mapped[str]
+    last_at: Mapped[datetime]
+    terminal: Mapped[bool] = mapped_column(default=False)
+
+
+class ErrorRow(Base):
+    __tablename__ = "errors"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    first_at: Mapped[datetime]
+    last_at: Mapped[datetime]
+    pair: Mapped[str | None]
+    text: Mapped[str]
+    affected_decision_or_fill: Mapped[bool] = mapped_column(default=False)
+    resolved_at: Mapped[datetime | None]
+    resolution_note: Mapped[str | None]
 
 
 class ActivityRow(Base):
