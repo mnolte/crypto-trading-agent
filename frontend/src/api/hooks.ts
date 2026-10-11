@@ -204,8 +204,10 @@ export function useSetVerdict() {
         method: "PUT",
         body: JSON.stringify({ verdict, note: note ?? null }),
       }),
-    onSuccess: (detail) =>
-      client.setQueryData(["llm-call", detail.id], detail),
+    onSuccess: (detail) => {
+      client.setQueryData(["llm-call", detail.id], detail);
+      void client.invalidateQueries({ queryKey: ["llm-calls"] });
+    },
   });
 }
 

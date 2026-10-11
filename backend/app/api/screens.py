@@ -113,6 +113,7 @@ def decision_out(row: DecisionRow) -> Decision:
         settings_version=row.settings_version,
         shadow_id=row.shadow_id,
         stand_in=row.stand_in,
+        prefilter=row.prefilter,
     )
 
 
@@ -205,8 +206,15 @@ def get_decisions(
     try:
         action = outcome.upper() if outcome in ("buy", "sell", "hold", "skip") else None
         status = "executed" if outcome == "filled" else None
+        account_id = state.broker.account_id if state.broker else None
         rows = repo.list_decision_rows(
-            session, pair=pair, action=action, status=status, before=before, limit=limit
+            session,
+            account_id=account_id,
+            pair=pair,
+            action=action,
+            status=status,
+            before=before,
+            limit=limit,
         )
         return DecisionListOut(items=[decision_out(r) for r in rows])
     finally:
@@ -221,7 +229,9 @@ def get_decision(request: Request, decision_id: str) -> DecisionDetail:
     session = _session(state)
     try:
         row = repo.get_decision_row(session, decision_id)
-        if row is None:
+        if row is None or (
+            state.broker is not None and row.account_id != state.broker.account_id
+        ):
             raise HTTPException(status_code=404, detail="unknown decision")
         prev_row = session.scalar(
             select(DecisionRow)
@@ -542,6 +552,7 @@ async def get_indicators(
 
         frozen_at: datetime | None = None
         frozen_cycle: int | None = None
+        frozen_decision_id: str | None = None
         if at is not None:
             drow = repo.get_decision_row(session, at)
             if drow is None:
@@ -562,6 +573,7 @@ async def get_indicators(
                     raise HTTPException(status_code=400, detail="decision is for another pair")
                 frozen_at = repo.aware_utc(drow.at)
                 frozen_cycle = drow.cycle
+                frozen_decision_id = drow.id
 
         ref = frozen_at or now
         candles_by_tf: dict[Tf, list[Candle]] = {}
@@ -634,6 +646,7 @@ async def get_indicators(
             markers = [m for m in markers if lo <= m.time <= hi]
             drows = repo.list_decision_rows(
                 session,
+                account_id=account_id,
                 pair=pair,
                 after=lo,
                 before=hi + timedelta(microseconds=1),
@@ -663,7 +676,7 @@ async def get_indicators(
             tf=tf,
             frozen=frozen_at is not None,
             frozen_at=frozen_at,
-            frozen_decision_id=at,
+            frozen_decision_id=frozen_decision_id,
             frozen_cycle=frozen_cycle,
             candles=_candle_points(display),
             series=series,

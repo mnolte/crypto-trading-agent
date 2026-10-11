@@ -80,13 +80,11 @@ def _parsed_action(row: LlmCallRow) -> str | None:
     return action if action in ("BUY", "SELL", "HOLD") else None
 
 
-def _call_item(row: LlmCallRow, session: Session) -> LlmCallListItem:
+def _call_item(row: LlmCallRow, decision_action: str | None = None) -> LlmCallListItem:
     final_action: str | None = _parsed_action(row)
-    if row.decision_id:
-        decision = repo.get_decision_row(session, row.decision_id)
-        if decision is not None:
-            final_action = decision.action
-    elif row.status == "input_blocked":
+    if decision_action is not None:
+        final_action = decision_action
+    elif row.decision_id is None and row.status == "input_blocked":
         final_action = "HOLD"
     return LlmCallListItem(
         kind="call",
@@ -247,7 +245,10 @@ def list_calls(
                 before=before,
                 limit=limit,
             )
-        items = [_call_item(r, session) for r in rows]
+        actions = repo.decision_actions(
+            session, [r.decision_id for r in rows if r.decision_id]
+        )
+        items = [_call_item(r, actions.get(r.decision_id or "")) for r in rows]
         if skipped and status is None and verdict is None and outcome is None and not issues:
             skips = repo.list_prefilter_skips(
                 session, account_id, pair=pair, before=before, limit=limit
@@ -567,7 +568,7 @@ def get_costs(request: Request, month: str | None = None) -> CostsOut:
             month=label,
             cap_eur=state.settings.model.monthly_cost_cap_eur,
             spent_eur=total,
-            spent_usd=None,
+            spent_usd=repo.llm_cost_usd_between(session, account_id, start, end),
             by_feature=by_feature,
         )
     finally:

@@ -50,9 +50,10 @@ def upgrade() -> None:
         sa.Column("verdict_note", sa.String(), nullable=True),
         sa.Column("verdict_at", sa.DateTime(), nullable=True),
     )
+    # Existing decisions predate the pre-filter; mark them passed, not skipped.
     op.add_column(
         "decisions",
-        sa.Column("prefilter", sa.Boolean(), nullable=False, server_default="0"),
+        sa.Column("prefilter", sa.Boolean(), nullable=False, server_default="1"),
     )
 
 

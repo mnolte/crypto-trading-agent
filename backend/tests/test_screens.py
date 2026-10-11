@@ -30,6 +30,7 @@ from app.db import (
     ActivityRow,
     DecisionRow,
     EquitySnapshotRow,
+    LlmCallRow,
     TradeRow,
     utcnow,
 )
@@ -119,6 +120,7 @@ def _add_decision(
     cycle: int = 1,
     confidence: float = 0.55,
     plan: dict[str, Any] | None = None,
+    prefilter: bool = True,
     commit: bool = True,
 ) -> DecisionRow:
     row = DecisionRow(
@@ -149,6 +151,7 @@ def _add_decision(
         stand_in=False,
         raw_brief=None,
         raw_response=None,
+        prefilter=prefilter,
     )
     session.add(row)
     if commit:
@@ -287,6 +290,7 @@ def test_decisions_list_filters_and_pagination(
             pair="ETH-EUR",
             action="HOLD",
             status="none",
+            prefilter=False,
         )
         _add_decision(
             session,
@@ -302,6 +306,9 @@ def test_decisions_list_filters_and_pagination(
 
     items = client.get("/api/decisions").json()["items"]
     assert [d["id"] for d in items] == ["d3", "d2", "d1"]  # newest first
+    by_id = {d["id"]: d for d in items}
+    assert by_id["d2"]["prefilter"] is False  # prefilter survives decision_out
+    assert by_id["d1"]["prefilter"] is True
 
     btc = client.get("/api/decisions?pair=BTC-EUR").json()["items"]
     assert [d["id"] for d in btc] == ["d3", "d1"]
@@ -316,6 +323,24 @@ def test_decisions_list_filters_and_pagination(
         "items"
     ]
     assert [d["id"] for d in older] == ["d2", "d1"]
+
+
+def test_decisions_stay_within_the_account(
+    screens_client: tuple[TestClient, SimMarket],
+) -> None:
+    client, _ = screens_client
+    account_id = _account_id(client)
+    session = _db(client)
+    base = _closed_hour() - 10 * HOUR
+    try:
+        _add_decision(session, "own", base, account_id=account_id)
+        _add_decision(session, "other", base + HOUR, account_id=account_id + 1)
+    finally:
+        session.close()
+
+    items = client.get("/api/decisions").json()["items"]
+    assert [d["id"] for d in items] == ["own"]  # the other account's row stays out
+    assert client.get("/api/decisions/other").status_code == 404
 
 
 def test_decision_detail_includes_stepper_and_fill(
@@ -456,6 +481,37 @@ def test_indicators_frozen_mode(screens_client: tuple[TestClient, SimMarket]) ->
         frozen_at = end - 100 * HOUR
         _add_decision(session, "d-frozen", frozen_at, account_id=account_id, cycle=42)
         _add_decision(session, "d-eth", frozen_at, account_id=account_id, pair="ETH-EUR")
+        session.add(
+            LlmCallRow(
+                id="c-1",
+                at=frozen_at,
+                cycle=42,
+                account_id=account_id,
+                pair="BTC-EUR",
+                decision_id="d-frozen",
+                feature="decision",
+                replay_of=None,
+                model="gpt-4o-mini",
+                prompt_version="decision.v1",
+                status="ok",
+                attempts="[]",
+                latency_ms=10,
+                input_tokens=None,
+                output_tokens=None,
+                cost_usd=None,
+                cost_eur=None,
+                request_id=None,
+                request_json=None,
+                response_raw=None,
+                parsed=None,
+                input_checks="[]",
+                output_checks="[]",
+                verdict=None,
+                verdict_note=None,
+                verdict_at=None,
+            )
+        )
+        session.commit()
     finally:
         session.close()
 
@@ -466,6 +522,13 @@ def test_indicators_frozen_mode(screens_client: tuple[TestClient, SimMarket]) ->
     newest = max(datetime.fromisoformat(c["time"]) for c in data["candles"])
     assert newest <= frozen_at  # no bar opens after the decision
     assert data["liquidity"]["spread_pct"] is None  # no live book when frozen
+
+    # A call id resolves to its linked decision, and the response reports
+    # that decision's id — not the call id the caller passed.
+    by_call = client.get("/api/indicators/BTC-EUR?tf=1h&at=c-1").json()
+    assert by_call["frozen"] is True
+    assert by_call["frozen_decision_id"] == "d-frozen"
+    assert by_call["frozen_cycle"] == 42
 
     assert client.get("/api/indicators/BTC-EUR?at=missing").status_code == 404
     assert client.get("/api/indicators/BTC-EUR?at=d-eth").status_code == 400

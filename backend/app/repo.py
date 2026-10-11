@@ -477,6 +477,7 @@ def expire_pending(session: Session, account_id: int) -> int:
 
 def list_decision_rows(
     session: Session,
+    account_id: int | None = None,
     pair: str | None = None,
     action: str | None = None,
     status: str | None = None,
@@ -486,6 +487,8 @@ def list_decision_rows(
 ) -> list[DecisionRow]:
     """Newest-first decision history for the drawer and activity links."""
     conds = []
+    if account_id is not None:
+        conds.append(DecisionRow.account_id == account_id)
     if pair is not None:
         conds.append(DecisionRow.pair == pair)
     if action is not None:
@@ -500,6 +503,16 @@ def list_decision_rows(
     if limit is not None:
         stmt = stmt.limit(limit)
     return list(session.scalars(stmt).all())
+
+
+def decision_actions(session: Session, ids: list[str]) -> dict[str, str]:
+    """id → action for a batch of decision ids (inspector list rendering)."""
+    if not ids:
+        return {}
+    rows = session.execute(
+        select(DecisionRow.id, DecisionRow.action).where(DecisionRow.id.in_(ids))
+    ).all()
+    return dict(rows)
 
 
 def list_prefilter_skips(
@@ -663,6 +676,34 @@ def llm_cost_between(
     for cost in session.scalars(select(LlmCallRow.cost_eur).where(*conds)).all():
         if cost is not None:
             total += Decimal(cost)
+    return total
+
+
+def llm_cost_usd_between(
+    session: Session,
+    account_id: int,
+    start: datetime,
+    end: datetime | None = None,
+) -> Decimal | None:
+    """Estimated USD spend in the window.
+
+    ``None`` when any successful call's price was unknown — failed or
+    input-blocked calls sent nothing billable and count as 0."""
+    conds = [
+        LlmCallRow.account_id == account_id,
+        LlmCallRow.at >= _utc_naive(start),
+    ]
+    if end is not None:
+        conds.append(LlmCallRow.at < _utc_naive(end))
+    total = Decimal("0")
+    rows = session.execute(
+        select(LlmCallRow.cost_usd, LlmCallRow.status).where(*conds)
+    ).all()
+    for cost, status in rows:
+        if cost is not None:
+            total += Decimal(cost)
+        elif status == "ok":
+            return None
     return total
 
 

@@ -17,10 +17,11 @@ from app.agent.brief import (
     brief_json,
     build_brief,
     input_checks,
+    previous_decision,
 )
 from app.agent.market.base import Candle
 from app.agent.signals import Levels, MarketContext, PairSignals, TfValues
-from app.db import make_engine, make_session_factory, run_migrations
+from app.db import DecisionRow, make_engine, make_session_factory, run_migrations
 from app.models import Regime, Settings
 
 NOW = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
@@ -232,6 +233,62 @@ def test_missing_context_warns_but_never_blocks(session: Session) -> None:
     assert checks["Market context"].status == "warn"
     fails = [c for c in checks.values() if c.status == "fail"]
     assert all(c.name != "Market context" for c in fails)
+
+
+def test_zero_price_does_not_crash_the_leak_check(session: Session) -> None:
+    brief, meta = build_brief(_inputs(session, price=Decimal("0")))
+    checks = {c.name: c for c in input_checks(brief, meta)}
+    assert checks["Ranges valid"].status == "fail"  # the bad price is flagged
+    assert checks["No cross-pair leak"].status == "pass"
+
+
+# ----------------------------------------------------------------- repo glue --
+
+
+def _seed_decision(
+    session: Session,
+    decision_id: str,
+    account_id: int,
+    at: datetime,
+    action: str,
+) -> None:
+    session.add(
+        DecisionRow(
+            id=decision_id,
+            cycle=1,
+            at=at,
+            account_id=account_id,
+            pair="SOL-EUR",
+            decider="openai",
+            model=None,
+            prompt_version=None,
+            action=action,
+            confidence=0.0,
+            reasoning="seeded",
+            invalidation="stop hit",
+            signals="[]",
+            gates="[]",
+            status="none",
+            regime='{"trend":"up","volatility":"normal","age_4h":1}',
+            btc_regime='{"trend":"up","volatility":"normal","age_4h":1}',
+            risk_pct_used="1",
+            settings_version=1,
+        )
+    )
+
+
+def test_previous_decision_only_sees_this_account(session: Session) -> None:
+    # More than 20 newer rows from another account must not hide this
+    # account's own latest decision.
+    for i in range(25):
+        _seed_decision(session, f"other-{i}", 2, NOW - timedelta(minutes=i), "BUY")
+    _seed_decision(session, "own", 1, NOW - timedelta(hours=1), "SELL")
+    session.commit()
+    assert previous_decision(session, 1, "SOL-EUR") == ("SELL", "stop hit")
+
+
+def test_previous_decision_none_without_history(session: Session) -> None:
+    assert previous_decision(session, 1, "SOL-EUR") is None
 
 
 def test_bad_price_fails_ranges(session: Session) -> None:

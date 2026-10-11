@@ -304,6 +304,13 @@ function CallDetail({
     );
   }
 
+  const parsedAction =
+    detail.parsed && typeof detail.parsed.action === "string"
+      ? detail.parsed.action
+      : null;
+  const rawResponse =
+    detail.response_raw ??
+    (detail.parsed !== null ? JSON.stringify(detail.parsed) : null);
   const chips: string[] = [
     detail.model,
     detail.prompt_version,
@@ -523,11 +530,11 @@ function CallDetail({
           <details className="json-details" open>
             <summary>Raw response</summary>
             <pre className="json-block">
-              {prettyJson(detail.response_raw ?? detail.parsed ? detail.response_raw ?? JSON.stringify(detail.parsed) : null)}
+              {prettyJson(rawResponse)}
             </pre>
           </details>
           <div className="call-detail__final num">
-            Final: {detail.decision_action ?? (detail.parsed?.action as string) ?? "—"}
+            Final: {detail.decision_action ?? parsedAction ?? "—"}
           </div>
           {detail.replays.length > 0 && (
             <div className="call-detail__replays">

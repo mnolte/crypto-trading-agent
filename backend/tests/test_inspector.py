@@ -40,6 +40,7 @@ def _call_row(
     status: str = "ok",
     parsed: str | None = '{"action":"HOLD","confidence":0.5}',
     output_checks: str = "[]",
+    cost_usd: str | None = "0.0110",
     cost_eur: str | None = "0.0100",
     decision_id: str | None = None,
     request_json: str | None = None,
@@ -62,7 +63,7 @@ def _call_row(
         latency_ms=10,
         input_tokens=100,
         output_tokens=50,
-        cost_usd="0.0110",
+        cost_usd=cost_usd,
         cost_eur=cost_eur,
         request_id="req-1",
         request_json=request_json
@@ -117,7 +118,7 @@ def _decision_row(
                 reasoning="no setup",
                 signals="[]",
                 gates="[]",
-                status="hold",
+                status="none",
                 account_id=1,
                 regime='{"trend":"up","volatility":"normal","age_4h":1}',
                 btc_regime='{"trend":"up","volatility":"normal","age_4h":1}',
@@ -265,8 +266,23 @@ def test_costs_reports_month_spend(client: TestClient) -> None:
     costs = client.get("/api/costs").json()
     assert costs["cap_eur"] == "10"
     assert float(costs["spent_eur"]) == pytest.approx(0.03)
+    assert float(costs["spent_usd"]) == pytest.approx(0.022)
     assert float(costs["by_feature"]["decision"]) == pytest.approx(0.01)
     assert float(costs["by_feature"]["replay"]) == pytest.approx(0.02)
+
+
+def test_costs_usd_none_when_a_priced_call_is_unknown(client: TestClient) -> None:
+    _call_row(client, call_id="c1", cost_usd=None)
+    costs = client.get("/api/costs").json()
+    assert costs["spent_usd"] is None  # a successful call's price was unknown
+
+
+def test_costs_usd_ignores_failed_and_blocked_calls(client: TestClient) -> None:
+    _call_row(client, call_id="c1", cost_usd="0.0110")
+    _call_row(client, call_id="c2", status="api_error", cost_usd=None)
+    _call_row(client, call_id="c3", status="input_blocked", cost_usd=None)
+    costs = client.get("/api/costs").json()
+    assert float(costs["spent_usd"]) == pytest.approx(0.011)
 
 
 def test_costs_rejects_a_bad_month(client: TestClient) -> None:

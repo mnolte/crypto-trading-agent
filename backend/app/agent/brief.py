@@ -535,7 +535,7 @@ def input_checks(brief: dict[str, Any], meta: BriefMeta) -> list[CheckOut]:
     # 5. No cross-pair leak: every price quoted stays within 50% of the
     # pair's own price; anything further could only be another pair's data.
     leaks: list[str] = []
-    if meta.price:
+    if meta.price is not None and math.isfinite(meta.price) and meta.price > 0:
 
         def _far(p: float | None) -> bool:
             return (
@@ -604,8 +604,7 @@ def previous_decision(
     session: Session, account_id: int, pair: str
 ) -> tuple[str, str | None] | None:
     """The pair's previous decision — action and invalidation only."""
-    rows = repo.list_decision_rows(session, pair=pair, limit=20)
-    for r in rows:
-        if r.account_id == account_id:
-            return r.action, r.invalidation
-    return None
+    rows = repo.list_decision_rows(session, account_id=account_id, pair=pair, limit=1)
+    if not rows:
+        return None
+    return rows[0].action, rows[0].invalidation
