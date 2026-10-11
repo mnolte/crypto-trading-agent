@@ -9,9 +9,11 @@ import type {
 } from "../api/client";
 import {
   useCosts,
+  useCreateShadow,
   useDeleteData,
   useMarkets,
   usePrompts,
+  usePromoteShadow,
   useReadiness,
   useRemoveSecret,
   useResetPaper,
@@ -19,8 +21,10 @@ import {
   useSaveSettings,
   useSaveSmtpPassword,
   useSettings,
+  useShadows,
   useSnapshot,
   useSources,
+  useStopShadow,
   useTestNotifications,
   useTestSecret,
   useUpdateMarket,
@@ -39,6 +43,7 @@ import {
   formatEur,
   formatEurCompact,
   formatPct,
+  formatSigned,
   formatTime,
   parseNumberInput,
 } from "../lib/format";
@@ -49,9 +54,11 @@ function toDraft(data: SettingsOut): SettingsType {
 }
 
 const FEATURE_LABEL: Record<string, string> = {
-  decision: "Decisions",
-  replay: "Replays",
-  briefing: "Briefings & reviews",
+  decisions: "Decisions",
+  ask: "Ask",
+  briefings: "Briefings & reviews",
+  shadows: "Shadows",
+  replays: "Replays",
 };
 
 const WEEKLY_REVIEW_LABEL: Record<string, string> = {
@@ -89,7 +96,17 @@ export function Settings() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [smtpPassword, setSmtpPassword] = useState("");
 
+  const { data: shadows } = useShadows();
+  const [shadowForm, setShadowForm] = useState(false);
+  const [shadowModel, setShadowModel] = useState("");
+  const [shadowPrompt, setShadowPrompt] = useState("decision.v1");
+  const [promoteShadow, setPromoteShadow] = useState<string | null>(null);
+  const [shadowError, setShadowError] = useState<string | null>(null);
+
   const save = useSaveSettings();
+  const createShadow = useCreateShadow();
+  const stopShadow = useStopShadow();
+  const promoteShadowMut = usePromoteShadow();
   const reset = useResetPaper();
   const deleteData = useDeleteData();
   const updateMarket = useUpdateMarket();
@@ -440,7 +457,8 @@ export function Settings() {
                       )
                       .join(" · ")}. `
                   : ""}
-                At 80%: replays pause. At 100%: decisions use Rules until the 1st.
+                At 80%: shadows, Ask and replays pause. At 100%: decisions use
+                Rules until the 1st.
               </span>
             </div>
           </div>
@@ -680,6 +698,83 @@ export function Settings() {
         </Card>
 
         <Card
+          title="Shadow strategies"
+          heading="section"
+          className="settings-card settings-card--wide"
+          label="Shadow strategies"
+          actions={
+            <Button
+              size="sm"
+              disabled={
+                (shadows?.items.filter((s) => s.status === "running")
+                  .length ?? 0) >= 2
+              }
+              onClick={() => {
+                setShadowModel(draft?.model.model_id ?? "");
+                setShadowPrompt(draft?.model.prompt_version ?? "decision.v1");
+                setShadowError(null);
+                setShadowForm(true);
+              }}
+            >
+              Add shadow (
+              {shadows?.items.filter((s) => s.status === "running").length ?? 0}{" "}
+              of 2)
+            </Button>
+          }
+        >
+          <p className="card__meta" style={{ margin: 0 }}>
+            A shadow runs on the same data every cycle and records what it
+            would have done, with its own paper account. It never places
+            orders. Each one roughly doubles model calls on cycles where it
+            runs.
+          </p>
+          {(shadows?.items ?? []).map((s) => (
+            <div key={s.id} className="shadow-row">
+              <div className="shadow-row__main">
+                <span className="shadow-row__name">{s.name}</span>
+                <span className="card__meta">
+                  {s.model} · {s.prompt_version} · since{" "}
+                  {s.created_at.slice(0, 10)}
+                  {s.paused ? " · paused (cost cap)" : ""}
+                </span>
+              </div>
+              <div className="card__meta shadow-row__stat">
+                {s.return_pct != null ? `${formatSigned(s.return_pct)}%` : "—"}
+                {" vs main "}
+                {s.live_return_pct != null
+                  ? `${formatSigned(s.live_return_pct)}%`
+                  : "—"}
+                {" · "}
+                {s.decisions} decisions
+              </div>
+              <div className="shadow-row__actions">
+                <Link to="/inspector" className="btn btn--secondary btn--sm">
+                  Compare
+                </Link>
+                {s.status === "running" && (
+                  <>
+                    <Button size="sm" onClick={() => setPromoteShadow(s.id)}>
+                      Promote…
+                    </Button>
+                    <Button
+                      size="sm"
+                      style={{ color: "var(--down-text)" }}
+                      onClick={() => stopShadow.mutate(s.id)}
+                    >
+                      Stop
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+          <p className="card__meta" style={{ margin: 0 }}>
+            Promote replaces the main prompt or model after a confirmation.
+            The old version stays in the inspector history.
+          </p>
+        </Card>
+
+        <Card
           title="Live readiness"
           heading="section"
           className="settings-card settings-card--wide"
@@ -748,6 +843,93 @@ export function Settings() {
             LLM calls, verdicts and outcomes are kept and tagged with account #
             {snapshot?.account_id ?? 1}; trades, the equity curve, Performance
             and Readiness start fresh. Export history first if you want it.
+          </p>
+        </Dialog>
+      )}
+
+      {shadowForm && (
+        <Dialog
+          title="Add a shadow strategy"
+          onClose={() => setShadowForm(false)}
+          actions={[
+            { label: "Cancel", onClick: () => setShadowForm(false) },
+            {
+              label: "Add shadow",
+              variant: "primary",
+              onClick: () =>
+                createShadow.mutate(
+                  {
+                    model: shadowModel.trim(),
+                    prompt_version: shadowPrompt,
+                    overrides: {},
+                    daily_call_limit: 300,
+                  },
+                  {
+                    onSuccess: () => setShadowForm(false),
+                    onError: (e) =>
+                      setShadowError(
+                        e instanceof Error ? e.message : String(e),
+                      ),
+                  },
+                ),
+            },
+          ]}
+        >
+          <div className="settings-fields">
+            <FormField label="Model" htmlFor="shadow-model">
+              <Input
+                id="shadow-model"
+                mono
+                value={shadowModel}
+                onChange={(e) => setShadowModel(e.target.value)}
+              />
+            </FormField>
+            <FormField label="Prompt version" htmlFor="shadow-prompt">
+              <Select
+                id="shadow-prompt"
+                value={shadowPrompt}
+                onChange={(e) => setShadowPrompt(e.target.value)}
+              >
+                {(prompts ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.id}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+          </div>
+          <p className="card__meta" style={{ margin: 0 }}>
+            The shadow starts flat, with cash equal to the live account&apos;s
+            current equity, and is compared with the live account from that
+            moment on.
+          </p>
+          {shadowError && <p className="field__msg">{shadowError}</p>}
+        </Dialog>
+      )}
+
+      {promoteShadow && (
+        <Dialog
+          danger
+          title="Promote this shadow?"
+          confirmText="PROMOTE"
+          onClose={() => setPromoteShadow(null)}
+          actions={[
+            { label: "Cancel", onClick: () => setPromoteShadow(null) },
+            {
+              label: "Promote",
+              variant: "danger-solid",
+              requiresConfirm: true,
+              onClick: () =>
+                promoteShadowMut.mutate(promoteShadow, {
+                  onSettled: () => setPromoteShadow(null),
+                }),
+            },
+          ]}
+        >
+          <p>
+            The live decider switches to this shadow&apos;s model and prompt
+            version, and the shadow stops. The old version stays in the
+            inspector history.
           </p>
         </Dialog>
       )}

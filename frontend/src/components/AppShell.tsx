@@ -11,10 +11,10 @@ import {
 } from "../api/hooks";
 import { formatEur, formatPct, formatSignedEur, formatDateTime } from "../lib/format";
 import { displayStatus, statusLabel } from "../lib/status";
+import { AskPanel } from "./AskPanel";
 import { Banner } from "./Banner";
 import { Button } from "./Button";
 import { Dialog } from "./Dialog";
-import { EmptyState } from "./EmptyState";
 import { Sidebar } from "./Sidebar";
 import { SidePanel } from "./SlidePanel";
 import { TopBar } from "./TopBar";
@@ -132,7 +132,7 @@ export function AppShell({
           title="Ask the agent"
           onClose={() => setAskOpen(false)}
         >
-          <EmptyState title="Ask the agent" footer="This panel arrives with the Evidence build step." />
+          <AskPanel />
         </SidePanel>
       )}
 
