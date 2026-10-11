@@ -1,6 +1,24 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api, type HealthOut, type SettingsOut, type Snapshot } from "./client";
+import {
+  api,
+  post,
+  type CandleFeed,
+  type DecisionDetail,
+  type DecisionListOut,
+  type FlattenPreview,
+  type HealthOut,
+  type IndicatorsOut,
+  type MarketOut,
+  type PerformanceOut,
+  type PromptInfo,
+  type Settings,
+  type SettingsOut,
+  type Snapshot,
+  type SourceOut,
+  type Tf,
+  type TradeListOut,
+} from "./client";
 
 export function useSnapshot() {
   return useQuery({
@@ -24,6 +42,219 @@ export function useHealth() {
     queryFn: () => api<HealthOut>("/api/health"),
     staleTime: 30_000,
   });
+}
+
+export function useCandles(pair: string | null, tf: Tf, bars = 300) {
+  return useQuery({
+    queryKey: ["candles", pair, tf, bars],
+    queryFn: () => api<CandleFeed>(`/api/candles/${pair}?tf=${tf}&bars=${bars}`),
+    enabled: pair !== null,
+    staleTime: 30_000,
+  });
+}
+
+export function useDecisions(pair?: string, limit = 50) {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  if (pair) qs.set("pair", pair);
+  return useQuery({
+    queryKey: ["decisions", pair ?? "all", limit],
+    queryFn: () => api<DecisionListOut>(`/api/decisions?${qs}`),
+    staleTime: 15_000,
+  });
+}
+
+export function useDecision(id: string | null) {
+  return useQuery({
+    queryKey: ["decision", id],
+    queryFn: () => api<DecisionDetail>(`/api/decisions/${id}`),
+    enabled: id !== null,
+  });
+}
+
+export function useIndicators(pair: string | null, tf: Tf, at?: string | null) {
+  const qs = new URLSearchParams({ tf });
+  if (at) qs.set("at", at);
+  return useQuery({
+    queryKey: ["indicators", pair, tf, at ?? "live"],
+    queryFn: () => api<IndicatorsOut>(`/api/indicators/${pair}?${qs}`),
+    enabled: pair !== null,
+    staleTime: 30_000,
+  });
+}
+
+export function usePerformance(from?: string, end?: string) {
+  const qs = new URLSearchParams();
+  if (from) qs.set("from", from);
+  if (end) qs.set("end", end);
+  return useQuery({
+    queryKey: ["performance", from ?? "start", end ?? ""],
+    queryFn: () => api<PerformanceOut>(`/api/performance?${qs}`),
+    staleTime: 30_000,
+  });
+}
+
+export function useTrades(from?: string, end?: string) {
+  const qs = new URLSearchParams();
+  if (from) qs.set("from", from);
+  if (end) qs.set("end", end);
+  return useQuery({
+    queryKey: ["trades", from ?? "", end ?? ""],
+    queryFn: () => api<TradeListOut>(`/api/trades?${qs}`),
+    staleTime: 30_000,
+  });
+}
+
+export function useMarkets() {
+  return useQuery({
+    queryKey: ["markets"],
+    queryFn: () => api<MarketOut[]>("/api/markets"),
+    staleTime: 60_000,
+  });
+}
+
+export function useSources() {
+  return useQuery({
+    queryKey: ["sources"],
+    queryFn: () => api<SourceOut[]>("/api/sources"),
+    staleTime: 30_000,
+  });
+}
+
+export function usePrompts() {
+  return useQuery({
+    queryKey: ["prompts"],
+    queryFn: () => api<PromptInfo[]>("/api/prompts"),
+    staleTime: 300_000,
+  });
+}
+
+export function useFlattenPreview(enabled: boolean) {
+  return useQuery({
+    queryKey: ["flatten-preview"],
+    queryFn: () => api<FlattenPreview>("/api/agent/flatten-preview"),
+    enabled,
+  });
+}
+
+/** A snapshot-returning agent control; keeps the query cache in sync. */
+function useAgentAction(path: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => post<Snapshot>(path),
+    onSuccess: (snapshot) => client.setQueryData(["snapshot"], snapshot),
+  });
+}
+
+export function usePauseAgent() {
+  return useAgentAction("/api/agent/pause");
+}
+export function useResumeAgent() {
+  return useAgentAction("/api/agent/resume");
+}
+export function useRunNow() {
+  return useAgentAction("/api/agent/run-now");
+}
+export function useFlatten() {
+  return useAgentAction("/api/agent/flatten");
+}
+export function useAcknowledgeKill() {
+  return useAgentAction("/api/agent/acknowledge-kill");
+}
+export function useResetPaper() {
+  return useAgentAction("/api/paper/reset");
+}
+
+export function useClosePosition() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (pair: string) => post<Snapshot>(`/api/positions/${pair}/close`),
+    onSuccess: (snapshot) => client.setQueryData(["snapshot"], snapshot),
+  });
+}
+
+export function useSaveSettings() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (settings: Settings) =>
+      api<SettingsOut>("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify(settings),
+      }),
+    onSuccess: (data) => client.setQueryData(["settings"], data),
+  });
+}
+
+export function useUpdateMarket() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ market, active }: { market: string; active: boolean }) =>
+      api<MarketOut>(`/api/markets/${encodeURIComponent(market)}`, {
+        method: "PUT",
+        body: JSON.stringify({ active }),
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["markets"] }),
+  });
+}
+
+export function useUpdateSource() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      api<SourceOut>(`/api/sources/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ enabled }),
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["sources"] }),
+  });
+}
+
+export function useSaveSecret() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, key }: { id: string; key: string }) =>
+      api<{ ok: boolean }>(`/api/secrets/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ key }),
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["sources"] }),
+  });
+}
+
+export function useRemoveSecret() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<{ ok: boolean }>(`/api/secrets/${id}`, { method: "DELETE" }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["sources"] }),
+  });
+}
+
+export function useTestSecret() {
+  return useMutation({
+    mutationFn: (id: string) => post<{ ok: boolean; error: string | null }>(`/api/secrets/${id}/test`),
+  });
+}
+
+export function useDeleteData() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<{ ok: boolean }>("/api/data", {
+        method: "DELETE",
+        body: JSON.stringify({ confirm: "DELETE" }),
+      }),
+    onSuccess: () => client.invalidateQueries(),
+  });
+}
+
+/** A wall clock that re-renders every `stepMs`; used for countdowns. */
+export function useNow(stepMs = 1000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), stepMs);
+    return () => window.clearInterval(id);
+  }, [stepMs]);
+  return now;
 }
 
 /**

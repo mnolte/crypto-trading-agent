@@ -9,21 +9,27 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import repo
 from app.agent.broker.paper import HeldPosition, PaperBroker
 from app.config import get_env
-from app.db import AccountRow, make_engine, make_session_factory, run_migrations
+from app.db import AccountRow, PositionRow, make_engine, make_session_factory, run_migrations
 from app.models import PaperSettings
 
 NOW = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
 
 
 def _account(
-    cash: str = "10000", peak: str = "10000", day_start: str = "10000", day: str = "2026-10-11"
+    cash: str = "10000",
+    peak: str = "10000",
+    day_start: str = "10000",
+    day: str = "2026-10-11",
+    account_id: int = 1,
 ) -> AccountRow:
     return AccountRow(
-        id=1,
+        id=account_id,
         started_at=NOW,
         start_balance="10000",
         cash=cash,
@@ -174,12 +180,60 @@ def test_positions_roundtrip_through_db(session: Session) -> None:
         invalidation_price=Decimal("95"),
     )
     session.commit()
+    session.expire_all()
     other = PaperBroker(_account(), PaperSettings())
     other.load_positions(session)
     pos = other.positions["BTC-EUR"]
     assert pos.qty == Decimal("5") and pos.entry == Decimal("100.05")
     assert pos.stop == Decimal("90") and pos.invalidation_price == Decimal("95")
     assert pos.r_unit == pos.entry - Decimal("90")
+    assert pos.opened_at == NOW and pos.opened_at.tzinfo is UTC
+
+
+def test_position_model_normalises_naive_opened_at(session: Session) -> None:
+    pos = HeldPosition(
+        pair="BTC-EUR",
+        qty=Decimal("1"),
+        entry=Decimal("100"),
+        stop=Decimal("90"),
+        target=Decimal("120"),
+        opened_at=NOW.replace(tzinfo=None),
+        decision_id="d1",
+        last=Decimal("100"),
+    )
+    assert pos.to_model().opened_at == NOW
+
+
+def test_close_refuses_a_non_positive_price(session: Session) -> None:
+    broker = PaperBroker(_account(), PaperSettings())
+    broker.buy(
+        session, "BTC-EUR", Decimal("100"), Decimal("5"), Decimal("90"), Decimal("120"), "d1", NOW
+    )
+    cash = broker.cash
+    assert broker.close(session, "BTC-EUR", Decimal("0"), NOW, "manual") is None
+    assert "BTC-EUR" in broker.positions and broker.cash == cash
+
+
+def test_position_rows_stay_scoped_to_their_account(session: Session) -> None:
+    old = PaperBroker(_account(account_id=1), PaperSettings())
+    old.buy(
+        session, "BTC-EUR", Decimal("100"), Decimal("5"), Decimal("90"), Decimal("120"), "d1", NOW
+    )
+    current = PaperBroker(_account(account_id=2), PaperSettings())
+    current.buy(
+        session, "BTC-EUR", Decimal("101"), Decimal("4"), Decimal("95"), Decimal("120"), "d2", NOW
+    )
+    session.commit()
+
+    row = session.get(PositionRow, "BTC-EUR")
+    assert row is not None and row.account_id == 2 and row.decision_id == "d2"
+    assert old.account_id not in [r.account_id for r in session.scalars(select(PositionRow)).all()]
+
+    repo.delete_position_row(session, "BTC-EUR", account_id=1)
+    assert session.get(PositionRow, "BTC-EUR") is not None
+    repo.delete_position_row(session, "BTC-EUR", account_id=2)
+    session.flush()
+    assert session.get(PositionRow, "BTC-EUR") is None
 
 
 def test_close_removes_position_and_books_trade(session: Session) -> None:

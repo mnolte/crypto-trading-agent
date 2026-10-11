@@ -1293,3 +1293,353 @@ input[type="checkbox"].check {
 .dev-frame .slide-panel {
   position: absolute;
 }
+
+/* ------------------------------------------------------- Screen layouts -- */
+
+/* Number colour utilities (mono cells). */
+.up { color: var(--up); }
+.down { color: var(--down-text); }
+
+/* KPI strip: tiles wrap; each ~200 px wide. */
+.kpi-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.kpi-strip .kpi {
+  flex: 1 1 180px;
+}
+
+/* Two-column card rows: main (chart/positions) + side (decision/activity). */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  align-items: stretch;
+}
+.row__main { flex: 999 1 560px; min-width: 0; }
+.row__side { flex: 1 1 340px; min-width: 0; }
+
+.card__meta {
+  font-size: var(--fs-caption);
+  color: var(--text-muted);
+}
+
+/* Chart header: pair tabs + timeframe toggle + big price line. */
+.chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.chart-price {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.chart-price__value {
+  font-size: 32px;
+  font-weight: 500;
+}
+
+/* Inline legend markers (static, not chart-absolute). */
+.chart-legend .chart-marker {
+  position: static;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+.chart-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.chart-marker--buy { background: var(--up); }
+.chart-marker--sell { background: var(--down); }
+.chart-marker--decision { background: var(--accent); }
+
+/* Regime chip: "up · normal vol · 14 bars". */
+.regime-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: var(--fs-caption);
+  font-family: var(--font-num);
+  border: 1px solid var(--line-strong);
+  background: var(--panel-raised);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.regime-chip--up { background: var(--up-bg); color: var(--up); border-color: var(--up-line); }
+.regime-chip--down { background: var(--down-bg); color: var(--down-text); border-color: var(--down-line); }
+.regime-chip--sideways { background: var(--side-bg); color: var(--side); border-color: var(--side-line); }
+
+/* Latest decision card. */
+.decision-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.decision-why {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--text-soft);
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Small box of key/value rows (latest decision, dialogs). */
+.kv-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: var(--fs-small);
+}
+
+/* Activity feed. */
+.activity {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: var(--fs-small);
+}
+.activity__row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+.activity__time {
+  color: var(--text-muted);
+  flex: 0 0 48px;
+}
+.activity__text {
+  color: var(--text-soft);
+}
+
+/* Decision drawer. */
+.drawer-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.drawer-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.verdict .action-badge {
+  width: 88px;
+  height: 56px;
+  font-size: 22px;
+}
+.verdict__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.verdict__line { font-size: 15px; }
+.verdict__conf {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+}
+.verdict__conf .meter { flex: 1; }
+
+.reasoning {
+  padding: 14px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  line-height: 1.6;
+  color: var(--text-soft);
+  font-size: var(--fs-small);
+}
+.reasoning--invalidation {
+  border-style: dashed;
+  border-color: var(--accent-line);
+  color: var(--accent-soft);
+}
+
+/* Order plan: 4 tiles; invalidation dashed amber. */
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.plan-tile {
+  padding: var(--space-3);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-small);
+}
+.plan-tile--warn {
+  border-style: dashed;
+  border-color: var(--accent-line);
+}
+.plan-tile__label {
+  font-size: var(--fs-caption);
+  color: var(--text-muted);
+}
+.plan-tile .num { word-break: break-all; }
+
+.drawer-actions {
+  display: flex;
+  gap: 10px;
+}
+.drawer-actions__grow { flex: 1; justify-content: center; }
+
+/* Frozen-mode bar on Indicators. */
+.frozen-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 14px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-card);
+  color: var(--accent-soft);
+  font-size: var(--fs-small);
+}
+
+/* Indicators context cards and health list. */
+.context-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-2);
+}
+.context-item {
+  padding: var(--space-3);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-small);
+}
+.context-item__label {
+  font-size: var(--fs-caption);
+  color: var(--text-muted);
+}
+
+.structure-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--fs-small);
+  color: var(--text-soft);
+}
+
+/* Settings rows. */
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: flex-end;
+}
+.field--grow { flex: 1 1 180px; }
+
+/* Toggle switch for markets/sources. */
+.switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-hover);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.switch[aria-checked="true"] {
+  background: var(--up-bg);
+  border-color: var(--up-line);
+}
+.switch[aria-checked="true"]::after {
+  transform: translateX(20px);
+  background: var(--up);
+}
+.switch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Banner action spacing. */
+.banner .btn { flex: 0 0 auto; }
+.banner a.btn { text-decoration: none; }
+
+/* Settings: two-column card grid (max ~1120 px content). */
+.settings-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  align-items: flex-start;
+  max-width: 1120px;
+  margin: 0 auto;
+  width: 100%;
+}
+.settings-card {
+  flex: 1 1 480px;
+  min-width: 0;
+}
+.settings-card--wide {
+  flex: 1 1 100%;
+}
+.settings-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+.settings-error {
+  flex: 1 1 100%;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--down-bg);
+  border: 1px solid var(--down-line);
+  color: var(--down-soft);
+  font-size: var(--fs-small);
+}

@@ -64,3 +64,6 @@ markers = [
 ]
 # No real network in tests: every outbound socket fails unless it's localhost.
 addopts = "--disable-socket --allow-hosts=127.0.0.1,localhost"
+filterwarnings = [
+    'error:A test tried to use socket\.socket',
+]

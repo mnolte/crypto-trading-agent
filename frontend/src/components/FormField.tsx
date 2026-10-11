@@ -8,6 +8,7 @@ export function FormField({
   error,
   hint,
   htmlFor,
+  className = "",
 }: {
   label: ReactNode;
   children?: ReactNode;
@@ -15,10 +16,11 @@ export function FormField({
   error?: string;
   hint?: string;
   htmlFor?: string;
+  className?: string;
 }) {
   const autoId = useId();
   return (
-    <label className="field" htmlFor={htmlFor ?? autoId}>
+    <label className={`field ${className}`.trim()} htmlFor={htmlFor ?? autoId}>
       <span className="field__label">{label}</span>
       <span className="field__control">
         {children}

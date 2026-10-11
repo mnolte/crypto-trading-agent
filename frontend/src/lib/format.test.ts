@@ -7,6 +7,7 @@ import {
   formatPrice,
   formatSignedEur,
   formatTime,
+  parseNumberInput,
 } from "./format";
 
 describe("formatEur", () => {
@@ -61,5 +62,13 @@ describe("formatCountdown", () => {
 
   it("renders an em dash for negative input", () => {
     expect(formatCountdown(-5)).toBe("—");
+  });
+});
+
+describe("parseNumberInput", () => {
+  it("parses valid numbers and preserves empty fields as no change", () => {
+    expect(parseNumberInput("1.5")).toBe(1.5);
+    expect(parseNumberInput("")).toBeUndefined();
+    expect(parseNumberInput("not-a-number")).toBeUndefined();
   });
 });

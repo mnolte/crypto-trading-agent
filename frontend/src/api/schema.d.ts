@@ -4,6 +4,27 @@
  */
 
 export interface paths {
+    "/api/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Activity
+         * @description Newest-first activity log; ``before`` is the row id of the last item
+         *     from the previous page.
+         */
+        get: operations["get_activity_api_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/acknowledge-kill": {
         parameters: {
             query?: never;
@@ -32,6 +53,27 @@ export interface paths {
         put?: never;
         /** Agent Flatten */
         post: operations["agent_flatten_api_agent_flatten_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/flatten-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Flatten Preview
+         * @description What Stop & flatten would close right now: count, estimated exit fees
+         *     and the live unrealised P&L.
+         */
+        get: operations["flatten_preview_api_agent_flatten_preview_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -89,6 +131,129 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/candles/{pair}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Candles
+         * @description Dashboard chart feed: stored closed candles, trade markers and the
+         *     open position's entry/stop/target lines.
+         */
+        get: operations["get_candles_api_candles__pair__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete All Data
+         * @description Wipe every table except settings (API keys live outside the database),
+         *     then open a fresh paper account. The agent is paused afterwards.
+         */
+        delete: operations["delete_all_data_api_data_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Decisions
+         * @description Newest-first decision history; ``before`` pages backwards in time.
+         */
+        get: operations["get_decisions_api_decisions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/decisions/{decision_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Decision
+         * @description One decision plus the raw stored call and prev/next ids for the
+         *     drawer's stepper.
+         */
+        get: operations["get_decision_api_decisions__decision_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/export/decisions.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Decisions
+         * @description Every stored decision (all accounts), newest first.
+         */
+        get: operations["export_decisions_api_export_decisions_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/export/trades.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Trades
+         * @description Every closed trade (all accounts), newest first.
+         */
+        get: operations["export_trades_api_export_trades_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -98,6 +263,49 @@ export interface paths {
         };
         /** Health */
         get: operations["health_api_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/indicators/{pair}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Indicators
+         * @description The Indicators screen in one payload.
+         *
+         *     ``at`` pins every value to a stored decision: the candles are sliced at
+         *     the decision's timestamp so the numbers match what the decider saw.
+         */
+        get: operations["get_indicators_api_indicators__pair__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/indicators/{pair}/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Indicators
+         * @description CSV of candles plus every indicator series for the window.
+         */
+        get: operations["export_indicators_api_indicators__pair__export_csv_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -161,6 +369,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/performance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Performance
+         * @description Equity curve, BTC benchmark, drawdown, totals and per-pair stats for
+         *     the current account over ``start..end``. ``start`` defaults to the
+         *     account's creation ("Since start").
+         */
+        get: operations["get_performance_api_performance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/positions/{pair}/close": {
         parameters: {
             query?: never;
@@ -172,6 +402,27 @@ export interface paths {
         put?: never;
         /** Position Close */
         post: operations["position_close_api_positions__pair__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prompts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Prompts
+         * @description Every prompt version on disk with the model parameters from its header
+         *     (the Settings select).
+         */
+        get: operations["get_prompts_api_prompts_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -299,6 +550,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/trades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Trades */
+        get: operations["get_trades_api_trades_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -318,6 +586,89 @@ export interface components {
             pair: string | null;
             /** Text */
             text: string;
+        };
+        /** ActivityListOut */
+        ActivityListOut: {
+            /** Items */
+            items: components["schemas"]["ActivityOut"][];
+            /** Next Before */
+            next_before: number | null;
+        };
+        /** ActivityOut */
+        ActivityOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Decision Id */
+            decision_id: string | null;
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Pair */
+            pair: string | null;
+            /** Text */
+            text: string;
+        };
+        /**
+         * CandleFeed
+         * @description Dashboard chart: candles plus trade markers and open-position lines.
+         */
+        CandleFeed: {
+            /** Candles */
+            candles: components["schemas"]["CandlePoint"][];
+            /** Markers */
+            markers: components["schemas"]["ChartMarker"][];
+            /** Pair */
+            pair: string;
+            position: components["schemas"]["PositionLines"] | null;
+            /**
+             * Tf
+             * @enum {string}
+             */
+            tf: "1h" | "4h" | "1d";
+        };
+        /** CandlePoint */
+        CandlePoint: {
+            /** Close */
+            close: number;
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+            /** Open */
+            open: number;
+            /**
+             * Time
+             * Format: date-time
+             */
+            time: string;
+            /** Volume */
+            volume: number;
+        };
+        /**
+         * ChartMarker
+         * @description A trade fill or decision stamped on the bar where it happened.
+         */
+        ChartMarker: {
+            /** Action */
+            action?: ("BUY" | "SELL" | "HOLD" | "SKIP") | null;
+            /** Decision Id */
+            decision_id?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "buy" | "sell" | "decision";
+            /** Label */
+            label: string;
+            /**
+             * Time
+             * Format: date-time
+             */
+            time: string;
         };
         /** Decision */
         Decision: {
@@ -384,12 +735,75 @@ export interface components {
              */
             status: "executed" | "pending" | "approved" | "vetoed" | "expired" | "none";
         };
+        /** DecisionDetail */
+        DecisionDetail: {
+            decision: components["schemas"]["Decision"];
+            /**
+             * Execution Mode
+             * @enum {string}
+             */
+            execution_mode: "auto" | "supervised" | "manual";
+            /** Fill Price */
+            fill_price?: string | null;
+            /** Next Id */
+            next_id?: string | null;
+            /** Prev Id */
+            prev_id?: string | null;
+            /** Raw Brief */
+            raw_brief?: string | null;
+            /** Raw Response */
+            raw_response?: string | null;
+        };
+        /** DecisionListOut */
+        DecisionListOut: {
+            /** Items */
+            items: components["schemas"]["Decision"][];
+        };
+        /** DeleteDataRequest */
+        DeleteDataRequest: {
+            /**
+             * Confirm
+             * @constant
+             */
+            confirm: "DELETE";
+        };
+        /** DrawdownPoint */
+        DrawdownPoint: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Pct */
+            pct: number;
+        };
         /** EntryPause */
         EntryPause: {
             /** Pair */
             pair: string;
             /** Until */
             until: string | null;
+        };
+        /** EquityPoint */
+        EquityPoint: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Equity */
+            equity: string;
+        };
+        /** FlattenPreview */
+        FlattenPreview: {
+            /** Count */
+            count: number;
+            /** Est Fees Eur */
+            est_fees_eur: string;
+            /** Pairs */
+            pairs: string[];
+            /** Unrealised Eur */
+            unrealised_eur: string;
         };
         /** Gate */
         Gate: {
@@ -408,20 +822,74 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /** HealthOut */
-        HealthOut: {
-            /** Cycle */
-            cycle: number;
-            /** Errors 24H */
-            errors_24h: number;
-            /** Last Cycle At */
-            last_cycle_at: string | null;
-            /** Sources */
-            sources: {
-                [key: string]: string;
+        /** IndicatorCell */
+        IndicatorCell: {
+            /** Read */
+            read: ("bullish" | "bearish" | "neutral" | "trending" | "ranging" | "low" | "normal" | "high") | null;
+            /** Text */
+            text: string | null;
+        };
+        /** IndicatorRowOut */
+        IndicatorRowOut: {
+            /** Cells */
+            cells: {
+                [key: string]: components["schemas"]["IndicatorCell"];
             };
-            /** Status */
-            status: string;
+            /** Name */
+            name: string;
+            /** Threshold */
+            threshold: string;
+        };
+        /**
+         * IndicatorsOut
+         * @description The whole Indicators screen in one payload.
+         *
+         *     ``frozen_*`` is set when the payload is pinned to a past decision
+         *     (``?at=<decision id>``): every value is computed from candles that were
+         *     closed at that moment.
+         */
+        IndicatorsOut: {
+            /** Adx Threshold */
+            adx_threshold: number;
+            btc_regime: components["schemas"]["Regime"] | null;
+            /** Candles */
+            candles: components["schemas"]["CandlePoint"][];
+            /** Context */
+            context: {
+                [key: string]: number | null;
+            };
+            /** Current */
+            current: components["schemas"]["IndicatorRowOut"][];
+            /** Frozen */
+            frozen: boolean;
+            /** Frozen At */
+            frozen_at: string | null;
+            /** Frozen Cycle */
+            frozen_cycle: number | null;
+            /** Frozen Decision Id */
+            frozen_decision_id: string | null;
+            health: components["schemas"]["app__models__HealthOut"];
+            /** Levels */
+            levels: components["schemas"]["LevelOut"][];
+            liquidity: components["schemas"]["LiquidityOut"];
+            /** Markers */
+            markers: components["schemas"]["ChartMarker"][];
+            /** Pair */
+            pair: string;
+            regime: components["schemas"]["Regime"];
+            /** Regime Band */
+            regime_band: components["schemas"]["TrendPoint"][];
+            /** Series */
+            series: {
+                [key: string]: components["schemas"]["SeriesPoint"][];
+            };
+            /** Structure */
+            structure: string[];
+            /**
+             * Tf
+             * @enum {string}
+             */
+            tf: "1h" | "4h" | "1d";
         };
         /** KillInfo */
         KillInfo: {
@@ -438,6 +906,29 @@ export interface components {
             equity: string;
             /** Peak */
             peak: string;
+        };
+        /** LevelOut */
+        LevelOut: {
+            /** Dist Atr */
+            dist_atr: number | null;
+            /** Dist Pct */
+            dist_pct: number | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "support" | "resistance" | "prev_day_high" | "prev_day_low";
+            /** Price */
+            price: number;
+        };
+        /** LiquidityOut */
+        LiquidityOut: {
+            /** Depth Eur */
+            depth_eur: number | null;
+            /** Spread Pct */
+            spread_pct: number | null;
+            /** Vol24H Vs 30D */
+            vol24h_vs_30d: number | null;
         };
         /** MarketOut */
         MarketOut: {
@@ -741,6 +1232,70 @@ export interface components {
              */
             start_balance_eur: string;
         };
+        /** PerPairPerf */
+        PerPairPerf: {
+            /** Avg R */
+            avg_r: number | null;
+            /** Fees Eur */
+            fees_eur: string;
+            /** Pair */
+            pair: string;
+            /** Realised Eur */
+            realised_eur: string;
+            /** Trades */
+            trades: number;
+        };
+        /** PerfTotals */
+        PerfTotals: {
+            /** Avg R */
+            avg_r: number | null;
+            /** Benchmark Return Pct */
+            benchmark_return_pct: number | null;
+            /** Fees Eur */
+            fees_eur: string;
+            /** Max Drawdown Pct */
+            max_drawdown_pct: number | null;
+            /** Open Now */
+            open_now: number;
+            /** Profit Factor */
+            profit_factor: number | null;
+            /** Return Pct */
+            return_pct: number | null;
+            /** Time In Market Pct */
+            time_in_market_pct: number | null;
+            /** Trades */
+            trades: number;
+            /** Vs Btc Pct */
+            vs_btc_pct: number | null;
+            /** Win Rate Pct */
+            win_rate_pct: number | null;
+            /** Wins */
+            wins: number;
+        };
+        /** PerformanceOut */
+        PerformanceOut: {
+            /** Benchmark */
+            benchmark: components["schemas"]["SeriesPoint"][];
+            /** Drawdown */
+            drawdown: components["schemas"]["DrawdownPoint"][];
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Equity */
+            equity: components["schemas"]["EquityPoint"][];
+            /** Kill Line Pct */
+            kill_line_pct: number;
+            /** Per Pair */
+            per_pair: components["schemas"]["PerPairPerf"][];
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            totals: components["schemas"]["PerfTotals"];
+        };
         /** Plan */
         Plan: {
             /** Entry */
@@ -782,6 +1337,15 @@ export interface components {
             /** Unrealised */
             unrealised: string;
         };
+        /** PositionLines */
+        PositionLines: {
+            /** Entry */
+            entry: string;
+            /** Stop */
+            stop: string;
+            /** Target */
+            target: string;
+        };
         /** PriceInfo */
         PriceInfo: {
             /** Chg 24H Pct */
@@ -790,6 +1354,17 @@ export interface components {
             last: string;
             /** Stale */
             stale: boolean;
+        };
+        /** PromptInfo */
+        PromptInfo: {
+            /** Id */
+            id: string;
+            /** Max Output Tokens */
+            max_output_tokens: number;
+            /** Model */
+            model: string;
+            /** Temperature */
+            temperature: number;
         };
         /** Regime */
         Regime: {
@@ -1168,6 +1743,16 @@ export interface components {
             /** Ok */
             ok: boolean;
         };
+        /** SeriesPoint */
+        SeriesPoint: {
+            /**
+             * Time
+             * Format: date-time
+             */
+            time: string;
+            /** Value */
+            value: number | null;
+        };
         /**
          * SessionOut
          * @description The X-Local-Token for the served UI.
@@ -1526,6 +2111,11 @@ export interface components {
             };
             /** Quiet */
             quiet: string;
+            /**
+             * Return Since Start Pct
+             * @default 0
+             */
+            return_since_start_pct: number;
             risk_budget: components["schemas"]["RiskBudget"];
             /**
              * Source
@@ -1541,6 +2131,16 @@ export interface components {
             status: "running" | "paused" | "killed" | "error";
             /** Today Pnl */
             today_pnl: string;
+            /**
+             * Today Trades
+             * @default 0
+             */
+            today_trades: number;
+            /**
+             * Today Won
+             * @default 0
+             */
+            today_won: number;
             usage: components["schemas"]["Usage"];
         };
         /** SourceOut */
@@ -1589,6 +2189,57 @@ export interface components {
             /** Reasons */
             reasons: ("streak" | "drawdown")[];
         };
+        /** TradeListOut */
+        TradeListOut: {
+            /** Items */
+            items: components["schemas"]["TradeOut"][];
+        };
+        /** TradeOut */
+        TradeOut: {
+            /**
+             * Closed At
+             * Format: date-time
+             */
+            closed_at: string;
+            /** Decision Id */
+            decision_id: string;
+            /** Entry */
+            entry: string;
+            /** Exit */
+            exit: string;
+            /** Exit Reason */
+            exit_reason: string;
+            /** Fee Eur */
+            fee_eur: string;
+            /** Id */
+            id: number;
+            /**
+             * Opened At
+             * Format: date-time
+             */
+            opened_at: string;
+            /** Pair */
+            pair: string;
+            /** Qty */
+            qty: string;
+            /** Realised Eur */
+            realised_eur: string;
+            /** Realised R */
+            realised_r: number;
+        };
+        /** TrendPoint */
+        TrendPoint: {
+            /**
+             * Time
+             * Format: date-time
+             */
+            time: string;
+            /**
+             * Value
+             * @enum {string}
+             */
+            value: "up" | "down" | "sideways";
+        };
         /** Usage */
         Usage: {
             /** Calls Today */
@@ -1615,6 +2266,38 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** HealthOut */
+        app__api__routes__HealthOut: {
+            /** Cycle */
+            cycle: number;
+            /** Errors 24H */
+            errors_24h: number;
+            /** Last Cycle At */
+            last_cycle_at: string | null;
+            /** Sources */
+            sources: {
+                [key: string]: string;
+            };
+            /** Status */
+            status: string;
+        };
+        /** HealthOut */
+        app__models__HealthOut: {
+            /** Bars Loaded */
+            bars_loaded: number;
+            /** Bars Requested */
+            bars_requested: number;
+            /** Missing Bars */
+            missing_bars: number;
+            /** Newest Closed Age S */
+            newest_closed_age_s: number | null;
+            /** Source */
+            source: string;
+            /** Stale */
+            stale: boolean;
+            /** Stale Limit S */
+            stale_limit_s: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -1624,6 +2307,40 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_activity_api_activity_get: {
+        parameters: {
+            query?: {
+                pair?: string | null;
+                kind?: string | null;
+                before?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     agent_acknowledge_kill_api_agent_acknowledge_kill_post: {
         parameters: {
             query?: never;
@@ -1682,6 +2399,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    flatten_preview_api_agent_flatten_preview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlattenPreview"];
                 };
             };
         };
@@ -1779,6 +2516,195 @@ export interface operations {
             };
         };
     };
+    get_candles_api_candles__pair__get: {
+        parameters: {
+            query?: {
+                tf?: "1h" | "4h" | "1d";
+                bars?: number;
+            };
+            header?: never;
+            path: {
+                pair: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandleFeed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_all_data_api_data_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteDataRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_decisions_api_decisions_get: {
+        parameters: {
+            query?: {
+                pair?: string | null;
+                outcome?: "all" | "buy" | "sell" | "hold" | "skip" | "filled";
+                before?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_decision_api_decisions__decision_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_decisions_api_export_decisions_csv_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    export_trades_api_export_trades_csv_get: {
+        parameters: {
+            query?: {
+                pair?: string | null;
+                from?: string | null;
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_api_health_get: {
         parameters: {
             query?: never;
@@ -1794,7 +2720,77 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HealthOut"];
+                    "application/json": components["schemas"]["app__api__routes__HealthOut"];
+                };
+            };
+        };
+    };
+    get_indicators_api_indicators__pair__get: {
+        parameters: {
+            query?: {
+                tf?: "1h" | "4h" | "1d";
+                bars?: number;
+                at?: string | null;
+            };
+            header?: never;
+            path: {
+                pair: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndicatorsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_indicators_api_indicators__pair__export_csv_get: {
+        parameters: {
+            query?: {
+                tf?: "1h" | "4h" | "1d";
+                from?: string | null;
+                end?: string | null;
+            };
+            header?: never;
+            path: {
+                pair: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1887,6 +2883,38 @@ export interface operations {
             };
         };
     };
+    get_performance_api_performance_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PerformanceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     position_close_api_positions__pair__close_post: {
         parameters: {
             query?: never;
@@ -1916,6 +2944,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_prompts_api_prompts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptInfo"][];
                 };
             };
         };
@@ -2166,6 +3214,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_trades_api_trades_get: {
+        parameters: {
+            query?: {
+                pair?: string | null;
+                from?: string | null;
+                end?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradeListOut"];
                 };
             };
             /** @description Validation Error */

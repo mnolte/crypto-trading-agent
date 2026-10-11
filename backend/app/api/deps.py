@@ -223,7 +223,7 @@ def build_snapshot(state: AppState) -> Snapshot:
         positions = [p.to_model() for p in broker.positions.values()]
         activity = [
             ActivityItem(
-                at=row.at,
+                at=repo.aware_utc(row.at),
                 kind=row.kind,
                 pair=row.pair,
                 text=row.text,
@@ -231,6 +231,7 @@ def build_snapshot(state: AppState) -> Snapshot:
             )
             for row in reversed(repo.recent_activity(session, limit=60))
         ]
+        today = repo.trades_today(session, broker.account_id)
         return Snapshot(
             status=engine.status,
             mode="paper",
@@ -257,6 +258,13 @@ def build_snapshot(state: AppState) -> Snapshot:
             errors_24h=0,
             errors_open=0,
             kill=engine.kill,
+            today_trades=len(today),
+            today_won=sum(1 for t in today if Decimal(t.realised_eur) > 0),
+            return_since_start_pct=(
+                float((equity / Decimal(broker.account.start_balance) - 1) * 100)
+                if Decimal(broker.account.start_balance) > 0
+                else 0.0
+            ),
         )
     finally:
         session.close()

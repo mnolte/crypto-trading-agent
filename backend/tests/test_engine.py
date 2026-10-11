@@ -8,6 +8,7 @@ expiry, and the long-run no-NaN soak.
 
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
@@ -22,11 +23,12 @@ from app import repo
 from app.agent.broker.paper import HeldPosition, PaperBroker
 from app.agent.deciders.rules import RulesDecider
 from app.agent.engine import Engine, KilledRefusal
-from app.agent.market.base import Candle, MarketInfo, OrderBook, Ticker24h
+from app.agent.market.base import Candle, MarketDataError, MarketInfo, OrderBook, Ticker24h
 from app.config import get_env
 from app.db import (
     AccountRow,
     DecisionRow,
+    TradeRow,
     make_engine,
     make_session_factory,
     run_migrations,
@@ -330,6 +332,20 @@ async def test_cycle_buys_on_uptrend(env: Path) -> None:
     assert rows and rows[0].action == "BUY" and rows[0].status == "executed"
 
 
+async def test_decision_records_the_real_btc_regime(env: Path) -> None:
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e.market.add_zigzag("SOL-EUR")
+    e.market.add_downtrend("BTC-EUR")
+    e.market.add_zigzag("USDC-EUR")
+    await e.engine.run_cycle()
+    s = e.session()
+    rows = _decisions(s)
+    s.close()
+    assert rows
+    btc_regime = json.loads(rows[0].btc_regime)
+    assert btc_regime["trend"] == "down"
+
+
 async def test_third_position_sized_to_half(env: Path) -> None:
     e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
     # Two full-size positions: 1% risk each (stops 4% away).
@@ -545,6 +561,32 @@ async def test_flatten_closes_and_pauses(env: Path) -> None:
     assert set(closed) == {"SOL-EUR", "ETH-EUR"}
     assert not e.broker.positions
     assert str(e.engine.status) == "paused"
+
+
+async def test_flatten_keeps_position_when_price_is_unavailable(env: Path) -> None:
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    pos = e.held("SOL-EUR")
+    e.market.tickers["SOL-EUR"] = Decimal("0")
+    e.engine.status = "running"
+    closed = await e.engine.flatten()
+    assert closed == []
+    assert e.broker.positions["SOL-EUR"] is pos
+    assert str(e.engine.status) == "paused"
+    s = e.session()
+    trades = list(s.scalars(select(TradeRow)).all())
+    s.close()
+    assert trades == []
+
+
+async def test_manual_close_refuses_a_missing_price(env: Path) -> None:
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    pos = e.held("SOL-EUR")
+    e.market.tickers["SOL-EUR"] = Decimal("0")
+    cash = e.broker.cash
+    with pytest.raises(MarketDataError):
+        await e.engine.close_position("SOL-EUR")
+    assert e.broker.positions["SOL-EUR"] is pos
+    assert e.broker.cash == cash
 
 
 async def test_sell_decision_closes_position(env: Path) -> None:

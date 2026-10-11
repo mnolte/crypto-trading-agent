@@ -1,6 +1,466 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import type { UTCTimestamp } from "lightweight-charts";
+import type { ActivityItem, Decision, Position, Snapshot, Tf } from "../api/client";
+import {
+  useCandles,
+  useDecisions,
+  useNow,
+  useSettings,
+  useSnapshot,
+  useSources,
+} from "../api/hooks";
+import { ActionBadge } from "../components/ActionBadge";
 import { AppShell } from "../components/AppShell";
+import { Banner } from "../components/Banner";
+import { Button } from "../components/Button";
+import { Card } from "../components/Card";
+import { PriceChart, type PriceLine, type PriceMarker, type Candle } from "../components/Charts";
+import { Chip } from "../components/Chip";
+import { DataTable } from "../components/DataTable";
+import { DecisionDrawer } from "../components/DecisionDrawer";
+import { EmptyState } from "../components/EmptyState";
+import { KpiTile } from "../components/KpiTile";
+import { PairTabs, type PairTabItem } from "../components/PairTabs";
+import { RegimeChip } from "../components/RegimeChip";
+import { SegmentedControl } from "../components/SegmentedControl";
+import { SignalChip } from "../components/SignalChip";
+import {
+  formatAge,
+  formatChange,
+  formatCountdown,
+  formatEur,
+  formatPct,
+  formatPrice,
+  formatQty,
+  formatSignedEur,
+  formatTime,
+} from "../lib/format";
 
-/** Empty for now — KPIs, chart and cards land with the API and GUI step. */
+const FIRST_RUN_KEY = "ta.firstRun.dismissed";
+const TFS: Tf[] = ["1h", "4h", "1d"];
+
 export function Dashboard() {
-  return <AppShell title="Dashboard" />;
+  const { data: snapshot } = useSnapshot();
+  const { data: settings } = useSettings();
+  const { data: sources } = useSources();
+  const now = useNow();
+
+  const [pair, setPair] = useState<string | null>(null);
+  const [tf, setTf] = useState<Tf>("1h");
+  const [decisionId, setDecisionId] = useState<string | null>(null);
+  const [firstRunDismissed, setFirstRunDismissed] = useState(
+    () => localStorage.getItem(FIRST_RUN_KEY) === "1",
+  );
+
+  const markets = settings?.active_markets ?? [];
+  const selected = pair ?? markets[0] ?? null;
+  const { data: feed } = useCandles(selected, tf);
+  const { data: decisions } = useDecisions(selected ?? undefined, 1);
+  const latest = decisions?.items[0] ?? null;
+
+  const price = selected ? snapshot?.prices[selected] : undefined;
+  const openai = sources?.find((s) => s.id === "openai");
+  const showFirstRun = openai !== undefined && !openai.key_set && !firstRunDismissed;
+
+  const pairTabs: PairTabItem[] = markets.map((m) => ({
+    id: m,
+    chg24h: Number(snapshot?.prices[m]?.chg_24h_pct ?? 0),
+    stale: snapshot?.prices[m]?.stale ?? false,
+  }));
+
+  const candles: Candle[] = (feed?.candles ?? []).map((c) => ({
+    time: (new Date(c.time).getTime() / 1000) as UTCTimestamp,
+    open: c.open,
+    high: c.high,
+    low: c.low,
+    close: c.close,
+    volume: c.volume,
+  }));
+  const markers: PriceMarker[] = (feed?.markers ?? []).map((m) => ({
+    time: (new Date(m.time).getTime() / 1000) as UTCTimestamp,
+    kind: m.kind,
+    text: m.kind === "buy" ? "B" : m.kind === "sell" ? "S" : "D",
+  }));
+  const lines: PriceLine[] = feed?.position
+    ? [
+        { price: Number(feed.position.entry), color: "accent", title: "entry" },
+        { price: Number(feed.position.stop), color: "down", title: "stop" },
+        { price: Number(feed.position.target), color: "up", title: "target" },
+      ]
+    : [];
+
+  return (
+    <AppShell title="Dashboard">
+      {showFirstRun && (
+        <Banner
+          variant="info"
+          actions={
+            <>
+              <Link to="/settings" className="btn btn--primary">
+                Add OpenAI key
+              </Link>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  localStorage.setItem(FIRST_RUN_KEY, "1");
+                  setFirstRunDismissed(true);
+                }}
+              >
+                Start with Rules only
+              </Button>
+            </>
+          }
+        >
+          Welcome. The agent is paused and will decide with the Rules baseline
+          until you add an OpenAI key. Paper balance:{" "}
+          {formatEur(settings?.paper.start_balance_eur ?? 10000, 0)}.
+        </Banner>
+      )}
+      {price?.stale && selected && (
+        <Banner
+          variant="warning"
+          actions={
+            <Link to={`/indicators?pair=${selected}`} className="btn btn--secondary btn--sm">
+              Data health
+            </Link>
+          }
+        >
+          {selected} data is stale: its newest candles are beyond the freshness
+          limit. The agent holds {selected}; its stop and target are still
+          watched.
+        </Banner>
+      )}
+
+      <KpiStrip snapshot={snapshot} now={now} />
+
+      <div className="row">
+        <Card className="row__main" label="Market chart">
+          <div className="chart-head">
+            <PairTabs pairs={pairTabs} value={selected ?? ""} onChange={setPair} />
+            <SegmentedControl
+              flat
+              label="Timeframe"
+              value={tf}
+              onChange={(v) => setTf(v as Tf)}
+              options={TFS.map((t) => ({ value: t, label: t }))}
+            />
+          </div>
+          <div className="chart-price">
+            <span className="chart-price__value num">
+              {price ? formatPrice(price.last) : "—"}
+            </span>
+            <span
+              className={`num ${
+                Number(price?.chg_24h_pct ?? 0) >= 0 ? "up" : "down"
+              }`}
+            >
+              {price ? `${formatChange(price.chg_24h_pct)} 24h` : ""}
+            </span>
+          </div>
+          {candles.length > 0 ? (
+            <PriceChart candles={candles} markers={markers} lines={lines} />
+          ) : (
+            <EmptyState
+              title={selected ? "Loading candles…" : "No active market"}
+              footer={
+                selected
+                  ? undefined
+                  : "Turn a market on in Settings to see its chart."
+              }
+            />
+          )}
+          <div className="chart-legend">
+            <span className="chart-legend__item">
+              <span className="chart-marker chart-marker--buy">B</span>Agent buy
+            </span>
+            <span className="chart-legend__item">
+              <span className="chart-marker chart-marker--sell">S</span>Agent
+              sell
+            </span>
+            <span className="chart-legend__item">
+              <span className="chart-marker chart-marker--decision">D</span>
+              Decision
+            </span>
+          </div>
+        </Card>
+
+        <LatestDecision
+          decision={latest}
+          pair={selected}
+          onOpen={(id) => setDecisionId(id)}
+        />
+      </div>
+
+      <div className="row">
+        <PositionsCard positions={snapshot?.positions ?? []} />
+        <ActivityCard activity={snapshot?.activity ?? []} />
+      </div>
+
+      {decisionId && (
+        <DecisionDrawer
+          id={decisionId}
+          onNavigate={(id) => setDecisionId(id)}
+          onClose={() => setDecisionId(null)}
+        />
+      )}
+    </AppShell>
+  );
+}
+
+function KpiStrip({ snapshot, now }: { snapshot?: Snapshot; now: number }) {
+  const countdown = snapshot?.next_run_at
+    ? (new Date(snapshot.next_run_at).getTime() - now) / 1000
+    : null;
+  const nextText = snapshot?.cycle_in_progress
+    ? "running"
+    : countdown === null
+      ? "paused"
+      : countdown > 0
+        ? formatCountdown(countdown)
+        : "due";
+
+  const pnl = Number(snapshot?.today_pnl ?? 0);
+  const ret = snapshot?.return_since_start_pct ?? 0;
+  const drawdown = snapshot?.drawdown_pct ?? 0;
+  const killPct = Number(snapshot?.risk_budget.kill_pct ?? 8);
+
+  return (
+    <section aria-label="Account summary" className="kpi-strip">
+      <KpiTile
+        label="Equity"
+        value={snapshot ? formatEur(snapshot.equity) : "—"}
+        sub={`${formatChange(ret)} since start`}
+        subTone={ret >= 0 ? "up" : "down"}
+      />
+      <KpiTile
+        label="Today P&L"
+        value={
+          <span style={{ color: pnl >= 0 ? "var(--up)" : "var(--down-text)" }}>
+            {snapshot ? formatSignedEur(snapshot.today_pnl) : "—"}
+          </span>
+        }
+        sub={
+          snapshot
+            ? `${snapshot.today_trades} trades · ${snapshot.today_won} won`
+            : undefined
+        }
+      />
+      <KpiTile
+        label="Exposure"
+        glossary="Share of your equity currently held in coins rather than euros."
+        value={snapshot ? formatPct(snapshot.exposure_pct) : "—"}
+        meter={{ pct: snapshot?.exposure_pct ?? 0, color: "accent" }}
+        sub="spot, no leverage"
+      />
+      <KpiTile
+        label="Drawdown"
+        value={
+          <span style={{ color: drawdown > 0 ? "var(--down-text)" : undefined }}>
+            {snapshot ? `−${drawdown.toFixed(1)}%` : "—"}
+          </span>
+        }
+        meter={{
+          pct: killPct > 0 ? (drawdown / killPct) * 100 : 0,
+          color: "down",
+        }}
+        sub={`kill at −${formatPct(killPct)}`}
+      />
+      <KpiTile
+        label="Next cycle"
+        value={nextText}
+        sub={
+          snapshot ? `every 15 min · cycle #${snapshot.cycle}` : undefined
+        }
+      />
+      <KpiTile
+        label="Model today"
+        value={snapshot ? `${snapshot.usage.calls_today} calls` : "—"}
+        sub={
+          snapshot
+            ? `of ${snapshot.usage.daily_budget} · ${formatEur(snapshot.usage.cost_today_eur)} today`
+            : undefined
+        }
+      />
+    </section>
+  );
+}
+
+function LatestDecision({
+  decision,
+  pair,
+  onOpen,
+}: {
+  decision: Decision | null;
+  pair: string | null;
+  onOpen: (id: string) => void;
+}) {
+  return (
+    <Card
+      className="row__side"
+      title="Latest decision"
+      label="Latest decision"
+      actions={
+        decision && (
+          <span className="num" style={{ fontSize: 12, color: "var(--text-muted)" }}>
+            {formatTime(decision.at)} · {decision.model ?? decision.decider}
+          </span>
+        )
+      }
+    >
+      {decision ? (
+        <>
+          <div className="decision-line">
+            <ActionBadge action={decision.action} />
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 16 }}>{decision.pair}</div>
+              <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                confidence{" "}
+                <span className="num" style={{ color: "var(--text)" }}>
+                  {decision.confidence.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <RegimeChip regime={decision.regime} label="regime" />
+          </div>
+          <p className="decision-why">{decision.reasoning}</p>
+          <div className="chip-row">
+            {decision.signals.slice(0, 6).map((s) => (
+              <SignalChip key={`${s.name}-${s.tf}`} signal={s} />
+            ))}
+          </div>
+          <div className="kv-box">
+            <div className="kv">
+              <span title="R is the amount you risk: entry minus stop. 2.1R means the target would earn 2.1 times what the stop would lose.">
+                Risk / reward
+              </span>
+              <span className="num">
+                {decision.plan ? `${formatQty(decision.plan.rr)}R` : "—"}
+              </span>
+            </div>
+            <div className="kv">
+              <span>Position size</span>
+              <span className="num">
+                {decision.plan
+                  ? `${formatQty(decision.plan.qty)} · ${formatEur(decision.plan.notional)}`
+                  : "no change"}
+              </span>
+            </div>
+            <div className="kv">
+              <span>Stop / target</span>
+              <span className="num">
+                {decision.plan
+                  ? `${formatPrice(decision.plan.stop)} / ${formatPrice(decision.plan.target)}`
+                  : "—"}
+              </span>
+            </div>
+          </div>
+          <div style={{ marginTop: "auto" }}>
+            <Button variant="secondary" onClick={() => onOpen(decision.id)}>
+              Open full reasoning
+            </Button>
+          </div>
+        </>
+      ) : (
+        <EmptyState
+          title="No decisions yet"
+          footer={
+            pair
+              ? `The first ${pair} decision appears after the next cycle.`
+              : "The first decision appears after the next cycle."
+          }
+        />
+      )}
+    </Card>
+  );
+}
+
+function PositionsCard({ positions }: { positions: Position[] }) {
+  const now = useNow(30_000);
+  return (
+    <Card className="row__main" title="Open positions" label="Open positions">
+      {positions.length > 0 ? (
+        <DataTable
+          minWidth={520}
+          columns={[
+            { key: "pair", label: "Pair" },
+            { key: "side", label: "Side" },
+            { key: "size", label: "Size", numeric: true },
+            { key: "entry", label: "Entry", numeric: true },
+            { key: "stop", label: "Stop", numeric: true },
+            { key: "age", label: "Age", numeric: true },
+            { key: "pnl", label: "Unrealised", numeric: true },
+          ]}
+        >
+          {positions.map((p) => {
+            const pnl = Number(p.unrealised);
+            return (
+              <tr key={p.pair}>
+                <td className="text--strong">{p.pair}</td>
+                <td style={{ color: "var(--up)" }}>Long</td>
+                <td className="num">{formatQty(p.qty)}</td>
+                <td className="num">{formatPrice(p.entry)}</td>
+                <td className="num">{formatPrice(p.stop)}</td>
+                <td className="num">
+                  {formatAge((now - new Date(p.opened_at).getTime()) / 1000)}
+                </td>
+                <td
+                  className="num"
+                  style={{ color: pnl >= 0 ? "var(--up)" : "var(--down-text)" }}
+                >
+                  {formatSignedEur(p.unrealised)}
+                </td>
+              </tr>
+            );
+          })}
+        </DataTable>
+      ) : (
+        <EmptyState
+          title="No open positions"
+          footer="New BUYs appear here after a decision executes."
+        />
+      )}
+    </Card>
+  );
+}
+
+const ACTIVITY_TONE: Record<string, "up" | "down" | "amber" | "neutral"> = {
+  buy: "up",
+  sell: "down",
+  skip: "amber",
+  hold: "neutral",
+  error: "down",
+  kill: "down",
+};
+
+function ActivityCard({ activity }: { activity: ActivityItem[] }) {
+  return (
+    <Card
+      className="row__side"
+      title="Activity"
+      label="Activity"
+      actions={<span className="card__meta">all pairs</span>}
+    >
+      {activity.length > 0 ? (
+        <ol className="activity">
+          {activity.slice(0, 20).map((item, i) => (
+            <li key={`${item.at}-${i}`} className="activity__row">
+              <span className="activity__time num">{formatTime(item.at)}</span>
+              <Chip variant={ACTIVITY_TONE[item.kind] ?? "neutral"}>
+                {item.kind.toUpperCase()}
+              </Chip>
+              <span className="activity__text">{item.text}</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <EmptyState
+          title="Nothing yet"
+          footer="Decisions, fills and errors are listed here."
+        />
+      )}
+    </Card>
+  );
 }

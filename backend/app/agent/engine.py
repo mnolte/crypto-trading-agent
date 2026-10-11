@@ -42,11 +42,12 @@ from app.agent.signals import (
     compute_pair_signals,
     compute_tf_values,
 )
-from app.db import utcnow
+from app.db import AccountRow, utcnow
 from app.models import (
     Decision,
     Gate,
     KillInfo,
+    PaperSettings,
     Plan,
     PriceInfo,
     Regime,
@@ -180,7 +181,10 @@ class Engine:
             self.status = "running"
 
     async def run_now(self) -> bool:
-        """Start a cycle now if none is running."""
+        """Start a cycle now if none is running. Refused while Killed: no
+        new trades are possible until the kill is acknowledged."""
+        if self.status == "killed":
+            raise KilledRefusal("agent is Killed; acknowledge the kill first")
         if self.cycle_in_progress:
             return False
         await self.run_cycle()
@@ -194,6 +198,15 @@ class Engine:
         try:
             for pair in list(self.broker.positions):
                 price = await self._price(pair)
+                if price <= 0:
+                    repo.add_activity(
+                        session,
+                        "error",
+                        f"flatten skipped {pair}: no current price",
+                        pair=pair,
+                        at=now,
+                    )
+                    continue
                 await self._close_position(session, pair, price, now, "flatten")
                 closed.append(pair)
             self.pause()
@@ -212,6 +225,8 @@ class Engine:
         session = self._sessions()
         try:
             price = await self._price(pair)
+            if price <= 0:
+                raise MarketDataError(f"no current price for {pair}")
             await self._close_position(session, pair, price, self.clock(), "manual")
             self.broker.persist(session, self.clock())
             session.commit()
@@ -238,6 +253,21 @@ class Engine:
         finally:
             session.close()
         await self._push()
+
+    def reset_runtime(self, account: AccountRow, paper: PaperSettings) -> None:
+        """Fresh in-memory state after DELETE /api/data: new broker on the
+        new account, all transient state cleared, agent paused."""
+        self.broker = PaperBroker(account, paper)
+        self.status = "paused"
+        self.cycle = 0
+        self.next_run_at = None
+        self.kill = None
+        self.shock_brake_until = None
+        self.prices.clear()
+        self.latest.clear()
+        self.pending.clear()
+        self._btc_window.clear()
+        self._throttle_dd = False
 
     # ================================================================= loops ==
 
@@ -389,6 +419,7 @@ class Engine:
         """One pair's cycle: data, signals, decide, gates, execute, record."""
         settings = self._settings()
         self._expire_pending_for_pair(session, pair, now)
+        btc_regime = cast("Regime | None", context.get("btc_regime"))
 
         candles: dict[str, list[Candle]] = {}
         try:
@@ -411,6 +442,7 @@ class Engine:
                 ),
                 None,
                 [],
+                btc_regime=btc_regime,
                 error="stale data",
             )
         stale_tf = next(
@@ -435,6 +467,7 @@ class Engine:
                 ),
                 None,
                 [],
+                btc_regime=btc_regime,
                 error=f"{stale_tf} stale",
             )
 
@@ -478,7 +511,16 @@ class Engine:
                 settings=settings,
             )
         )
-        return await self._execute_draft(session, pair, draft, signals, candles, price, now)
+        return await self._execute_draft(
+            session,
+            pair,
+            draft,
+            signals,
+            candles,
+            price,
+            now,
+            btc_regime=btc_regime,
+        )
 
     async def _fresh_1h(self, session: Session, pair: str, now: datetime) -> list[Candle]:
         """1h candles with the stale retry: up to 3 retries 10 s apart when
@@ -506,6 +548,8 @@ class Engine:
         candles: dict[str, list[Candle]],
         price: Decimal,
         now: datetime,
+        *,
+        btc_regime: Regime | None = None,
     ) -> Decision:
         settings = self._settings()
         gates: list[Gate] = []
@@ -568,6 +612,7 @@ class Engine:
             plan=plan,
             error=error,
             decision_id=decision_id,
+            btc_regime=btc_regime,
         )
 
     async def _fill_buy(
@@ -604,6 +649,8 @@ class Engine:
     async def _close_position(
         self, session: Session, pair: str, price: Decimal, now: datetime, reason: str
     ) -> None:
+        if price <= 0:
+            return
         trade = self.broker.close(session, pair, price, now, reason)
         if trade is not None:
             repo.add_exit_tick(session, self.broker.account_id, pair, price, "fill", at=now)
@@ -732,6 +779,15 @@ class Engine:
         closed: list[str] = []
         for pair in list(self.broker.positions):
             price = await self._price(pair)
+            if price <= 0:
+                repo.add_activity(
+                    session,
+                    "error",
+                    f"kill close skipped {pair}: no current price",
+                    pair=pair,
+                    at=now,
+                )
+                continue
             await self._close_position(session, pair, price, now, "kill")
             closed.append(pair)
         self.status = "killed"
@@ -904,12 +960,13 @@ class Engine:
         plan: Plan | None = None,
         error: str | None = None,
         decision_id: str | None = None,
+        btc_regime: Regime | None = None,
     ) -> Decision:
         settings = self._settings()
         regime = (
             signals.regime if signals else Regime(trend="sideways", volatility="normal", age_4h=0)
         )
-        btc_regime = Regime(trend="sideways", volatility="normal", age_4h=0)
+        btc_regime = btc_regime or Regime(trend="sideways", volatility="normal", age_4h=0)
         final_action = action or draft.action
         decision = Decision(
             id=decision_id or uuid.uuid4().hex[:16],

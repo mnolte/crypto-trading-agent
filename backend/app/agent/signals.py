@@ -575,30 +575,18 @@ def confirm_trend_labels(raw: list[str]) -> list[str]:
     return confirmed
 
 
-def compute_regime(
-    candles_4h: list[Candle],
-    candles_1d: list[Candle],
-    atr_percentile_1h: float | None,
-    adx_threshold: float,
-) -> Regime:
-    """Trend x volatility x age, with the 2-bar confirmation on trend changes.
+def trend_labels_4h(
+    candles_4h: list[Candle], candles_1d: list[Candle], adx_threshold: float
+) -> list[str]:
+    """The confirmed trend label of every closed 4h bar.
 
     The raw trend is evaluated per closed 4h bar (4h ADX, 4h EMA cross, and
-    the most recent closed daily bar's close vs daily EMA 200). A new label
-    only takes effect after two consecutive 4h bars agree, and age counts the
-    closed 4h bars since the confirmed label last changed.
+    the most recent closed daily bar's close vs daily EMA 200); the 2-bar
+    confirmation is applied to the whole series. Used both for the current
+    regime and for the Indicators regime band.
     """
-    if atr_percentile_1h is None:
-        vol: Literal["low", "normal", "high"] = "normal"
-    elif atr_percentile_1h < 30:
-        vol = "low"
-    elif atr_percentile_1h > 80:
-        vol = "high"
-    else:
-        vol = "normal"
-
     if not candles_4h:
-        return Regime(trend="sideways", volatility=vol, age_4h=0)
+        return []
 
     high, low, close, _ = _arrays(candles_4h)
     ema20, ema50 = ema(close, 20), ema(close, 50)
@@ -624,8 +612,34 @@ def compute_regime(
             raw.append("sideways")
             continue
         raw.append(_raw_trend(adx14[i], ema20[i], ema50[i], d_close[d], d_ema200[d], adx_threshold))
+    return confirm_trend_labels(raw)
 
-    confirmed = confirm_trend_labels(raw)
+
+def compute_regime(
+    candles_4h: list[Candle],
+    candles_1d: list[Candle],
+    atr_percentile_1h: float | None,
+    adx_threshold: float,
+) -> Regime:
+    """Trend x volatility x age, with the 2-bar confirmation on trend changes.
+
+    A new label only takes effect after two consecutive 4h bars agree, and
+    age counts the closed 4h bars since the confirmed label last changed.
+    """
+    if atr_percentile_1h is None:
+        vol: Literal["low", "normal", "high"] = "normal"
+    elif atr_percentile_1h < 30:
+        vol = "low"
+    elif atr_percentile_1h > 80:
+        vol = "high"
+    else:
+        vol = "normal"
+
+    confirmed = trend_labels_4h(candles_4h, candles_1d, adx_threshold)
+    if not confirmed:
+        return Regime(trend="sideways", volatility=vol, age_4h=0)
+
+    n = len(confirmed)
     current = confirmed[-1]
     # Age = closed 4h bars since the confirmed label last changed, i.e. the
     # index distance from the latest bar back to the start of the current run.

@@ -13,8 +13,9 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:8011",
   },
   webServer: {
+    // TA_DATA_SOURCE=sim keeps the run fully local and deterministic.
     command:
-      "cd .. && env TA_DB_PATH=${TA_DB_PATH:-/tmp/ta-e2e/agent.db} TA_DATA_DIR=${TA_DATA_DIR:-/tmp/ta-e2e} uv run uvicorn --app-dir backend app.main:app --host 127.0.0.1 --port 8011",
+      "cd .. && env TA_DATA_SOURCE=sim TA_DB_PATH=${TA_DB_PATH:-/tmp/ta-e2e/agent.db} TA_DATA_DIR=${TA_DATA_DIR:-/tmp/ta-e2e} uv run uvicorn --app-dir backend app.main:app --host 127.0.0.1 --port 8011",
     url: "http://127.0.0.1:8011/api/health",
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
