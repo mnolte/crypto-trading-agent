@@ -440,7 +440,9 @@ class OpenAIDecider:
         prices: budget.ModelPrices | None = None,
         rules: RulesDecider | None = None,
         notify: Callable[[str, str, str], Awaitable[None]] | None = None,
+        feature: str = "decision",
     ) -> None:
+        self.feature = feature
         self._sessions = session_factory
         self.client = market_client
         self._broker = broker
@@ -482,7 +484,7 @@ class OpenAIDecider:
                     "baseline decides until midnight.",
                 )
                 return rules_draft
-            spent = budget.month_spend_eur(session, account_id, now)
+            spent = budget.month_spend_all(session, now)
             cap = budget.cap_state(spent, settings.model.monthly_cost_cap_eur)
             if cap == "cap":
                 await self._alert_once(
@@ -527,7 +529,7 @@ class OpenAIDecider:
                 account_id=account_id,
                 pair=ctx.pair,
                 decision_id=None,
-                feature="decision",
+                feature=self.feature,
                 replay_of=None,
                 model=model,
                 prompt_version=prompt.version,

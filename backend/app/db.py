@@ -111,12 +111,16 @@ class AccountRow(Base):
 
 
 class PositionRow(Base):
-    """One open paper position per pair on the current account."""
+    """One open paper position per pair per paper account.
+
+    The primary key is (pair, account_id): a shadow strategy's account may
+    hold the same pair the live account holds.
+    """
 
     __tablename__ = "positions"
 
     pair: Mapped[str] = mapped_column(primary_key=True)
-    account_id: Mapped[int]
+    account_id: Mapped[int] = mapped_column(primary_key=True)
     qty: Mapped[str]
     entry: Mapped[str]
     stop: Mapped[str]
@@ -195,8 +199,8 @@ class LlmCallRow(Base):
     returned; ``attempts`` is a JSON list of per-try results. An
     ``input_blocked`` row means an input check failed before anything was
     transmitted — ``request_json`` then holds the request that would have
-    been sent. ``feature`` scopes the cost: "decision" or "replay" in v0.1;
-    Ask, briefings and shadows land in later PRs.
+    been sent. ``feature`` scopes the cost: "decision" for live calls,
+    "briefing", "ask", "replay" and "shadow:<id>" for the Evidence layer.
     """
 
     __tablename__ = "llm_calls"
@@ -379,6 +383,58 @@ class AlertRow(Base):
     channel: Mapped[str]  # "browser" | "email"
     title: Mapped[str]
     repeats: Mapped[int] = mapped_column(default=0)
+
+
+class ShadowRow(Base):
+    """One shadow strategy: a model + prompt + overrides on its own paper
+    account. ``pauses`` is a JSON list of {"from", "to"} cost-cap pause
+    windows (last "to" null while paused); Compare leaves them out."""
+
+    __tablename__ = "shadows"
+
+    id: Mapped[str] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    model: Mapped[str]
+    prompt_version: Mapped[str]
+    overrides: Mapped[str]  # JSON dict of dotted settings paths -> values
+    status: Mapped[str]  # "running" | "stopped"
+    created_at: Mapped[datetime]
+    stopped_at: Mapped[datetime | None]
+    account_id: Mapped[int]  # its own paper account row (active=False)
+    start_equity: Mapped[str]  # live account equity at creation
+    daily_call_limit: Mapped[int] = mapped_column(default=300)
+    pauses: Mapped[str] = mapped_column(default="[]")
+
+
+class WhatifRow(Base):
+    """One What-if run or saved scenario. ``spec`` holds {from, to,
+    overrides}; ``result`` the computed curves, metrics and trade lists."""
+
+    __tablename__ = "whatif_scenarios"
+
+    id: Mapped[str] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime]
+    updated_at: Mapped[datetime]
+    name: Mapped[str | None]
+    spec: Mapped[str]  # JSON WhatIfSpec
+    status: Mapped[str]  # "queued" | "running" | "done" | "failed"
+    progress: Mapped[float] = mapped_column(default=0.0)
+    result: Mapped[str | None]  # JSON WhatIfResult
+    saved: Mapped[bool] = mapped_column(default=False)
+    error: Mapped[str | None]
+
+
+class AskConversationRow(Base):
+    """One Ask conversation: ``messages`` is a JSON list of {role, text,
+    at, citations, call_ids}. Stored locally; listed inside the panel."""
+
+    __tablename__ = "ask_conversations"
+
+    id: Mapped[str] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime]
+    updated_at: Mapped[datetime]
+    title: Mapped[str]
+    messages: Mapped[str]  # JSON list[AskMessage]
 
 
 def make_engine(db_path: Path) -> Engine:

@@ -232,15 +232,18 @@ def test_position_rows_stay_scoped_to_their_account(session: Session) -> None:
     )
     session.commit()
 
-    row = session.get(PositionRow, "BTC-EUR")
-    assert row is not None and row.account_id == 2 and row.decision_id == "d2"
-    assert old.account_id not in [r.account_id for r in session.scalars(select(PositionRow)).all()]
+    # (pair, account_id) is the key: two accounts can hold the same pair —
+    # a shadow may sit on the same market as live.
+    old_row = session.get(PositionRow, ("BTC-EUR", 1))
+    new_row = session.get(PositionRow, ("BTC-EUR", 2))
+    assert old_row is not None and old_row.decision_id == "d1"
+    assert new_row is not None and new_row.decision_id == "d2"
 
     repo.delete_position_row(session, "BTC-EUR", account_id=1)
-    assert session.get(PositionRow, "BTC-EUR") is not None
+    assert session.get(PositionRow, ("BTC-EUR", 2)) is not None
     repo.delete_position_row(session, "BTC-EUR", account_id=2)
     session.flush()
-    assert session.get(PositionRow, "BTC-EUR") is None
+    assert session.get(PositionRow, ("BTC-EUR", 2)) is None
 
 
 def test_close_removes_position_and_books_trade(session: Session) -> None:
@@ -316,5 +319,5 @@ def test_failed_close_commit_restores_broker_state(
     pos = broker.positions["BTC-EUR"]
     assert pos.qty == Decimal("5") and pos.stop == Decimal("90")
     # The database still holds the committed open position and no trade.
-    assert session.get(PositionRow, "BTC-EUR") is not None
+    assert session.get(PositionRow, ("BTC-EUR", 1)) is not None
     assert session.scalars(select(TradeRow)).all() == []

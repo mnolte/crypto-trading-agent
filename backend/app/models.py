@@ -845,3 +845,253 @@ class SettingsHistoryItem(BaseModel):
 
 class SettingsHistoryOut(BaseModel):
     items: list[SettingsHistoryItem]
+
+
+# --------------------------------------------------------------- evidence --
+
+
+class DeciderOption(BaseModel):
+    """One selectable decider in the Insights filter."""
+
+    id: str  # "openai" | "rules" | "shadow:<id>" | "all"
+    label: str
+
+
+class InsightSliceOut(BaseModel):
+    """One row of the evidence table: a slice of decisions by the chosen
+    dimension with its outcome metrics, all computed in the backend."""
+
+    key: str
+    label: str
+    decisions: int
+    buys: int
+    buy_win_rate_pct: float | None
+    avg_r: float | None
+    avoided_pct: float | None  # of scored HOLD/SKIP outcomes
+    missed_pct: float | None
+    state: Literal["finding", "early"]  # slices under 10 are not returned
+
+
+class CalibrationBucketOut(BaseModel):
+    """One confidence band: average stated confidence vs actual win rate."""
+
+    label: str  # "0.5-0.6" ... "0.8+"
+    buys: int
+    stated_pct: float | None
+    actual_pct: float | None
+
+
+class InsightFinding(BaseModel):
+    """A card at the top of the Insights screen — a mechanically derived
+    observation from finding-level slices only."""
+
+    kind: Literal["overconfident", "underconfident", "weak_spot", "strength"]
+    title: str
+    text: str
+    n: int
+    whatif_hint: str | None = None  # e.g. "Try skipping weekends in What-if"
+
+
+class InsightsOut(BaseModel):
+    dimension: str
+    start: datetime
+    end: datetime
+    decider: str
+    prompt_version: str | None
+    min_decisions: int
+    total_decisions: int
+    decisions_needed: int  # until the largest slice reaches the finding bar
+    decider_options: list[DeciderOption]
+    findings: list[InsightFinding]
+    slices: list[InsightSliceOut]
+    calibration: list[CalibrationBucketOut]
+    calibration_gap_pts: float | None
+
+
+# ----------------------------------------------------------------- what-if --
+
+
+class WhatIfSpecIn(BaseModel):
+    """The scenario definition: a stored window plus dotted settings
+    overrides. ``no_weekend_entries`` is a scenario-only switch (the
+    design's checkbox) — it is not a live setting."""
+
+    start: datetime = Field(alias="from")
+    end: datetime = Field(alias="to")
+    overrides: dict[str, object] = {}
+    name: str | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class WhatIfJobOut(BaseModel):
+    id: str
+    status: Literal["queued", "running", "done", "failed"]
+    progress: float
+    name: str | None
+    saved: bool
+    created_at: datetime
+    updated_at: datetime
+    spec: WhatIfSpecIn
+    error: str | None
+    result: WhatIfResult | None = None
+
+
+class WhatIfMetric(BaseModel):
+    label: str
+    unit: Literal["pct", "eur", "r", "count"] = "count"
+    actual: float | None
+    scenario: float | None
+    change: float | None  # scenario - actual (percentage points / R / EUR)
+
+
+class WhatIfTrade(BaseModel):
+    pair: str
+    opened_at: datetime
+    closed_at: datetime | None
+    entry: MoneyDecimal
+    exit: MoneyDecimal | None
+    realised_r: MoneyDecimal | None
+    realised_eur: MoneyDecimal | None
+    reason: str  # why it appears: "blocked by X" for removals, "stand-in"…
+    exit_reason: str | None
+    stand_in: bool
+    decision_id: str | None
+
+
+class WhatIfResult(BaseModel):
+    metrics: list[WhatIfMetric]
+    equity: list[SeriesPoint]  # scenario equity curve
+    actual: list[SeriesPoint]  # what actually happened
+    removed: list[WhatIfTrade]
+    added: list[WhatIfTrade]
+    stand_ins: int
+    trades: int  # scenario closed-trade count
+
+
+class WhatIfSaveIn(BaseModel):
+    name: str | None = None
+
+
+class WhatIfApplyIn(BaseModel):
+    confirm: Literal["APPLY"]
+
+
+# ----------------------------------------------------------------- shadows --
+
+
+class ShadowIn(BaseModel):
+    name: str | None = None  # defaults to "Shadow A"/"Shadow B"
+    model: str
+    prompt_version: str
+    overrides: dict[str, object] = {}
+    daily_call_limit: int = 300
+
+
+class ShadowPause(BaseModel):
+    start: datetime
+    end: datetime | None  # null while the pause is in force
+
+
+class ShadowOut(BaseModel):
+    id: str
+    name: str
+    model: str
+    prompt_version: str
+    overrides: dict[str, object]
+    status: Literal["running", "stopped"]
+    paused: bool  # inside a cost-cap pause window (no new decisions)
+    pauses: list[ShadowPause]
+    created_at: datetime
+    stopped_at: datetime | None
+    account_id: int
+    start_equity: MoneyDecimal
+    equity: MoneyDecimal | None
+    return_pct: float | None  # since creation, pause windows excluded
+    live_return_pct: float | None  # live return over the same stretches
+    decisions: int
+    daily_call_limit: int
+    calls_today: int
+
+
+class ShadowPromoteIn(BaseModel):
+    confirm: Literal["PROMOTE"]
+
+
+# --------------------------------------------------------------------- ask --
+
+
+class AskCitation(BaseModel):
+    """A record the answer used, as a link target."""
+
+    kind: Literal["decision", "trade", "call"]
+    id: str
+    label: str
+    href: str
+
+
+class AskMessageOut(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str
+    at: datetime
+    citations: list[AskCitation] = []
+    call_ids: list[str] = []
+    records_used: int = 0
+    model: str | None = None
+    cost_eur: MoneyDecimal | None = None
+    source: Literal["model", "template"] = "model"
+
+
+class AskContext(BaseModel):
+    """The screen the panel floats over — e.g. an open decision."""
+
+    page: str | None = None
+    pair: str | None = None
+    decision_id: str | None = None
+
+
+class AskIn(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    conversation_id: str | None = None
+    context: AskContext | None = None
+
+
+class AskOut(BaseModel):
+    conversation_id: str
+    answer: AskMessageOut
+    questions_today: int
+    daily_limit: int
+    remaining: int
+
+
+class AskConversationSummary(BaseModel):
+    id: str
+    title: str
+    updated_at: datetime
+    turns: int
+
+
+class AskConversationOut(BaseModel):
+    id: str
+    title: str
+    created_at: datetime
+    messages: list[AskMessageOut]
+
+
+class AskConversationListOut(BaseModel):
+    items: list[AskConversationSummary]
+    questions_today: int
+    daily_limit: int
+
+
+# -------------------------------------------------------- outcomes stats --
+
+
+class OutcomeStatsRow(OutcomeScorecardRow):
+    """The scorecard grouped by the requested keys (spec's stats view)."""
+
+    shadow: str | None = None
+
+
+class OutcomeStatsOut(BaseModel):
+    items: list[OutcomeStatsRow]

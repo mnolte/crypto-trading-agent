@@ -47,7 +47,8 @@ from app.models import (
 
 router = APIRouter()
 
-CALL_FEATURES = ("decision", "replay")
+# Calls that share the daily call budget are decided in agent/budget.py.
+# Features bucketed for /api/costs: decisions, ask, briefings, shadows, replays.
 
 
 def _session(state: AppState) -> Session:
@@ -422,7 +423,7 @@ async def replay_call(request: Request, call_id: str, body: LlmCallReplayIn) -> 
         used = budget.calls_today(session, account_id, now)
         if used >= settings.model.daily_call_budget:
             raise HTTPException(status_code=409, detail="daily call budget used")
-        spent = budget.month_spend_eur(session, account_id, now)
+        spent = budget.month_spend_all(session, now)
         if budget.cap_state(spent, settings.model.monthly_cost_cap_eur) != "ok":
             raise HTTPException(
                 status_code=409,
@@ -606,18 +607,32 @@ def get_costs(request: Request, month: str | None = None) -> CostsOut:
         else:
             start, end = budget.amsterdam_month_bounds(now)
             label = now.astimezone(AMSTERDAM).strftime("%Y-%m")
-        account_id = _account_id(state)
-        by_feature: dict[str, Decimal] = {}
+        # Spend is grouped into the spec's five features across every
+        # account: decisions, Ask, briefings (incl. reviews), shadows,
+        # replays.
+        raw = repo.llm_costs_by_feature_all(session, start, end)
+        by_feature: dict[str, Decimal] = {
+            f: Decimal("0") for f in ("decisions", "ask", "briefings", "shadows", "replays")
+        }
         total = Decimal("0")
-        for feature in CALL_FEATURES:
-            spent = repo.llm_cost_between(session, account_id, start, end, feature=feature)
-            by_feature[feature] = spent
+        for feature, spent in raw.items():
+            if feature.startswith("shadow:"):
+                group = "shadows"
+            elif feature in ("briefing", "review"):
+                group = "briefings"
+            elif feature == "replay":
+                group = "replays"
+            elif feature == "decision":
+                group = "decisions"
+            else:
+                group = feature
+            by_feature[group] = by_feature.get(group, Decimal("0")) + spent
             total += spent
         return CostsOut(
             month=label,
             cap_eur=state.settings.model.monthly_cost_cap_eur,
             spent_eur=total,
-            spent_usd=repo.llm_cost_usd_between(session, account_id, start, end),
+            spent_usd=repo.llm_cost_usd_between_all(session, start, end),
             by_feature=by_feature,
         )
     finally:

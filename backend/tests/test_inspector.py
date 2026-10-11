@@ -252,8 +252,8 @@ def test_costs_reports_month_spend(client: TestClient) -> None:
     assert costs["cap_eur"] == "10"
     assert float(costs["spent_eur"]) == pytest.approx(0.03)
     assert float(costs["spent_usd"]) == pytest.approx(0.022)
-    assert float(costs["by_feature"]["decision"]) == pytest.approx(0.01)
-    assert float(costs["by_feature"]["replay"]) == pytest.approx(0.02)
+    assert float(costs["by_feature"]["decisions"]) == pytest.approx(0.01)
+    assert float(costs["by_feature"]["replays"]) == pytest.approx(0.02)
 
 
 def test_costs_usd_none_when_a_priced_call_is_unknown(client: TestClient) -> None:

@@ -20,7 +20,7 @@ from collections import deque
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -128,6 +128,9 @@ class Engine:
 
         self._btc_window: deque[tuple[datetime, Decimal]] = deque()
         self._stale_cycles: dict[str, int] = {}
+        # PR 8: set from main.py after construction — drives the shadow
+        # strategies on the same cycle snapshot and watcher tick.
+        self.shadows: Any = None
         self._daily_loss_notified = False
         self._notified_throttle: tuple[str, ...] = ()
         self._throttle_dd = False
@@ -387,6 +390,8 @@ class Engine:
                     self.broker.cash,
                     at=now,
                 )
+                if self.shadows is not None:
+                    await self.shadows.run_cycle(now, cycle_no)
                 self.broker.persist(session, now)
                 session.commit()
             finally:
@@ -810,6 +815,8 @@ class Engine:
             settings = self._settings()
             await self._tick_shock_btc(session, now, settings)
             await self._tick_positions(session, now, settings)
+            if self.shadows is not None:
+                await self.shadows.tick(now)
             await self._tick_pending(session, now)
             await self._tick_kill(session, now, settings)
             await self._tick_risk_notifications(session, now, settings)
