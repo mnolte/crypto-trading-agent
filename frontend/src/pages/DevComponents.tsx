@@ -219,7 +219,7 @@ export function DevComponents() {
               sub="of −8% kill"
               subTone="down"
               meter={{ pct: 29, color: "accent" }}
-              glossary="How far equity is below its highest point so far. At −8% the kill switch closes everything."
+              glossaryTerm="drawdown"
             />
           </Card>
           <Card style={{ flex: "1 1 200px", padding: "var(--space-4)" }}>

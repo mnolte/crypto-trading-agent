@@ -164,7 +164,7 @@ export function Performance() {
         />
         <KpiTile
           label="Profit factor"
-          glossary="Gross winnings divided by gross losses. Above 1 means the strategy earns more than it loses."
+          glossaryTerm="profit factor"
           value={t?.profit_factor != null ? t.profit_factor.toFixed(2) : "—"}
           sub="gross win ÷ gross loss"
         />

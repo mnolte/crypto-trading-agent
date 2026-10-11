@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type {
+  EntryPause,
   MarketOut,
   Settings as SettingsType,
   SettingsOut,
@@ -10,6 +12,7 @@ import {
   useDeleteData,
   useMarkets,
   usePrompts,
+  useReadiness,
   useRemoveSecret,
   useResetPaper,
   useSaveSecret,
@@ -31,6 +34,7 @@ import { DataTable } from "../components/DataTable";
 import { Dialog } from "../components/Dialog";
 import { FormField, Input, Select } from "../components/FormField";
 import { Meter } from "../components/Meter";
+import { PauseSelect } from "../components/PauseSelect";
 import {
   formatEur,
   formatEurCompact,
@@ -47,6 +51,13 @@ function toDraft(data: SettingsOut): SettingsType {
 const FEATURE_LABEL: Record<string, string> = {
   decision: "Decisions",
   replay: "Replays",
+  briefing: "Briefings & reviews",
+};
+
+const WEEKLY_REVIEW_LABEL: Record<string, string> = {
+  mon_08: "Monday 08:00",
+  sun_20: "Sunday 20:00",
+  off: "Off",
 };
 
 const NOTIFICATION_LABEL: Record<string, string> = {
@@ -67,6 +78,7 @@ export function Settings() {
   const { data: prompts } = usePrompts();
   const { data: snapshot } = useSnapshot();
   const { data: costs } = useCosts();
+  const { data: readiness } = useReadiness();
 
   const [draft, setDraft] = useState<SettingsType | null>(null);
   const [original, setOriginal] = useState<SettingsType | null>(null);
@@ -111,6 +123,14 @@ export function Settings() {
     setDraft((d) =>
       d ? { ...d, notifications: { ...d.notifications, [key]: value } } : d,
     );
+  const setLearning = (key: string, value: unknown) =>
+    setDraft((d) =>
+      d ? { ...d, learning: { ...d.learning, [key]: value } } : d,
+    );
+  const setReadiness = (key: string, value: unknown) =>
+    setDraft((d) =>
+      d ? { ...d, readiness: { ...d.readiness, [key]: value } } : d,
+    );
 
   const setNumber = (value: string, apply: (parsed: number) => void) => {
     const parsed = parseNumberInput(value);
@@ -123,6 +143,11 @@ export function Settings() {
         m.market.toLowerCase().includes(marketQuery.toLowerCase()),
       ),
     [markets, marketQuery],
+  );
+
+  const pausedMap = useMemo(
+    () => new Map((snapshot?.paused ?? []).map((p) => [p.pair, p])),
+    [snapshot],
   );
 
   const actions = (
@@ -176,12 +201,13 @@ export function Settings() {
             </p>
           )}
           <DataTable
-            minWidth={520}
+            minWidth={640}
             columns={[
               { key: "market", label: "Market" },
               { key: "vol", label: "30d vol/day", numeric: true },
               { key: "spread", label: "Spread", numeric: true },
               { key: "status", label: "Status" },
+              { key: "pause", label: "Pause entries" },
               { key: "active", label: "Active", numeric: true },
             ]}
           >
@@ -189,6 +215,7 @@ export function Settings() {
               <MarketRow
                 key={m.market}
                 market={m}
+                pause={pausedMap.get(m.market)}
                 pending={updateMarket.isPending}
                 onToggle={(active) =>
                   updateMarket.mutate(
@@ -217,6 +244,10 @@ export function Settings() {
                 </span>{" "}
                 model calls/day
               </span>
+            </div>
+            <div className="kv">
+              <span>Pause new entries on all coins</span>
+              <PauseSelect pair="*" pause={pausedMap.get("*")} />
             </div>
           </div>
           <p className="card__meta" style={{ margin: 0, lineHeight: 1.5 }}>
@@ -563,6 +594,135 @@ export function Settings() {
             ))}
           </DataTable>
         </Card>
+
+        <Card
+          title="Learning and explanations"
+          heading="section"
+          className="settings-card settings-card--wide"
+          label="Learning and explanations"
+        >
+          <div className="settings-row">
+            <label className="check-label field--grow">
+              <input
+                type="checkbox"
+                checked={draft?.learning.plain_language ?? true}
+                onChange={(e) =>
+                  setLearning("plain_language", e.target.checked)
+                }
+              />
+              <span>
+                Plain-language mode
+                <br />
+                <span className="card__meta">
+                  Explains jargon in tooltips and writes summaries for a
+                  non-trader
+                </span>
+              </span>
+            </label>
+            <label className="check-label field--grow">
+              <input
+                type="checkbox"
+                checked={draft?.learning.quiet_line ?? true}
+                onChange={(e) => setLearning("quiet_line", e.target.checked)}
+              />
+              <span>
+                Show &ldquo;why so quiet?&rdquo; line on the Dashboard
+                <br />
+                <span className="card__meta">
+                  Says what the agent did this cycle and why it didn&apos;t
+                  trade
+                </span>
+              </span>
+            </label>
+          </div>
+          <div className="settings-fields">
+            <FormField label="Morning briefing at" htmlFor="briefing-time">
+              <Input
+                id="briefing-time"
+                mono
+                type="time"
+                value={draft?.learning.briefing_time ?? "08:00"}
+                onChange={(e) => setLearning("briefing_time", e.target.value)}
+              />
+            </FormField>
+            <FormField label="Weekly review on" htmlFor="weekly-review">
+              <Select
+                id="weekly-review"
+                value={draft?.learning.weekly_review ?? "mon_08"}
+                onChange={(e) => setLearning("weekly_review", e.target.value)}
+              >
+                {Object.entries(WEEKLY_REVIEW_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+            <NumField
+              label="Ask the agent · questions per day"
+              value={draft?.learning.ask_daily_limit}
+              int
+              onChange={(v) => setLearning("ask_daily_limit", v)}
+            />
+            <NumField
+              label="Insights · decisions for a finding"
+              value={draft?.learning.insights_min_decisions}
+              int
+              onChange={(v) => setLearning("insights_min_decisions", v)}
+            />
+          </div>
+          <p className="card__meta" style={{ margin: 0, lineHeight: 1.5 }}>
+            Briefings, reviews and answers are written by the model from
+            numbers computed in code. A check rejects any text with a number
+            that isn&apos;t in the facts. Ask, briefings and reviews count
+            toward the monthly cost cap.
+          </p>
+        </Card>
+
+        <Card
+          title="Live readiness"
+          heading="section"
+          className="settings-card settings-card--wide"
+          label="Live readiness"
+          actions={
+            readiness && (
+              <Link to="/readiness" className="btn btn--secondary">
+                Open checklist · {readiness.met} of {readiness.total} met
+              </Link>
+            )
+          }
+        >
+          <div className="settings-fields">
+            <NumField
+              label="Min. closed trades"
+              value={draft?.readiness.min_closed_trades}
+              int
+              onChange={(v) => setReadiness("min_closed_trades", v)}
+            />
+            <NumField
+              label="Min. days running"
+              value={draft?.readiness.min_days_running}
+              int
+              onChange={(v) => setReadiness("min_days_running", v)}
+            />
+            <NumField
+              label="Max. drawdown (%)"
+              value={draft?.readiness.max_drawdown_pct}
+              onChange={(v) => setReadiness("max_drawdown_pct", v)}
+            />
+            <NumField
+              label="Max. calibration gap (pts)"
+              value={draft?.readiness.calibration_gap_pts}
+              int
+              onChange={(v) => setReadiness("calibration_gap_pts", v)}
+            />
+          </div>
+          <p className="card__meta" style={{ margin: 0 }}>
+            Other criteria (average R, profit factor, beats BTC, no kill, no
+            errors) use the defaults in the spec. Loosening any threshold is
+            logged.
+          </p>
+        </Card>
       </div>
 
       {resetOpen && (
@@ -697,20 +857,24 @@ function PairFields({
 
 function MarketRow({
   market,
+  pause,
   pending,
   onToggle,
 }: {
   market: MarketOut;
+  pause: EntryPause | undefined;
   pending: boolean;
   onToggle: (active: boolean) => void;
 }) {
-  const status = market.active
-    ? market.warming_up
-      ? { text: "warming up", variant: "amber" as const }
-      : { text: "active", variant: "up" as const }
-    : market.eligible
-      ? { text: "eligible", variant: "neutral" as const }
-      : { text: market.failed_rule ?? "ineligible", variant: "down" as const };
+  const status = market.paused
+    ? { text: "paused", variant: "amber" as const }
+    : market.active
+      ? market.warming_up
+        ? { text: "warming up", variant: "amber" as const }
+        : { text: "active", variant: "up" as const }
+      : market.eligible
+        ? { text: "eligible", variant: "neutral" as const }
+        : { text: market.failed_rule ?? "ineligible", variant: "down" as const };
   return (
     <tr>
       <td className="text--strong">{market.market}</td>
@@ -724,6 +888,9 @@ function MarketRow({
       </td>
       <td>
         <Chip variant={status.variant}>{status.text}</Chip>
+      </td>
+      <td>
+        <PauseSelect pair={market.market} pause={pause} />
       </td>
       <td className="num">
         <button

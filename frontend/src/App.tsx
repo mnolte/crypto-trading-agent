@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { GlossaryProvider } from "./components/Glossary";
 import { Placeholder } from "./pages/Placeholder";
 
 const Dashboard = lazy(() =>
@@ -18,6 +19,9 @@ const Performance = lazy(() =>
 const Inspector = lazy(() =>
   import("./pages/Inspector").then((m) => ({ default: m.Inspector })),
 );
+const Readiness = lazy(() =>
+  import("./pages/Readiness").then((m) => ({ default: m.Readiness })),
+);
 const Settings = lazy(() =>
   import("./pages/Settings").then((m) => ({ default: m.Settings })),
 );
@@ -30,6 +34,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <GlossaryProvider>
         <Suspense fallback={null}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
@@ -50,12 +55,10 @@ export default function App() {
               element={<Placeholder title="Reviews" step="Evidence" />}
             />
             <Route path="/inspector" element={<Inspector />} />
-            <Route
-              path="/readiness"
-              element={<Placeholder title="Readiness" step="Understanding and safety" />}
-            />
+            <Route path="/readiness" element={<Readiness />} />
           </Routes>
         </Suspense>
+        </GlossaryProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );

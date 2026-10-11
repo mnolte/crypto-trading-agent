@@ -3,11 +3,14 @@ import { useEffect, useState } from "react";
 import {
   api,
   post,
+  type BriefingListOut,
   type CandleFeed,
   type CostsOut,
   type DecisionDetail,
   type DecisionListOut,
+  type EntryPause,
   type FlattenPreview,
+  type GlossaryOut,
   type HealthOut,
   type IndicatorsOut,
   type LlmCallDetail,
@@ -17,6 +20,7 @@ import {
   type OutcomeScorecardOut,
   type PerformanceOut,
   type PromptInfo,
+  type ReadinessOut,
   type Settings,
   type SettingsOut,
   type Snapshot,
@@ -171,6 +175,67 @@ export function useCosts(month?: string) {
     queryKey: ["costs", month ?? "current"],
     queryFn: () => api<CostsOut>(`/api/costs${qs}`),
     staleTime: 60_000,
+  });
+}
+
+export function useGlossary() {
+  return useQuery({
+    queryKey: ["glossary"],
+    queryFn: () => api<GlossaryOut>("/api/glossary"),
+    staleTime: 300_000,
+  });
+}
+
+export function useReadiness() {
+  return useQuery({
+    queryKey: ["readiness"],
+    queryFn: () => api<ReadinessOut>("/api/readiness"),
+    staleTime: 60_000,
+  });
+}
+
+export function useBriefings(type?: "daily" | "weekly", limit = 30) {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  if (type) qs.set("type", type);
+  return useQuery({
+    queryKey: ["briefings", type ?? "all", limit],
+    queryFn: () => api<BriefingListOut>(`/api/briefings?${qs}`),
+    staleTime: 60_000,
+  });
+}
+
+/** Pause new entries on a pair ("*" pauses all coins). `until` ISO or null. */
+export function usePauseEntries() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ pair, until }: { pair: string; until: string | null }) =>
+      api<EntryPause>(
+        pair === "*"
+          ? "/api/agent/entry-pause"
+          : `/api/markets/${encodeURIComponent(pair)}/pause`,
+        { method: "PUT", body: JSON.stringify({ until }) },
+      ),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["snapshot"] });
+      void client.invalidateQueries({ queryKey: ["markets"] });
+    },
+  });
+}
+
+export function useResumeEntries() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (pair: string) =>
+      api<{ ok: boolean }>(
+        pair === "*"
+          ? "/api/agent/entry-pause"
+          : `/api/markets/${encodeURIComponent(pair)}/pause`,
+        { method: "DELETE" },
+      ),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["snapshot"] });
+      void client.invalidateQueries({ queryKey: ["markets"] });
+    },
   });
 }
 
