@@ -95,23 +95,17 @@ def test_cost_estimates_known_model() -> None:
 
 
 def test_cost_estimates_unknown_model_is_none() -> None:
-    usd, eur = budget.cost_estimates(
-        budget.ModelPrices(), "mystery", 1000, 500, Decimal("0.9")
-    )
+    usd, eur = budget.cost_estimates(budget.ModelPrices(), "mystery", 1000, 500, Decimal("0.9"))
     assert usd is None and eur is None
 
 
 def test_cost_estimates_without_rate_leaves_eur_none() -> None:
-    usd, eur = budget.cost_estimates(
-        budget.ModelPrices(), "gpt-4o-mini", 1000, 500, None
-    )
+    usd, eur = budget.cost_estimates(budget.ModelPrices(), "gpt-4o-mini", 1000, 500, None)
     assert usd is not None and eur is None
 
 
 def test_cost_estimates_without_tokens_is_none() -> None:
-    usd, eur = budget.cost_estimates(
-        budget.ModelPrices(), "gpt-4o-mini", None, 500, Decimal("0.9")
-    )
+    usd, eur = budget.cost_estimates(budget.ModelPrices(), "gpt-4o-mini", None, 500, Decimal("0.9"))
     assert usd is None and eur is None
 
 

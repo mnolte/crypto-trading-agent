@@ -57,9 +57,7 @@ def _call_row(
         model="gpt-4o-mini",
         prompt_version="decision.v1",
         status=status,
-        attempts=json.dumps(
-            [{"at": at.isoformat(), "outcome": "sent", "latency_ms": 10}]
-        ),
+        attempts=json.dumps([{"at": at.isoformat(), "outcome": "sent", "latency_ms": 10}]),
         latency_ms=10,
         input_tokens=100,
         output_tokens=50,
@@ -77,9 +75,7 @@ def _call_row(
         ),
         response_raw='{"id":"resp_1"}',
         parsed=parsed,
-        input_checks=json.dumps(
-            [{"name": "Fresh", "status": "pass", "detail": "ok"}]
-        ),
+        input_checks=json.dumps([{"name": "Fresh", "status": "pass", "detail": "ok"}]),
         output_checks=output_checks,
         verdict=None,
         verdict_note=None,
@@ -161,16 +157,12 @@ def test_list_issues_only_warn_or_fail(client: TestClient) -> None:
     _call_row(
         client,
         call_id="clean",
-        output_checks=json.dumps(
-            [{"name": "Levels sane", "status": "pass", "detail": ""}]
-        ),
+        output_checks=json.dumps([{"name": "Levels sane", "status": "pass", "detail": ""}]),
     )
     _call_row(
         client,
         call_id="warned",
-        output_checks=json.dumps(
-            [{"name": "Signal claims", "status": "warn", "detail": "x"}]
-        ),
+        output_checks=json.dumps([{"name": "Signal claims", "status": "warn", "detail": "x"}]),
     )
     items = client.get("/api/llm-calls?issues=true").json()["items"]
     assert [i["id"] for i in items] == ["warned"]
@@ -215,10 +207,7 @@ def test_download_sends_a_json_attachment(client: TestClient) -> None:
 
 def test_verdict_requires_token(client: TestClient) -> None:
     _call_row(client, call_id="c1")
-    assert (
-        client.put("/api/llm-calls/c1/verdict", json={"verdict": "correct"}).status_code
-        == 403
-    )
+    assert client.put("/api/llm-calls/c1/verdict", json={"verdict": "correct"}).status_code == 403
 
 
 def test_verdict_set_and_clear(client: TestClient) -> None:
@@ -232,9 +221,7 @@ def test_verdict_set_and_clear(client: TestClient) -> None:
     assert detail["verdict"] == "wrong"
     assert detail["verdict_note"] == "chased"
     assert detail["verdict_at"] is not None
-    detail = client.put(
-        "/api/llm-calls/c1/verdict", json={"verdict": None}, headers=headers
-    ).json()
+    detail = client.put("/api/llm-calls/c1/verdict", json={"verdict": None}, headers=headers).json()
     assert detail["verdict"] is None
     assert detail["verdict_note"] is None
 
@@ -246,9 +233,7 @@ def test_export_returns_only_verdicted_calls(client: TestClient) -> None:
     _call_row(client, call_id="c1")
     _call_row(client, call_id="c2", at=NOW - timedelta(minutes=1))
     headers = {"X-Local-Token": _token(client)}
-    client.put(
-        "/api/llm-calls/c1/verdict", json={"verdict": "correct"}, headers=headers
-    )
+    client.put("/api/llm-calls/c1/verdict", json={"verdict": "correct"}, headers=headers)
     response = client.get("/api/llm-calls/export.jsonl")
     assert response.status_code == 200
     lines = [json.loads(t) for t in response.text.strip().splitlines()]
@@ -314,9 +299,7 @@ def test_replay_unknown_call_is_404(client: TestClient) -> None:
     assert response.status_code == 404
 
 
-def test_replay_records_a_linked_call(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_replay_records_a_linked_call(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     from app.agent.openai_client import CallResult
 
     _call_row(client, call_id="c1")
@@ -339,9 +322,7 @@ def test_replay_records_a_linked_call(
         async def aclose(self) -> None:
             pass
 
-    monkeypatch.setattr(
-        "app.api.inspector.OpenAIResponsesClient", FakeClient
-    )
+    monkeypatch.setattr("app.api.inspector.OpenAIResponsesClient", FakeClient)
     response = client.post(
         "/api/llm-calls/c1/replay",
         json={"model": "gpt-4o"},

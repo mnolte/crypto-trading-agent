@@ -245,9 +245,7 @@ def list_calls(
                 before=before,
                 limit=limit,
             )
-        actions = repo.decision_actions(
-            session, [r.decision_id for r in rows if r.decision_id]
-        )
+        actions = repo.decision_actions(session, [r.decision_id for r in rows if r.decision_id])
         items = [_call_item(r, actions.get(r.decision_id or "")) for r in rows]
         if skipped and status is None and verdict is None and outcome is None and not issues:
             skips = repo.list_prefilter_skips(
@@ -344,9 +342,7 @@ def download_call(request: Request, call_id: str) -> Response:
         return Response(
             content=detail.model_dump_json(indent=2),
             media_type="application/json",
-            headers={
-                "Content-Disposition": f'attachment; filename="llm-call-{call_id}.json"'
-            },
+            headers={"Content-Disposition": f'attachment; filename="llm-call-{call_id}.json"'},
         )
     finally:
         session.close()
@@ -375,26 +371,18 @@ def _meta_from_brief(brief: dict[str, Any]) -> BriefMeta:
         price=price,
         atr_1h=atr_1h,
         holding=brief.get("position") is not None,
-        regime=Regime.model_validate(regime_data["pair"])
-        if regime_data.get("pair")
-        else neutral,
-        btc_regime=Regime.model_validate(regime_data["btc"])
-        if regime_data.get("btc")
-        else None,
+        regime=Regime.model_validate(regime_data["pair"]) if regime_data.get("pair") else neutral,
+        btc_regime=Regime.model_validate(regime_data["btc"]) if regime_data.get("btc") else None,
         bars={},
         data_age_s={k: float(v) for k, v in data_age.items()},
         stale_tfs=[tf_ for tf_, age in data_age.items() if age > limits.get(tf_, 0)],
         support=[lvl["price"] for lvl in brief.get("structure", {}).get("support", [])],
-        resistance=[
-            lvl["price"] for lvl in brief.get("structure", {}).get("resistance", [])
-        ],
+        resistance=[lvl["price"] for lvl in brief.get("structure", {}).get("resistance", [])],
     )
 
 
 @router.post("/api/llm-calls/{call_id}/replay", dependencies=[Depends(require_token)])
-async def replay_call(
-    request: Request, call_id: str, body: LlmCallReplayIn
-) -> LlmCallDetail:
+async def replay_call(request: Request, call_id: str, body: LlmCallReplayIn) -> LlmCallDetail:
     """Re-send the stored request, optionally on another model or prompt
     version. Replays count against the daily budget and pause at 80% of the
     monthly cap."""
@@ -516,9 +504,7 @@ async def replay_call(
 
 
 @router.put("/api/llm-calls/{call_id}/verdict", dependencies=[Depends(require_token)])
-def set_verdict(
-    request: Request, call_id: str, body: LlmCallVerdictIn
-) -> LlmCallDetail:
+def set_verdict(request: Request, call_id: str, body: LlmCallVerdictIn) -> LlmCallDetail:
     """Mark a call Correct or Wrong, with an optional note; null clears."""
     state = get_state(request)
     session = _session(state)

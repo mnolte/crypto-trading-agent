@@ -150,9 +150,7 @@ def _tf_block(tf: str, v: TfValues, adx_threshold: float) -> dict[str, Any]:
         "vol_x_avg": _item(v.volume_ratio, volume_read(v.volume_ratio), digits=2),
     }
     if tf == "1d":
-        block["ema200_dist"] = _item(
-            v.price_vs_ema200_pct, price_rel_read(v.price_vs_ema200_pct)
-        )
+        block["ema200_dist"] = _item(v.price_vs_ema200_pct, price_rel_read(v.price_vs_ema200_pct))
     return block
 
 
@@ -187,9 +185,7 @@ def _candles_end(candles: list[Candle], tf: Tf) -> datetime | None:
     return candles[-1].close_time(tf)
 
 
-def _ema_gap_read(
-    candles: list[Candle], fast: int, slow: int
-) -> tuple[float | None, str | None]:
+def _ema_gap_read(candles: list[Candle], fast: int, slow: int) -> tuple[float | None, str | None]:
     """EMA fast-vs-slow % gap and the cross read on `candles`."""
     if len(candles) < slow + 50:
         return None, None
@@ -201,9 +197,7 @@ def _ema_gap_read(
     return float((f - s) / s * 100), ema_cross_read(float(f), float(s))
 
 
-def _eth_btc_trend(
-    eth_4h: list[Candle], btc_4h: list[Candle]
-) -> tuple[float | None, str | None]:
+def _eth_btc_trend(eth_4h: list[Candle], btc_4h: list[Candle]) -> tuple[float | None, str | None]:
     """EMA 20 vs 50 of the ETH/BTC 4h ratio, aligned by open time."""
     if len(eth_4h) < 70 or len(btc_4h) < 70:
         return None, None
@@ -292,9 +286,7 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
             if age > TF_SECONDS[tf] + s.market.stale_grace_s:
                 stale.append(tf)
 
-    tf_block = {
-        tf: _tf_block(tf, inp.signals.tf[tf], adx_threshold) for tf in TF_KEYS
-    }
+    tf_block = {tf: _tf_block(tf, inp.signals.tf[tf], adx_threshold) for tf in TF_KEYS}
 
     # ---- market context: BTC and euro moves only, never other held pairs'
     # prices. Everything carries source + as-of; missing inputs stay null.
@@ -380,8 +372,7 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
         "position": _position_block(inp),
         "pair_history": {
             "trades": [
-                {"closed_at": t.isoformat(), "result_r": float(r)}
-                for t, r in inp.pair_trades[:3]
+                {"closed_at": t.isoformat(), "result_r": float(r)} for t, r in inp.pair_trades[:3]
             ],
             "hours_since_exit": _clean(inp.hours_since_exit, digits=1),
         },
@@ -410,9 +401,7 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
             "min_stop_atr": float(s.risk.stop_min_atr),
             "max_stop_atr": float(s.risk.stop_max_atr),
             "min_stop_pct": 2 * float(s.paper.fee_pct) + 4 * float(s.paper.slippage_pct),
-            "max_age_s": {
-                tf: TF_SECONDS[tf] + s.market.stale_grace_s for tf in TF_KEYS
-            },
+            "max_age_s": {tf: TF_SECONDS[tf] + s.market.stale_grace_s for tf in TF_KEYS},
         },
         "time": {"hour": ams.hour, "weekday": ams.strftime("%A")},
         "data_age_s": data_age,
@@ -481,9 +470,7 @@ def input_checks(brief: dict[str, Any], meta: BriefMeta) -> list[CheckOut]:
     price = brief.get("price")
     if not isinstance(price, (int, float)) or not math.isfinite(price) or price <= 0:
         bad.append("price")
-    for lvl_list in (
-        brief["structure"]["support"] + brief["structure"]["resistance"]
-    ):
+    for lvl_list in brief["structure"]["support"] + brief["structure"]["resistance"]:
         p = lvl_list.get("price")
         if p is None or not math.isfinite(p) or p <= 0:
             bad.append("structure level")
@@ -588,9 +575,9 @@ def input_checks(brief: dict[str, Any], meta: BriefMeta) -> list[CheckOut]:
 # --------------------------------------------------------------- repo glue --
 
 
-def pair_history(session: Session, account_id: int, pair: str, now: datetime) -> tuple[
-    list[tuple[datetime, Decimal]], float | None
-]:
+def pair_history(
+    session: Session, account_id: int, pair: str, now: datetime
+) -> tuple[list[tuple[datetime, Decimal]], float | None]:
     """The pair's last three closed trades plus hours since the last exit."""
     trades = repo.list_trade_rows(session, account_id, pair=pair, limit=3)
     out = [(repo.aware_utc(t.closed_at), Decimal(t.realised_r)) for t in trades]

@@ -138,9 +138,7 @@ def test_parse_schema_violation() -> None:
 
 
 def test_parse_valid_minimal() -> None:
-    out, err = parse_model_output(
-        json.dumps({"action": "HOLD", "confidence": 0.3})
-    )
+    out, err = parse_model_output(json.dumps({"action": "HOLD", "confidence": 0.3}))
     assert err is None and out is not None and out.action == "HOLD"
 
 
@@ -219,9 +217,7 @@ def test_stop_atr_band_boundaries() -> None:
 def test_rr_below_minimum_warns_but_travels_on() -> None:
     # R/R below the min is a warn: the risk gate turns it into SKIP.
     settings = Settings()
-    verdict = _check(
-        _buy(entry=100.0, stop=99.0, target=100.5), settings=settings
-    )
+    verdict = _check(_buy(entry=100.0, stop=99.0, target=100.5), settings=settings)
     check = _named(verdict.checks, "R/R recomputed")
     assert check.status == "warn"
     assert verdict.action == "BUY"
@@ -266,8 +262,7 @@ def test_matching_signal_claims_pass() -> None:
 
 def test_stale_data_allows_only_hold() -> None:
     meta = _meta(stale_tfs=["1h"])
-    verdict = _check(ModelDecision(action="HOLD", confidence=0.2), meta=meta,
-                   rules_action="HOLD")
+    verdict = _check(ModelDecision(action="HOLD", confidence=0.2), meta=meta, rules_action="HOLD")
     assert _named(verdict.checks, "Stale-data rule").status == "pass"
     verdict = _check(_buy(), meta=meta)
     assert _named(verdict.checks, "Stale-data rule").status == "fail"
@@ -532,9 +527,7 @@ def _calls(sessions: sessionmaker[Session]) -> list[LlmCallRow]:
 
 
 async def test_prefilter_skip_makes_no_call(sessions: sessionmaker[Session]) -> None:
-    decider, rules = _decider(
-        sessions, rules_draft=_rules_draft(prefilter=False)
-    )
+    decider, rules = _decider(sessions, rules_draft=_rules_draft(prefilter=False))
     draft = await decider.decide(_ctx())
     assert draft is rules.draft
     assert _calls(sessions) == []
@@ -608,11 +601,7 @@ async def test_daily_budget_used_falls_back_to_rules(
     assert draft is rules.draft
     session = sessions()
     try:
-        alerts = list(
-            session.scalars(
-                select(ActivityRow).where(ActivityRow.kind == "alert")
-            ).all()
-        )
+        alerts = list(session.scalars(select(ActivityRow).where(ActivityRow.kind == "alert")).all())
         assert len(alerts) == 1
         assert "budget" in alerts[0].text.lower()
     finally:
@@ -667,9 +656,7 @@ async def test_api_error_logs_call_and_falls_back(
 async def test_invalid_output_holds_and_marks_call(
     sessions: sessionmaker[Session],
 ) -> None:
-    decider, _ = _decider(
-        sessions, client_result=_ok_result("definitely not json")
-    )
+    decider, _ = _decider(sessions, client_result=_ok_result("definitely not json"))
     draft = await decider.decide(_ctx())
     rows = _calls(sessions)
     assert len(rows) == 1

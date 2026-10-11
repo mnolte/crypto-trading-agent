@@ -696,9 +696,7 @@ def llm_cost_usd_between(
     if end is not None:
         conds.append(LlmCallRow.at < _utc_naive(end))
     total = Decimal("0")
-    rows = session.execute(
-        select(LlmCallRow.cost_usd, LlmCallRow.status).where(*conds)
-    ).all()
+    rows = session.execute(select(LlmCallRow.cost_usd, LlmCallRow.status).where(*conds)).all()
     for cost, status in rows:
         if cost is not None:
             total += Decimal(cost)

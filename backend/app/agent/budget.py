@@ -109,8 +109,8 @@ def cost_estimates(
     price = prices.price(model)
     if price is None or input_tokens is None or output_tokens is None:
         return None, None
-    usd = (
-        Decimal(input_tokens) * price[0] + Decimal(output_tokens) * price[1]
-    ) / Decimal("1000000")
+    usd = (Decimal(input_tokens) * price[0] + Decimal(output_tokens) * price[1]) / Decimal(
+        "1000000"
+    )
     eur = (usd * usd_eur).quantize(Decimal("0.0001")) if usd_eur is not None else None
     return usd.quantize(Decimal("0.0001")), eur

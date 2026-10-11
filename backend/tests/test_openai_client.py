@@ -149,9 +149,7 @@ async def test_request_and_response_captured_byte_for_byte(
     )
     seen: list[bytes] = []
 
-    async def fake_handle(
-        self: httpx.AsyncHTTPTransport, request: httpx.Request
-    ) -> httpx.Response:
+    async def fake_handle(self: httpx.AsyncHTTPTransport, request: httpx.Request) -> httpx.Response:
         seen.append(await request.aread())
         return httpx.Response(
             200,
@@ -160,14 +158,10 @@ async def test_request_and_response_captured_byte_for_byte(
             request=request,
         )
 
-    monkeypatch.setattr(
-        httpx.AsyncHTTPTransport, "handle_async_request", fake_handle
-    )
+    monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", fake_handle)
     client = OpenAIResponsesClient("sk-test")
     try:
-        result = await client.call(
-            {"model": "gpt-4o-mini", "input": "{}", "temperature": 0}
-        )
+        result = await client.call({"model": "gpt-4o-mini", "input": "{}", "temperature": 0})
     finally:
         await client.aclose()
     assert result.status == "ok"
@@ -190,9 +184,7 @@ def test_response_output_text_reads_stored_body() -> None:
             "output": [
                 {
                     "type": "message",
-                    "content": [
-                        {"type": "output_text", "text": '{"action":"BUY"}'}
-                    ],
+                    "content": [{"type": "output_text", "text": '{"action":"BUY"}'}],
                 }
             ]
         }

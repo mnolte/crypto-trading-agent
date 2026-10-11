@@ -229,9 +229,7 @@ def get_decision(request: Request, decision_id: str) -> DecisionDetail:
     session = _session(state)
     try:
         row = repo.get_decision_row(session, decision_id)
-        if row is None or (
-            state.broker is not None and row.account_id != state.broker.account_id
-        ):
+        if row is None or (state.broker is not None and row.account_id != state.broker.account_id):
             raise HTTPException(status_code=404, detail="unknown decision")
         prev_row = session.scalar(
             select(DecisionRow)

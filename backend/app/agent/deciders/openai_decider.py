@@ -186,12 +186,8 @@ def check_output(
         checks.append(
             CheckOut(name="Schema valid", status="fail", detail=parse_error or "no output")
         )
-        return OutputVerdict(
-            checks, "HOLD", 0.0, None, f"{checks[-1].name}: {checks[-1].detail}"
-        )
-    checks.append(
-        CheckOut(name="Schema valid", status="pass", detail="valid decision JSON")
-    )
+        return OutputVerdict(checks, "HOLD", 0.0, None, f"{checks[-1].name}: {checks[-1].detail}")
+    checks.append(CheckOut(name="Schema valid", status="pass", detail="valid decision JSON"))
 
     # ---- action allowed ------------------------------------------------
     action_fails: list[str] = []
@@ -397,9 +393,7 @@ def check_output(
         )
     )
 
-    failed = next(
-        (f"{c.name}: {c.detail}" for c in checks if c.status == "fail"), None
-    )
+    failed = next((f"{c.name}: {c.detail}" for c in checks if c.status == "fail"), None)
     return OutputVerdict(
         checks=checks,
         action="HOLD" if failed else out.action,
@@ -460,9 +454,7 @@ class OpenAIDecider:
     async def decide(self, ctx: DecideContext) -> Draft:
         settings = ctx.settings or Settings()
         rules_draft = await self.rules.decide(ctx)
-        want_call = (
-            ctx.holding or not settings.model.rules_prefilter or rules_draft.prefilter
-        )
+        want_call = ctx.holding or not settings.model.rules_prefilter or rules_draft.prefilter
         api_key = self._key()
         if not want_call or not api_key:
             return rules_draft
@@ -640,9 +632,7 @@ class OpenAIDecider:
         model: str,
         prompt_version: str,
     ) -> Draft:
-        signals = (
-            [Signal(name=s.name, tf=s.tf, read=s.read) for s in out.signals] if out else []
-        )
+        signals = [Signal(name=s.name, tf=s.tf, read=s.read) for s in out.signals] if out else []
         base = Draft(
             action=verdict.action,
             confidence=verdict.confidence if out else 0.0,
@@ -701,9 +691,7 @@ class OpenAIDecider:
         context = dict(ctx.context_candles)
         for key, (market, tf, limit) in CONTEXT_SPECS.items():
             if not context.get(key):
-                context[key] = drop_forming(
-                    repo.load_candles(session, market, tf, limit), tf, now
-                )
+                context[key] = drop_forming(repo.load_candles(session, market, tf, limit), tf, now)
         context["eth_4h"] = (
             ctx.candles_4h
             if ctx.pair == "ETH-EUR"
@@ -730,9 +718,7 @@ class OpenAIDecider:
                 repo.load_candles(session, other_pair, "1h", CORR_BARS), "1h", now
             )
             corr = aligned_correlation(ctx.candles_1h, other_1h, CORR_BARS)
-            held.append(
-                (other_pair, corr, (now - other_pos.opened_at).total_seconds() / 3600)
-            )
+            held.append((other_pair, corr, (now - other_pos.opened_at).total_seconds() / 3600))
         inp = BriefInputs(
             pair=ctx.pair,
             now=now,
@@ -789,9 +775,7 @@ class OpenAIDecider:
         ratio = float(vol24 / avg) if vol24 is not None and avg else None
         return {"spread_pct": spread, "depth_eur": depth, "vol24h_vs_30d": ratio}
 
-    def _alert_once(
-        self, session: Session, now: datetime, kind: str, text: str
-    ) -> None:
+    def _alert_once(self, session: Session, now: datetime, kind: str, text: str) -> None:
         """Budget alerts fire once per period: daily budget once a day,
         monthly-cap alerts once a month (Amsterdam clock)."""
         ams = now.astimezone(AMSTERDAM)

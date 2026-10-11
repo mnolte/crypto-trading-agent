@@ -519,9 +519,7 @@ class Engine:
                 settings=settings,
                 cycle=self.cycle,
                 position=pos,
-                context_candles={
-                    k: v for k, v in context.items() if isinstance(v, list)
-                },
+                context_candles={k: v for k, v in context.items() if isinstance(v, list)},
             )
         )
         return await self._execute_draft(
