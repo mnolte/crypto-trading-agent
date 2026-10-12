@@ -130,6 +130,315 @@
         "title": "ActivityOut",
         "type": "object"
       },
+      "AskCitation": {
+        "description": "A record the answer used, as a link target.",
+        "properties": {
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "decision",
+              "trade",
+              "call"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "label",
+          "href"
+        ],
+        "title": "AskCitation",
+        "type": "object"
+      },
+      "AskContext": {
+        "description": "The screen the panel floats over \u2014 e.g. an open decision.",
+        "properties": {
+          "decision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "pair": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pair"
+          }
+        },
+        "title": "AskContext",
+        "type": "object"
+      },
+      "AskConversationListOut": {
+        "properties": {
+          "daily_limit": {
+            "title": "Daily Limit",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AskConversationSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "questions_today": {
+            "title": "Questions Today",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "questions_today",
+          "daily_limit"
+        ],
+        "title": "AskConversationListOut",
+        "type": "object"
+      },
+      "AskConversationOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AskMessageOut"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "created_at",
+          "messages"
+        ],
+        "title": "AskConversationOut",
+        "type": "object"
+      },
+      "AskConversationSummary": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "turns": {
+            "title": "Turns",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "updated_at",
+          "turns"
+        ],
+        "title": "AskConversationSummary",
+        "type": "object"
+      },
+      "AskIn": {
+        "properties": {
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AskContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "question": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "AskIn",
+        "type": "object"
+      },
+      "AskMessageOut": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "call_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Call Ids",
+            "type": "array"
+          },
+          "citations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AskCitation"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "cost_eur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Eur"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "records_used": {
+            "default": 0,
+            "title": "Records Used",
+            "type": "integer"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "source": {
+            "default": "model",
+            "enum": [
+              "model",
+              "template"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "text",
+          "at"
+        ],
+        "title": "AskMessageOut",
+        "type": "object"
+      },
+      "AskOut": {
+        "properties": {
+          "answer": {
+            "$ref": "#/components/schemas/AskMessageOut"
+          },
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "daily_limit": {
+            "title": "Daily Limit",
+            "type": "integer"
+          },
+          "questions_today": {
+            "title": "Questions Today",
+            "type": "integer"
+          },
+          "remaining": {
+            "title": "Remaining",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "answer",
+          "questions_today",
+          "daily_limit",
+          "remaining"
+        ],
+        "title": "AskOut",
+        "type": "object"
+      },
       "BriefingListOut": {
         "properties": {
           "items": {
@@ -216,6 +525,49 @@
           "llm_call_id"
         ],
         "title": "BriefingOut",
+        "type": "object"
+      },
+      "CalibrationBucketOut": {
+        "description": "One confidence band: average stated confidence vs actual win rate.",
+        "properties": {
+          "actual_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Pct"
+          },
+          "buys": {
+            "title": "Buys",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "stated_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stated Pct"
+          }
+        },
+        "required": [
+          "label",
+          "buys",
+          "stated_pct",
+          "actual_pct"
+        ],
+        "title": "CalibrationBucketOut",
         "type": "object"
       },
       "CandleFeed": {
@@ -437,6 +789,25 @@
           "by_feature"
         ],
         "title": "CostsOut",
+        "type": "object"
+      },
+      "DeciderOption": {
+        "description": "One selectable decider in the Insights filter.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "DeciderOption",
         "type": "object"
       },
       "Decision": {
@@ -1283,6 +1654,239 @@
           "adx_threshold"
         ],
         "title": "IndicatorsOut",
+        "type": "object"
+      },
+      "InsightFinding": {
+        "description": "A card at the top of the Insights screen \u2014 a mechanically derived\nobservation from finding-level slices only.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "overconfident",
+              "underconfident",
+              "weak_spot",
+              "strength"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "whatif_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whatif Hint"
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "text",
+          "n"
+        ],
+        "title": "InsightFinding",
+        "type": "object"
+      },
+      "InsightSliceOut": {
+        "description": "One row of the evidence table: a slice of decisions by the chosen\ndimension with its outcome metrics, all computed in the backend.",
+        "properties": {
+          "avg_r": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg R"
+          },
+          "avoided_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avoided Pct"
+          },
+          "buy_win_rate_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buy Win Rate Pct"
+          },
+          "buys": {
+            "title": "Buys",
+            "type": "integer"
+          },
+          "decisions": {
+            "title": "Decisions",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "missed_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missed Pct"
+          },
+          "state": {
+            "enum": [
+              "finding",
+              "early"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "decisions",
+          "buys",
+          "buy_win_rate_pct",
+          "avg_r",
+          "avoided_pct",
+          "missed_pct",
+          "state"
+        ],
+        "title": "InsightSliceOut",
+        "type": "object"
+      },
+      "InsightsOut": {
+        "properties": {
+          "calibration": {
+            "items": {
+              "$ref": "#/components/schemas/CalibrationBucketOut"
+            },
+            "title": "Calibration",
+            "type": "array"
+          },
+          "calibration_gap_pts": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calibration Gap Pts"
+          },
+          "decider": {
+            "title": "Decider",
+            "type": "string"
+          },
+          "decider_options": {
+            "items": {
+              "$ref": "#/components/schemas/DeciderOption"
+            },
+            "title": "Decider Options",
+            "type": "array"
+          },
+          "decisions_needed": {
+            "title": "Decisions Needed",
+            "type": "integer"
+          },
+          "dimension": {
+            "title": "Dimension",
+            "type": "string"
+          },
+          "end": {
+            "format": "date-time",
+            "title": "End",
+            "type": "string"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/InsightFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "min_decisions": {
+            "title": "Min Decisions",
+            "type": "integer"
+          },
+          "prompt_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Version"
+          },
+          "slices": {
+            "items": {
+              "$ref": "#/components/schemas/InsightSliceOut"
+            },
+            "title": "Slices",
+            "type": "array"
+          },
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          },
+          "total_decisions": {
+            "title": "Total Decisions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dimension",
+          "start",
+          "end",
+          "decider",
+          "prompt_version",
+          "min_decisions",
+          "total_decisions",
+          "decisions_needed",
+          "decider_options",
+          "findings",
+          "slices",
+          "calibration",
+          "calibration_gap_pts"
+        ],
+        "title": "InsightsOut",
         "type": "object"
       },
       "KillInfo": {
@@ -2803,6 +3407,110 @@
           "avoided"
         ],
         "title": "OutcomeScorecardRow",
+        "type": "object"
+      },
+      "OutcomeStatsOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OutcomeStatsRow"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "OutcomeStatsOut",
+        "type": "object"
+      },
+      "OutcomeStatsRow": {
+        "description": "The scorecard grouped by the requested keys (spec's stats view).",
+        "properties": {
+          "average_r": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average R"
+          },
+          "avoided": {
+            "title": "Avoided",
+            "type": "integer"
+          },
+          "buy_win_rate_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buy Win Rate Pct"
+          },
+          "decider": {
+            "title": "Decider",
+            "type": "string"
+          },
+          "decisions": {
+            "title": "Decisions",
+            "type": "integer"
+          },
+          "missed": {
+            "title": "Missed",
+            "type": "integer"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "prompt_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Version"
+          },
+          "shadow": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shadow"
+          }
+        },
+        "required": [
+          "decider",
+          "model",
+          "prompt_version",
+          "decisions",
+          "buy_win_rate_pct",
+          "average_r",
+          "missed",
+          "avoided"
+        ],
+        "title": "OutcomeStatsRow",
         "type": "object"
       },
       "PaperSettings-Input": {
@@ -4750,6 +5458,223 @@
         "title": "SettingsHistoryOut",
         "type": "object"
       },
+      "ShadowIn": {
+        "properties": {
+          "daily_call_limit": {
+            "default": 300,
+            "title": "Daily Call Limit",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "overrides": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Overrides",
+            "type": "object"
+          },
+          "prompt_version": {
+            "title": "Prompt Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "prompt_version"
+        ],
+        "title": "ShadowIn",
+        "type": "object"
+      },
+      "ShadowOut": {
+        "properties": {
+          "account_id": {
+            "title": "Account Id",
+            "type": "integer"
+          },
+          "calls_today": {
+            "title": "Calls Today",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "daily_call_limit": {
+            "title": "Daily Call Limit",
+            "type": "integer"
+          },
+          "decisions": {
+            "title": "Decisions",
+            "type": "integer"
+          },
+          "equity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equity"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "live_return_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live Return Pct"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "overrides": {
+            "additionalProperties": true,
+            "title": "Overrides",
+            "type": "object"
+          },
+          "paused": {
+            "title": "Paused",
+            "type": "boolean"
+          },
+          "pauses": {
+            "items": {
+              "$ref": "#/components/schemas/ShadowPause"
+            },
+            "title": "Pauses",
+            "type": "array"
+          },
+          "prompt_version": {
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "return_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Pct"
+          },
+          "start_equity": {
+            "title": "Start Equity",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "stopped"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "stopped_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stopped At"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "model",
+          "prompt_version",
+          "overrides",
+          "status",
+          "paused",
+          "pauses",
+          "created_at",
+          "stopped_at",
+          "account_id",
+          "start_equity",
+          "equity",
+          "return_pct",
+          "live_return_pct",
+          "decisions",
+          "daily_call_limit",
+          "calls_today"
+        ],
+        "title": "ShadowOut",
+        "type": "object"
+      },
+      "ShadowPause": {
+        "properties": {
+          "end": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          },
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "ShadowPause",
+        "type": "object"
+      },
+      "ShadowPromoteIn": {
+        "properties": {
+          "confirm": {
+            "const": "PROMOTE",
+            "title": "Confirm",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirm"
+        ],
+        "title": "ShadowPromoteIn",
+        "type": "object"
+      },
       "Signal": {
         "properties": {
           "name": {
@@ -5380,6 +6305,384 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "WhatIfApplyIn": {
+        "properties": {
+          "confirm": {
+            "const": "APPLY",
+            "title": "Confirm",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirm"
+        ],
+        "title": "WhatIfApplyIn",
+        "type": "object"
+      },
+      "WhatIfJobOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "progress": {
+            "title": "Progress",
+            "type": "number"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WhatIfResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "saved": {
+            "title": "Saved",
+            "type": "boolean"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/WhatIfSpecIn"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "progress",
+          "name",
+          "saved",
+          "created_at",
+          "updated_at",
+          "spec",
+          "error"
+        ],
+        "title": "WhatIfJobOut",
+        "type": "object"
+      },
+      "WhatIfMetric": {
+        "properties": {
+          "actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual"
+          },
+          "change": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "unit": {
+            "default": "count",
+            "enum": [
+              "pct",
+              "eur",
+              "r",
+              "count"
+            ],
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "actual",
+          "scenario",
+          "change"
+        ],
+        "title": "WhatIfMetric",
+        "type": "object"
+      },
+      "WhatIfResult": {
+        "properties": {
+          "actual": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesPoint"
+            },
+            "title": "Actual",
+            "type": "array"
+          },
+          "added": {
+            "items": {
+              "$ref": "#/components/schemas/WhatIfTrade"
+            },
+            "title": "Added",
+            "type": "array"
+          },
+          "equity": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesPoint"
+            },
+            "title": "Equity",
+            "type": "array"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/WhatIfMetric"
+            },
+            "title": "Metrics",
+            "type": "array"
+          },
+          "removed": {
+            "items": {
+              "$ref": "#/components/schemas/WhatIfTrade"
+            },
+            "title": "Removed",
+            "type": "array"
+          },
+          "stand_ins": {
+            "title": "Stand Ins",
+            "type": "integer"
+          },
+          "trades": {
+            "title": "Trades",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "metrics",
+          "equity",
+          "actual",
+          "removed",
+          "added",
+          "stand_ins",
+          "trades"
+        ],
+        "title": "WhatIfResult",
+        "type": "object"
+      },
+      "WhatIfSaveIn": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "WhatIfSaveIn",
+        "type": "object"
+      },
+      "WhatIfSpecIn": {
+        "description": "The scenario definition: a stored window plus dotted settings\noverrides. ``no_weekend_entries`` is a scenario-only switch (the\ndesign's checkbox) \u2014 it is not a live setting.",
+        "properties": {
+          "from": {
+            "format": "date-time",
+            "title": "From",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "overrides": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Overrides",
+            "type": "object"
+          },
+          "to": {
+            "format": "date-time",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "title": "WhatIfSpecIn",
+        "type": "object"
+      },
+      "WhatIfTrade": {
+        "properties": {
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "entry": {
+            "title": "Entry",
+            "type": "string"
+          },
+          "exit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit"
+          },
+          "exit_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Reason"
+          },
+          "opened_at": {
+            "format": "date-time",
+            "title": "Opened At",
+            "type": "string"
+          },
+          "pair": {
+            "title": "Pair",
+            "type": "string"
+          },
+          "realised_eur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realised Eur"
+          },
+          "realised_r": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realised R"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "stand_in": {
+            "title": "Stand In",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "pair",
+          "opened_at",
+          "closed_at",
+          "entry",
+          "exit",
+          "realised_r",
+          "realised_eur",
+          "reason",
+          "exit_reason",
+          "stand_in",
+          "decision_id"
+        ],
+        "title": "WhatIfTrade",
+        "type": "object"
+      },
       "app__api__routes__HealthOut": {
         "properties": {
           "cycle": {
@@ -5924,6 +7227,119 @@
           }
         },
         "summary": "Agent Run Now"
+      }
+    },
+    "/api/ask": {
+      "post": {
+        "operationId": "ask_api_ask_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ask"
+      }
+    },
+    "/api/ask/conversations": {
+      "get": {
+        "operationId": "list_conversations_api_ask_conversations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AskConversationListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Conversations"
+      }
+    },
+    "/api/ask/conversations/{conversation_id}": {
+      "get": {
+        "operationId": "get_conversation_api_ask_conversations__conversation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AskConversationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Conversation"
       }
     },
     "/api/briefings": {
@@ -6855,6 +8271,106 @@
         "summary": "Export Indicators"
       }
     },
+    "/api/insights": {
+      "get": {
+        "operationId": "get_insights_api_insights_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dimension",
+            "required": false,
+            "schema": {
+              "default": "pair",
+              "title": "Dimension",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "decider",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "title": "Decider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prompt_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsightsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Insights"
+      }
+    },
     "/api/llm-calls": {
       "get": {
         "description": "Call history plus, when ``skipped``, the cycles the pre-filter\ndecided not to send \u2014 merged newest-first.",
@@ -7704,6 +9220,81 @@
         "summary": "Outcome Scorecard"
       }
     },
+    "/api/outcomes/stats": {
+      "get": {
+        "description": "The scorecard grouped by the requested keys, optionally including\n``shadow`` \u2014 shadows appear in the scorecard like any other decider.",
+        "operationId": "outcomes_stats_api_outcomes_stats_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "group",
+            "required": false,
+            "schema": {
+              "default": "decider,model,prompt_version",
+              "title": "Group",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutcomeStatsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Outcomes Stats"
+      }
+    },
     "/api/paper/reset": {
       "post": {
         "description": "Start a new paper account; decisions, calls, verdicts and outcomes\nstay tagged with the account they belonged to. Clears Killed too.",
@@ -8223,6 +9814,204 @@
         "summary": "Get Settings History"
       }
     },
+    "/api/shadows": {
+      "get": {
+        "operationId": "list_shadows_api_shadows_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Shadows Api Shadows Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Shadows"
+      },
+      "post": {
+        "operationId": "create_shadow_api_shadows_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShadowIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShadowOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Shadow"
+      }
+    },
+    "/api/shadows/{shadow_id}": {
+      "delete": {
+        "operationId": "stop_shadow_api_shadows__shadow_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shadow_id",
+            "required": true,
+            "schema": {
+              "title": "Shadow Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Stop Shadow Api Shadows  Shadow Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop Shadow"
+      }
+    },
+    "/api/shadows/{shadow_id}/promote": {
+      "post": {
+        "operationId": "promote_shadow_api_shadows__shadow_id__promote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shadow_id",
+            "required": true,
+            "schema": {
+              "title": "Shadow Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShadowPromoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Promote Shadow Api Shadows  Shadow Id  Promote Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Shadow"
+      }
+    },
     "/api/snapshot": {
       "get": {
         "operationId": "snapshot_api_snapshot_get",
@@ -8418,6 +10207,251 @@
           }
         },
         "summary": "Get Trades"
+      }
+    },
+    "/api/whatif": {
+      "get": {
+        "operationId": "list_whatif_api_whatif_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Whatif Api Whatif Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Whatif"
+      },
+      "post": {
+        "operationId": "create_whatif_api_whatif_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WhatIfSpecIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatIfJobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Whatif"
+      }
+    },
+    "/api/whatif/{scenario_id}": {
+      "get": {
+        "operationId": "get_whatif_api_whatif__scenario_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatIfJobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Whatif"
+      }
+    },
+    "/api/whatif/{scenario_id}/apply": {
+      "post": {
+        "operationId": "apply_whatif_api_whatif__scenario_id__apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WhatIfApplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Apply Whatif Api Whatif  Scenario Id  Apply Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply Whatif"
+      }
+    },
+    "/api/whatif/{scenario_id}/save": {
+      "post": {
+        "operationId": "save_whatif_api_whatif__scenario_id__save_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WhatIfSaveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatIfJobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Whatif"
       }
     }
   }

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { UTCTimestamp } from "lightweight-charts";
 import type { TradeOut } from "../api/client";
 import { usePerformance, useTrades } from "../api/hooks";
@@ -52,6 +53,16 @@ export function Performance() {
 
   const { data: perf } = usePerformance(from, end);
   const { data: trades } = useTrades(from, end);
+
+  // Deep link: /performance?trade=<id> scrolls to and highlights the row.
+  const focusTrade = useSearchParams()[0].get("trade");
+  useEffect(() => {
+    if (focusTrade) {
+      document
+        .getElementById(`trade-${focusTrade}`)
+        ?.scrollIntoView({ block: "center" });
+    }
+  }, [focusTrade, trades]);
 
   const equity: LinePoint[] = (perf?.equity ?? []).map((p) => ({
     time: (new Date(p.at).getTime() / 1000) as UTCTimestamp,
@@ -285,7 +296,11 @@ export function Performance() {
               ]}
             >
               {trades.items.map((trade) => (
-                <TradeRow key={trade.id} trade={trade} />
+                <TradeRow
+                  key={trade.id}
+                  trade={trade}
+                  focus={focusTrade === String(trade.id)}
+                />
               ))}
             </DataTable>
           ) : (
@@ -300,10 +315,10 @@ export function Performance() {
   );
 }
 
-function TradeRow({ trade }: { trade: TradeOut }) {
+function TradeRow({ trade, focus }: { trade: TradeOut; focus?: boolean }) {
   const pnl = Number(trade.realised_eur);
   return (
-    <tr>
+    <tr id={`trade-${trade.id}`} className={focus ? "row--focus" : undefined}>
       <td className="text--strong">{trade.pair}</td>
       <td className="num" style={{ color: "var(--text-soft)", fontFamily: "var(--font-num)" }}>
         {formatDateTime(trade.opened_at)} → {formatDateTime(trade.closed_at)}

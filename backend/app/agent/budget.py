@@ -79,6 +79,13 @@ def month_spend_eur(session: Session, account_id: int, now: datetime) -> Decimal
     return repo.llm_cost_between(session, account_id, start, end)
 
 
+def month_spend_all(session: Session, now: datetime) -> Decimal:
+    """Model spend this Amsterdam month across every account — the shared
+    cap counts decisions, Ask, briefings, reviews, replays and shadows."""
+    start, end = amsterdam_month_bounds(now)
+    return sum(repo.llm_costs_by_feature_all(session, start, end).values(), Decimal("0"))
+
+
 def cap_state(spent_eur: Decimal, cap_eur: Decimal) -> Literal["ok", "warn", "cap"]:
     """warn from 80% of the monthly cap; cap at 100% — decisions go to Rules."""
     if cap_eur <= 0:

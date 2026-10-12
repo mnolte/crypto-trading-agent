@@ -149,6 +149,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask */
+        post: operations["ask_api_ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ask/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Conversations */
+        get: operations["list_conversations_api_ask_conversations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ask/conversations/{conversation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Conversation */
+        get: operations["get_conversation_api_ask_conversations__conversation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/briefings": {
         parameters: {
             query?: never;
@@ -472,6 +523,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Insights */
+        get: operations["get_insights_api_insights_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/llm-calls": {
         parameters: {
             query?: never;
@@ -714,6 +782,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/outcomes/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Outcomes Stats
+         * @description The scorecard grouped by the requested keys, optionally including
+         *     ``shadow`` — shadows appear in the scorecard like any other decider.
+         */
+        get: operations["outcomes_stats_api_outcomes_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/paper/reset": {
         parameters: {
             query?: never;
@@ -899,6 +988,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/shadows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Shadows */
+        get: operations["list_shadows_api_shadows_get"];
+        put?: never;
+        /** Create Shadow */
+        post: operations["create_shadow_api_shadows_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shadows/{shadow_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Stop Shadow */
+        delete: operations["stop_shadow_api_shadows__shadow_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shadows/{shadow_id}/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Promote Shadow */
+        post: operations["promote_shadow_api_shadows__shadow_id__promote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/snapshot": {
         parameters: {
             query?: never;
@@ -967,6 +1108,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/whatif": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Whatif */
+        get: operations["list_whatif_api_whatif_get"];
+        put?: never;
+        /** Create Whatif */
+        post: operations["create_whatif_api_whatif_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/whatif/{scenario_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Whatif */
+        get: operations["get_whatif_api_whatif__scenario_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/whatif/{scenario_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Whatif */
+        post: operations["apply_whatif_api_whatif__scenario_id__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/whatif/{scenario_id}/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Whatif */
+        post: operations["save_whatif_api_whatif__scenario_id__save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1012,6 +1222,132 @@ export interface components {
             /** Text */
             text: string;
         };
+        /**
+         * AskCitation
+         * @description A record the answer used, as a link target.
+         */
+        AskCitation: {
+            /** Href */
+            href: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "decision" | "trade" | "call";
+            /** Label */
+            label: string;
+        };
+        /**
+         * AskContext
+         * @description The screen the panel floats over — e.g. an open decision.
+         */
+        AskContext: {
+            /** Decision Id */
+            decision_id?: string | null;
+            /** Page */
+            page?: string | null;
+            /** Pair */
+            pair?: string | null;
+        };
+        /** AskConversationListOut */
+        AskConversationListOut: {
+            /** Daily Limit */
+            daily_limit: number;
+            /** Items */
+            items: components["schemas"]["AskConversationSummary"][];
+            /** Questions Today */
+            questions_today: number;
+        };
+        /** AskConversationOut */
+        AskConversationOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Messages */
+            messages: components["schemas"]["AskMessageOut"][];
+            /** Title */
+            title: string;
+        };
+        /** AskConversationSummary */
+        AskConversationSummary: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Turns */
+            turns: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** AskIn */
+        AskIn: {
+            context?: components["schemas"]["AskContext"] | null;
+            /** Conversation Id */
+            conversation_id?: string | null;
+            /** Question */
+            question: string;
+        };
+        /** AskMessageOut */
+        AskMessageOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Call Ids
+             * @default []
+             */
+            call_ids: string[];
+            /**
+             * Citations
+             * @default []
+             */
+            citations: components["schemas"]["AskCitation"][];
+            /** Cost Eur */
+            cost_eur?: string | null;
+            /** Model */
+            model?: string | null;
+            /**
+             * Records Used
+             * @default 0
+             */
+            records_used: number;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /**
+             * Source
+             * @default model
+             * @enum {string}
+             */
+            source: "model" | "template";
+            /** Text */
+            text: string;
+        };
+        /** AskOut */
+        AskOut: {
+            answer: components["schemas"]["AskMessageOut"];
+            /** Conversation Id */
+            conversation_id: string;
+            /** Daily Limit */
+            daily_limit: number;
+            /** Questions Today */
+            questions_today: number;
+            /** Remaining */
+            remaining: number;
+        };
         /** BriefingListOut */
         BriefingListOut: {
             /** Items */
@@ -1046,6 +1382,20 @@ export interface components {
              * @enum {string}
              */
             type: "daily" | "weekly";
+        };
+        /**
+         * CalibrationBucketOut
+         * @description One confidence band: average stated confidence vs actual win rate.
+         */
+        CalibrationBucketOut: {
+            /** Actual Pct */
+            actual_pct: number | null;
+            /** Buys */
+            buys: number;
+            /** Label */
+            label: string;
+            /** Stated Pct */
+            stated_pct: number | null;
         };
         /**
          * CandleFeed
@@ -1140,6 +1490,16 @@ export interface components {
             spent_eur: string;
             /** Spent Usd */
             spent_usd: string | null;
+        };
+        /**
+         * DeciderOption
+         * @description One selectable decider in the Insights filter.
+         */
+        DeciderOption: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
         };
         /** Decision */
         Decision: {
@@ -1425,6 +1785,89 @@ export interface components {
              * @enum {string}
              */
             tf: "1h" | "4h" | "1d";
+        };
+        /**
+         * InsightFinding
+         * @description A card at the top of the Insights screen — a mechanically derived
+         *     observation from finding-level slices only.
+         */
+        InsightFinding: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "overconfident" | "underconfident" | "weak_spot" | "strength";
+            /** N */
+            n: number;
+            /** Text */
+            text: string;
+            /** Title */
+            title: string;
+            /** Whatif Hint */
+            whatif_hint?: string | null;
+        };
+        /**
+         * InsightSliceOut
+         * @description One row of the evidence table: a slice of decisions by the chosen
+         *     dimension with its outcome metrics, all computed in the backend.
+         */
+        InsightSliceOut: {
+            /** Avg R */
+            avg_r: number | null;
+            /** Avoided Pct */
+            avoided_pct: number | null;
+            /** Buy Win Rate Pct */
+            buy_win_rate_pct: number | null;
+            /** Buys */
+            buys: number;
+            /** Decisions */
+            decisions: number;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Missed Pct */
+            missed_pct: number | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "finding" | "early";
+        };
+        /** InsightsOut */
+        InsightsOut: {
+            /** Calibration */
+            calibration: components["schemas"]["CalibrationBucketOut"][];
+            /** Calibration Gap Pts */
+            calibration_gap_pts: number | null;
+            /** Decider */
+            decider: string;
+            /** Decider Options */
+            decider_options: components["schemas"]["DeciderOption"][];
+            /** Decisions Needed */
+            decisions_needed: number;
+            /** Dimension */
+            dimension: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Findings */
+            findings: components["schemas"]["InsightFinding"][];
+            /** Min Decisions */
+            min_decisions: number;
+            /** Prompt Version */
+            prompt_version: string | null;
+            /** Slices */
+            slices: components["schemas"]["InsightSliceOut"][];
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /** Total Decisions */
+            total_decisions: number;
         };
         /** KillInfo */
         KillInfo: {
@@ -2063,6 +2506,35 @@ export interface components {
             model: string | null;
             /** Prompt Version */
             prompt_version: string | null;
+        };
+        /** OutcomeStatsOut */
+        OutcomeStatsOut: {
+            /** Items */
+            items: components["schemas"]["OutcomeStatsRow"][];
+        };
+        /**
+         * OutcomeStatsRow
+         * @description The scorecard grouped by the requested keys (spec's stats view).
+         */
+        OutcomeStatsRow: {
+            /** Average R */
+            average_r: number | null;
+            /** Avoided */
+            avoided: number;
+            /** Buy Win Rate Pct */
+            buy_win_rate_pct: number | null;
+            /** Decider */
+            decider: string;
+            /** Decisions */
+            decisions: number;
+            /** Missed */
+            missed: number;
+            /** Model */
+            model: string | null;
+            /** Prompt Version */
+            prompt_version: string | null;
+            /** Shadow */
+            shadow?: string | null;
         };
         /** PaperSettings */
         "PaperSettings-Input": {
@@ -3215,6 +3687,92 @@ export interface components {
             /** Items */
             items: components["schemas"]["SettingsHistoryItem"][];
         };
+        /** ShadowIn */
+        ShadowIn: {
+            /**
+             * Daily Call Limit
+             * @default 300
+             */
+            daily_call_limit: number;
+            /** Model */
+            model: string;
+            /** Name */
+            name?: string | null;
+            /**
+             * Overrides
+             * @default {}
+             */
+            overrides: {
+                [key: string]: unknown;
+            };
+            /** Prompt Version */
+            prompt_version: string;
+        };
+        /** ShadowOut */
+        ShadowOut: {
+            /** Account Id */
+            account_id: number;
+            /** Calls Today */
+            calls_today: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Daily Call Limit */
+            daily_call_limit: number;
+            /** Decisions */
+            decisions: number;
+            /** Equity */
+            equity: string | null;
+            /** Id */
+            id: string;
+            /** Live Return Pct */
+            live_return_pct: number | null;
+            /** Model */
+            model: string;
+            /** Name */
+            name: string;
+            /** Overrides */
+            overrides: {
+                [key: string]: unknown;
+            };
+            /** Paused */
+            paused: boolean;
+            /** Pauses */
+            pauses: components["schemas"]["ShadowPause"][];
+            /** Prompt Version */
+            prompt_version: string;
+            /** Return Pct */
+            return_pct: number | null;
+            /** Start Equity */
+            start_equity: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "stopped";
+            /** Stopped At */
+            stopped_at: string | null;
+        };
+        /** ShadowPause */
+        ShadowPause: {
+            /** End */
+            end: string | null;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+        };
+        /** ShadowPromoteIn */
+        ShadowPromoteIn: {
+            /**
+             * Confirm
+             * @constant
+             */
+            confirm: "PROMOTE";
+        };
         /** Signal */
         Signal: {
             /** Name */
@@ -3468,6 +4026,138 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** WhatIfApplyIn */
+        WhatIfApplyIn: {
+            /**
+             * Confirm
+             * @constant
+             */
+            confirm: "APPLY";
+        };
+        /** WhatIfJobOut */
+        WhatIfJobOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error */
+            error: string | null;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string | null;
+            /** Progress */
+            progress: number;
+            result?: components["schemas"]["WhatIfResult"] | null;
+            /** Saved */
+            saved: boolean;
+            spec: components["schemas"]["WhatIfSpecIn"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "done" | "failed";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** WhatIfMetric */
+        WhatIfMetric: {
+            /** Actual */
+            actual: number | null;
+            /** Change */
+            change: number | null;
+            /** Label */
+            label: string;
+            /** Scenario */
+            scenario: number | null;
+            /**
+             * Unit
+             * @default count
+             * @enum {string}
+             */
+            unit: "pct" | "eur" | "r" | "count";
+        };
+        /** WhatIfResult */
+        WhatIfResult: {
+            /** Actual */
+            actual: components["schemas"]["SeriesPoint"][];
+            /** Added */
+            added: components["schemas"]["WhatIfTrade"][];
+            /** Equity */
+            equity: components["schemas"]["SeriesPoint"][];
+            /** Metrics */
+            metrics: components["schemas"]["WhatIfMetric"][];
+            /** Removed */
+            removed: components["schemas"]["WhatIfTrade"][];
+            /** Stand Ins */
+            stand_ins: number;
+            /** Trades */
+            trades: number;
+        };
+        /** WhatIfSaveIn */
+        WhatIfSaveIn: {
+            /** Name */
+            name?: string | null;
+        };
+        /**
+         * WhatIfSpecIn
+         * @description The scenario definition: a stored window plus dotted settings
+         *     overrides. ``no_weekend_entries`` is a scenario-only switch (the
+         *     design's checkbox) — it is not a live setting.
+         */
+        WhatIfSpecIn: {
+            /**
+             * From
+             * Format: date-time
+             */
+            from: string;
+            /** Name */
+            name?: string | null;
+            /**
+             * Overrides
+             * @default {}
+             */
+            overrides: {
+                [key: string]: unknown;
+            };
+            /**
+             * To
+             * Format: date-time
+             */
+            to: string;
+        };
+        /** WhatIfTrade */
+        WhatIfTrade: {
+            /** Closed At */
+            closed_at: string | null;
+            /** Decision Id */
+            decision_id: string | null;
+            /** Entry */
+            entry: string;
+            /** Exit */
+            exit: string | null;
+            /** Exit Reason */
+            exit_reason: string | null;
+            /**
+             * Opened At
+             * Format: date-time
+             */
+            opened_at: string;
+            /** Pair */
+            pair: string;
+            /** Realised Eur */
+            realised_eur: string | null;
+            /** Realised R */
+            realised_r: string | null;
+            /** Reason */
+            reason: string;
+            /** Stand In */
+            stand_in: boolean;
         };
         /** HealthOut */
         app__api__routes__HealthOut: {
@@ -3774,6 +4464,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_api_ask_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_conversations_api_ask_conversations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskConversationListOut"];
+                };
+            };
+        };
+    };
+    get_conversation_api_ask_conversations__conversation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskConversationOut"];
                 };
             };
             /** @description Validation Error */
@@ -4314,6 +5090,41 @@ export interface operations {
             };
         };
     };
+    get_insights_api_insights_get: {
+        parameters: {
+            query?: {
+                dimension?: string;
+                from?: string | null;
+                to?: string | null;
+                decider?: string;
+                prompt_version?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_calls_api_llm_calls_get: {
         parameters: {
             query?: {
@@ -4816,6 +5627,39 @@ export interface operations {
             };
         };
     };
+    outcomes_stats_api_outcomes_stats_get: {
+        parameters: {
+            query?: {
+                group?: string;
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutcomeStatsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     paper_reset_api_paper_reset_post: {
         parameters: {
             query?: never;
@@ -5165,6 +6009,137 @@ export interface operations {
             };
         };
     };
+    list_shadows_api_shadows_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    create_shadow_api_shadows_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShadowIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShadowOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_shadow_api_shadows__shadow_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                shadow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    promote_shadow_api_shadows__shadow_id__promote_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                shadow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShadowPromoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     snapshot_api_snapshot_get: {
         parameters: {
             query?: never;
@@ -5263,6 +6238,170 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TradeListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_whatif_api_whatif_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    create_whatif_api_whatif_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhatIfSpecIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhatIfJobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_whatif_api_whatif__scenario_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhatIfJobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_whatif_api_whatif__scenario_id__apply_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhatIfApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_whatif_api_whatif__scenario_id__save_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhatIfSaveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhatIfJobOut"];
                 };
             };
             /** @description Validation Error */

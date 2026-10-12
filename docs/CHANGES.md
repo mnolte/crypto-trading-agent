@@ -2,6 +2,18 @@
 
 Newest first. Each entry names the sections it touches.
 
+## 2026-10-11 — Shadows and What-if
+
+- User features → Shadow strategies: briefs come from the same cycle snapshot as live
+  with the shadow's own position and account block (so shadows can SELL); the model is
+  called when the pre-filter passes or the shadow holds the pair; gates use the shadow's
+  own account. A new shadow starts flat with cash equal to live equity at creation;
+  Compare measures live from that moment. At 80% of the cost cap a shadow makes no new
+  decisions (no Rules stand-in), the watcher keeps managing its positions, and the pause
+  window is left out of the comparison.
+- User features → What-if: vetoed, expired and pending decisions never fill in a
+  scenario; a scenario can block a real fill or fill a gate-skipped decision.
+
 ## 2026-10-11 — Pauses, plain briefings and the quiet line
 
 - User features → Per-coin pause: a paused pair with no open position gets no model

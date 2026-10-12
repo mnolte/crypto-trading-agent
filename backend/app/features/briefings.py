@@ -22,6 +22,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import repo
@@ -30,7 +31,7 @@ from app.agent.broker.paper import PaperBroker
 from app.agent.openai_client import CallResult, OpenAIResponsesClient
 from app.agent.prompts import load_prompt
 from app.config import get_secret
-from app.db import AMSTERDAM, AccountRow, BriefingRow, LlmCallRow, utcnow
+from app.db import AMSTERDAM, AccountRow, BriefingRow, LlmCallRow, TradeRow, utcnow
 from app.models import CheckOut, Settings
 
 if TYPE_CHECKING:
@@ -406,6 +407,7 @@ def _call_row(
     cycle: int | None,
     prompt_version: str,
     in_checks: list[CheckOut],
+    feature: str = BRIEFING_FEATURE,
 ) -> LlmCallRow:
     return LlmCallRow(
         id=uuid.uuid4().hex[:16],
@@ -414,7 +416,7 @@ def _call_row(
         account_id=account_id,
         pair="",
         decision_id=None,
-        feature=BRIEFING_FEATURE,
+        feature=feature,
         replay_of=None,
         model=payload["model"],
         prompt_version=prompt_version,
@@ -489,10 +491,16 @@ async def generate_briefing(
     """Compute the facts, ask the model for prose, check every number and
     store the row. Falls back to the plain template — labelled with the
     reason — on a missing key, a failed call, a spent monthly cap or a
-    rejected text twice in a row."""
-    facts = compute_facts(
-        session, now=now, account=account, broker=broker, settings=settings, type=type
-    )
+    rejected text twice in a row. Weekly reviews use their own facts,
+    prompt and template."""
+    if type == "weekly":
+        facts = compute_weekly_facts(
+            session, now=now, account=account, broker=broker, settings=settings
+        )
+    else:
+        facts = compute_facts(
+            session, now=now, account=account, broker=broker, settings=settings, type=type
+        )
     key = api_key if api_key is not None else key_fn()
     reason: str | None = None
     text: str | None = None
@@ -502,18 +510,19 @@ async def generate_briefing(
     if key is None:
         reason = "no OpenAI key"
     else:
-        spent = budget.month_spend_eur(session, account.id, now)
+        spent = budget.month_spend_all(session, now)
         if budget.cap_state(spent, settings.model.monthly_cost_cap_eur) == "cap":
             reason = "monthly cost cap reached"
 
     if reason is None:
         try:
-            prompt = load_prompt(BRIEFING_PROMPT)
+            prompt = load_prompt(REVIEW_PROMPT if type == "weekly" else BRIEFING_PROMPT)
         except Exception:
             prompt = None
-            reason = "briefing prompt missing"
+            reason = "review prompt missing" if type == "weekly" else "briefing prompt missing"
     if reason is None and prompt is not None:
         assert key is not None  # "no OpenAI key" was set above otherwise
+        feature = REVIEW_FEATURE if type == "weekly" else BRIEFING_FEATURE
         payload = briefing_payload(facts, settings.model.model_id, prompt)
         client = client_factory(key)
         for _attempt in range(2):
@@ -524,6 +533,7 @@ async def generate_briefing(
                 cycle=cycle,
                 prompt_version=prompt.version,
                 in_checks=[CheckOut(name="Facts computed", status="pass", detail="")],
+                feature=feature,
             )
             call_rows.append(call_row)
             try:
@@ -573,7 +583,7 @@ async def generate_briefing(
         type=type,
         for_date=facts["for_date"],
         facts=json.dumps(facts, separators=(",", ":"), ensure_ascii=False),
-        text=text or template_text(facts),
+        text=text or (weekly_template_text(facts) if type == "weekly" else template_text(facts)),
         source="model" if text is not None else "template",
         reason=reason,
         llm_call_id=call_rows[-1].id if call_rows else None,
@@ -660,8 +670,315 @@ async def briefing_loop(
                         dispatcher_notify=notify,
                         cycle=state.agent_engine.cycle if state.agent_engine else None,
                     )
+                    await maybe_weekly_review(
+                        session,
+                        now=clock(),
+                        account=account,
+                        broker=state.broker,
+                        settings=state.settings,
+                        dispatcher_notify=notify,
+                    )
             finally:
                 session.close()
         except Exception:
             pass  # a briefing miss must never kill the loop; logged next tick
         await asyncio.sleep(LOOP_TICK_S)
+
+
+# --------------------------------------------------------- weekly review --
+
+REVIEW_PROMPT = "review.v1"
+REVIEW_FEATURE = "review"
+WEEK_S = 7 * 24 * 3600
+# ``learning.weekly_review`` enum → (Amsterdam weekday, Amsterdam hour).
+WEEKLY_SCHEDULE = {"mon_08": (0, 8), "sun_20": (6, 20), "off": None}
+
+
+def compute_weekly_facts(
+    session: Session,
+    *,
+    now: datetime,
+    account: AccountRow,
+    broker: PaperBroker,
+    settings: Settings,
+) -> dict[str, Any]:
+    """The week's metrics vs the previous week and BTC, the three best and
+    worst trades, patterns in Wrong-marked decisions grouped by the output
+    check that fired, the insights that changed with finding-level data and
+    one evidence-backed suggestion."""
+    account_id = account.id
+    week_start = now - timedelta(seconds=WEEK_S)
+    prev_start = week_start - timedelta(seconds=WEEK_S)
+
+    eq_now = broker.equity()
+    eq_week = _equity_near(session, account_id, week_start)
+    eq_prev = _equity_near(session, account_id, prev_start)
+    btc_then = repo.load_candles(session, "BTC-EUR", "1d", 10, end=week_start)
+    btc_now = repo.load_candles(session, "BTC-EUR", "1d", 5, end=now)
+
+    closed_week = [
+        t
+        for t in repo.list_trade_rows(session, account_id, start=week_start, end=now, limit=200)
+        if t.closed_at is not None
+    ]
+    closed_prev = [
+        t
+        for t in repo.list_trade_rows(
+            session, account_id, start=prev_start, end=week_start, limit=200
+        )
+        if t.closed_at is not None
+    ]
+
+    def _trade(t: TradeRow) -> dict[str, Any]:
+        return {
+            "id": t.id,
+            "pair": t.pair,
+            "realised_r": t.realised_r,
+            "realised_eur": t.realised_eur,
+            "exit_reason": t.exit_reason,
+            "decision_id": t.decision_id,
+            "decision_href": f"/?decision={t.decision_id}" if t.decision_id else None,
+            "trade_href": f"/performance?trade={t.id}",
+        }
+
+    by_r = sorted(closed_week, key=lambda t: Decimal(t.realised_r or "0"), reverse=True)
+    best = [_trade(t) for t in by_r[:3] if Decimal(t.realised_r or "0") > 0]
+    worst = [_trade(t) for t in by_r[-3:] if Decimal(t.realised_r or "0") < 0]
+    worst.reverse()
+
+    # Decisions the owner marked Wrong, grouped by the output check that
+    # fired on that call ("all checks passed" gets its own bucket).
+    wrong_groups: dict[str, int] = {}
+    wrong_call_count = 0
+    for row in session.scalars(
+        select(LlmCallRow).where(
+            LlmCallRow.account_id == account_id,
+            LlmCallRow.at >= week_start.replace(tzinfo=None),
+            LlmCallRow.verdict == "wrong",
+        )
+    ).all():
+        wrong_call_count += 1
+        try:
+            checks = json.loads(row.output_checks or "[]")
+        except json.JSONDecodeError:
+            checks = []
+        fired = [c.get("name", "?") for c in checks if c.get("status") != "pass"]
+        for name in fired or ["no failed output check"]:
+            wrong_groups[name] = wrong_groups.get(name, 0) + 1
+    wrong_patterns = [
+        {"check": k, "count": v} for k, v in sorted(wrong_groups.items(), key=lambda kv: -kv[1])
+    ]
+
+    # Finding-level insights on the week's decisions; "changed" compares
+    # them with the previous stored review's findings.
+    from app.features.insights import compute_insights
+
+    insights_now = compute_insights(
+        session, now=now, settings=settings, dimension="weekday", start=week_start, end=now
+    )
+    insights_pair = compute_insights(
+        session, now=now, settings=settings, dimension="pair", start=week_start, end=now
+    )
+    findings_now = [
+        {
+            "dimension": dim,
+            "key": s.key,
+            "avg_r": s.avg_r,
+            "win_rate_pct": s.buy_win_rate_pct,
+        }
+        for dim, view in (("weekday", insights_now), ("pair", insights_pair))
+        for s in view.slices
+        if s.state == "finding"
+    ]
+    prev_review = repo.latest_briefing(session, "weekly")
+    prev_findings: dict[tuple[str, str], float | None] = {}
+    if prev_review is not None:
+        try:
+            prev_facts = json.loads(prev_review.facts)
+            for f in prev_facts.get("insights_findings", []):
+                prev_findings[(f["dimension"], f["key"])] = f.get("avg_r")
+        except (json.JSONDecodeError, KeyError, TypeError):
+            prev_findings = {}
+
+    def _changed(f: dict[str, Any]) -> bool:
+        prev = prev_findings.get((str(f["dimension"]), str(f["key"])))
+        if (f["dimension"], f["key"]) not in prev_findings:
+            return True
+        return prev is not None and f["avg_r"] is not None and abs(float(f["avg_r"]) - prev) >= 0.3
+
+    insights_changed = [f for f in findings_now if _changed(f)]
+
+    # One evidence-backed suggestion: the weakest finding-level slice gets
+    # a "Try in What-if" pointer.
+    suggestion = None
+    weakest = min(
+        (
+            s
+            for s in insights_pair.slices + insights_now.slices
+            if s.state == "finding" and s.avg_r is not None and s.avg_r < 0
+        ),
+        key=lambda s: s.avg_r or 0.0,
+        default=None,
+    )
+    if weakest is not None:
+        hint = (
+            "Try skipping weekends in What-if"
+            if weakest.key in ("Saturday", "Sunday")
+            else f"Try removing {weakest.key} in What-if"
+        )
+        suggestion = {
+            "text": (
+                f"{weakest.label} BUYs average {weakest.avg_r:+.2f}R over "
+                f"{weakest.decisions} decisions this week"
+            ),
+            "whatif_hint": hint,
+            "whatif_href": "/whatif",
+        }
+
+    def _avg_r(trades: list[TradeRow]) -> float | None:
+        rs = [Decimal(t.realised_r) for t in trades if t.realised_r is not None]
+        return float(sum(rs) / len(rs)) if rs else None
+
+    def _drawdown(start: datetime, end: datetime) -> float | None:
+        """Worst peak-to-trough move in the equity snapshots of the window."""
+        snaps = repo.list_equity_snapshots(session, account_id, start, end)
+        peak: Decimal | None = None
+        worst_dd = Decimal("0")
+        for snap in snaps:
+            eq = Decimal(snap.equity)
+            if peak is None or eq > peak:
+                peak = eq
+            if peak and peak > 0:
+                dd = (eq - peak) / peak * 100
+                if dd < worst_dd:
+                    worst_dd = dd
+        return float(worst_dd) if snaps else None
+
+    week_spend = repo.llm_costs_by_feature_all(session, week_start, now)
+    calls_week = session.scalar(
+        select(func.count())
+        .select_from(LlmCallRow)
+        .where(LlmCallRow.at >= week_start.replace(tzinfo=None))
+    )
+
+    return {
+        "for_date": now.astimezone(AMSTERDAM).date().isoformat(),
+        "generated_at": now.isoformat(),
+        "type": "weekly",
+        "period_hours": WEEK_S // 3600,
+        "week_start": week_start.isoformat(),
+        "equity_eur": str(eq_now.quantize(Decimal("0.01"))),
+        "return_week_pct": _pct(eq_now, eq_week) if eq_week else None,
+        "return_prev_week_pct": _pct(eq_week, eq_prev) if eq_week and eq_prev else None,
+        "btc_week_pct": (
+            _pct(btc_now[-1].close, btc_then[-1].close) if btc_then and btc_now else None
+        ),
+        "trades_closed_count": len(closed_week),
+        "trades_closed_prev_count": len(closed_prev),
+        "won_count": sum(1 for t in closed_week if Decimal(t.realised_r or "0") > 0),
+        "lost_count": sum(1 for t in closed_week if Decimal(t.realised_r or "0") < 0),
+        "avg_r_week": _avg_r(closed_week),
+        "avg_r_prev": _avg_r(closed_prev),
+        "drawdown_week_pct": _drawdown(week_start, now),
+        "drawdown_prev_pct": _drawdown(prev_start, week_start),
+        "model_cost_eur": str(sum(week_spend.values(), Decimal("0")).quantize(Decimal("0.01"))),
+        "model_calls": int(calls_week or 0),
+        "trades_best": best,
+        "trades_worst": worst,
+        "wrong_patterns": wrong_patterns,
+        "wrong_decisions_count": wrong_call_count,
+        "insights_findings": findings_now,
+        "insights_changed": insights_changed,
+        "insights_changed_count": len(insights_changed),
+        "suggestion": suggestion,
+        "open_positions_count": len(broker.positions),
+    }
+
+
+def weekly_template_text(facts: dict[str, Any]) -> str:
+    """The plain-text weekly review built only from computed facts."""
+    parts: list[str] = []
+    rw = facts.get("return_week_pct")
+    rp = facts.get("return_prev_week_pct")
+    btc = facts.get("btc_week_pct")
+    line = "The week"
+    if isinstance(rw, (int, float)):
+        line += f" returned {rw:+.2f}%"
+        if isinstance(rp, (int, float)):
+            line += f" (previous week {rp:+.2f}%)"
+        if isinstance(btc, (int, float)):
+            line += f"; BTC moved {btc:+.2f}% over the same span"
+    parts.append(line + ".")
+
+    closed = facts.get("trades_closed_count", 0)
+    parts.append(
+        f"{closed} trades closed this week "
+        f"({facts.get('trades_closed_prev_count', 0)} the week before)."
+    )
+    for label, key in (("Best", "trades_best"), ("Worst", "trades_worst")):
+        trades = facts.get(key) or []
+        if trades:
+            detail = ", ".join(
+                f"{t['pair'].split('-')[0]} {Decimal(str(t['realised_r'])):+.2f}R" for t in trades
+            )
+            parts.append(f"{label}: {detail}.")
+
+    wrong = facts.get("wrong_patterns") or []
+    if wrong:
+        detail = ", ".join(f"{w['check']} x{w['count']}" for w in wrong[:4])
+        parts.append(f"Decisions marked Wrong: {detail}.")
+
+    changed = facts.get("insights_changed") or []
+    if changed:
+        detail = "; ".join(
+            f"{f['key']} avg {f['avg_r']:+.2f}R" for f in changed[:4] if f.get("avg_r") is not None
+        )
+        if detail:
+            parts.append(f"Insights that changed: {detail}.")
+
+    sug = facts.get("suggestion")
+    if isinstance(sug, dict) and sug.get("text"):
+        parts.append(f"Suggestion: {sug['text']}. {sug.get('whatif_hint', '')}.")
+    return " ".join(parts)
+
+
+def weekly_scheduled(now: datetime, setting: str) -> datetime | None:
+    """This week's scheduled review instant in UTC, or None when off."""
+    spec = WEEKLY_SCHEDULE.get(setting, (0, 8))
+    if spec is None:
+        return None
+    weekday, hour = spec
+    ams = now.astimezone(AMSTERDAM)
+    day = ams.replace(hour=hour, minute=0, second=0, microsecond=0)
+    day -= timedelta(days=(ams.weekday() - weekday) % 7)
+    return day.astimezone(UTC)
+
+
+async def maybe_weekly_review(
+    session: Session,
+    *,
+    now: datetime,
+    account: AccountRow,
+    broker: PaperBroker,
+    settings: Settings,
+    dispatcher_notify: Callable[[str, str, str], Awaitable[None]] | None,
+) -> BriefingRow | None:
+    """Run this week's review when its scheduled time has come and it is
+    not more than 4 hours late (same missed-window rule as the briefing)."""
+    sched = weekly_scheduled(now, settings.learning.weekly_review)
+    if sched is None or now < sched or now - sched > MISSED_GRACE:
+        return None
+    for_date = sched.astimezone(AMSTERDAM).date().isoformat()
+    if repo.briefing_for_date(session, "weekly", for_date) is not None:
+        return None
+    row = await generate_briefing(
+        session, now=now, account=account, broker=broker, settings=settings, type="weekly"
+    )
+    if dispatcher_notify is not None:
+        label = f"Plain review: {row.reason}. " if row.reason else ""
+        await dispatcher_notify(
+            "review",
+            f"Weekly review · {for_date}",
+            label + row.text,
+        )
+    return row

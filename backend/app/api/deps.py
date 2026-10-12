@@ -243,7 +243,7 @@ def build_snapshot(state: AppState) -> Snapshot:
             cost_today_eur=repo.llm_cost_between(
                 session, broker.account_id, budget.amsterdam_day_start(now)
             ),
-            cost_month_eur=budget.month_spend_eur(session, broker.account_id, now),
+            cost_month_eur=budget.month_spend_all(session, now),
             cap_eur=settings.model.monthly_cost_cap_eur,
         )
         errors_24h = repo.error_count_since(session, now - timedelta(hours=24))

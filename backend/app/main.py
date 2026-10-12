@@ -29,7 +29,7 @@ from app.agent.market.universe import (
     warming_up,
 )
 from app.agent.outcomes import outcome_loop
-from app.api import inspector, notifications, routes, screens, ws
+from app.api import evidence, inspector, notifications, routes, screens, ws
 from app.api import sources as source_routes
 from app.api import understanding as understanding_routes
 from app.api.deps import (
@@ -41,6 +41,7 @@ from app.api.deps import (
 from app.config import REPO_ROOT, get_env
 from app.db import EngineLock, MarketRow, make_engine, make_session_factory, run_migrations, utcnow
 from app.features import briefings as briefings_mod
+from app.features.shadows import ShadowRunner
 from app.operations import backup_loop, configure_logging
 from app.sources import SourceRegistry
 
@@ -217,6 +218,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             clock=agent_engine.clock,
             notify=notification_dispatcher.notify,
         )
+        # Shadows run on the same cycle snapshot and watcher tick, on their
+        # own paper books (PR 8).
+        agent_engine.shadows = ShadowRunner(
+            session_factory=session_factory,
+            market_client=market_client,
+            market_rules=state.market_rules,
+            live_settings=lambda: state.settings,
+            clock=agent_engine.clock,
+            price_fn=agent_engine._price,
+            notify=notification_dispatcher.notify,
+        )
         state.agent_engine = agent_engine
         await agent_engine.start()
         state.status = agent_engine.status
@@ -255,6 +267,7 @@ def create_app() -> FastAPI:
     app.include_router(source_routes.router)
     app.include_router(inspector.router)
     app.include_router(understanding_routes.router)
+    app.include_router(evidence.router)
     app.include_router(notifications.router)
     app.include_router(ws.router)
     if FRONTEND_DIST.is_dir():

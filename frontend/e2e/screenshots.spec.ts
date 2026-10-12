@@ -4,6 +4,9 @@ const PAGES = [
   { path: "/", name: "dashboard" },
   { path: "/indicators", name: "indicators" },
   { path: "/performance", name: "performance" },
+  { path: "/insights", name: "insights" },
+  { path: "/what-if", name: "what-if" },
+  { path: "/reviews", name: "reviews" },
   { path: "/settings", name: "settings" },
   { path: "/inspector", name: "inspector" },
   { path: "/readiness", name: "readiness" },
@@ -72,6 +75,17 @@ for (const { path, name } of PAGES) {
     });
   });
 }
+
+test("ask panel opens over the dashboard", async ({ page }, testInfo) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Ask the agent" }).click();
+  const panel = page.locator(".slide-panel--side");
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText("Read-only");
+  await page.screenshot({
+    path: `screenshots/ask-${testInfo.project.name}.png`,
+  });
+});
 
 test("decision drawer opens from the dashboard", async ({ page }, testInfo) => {
   await page.goto("/");

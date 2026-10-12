@@ -2,7 +2,6 @@ import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { GlossaryProvider } from "./components/Glossary";
-import { Placeholder } from "./pages/Placeholder";
 
 const Dashboard = lazy(() =>
   import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })),
@@ -25,6 +24,15 @@ const Readiness = lazy(() =>
 const Settings = lazy(() =>
   import("./pages/Settings").then((m) => ({ default: m.Settings })),
 );
+const Insights = lazy(() =>
+  import("./pages/Insights").then((m) => ({ default: m.Insights })),
+);
+const WhatIf = lazy(() =>
+  import("./pages/WhatIf").then((m) => ({ default: m.WhatIf })),
+);
+const Reviews = lazy(() =>
+  import("./pages/Reviews").then((m) => ({ default: m.Reviews })),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -42,18 +50,9 @@ export default function App() {
             <Route path="/dev/components" element={<DevComponents />} />
             <Route path="/indicators" element={<Indicators />} />
             <Route path="/performance" element={<Performance />} />
-            <Route
-              path="/insights"
-              element={<Placeholder title="Insights" step="Evidence" />}
-            />
-            <Route
-              path="/what-if"
-              element={<Placeholder title="What-if" step="Evidence" />}
-            />
-            <Route
-              path="/reviews"
-              element={<Placeholder title="Reviews" step="Evidence" />}
-            />
+            <Route path="/insights" element={<Insights />} />
+            <Route path="/what-if" element={<WhatIf />} />
+            <Route path="/reviews" element={<Reviews />} />
             <Route path="/inspector" element={<Inspector />} />
             <Route path="/readiness" element={<Readiness />} />
           </Routes>

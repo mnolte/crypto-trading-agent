@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { UTCTimestamp } from "lightweight-charts";
 import type {
@@ -76,6 +76,11 @@ export function Dashboard() {
   const [pair, setPair] = useState<string | null>(null);
   const [tf, setTf] = useState<Tf>("1h");
   const [decisionId, setDecisionId] = useState<string | null>(null);
+  // Deep link: /?decision=<id> (Ask citations, weekly review) opens the drawer.
+  const decisionParam = searchParams.get("decision");
+  useEffect(() => {
+    if (decisionParam) setDecisionId(decisionParam);
+  }, [decisionParam]);
   const [firstRunDismissed, setFirstRunDismissed] = useState(
     () => localStorage.getItem(FIRST_RUN_KEY) === "1",
   );

@@ -17,6 +17,7 @@ from app.db import (
     AccountRow,
     ActivityRow,
     AlertRow,
+    AskConversationRow,
     BriefingRow,
     CandleRow,
     DecisionRow,
@@ -31,7 +32,9 @@ from app.db import (
     PositionRow,
     SettingsHistoryRow,
     SettingsRow,
+    ShadowRow,
     TradeRow,
+    WhatifRow,
     utcnow,
 )
 from app.models import Decision, Position, Settings, Tf
@@ -258,21 +261,13 @@ def save_position_row(
     r_unit: Decimal,
     initial_stop: Decimal,
 ) -> None:
-    """Persist the current account's open position.
+    """Persist one account's open position on a pair.
 
-    ``pair`` is the positions table's sole primary key because v0.1 allows one
-    open position per pair. A stale row from an old account is removed before
-    the current account's row is written; account reset is the normal path
-    that clears old rows.
+    The primary key is (pair, account_id): a shadow's account may hold the
+    same pair the live account holds.
     """
-    row = session.scalar(
-        select(PositionRow).where(
-            PositionRow.pair == pos.pair,
-            PositionRow.account_id == account_id,
-        )
-    )
+    row = session.get(PositionRow, (pos.pair, account_id))
     if row is None:
-        session.execute(delete(PositionRow).where(PositionRow.pair == pos.pair))
         row = PositionRow(
             pair=pos.pair,
             account_id=account_id,
@@ -303,8 +298,8 @@ def save_position_row(
 
 
 def delete_position_row(session: Session, pair: str, account_id: int) -> None:
-    row = session.get(PositionRow, pair)
-    if row is not None and row.account_id == account_id:
+    row = session.get(PositionRow, (pair, account_id))
+    if row is not None:
         session.delete(row)
 
 
@@ -701,6 +696,23 @@ def llm_cost_between(
     return total
 
 
+def llm_costs_by_feature_all(
+    session: Session, start: datetime, end: datetime | None = None
+) -> dict[str, Decimal]:
+    """Estimated EUR spend in the window across every account, grouped by
+    the raw feature label (``decision``, ``ask``, ``shadow:<id>``, ...)."""
+    conds = [LlmCallRow.at >= _utc_naive(start)]
+    if end is not None:
+        conds.append(LlmCallRow.at < _utc_naive(end))
+    out: dict[str, Decimal] = {}
+    for feature, cost in session.execute(
+        select(LlmCallRow.feature, LlmCallRow.cost_eur).where(*conds)
+    ).all():
+        if cost is not None:
+            out[feature] = out.get(feature, Decimal("0")) + Decimal(cost)
+    return out
+
+
 def llm_cost_usd_between(
     session: Session,
     account_id: int,
@@ -715,6 +727,25 @@ def llm_cost_usd_between(
         LlmCallRow.account_id == account_id,
         LlmCallRow.at >= _utc_naive(start),
     ]
+    if end is not None:
+        conds.append(LlmCallRow.at < _utc_naive(end))
+    total = Decimal("0")
+    rows = session.execute(select(LlmCallRow.cost_usd, LlmCallRow.status).where(*conds)).all()
+    for cost, status in rows:
+        if cost is not None:
+            total += Decimal(cost)
+        elif status == "ok":
+            return None
+    return total
+
+
+def llm_cost_usd_between_all(
+    session: Session,
+    start: datetime,
+    end: datetime | None = None,
+) -> Decimal | None:
+    """``llm_cost_usd_between`` across every account."""
+    conds = [LlmCallRow.at >= _utc_naive(start)]
     if end is not None:
         conds.append(LlmCallRow.at < _utc_naive(end))
     total = Decimal("0")
@@ -867,6 +898,9 @@ def delete_all_data(session: Session) -> None:
         BriefingRow,
         AlertRow,
         SettingsHistoryRow,
+        ShadowRow,
+        WhatifRow,
+        AskConversationRow,
     ):
         session.execute(delete(table))
     session.commit()
@@ -1151,4 +1185,124 @@ def first_equity_snapshot(session: Session, account_id: int) -> EquitySnapshotRo
         .where(EquitySnapshotRow.account_id == account_id)
         .order_by(EquitySnapshotRow.at.asc())
         .limit(1)
+    )
+
+
+# ------------------------------------------------------------- evidence ----
+
+
+def add_shadow(session: Session, row: ShadowRow) -> ShadowRow:
+    session.add(row)
+    return row
+
+
+def get_shadow(session: Session, shadow_id: str) -> ShadowRow | None:
+    return session.get(ShadowRow, shadow_id)
+
+
+def list_shadows(session: Session, active_only: bool = False) -> list[ShadowRow]:
+    stmt = select(ShadowRow).order_by(ShadowRow.created_at.asc())
+    if active_only:
+        stmt = stmt.where(ShadowRow.status == "running")
+    return list(session.scalars(stmt).all())
+
+
+def count_active_shadows(session: Session) -> int:
+    return (
+        session.scalar(
+            select(func.count()).select_from(ShadowRow).where(ShadowRow.status == "running")
+        )
+        or 0
+    )
+
+
+def shadow_calls_today(session: Session, account_id: int, shadow_id: str, now: datetime) -> int:
+    """A shadow's own daily model calls (its per-shadow limit)."""
+    from app.agent import budget
+
+    return llm_calls_since(
+        session, account_id, budget.amsterdam_day_start(now), (f"shadow:{shadow_id}",)
+    )
+
+
+def add_whatif(session: Session, row: WhatifRow) -> WhatifRow:
+    session.add(row)
+    return row
+
+
+def get_whatif(session: Session, scenario_id: str) -> WhatifRow | None:
+    return session.get(WhatifRow, scenario_id)
+
+
+def list_whatifs(session: Session, saved_only: bool = True, limit: int = 50) -> list[WhatifRow]:
+    stmt = select(WhatifRow).order_by(WhatifRow.created_at.desc()).limit(limit)
+    if saved_only:
+        stmt = stmt.where(WhatifRow.saved.is_(True))
+    return list(session.scalars(stmt).all())
+
+
+def get_conversation(session: Session, conversation_id: str) -> AskConversationRow | None:
+    return session.get(AskConversationRow, conversation_id)
+
+
+def list_conversations(session: Session, limit: int = 50) -> list[AskConversationRow]:
+    return list(
+        session.scalars(
+            select(AskConversationRow).order_by(AskConversationRow.updated_at.desc()).limit(limit)
+        ).all()
+    )
+
+
+def ask_questions_today(session: Session, now: datetime) -> int:
+    """Questions asked today (Amsterdam day) — the Ask daily limit counts
+    user turns, one JSON message each."""
+    from app.agent import budget
+
+    start = budget.amsterdam_day_start(now)
+    rows = session.scalars(
+        select(AskConversationRow.messages).where(
+            AskConversationRow.updated_at >= _utc_naive(start)
+        )
+    ).all()
+    total = 0
+    for raw in rows:
+        try:
+            messages = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        for m in messages:
+            if not isinstance(m, dict) or m.get("role") != "user" or not m.get("at"):
+                continue
+            try:
+                asked_at = aware_utc(datetime.fromisoformat(str(m["at"])))
+            except (ValueError, TypeError):
+                continue
+            if asked_at >= start:
+                total += 1
+    return total
+
+
+def exit_ticks_for(
+    session: Session,
+    pair: str,
+    start: datetime,
+    end: datetime,
+    account_id: int | None = None,
+) -> list[ExitTickRow]:
+    """Stored 30-second watcher ticks within [start, end] — the What-if
+    exit replay's sub-candle price checks. ``account_id`` scopes to one
+    book; without it ticks from every account (live and shadows) mix."""
+    stmt = select(ExitTickRow).where(
+        ExitTickRow.pair == pair,
+        ExitTickRow.at >= _utc_naive(start),
+        ExitTickRow.at <= _utc_naive(end),
+    )
+    if account_id is not None:
+        stmt = stmt.where(ExitTickRow.account_id == account_id)
+    return list(session.scalars(stmt.order_by(ExitTickRow.at.asc(), ExitTickRow.id.asc())).all())
+
+
+def latest_briefing(session: Session, type: str) -> BriefingRow | None:
+    return session.scalar(
+        select(BriefingRow).where(BriefingRow.type == type).order_by(BriefingRow.at.desc()).limit(1)
     )
