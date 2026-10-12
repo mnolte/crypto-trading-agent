@@ -799,15 +799,12 @@ def compute_weekly_facts(
                 prev_findings[(f["dimension"], f["key"])] = f.get("avg_r")
         except (json.JSONDecodeError, KeyError, TypeError):
             prev_findings = {}
+
     def _changed(f: dict[str, Any]) -> bool:
         prev = prev_findings.get((str(f["dimension"]), str(f["key"])))
         if (f["dimension"], f["key"]) not in prev_findings:
             return True
-        return (
-            prev is not None
-            and f["avg_r"] is not None
-            and abs(float(f["avg_r"]) - prev) >= 0.3
-        )
+        return prev is not None and f["avg_r"] is not None and abs(float(f["avg_r"]) - prev) >= 0.3
 
     insights_changed = [f for f in findings_now if _changed(f)]
 
@@ -878,19 +875,13 @@ def compute_weekly_facts(
         ),
         "trades_closed_count": len(closed_week),
         "trades_closed_prev_count": len(closed_prev),
-        "won_count": sum(
-            1 for t in closed_week if Decimal(t.realised_r or "0") > 0
-        ),
-        "lost_count": sum(
-            1 for t in closed_week if Decimal(t.realised_r or "0") < 0
-        ),
+        "won_count": sum(1 for t in closed_week if Decimal(t.realised_r or "0") > 0),
+        "lost_count": sum(1 for t in closed_week if Decimal(t.realised_r or "0") < 0),
         "avg_r_week": _avg_r(closed_week),
         "avg_r_prev": _avg_r(closed_prev),
         "drawdown_week_pct": _drawdown(week_start, now),
         "drawdown_prev_pct": _drawdown(prev_start, week_start),
-        "model_cost_eur": str(
-            sum(week_spend.values(), Decimal("0")).quantize(Decimal("0.01"))
-        ),
+        "model_cost_eur": str(sum(week_spend.values(), Decimal("0")).quantize(Decimal("0.01"))),
         "model_calls": int(calls_week or 0),
         "trades_best": best,
         "trades_worst": worst,

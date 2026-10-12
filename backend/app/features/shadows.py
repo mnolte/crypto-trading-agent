@@ -191,9 +191,7 @@ class ShadowRunner:
                             try:
                                 await self._decide_pair(session, shadow, pair, now, cycle)
                             except Exception:
-                                log.exception(
-                                    "shadow %s: %s decide failed", shadow.row.id, pair
-                                )
+                                log.exception("shadow %s: %s decide failed", shadow.row.id, pair)
                         repo.add_equity_snapshot(
                             session,
                             shadow.account.id,
@@ -519,9 +517,7 @@ class ShadowRunner:
                         if price <= 0:
                             continue
                         shadow.broker.mark(pair, price, now)
-                        last_1h = drop_forming(
-                            repo.load_candles(session, pair, "1h", 2), "1h", now
-                        )
+                        last_1h = drop_forming(repo.load_candles(session, pair, "1h", 2), "1h", now)
                         if last_1h:
                             update_trail(pos, last_1h[-1].close)
                         atr = self._atr_1h(session, pair, now)

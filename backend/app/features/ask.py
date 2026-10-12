@@ -640,8 +640,7 @@ async def answer_question(
                         )
                         if tool_fact_pool:
                             rewrite_q += (
-                                "\n\nData:\n"
-                                + json.dumps(tool_fact_pool, default=str)[:8000]
+                                "\n\nData:\n" + json.dumps(tool_fact_pool, default=str)[:8000]
                             )
                         payload = _payload(
                             prompt,

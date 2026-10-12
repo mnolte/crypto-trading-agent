@@ -84,12 +84,9 @@ def get_insights(
         raise HTTPException(status_code=422, detail=f"unknown dimension {dimension!r}")
     session = _session(state)
     try:
-        if (
-            decider not in ("all", "openai", "rules")
-            and not (
-                decider.startswith("shadow:")
-                and repo.get_shadow(session, decider.split(":", 1)[1]) is not None
-            )
+        if decider not in ("all", "openai", "rules") and not (
+            decider.startswith("shadow:")
+            and repo.get_shadow(session, decider.split(":", 1)[1]) is not None
         ):
             raise HTTPException(status_code=422, detail=f"unknown decider {decider!r}")
         return compute_insights(

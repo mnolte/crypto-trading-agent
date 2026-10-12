@@ -1299,9 +1299,7 @@ def exit_ticks_for(
     )
     if account_id is not None:
         stmt = stmt.where(ExitTickRow.account_id == account_id)
-    return list(
-        session.scalars(stmt.order_by(ExitTickRow.at.asc(), ExitTickRow.id.asc())).all()
-    )
+    return list(session.scalars(stmt.order_by(ExitTickRow.at.asc(), ExitTickRow.id.asc())).all())
 
 
 def latest_briefing(session: Session, type: str) -> BriefingRow | None:

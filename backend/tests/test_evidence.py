@@ -196,21 +196,25 @@ def test_insights_slices_by_pair(sessions: sessionmaker[Session]) -> None:
         for i in range(11):
             session.add(
                 _decision(
-                    id=f"s{i}", at=NOW - timedelta(hours=i), pair="SOL-EUR",
-                    action="BUY", status="executed",
+                    id=f"s{i}",
+                    at=NOW - timedelta(hours=i),
+                    pair="SOL-EUR",
+                    action="BUY",
+                    status="executed",
                 )
             )
             session.add(
                 _outcome(
-                    f"s{i}", pair="SOL-EUR", at=NOW - timedelta(hours=i),
-                    label="loss", realised_r="-1.0",
+                    f"s{i}",
+                    pair="SOL-EUR",
+                    at=NOW - timedelta(hours=i),
+                    label="loss",
+                    realised_r="-1.0",
                 )
             )
         session.commit()
 
-        out = insights.compute_insights(
-            session, now=NOW, settings=Settings(), dimension="pair"
-        )
+        out = insights.compute_insights(session, now=NOW, settings=Settings(), dimension="pair")
         by_key = {s.key: s for s in out.slices}
         assert set(by_key) == {"BTC-EUR", "SOL-EUR"}
         assert by_key["BTC-EUR"].decisions == 12
@@ -249,13 +253,17 @@ def test_insights_calibration_bands(sessions: sessionmaker[Session]) -> None:
         for i in range(10):
             session.add(
                 _decision(
-                    id=f"c{i}", at=NOW - timedelta(hours=i),
-                    action="BUY", status="executed", confidence=0.85,
+                    id=f"c{i}",
+                    at=NOW - timedelta(hours=i),
+                    action="BUY",
+                    status="executed",
+                    confidence=0.85,
                 )
             )
             session.add(
                 _outcome(
-                    f"c{i}", at=NOW - timedelta(hours=i),
+                    f"c{i}",
+                    at=NOW - timedelta(hours=i),
                     label="win" if i < 7 else "loss",
                 )
             )
@@ -331,11 +339,14 @@ def test_shadow_starts_flat_with_live_equity(sessions: sessionmaker[Session]) ->
         assert Decimal(shadow_acc.cash) == Decimal("10000")
         assert row.start_equity == "10000"
         assert row.name == "Shadow A"
-        assert session.scalar(
-            select(func.count()).select_from(PositionRow).where(
-                PositionRow.account_id == row.account_id
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(PositionRow)
+                .where(PositionRow.account_id == row.account_id)
             )
-        ) == 0
+            == 0
+        )
     finally:
         session.close()
 
@@ -367,8 +378,14 @@ def test_shadow_sell_on_own_position_while_live_flat(
         assert shadow_account is not None
         broker = PaperBroker(shadow_account, PaperSettings())
         broker.buy(
-            session, "BTC-EUR", Decimal("100"), Decimal("10"), Decimal("95"),
-            Decimal("110"), "seed-dec", NOW - HOUR,
+            session,
+            "BTC-EUR",
+            Decimal("100"),
+            Decimal("10"),
+            Decimal("95"),
+            Decimal("110"),
+            "seed-dec",
+            NOW - HOUR,
         )
         broker.persist(session, NOW - HOUR)
         session.commit()
@@ -376,8 +393,13 @@ def test_shadow_sell_on_own_position_while_live_flat(
         session.close()
 
     draft = Draft(
-        action="SELL", confidence=0.8, reasoning="exit", signals=[],
-        decider="openai", model="gpt-4o-mini", prompt_version="decision.v1",
+        action="SELL",
+        confidence=0.8,
+        reasoning="exit",
+        signals=[],
+        decider="openai",
+        model="gpt-4o-mini",
+        prompt_version="decision.v1",
     )
     runner = _runner(sessions, sim, Settings(active_markets=["BTC-EUR"]), draft, monkeypatch)
     asyncio.run(runner.run_cycle(NOW, 1))
@@ -385,19 +407,18 @@ def test_shadow_sell_on_own_position_while_live_flat(
     session = sessions()
     try:
         sell = session.scalars(
-            select(DecisionRow).where(
-                DecisionRow.shadow_id == row.id, DecisionRow.action == "SELL"
-            )
+            select(DecisionRow).where(DecisionRow.shadow_id == row.id, DecisionRow.action == "SELL")
         ).all()
         assert len(sell) == 1
         assert sell[0].status == "executed"
         # Position closed on the shadow's book only.
         assert session.get(PositionRow, ("BTC-EUR", row.account_id)) is None
-        assert session.scalar(
-            select(func.count()).select_from(PositionRow).where(
-                PositionRow.account_id == 1
+        assert (
+            session.scalar(
+                select(func.count()).select_from(PositionRow).where(PositionRow.account_id == 1)
             )
-        ) == 0
+            == 0
+        )
     finally:
         session.close()
 
@@ -428,8 +449,14 @@ def test_shadow_pauses_at_80_pct_but_watcher_still_fires(
         assert shadow_account is not None
         broker = PaperBroker(shadow_account, PaperSettings())
         broker.buy(
-            session, "BTC-EUR", Decimal("100"), Decimal("10"), Decimal("95"),
-            Decimal("2000"), "seed-dec", NOW - 2 * HOUR,
+            session,
+            "BTC-EUR",
+            Decimal("100"),
+            Decimal("10"),
+            Decimal("95"),
+            Decimal("2000"),
+            "seed-dec",
+            NOW - 2 * HOUR,
         )
         broker.persist(session, NOW - 2 * HOUR)
         # Spend ≥ 80% of the €10 cap on the live account.
@@ -482,16 +509,20 @@ def test_shadow_pauses_at_80_pct_but_watcher_still_fires(
 
     session = sessions()
     try:
-        assert session.scalar(
-            select(func.count()).select_from(DecisionRow).where(
-                DecisionRow.shadow_id == row.id
+        assert (
+            session.scalar(
+                select(func.count()).select_from(DecisionRow).where(DecisionRow.shadow_id == row.id)
             )
-        ) == 0  # no decisions while paused — no Rules stand-in either
-        assert session.scalar(
-            select(func.count()).select_from(LlmCallRow).where(
-                LlmCallRow.account_id == row.account_id
+            == 0
+        )  # no decisions while paused — no Rules stand-in either
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(LlmCallRow)
+                .where(LlmCallRow.account_id == row.account_id)
             )
-        ) == 0  # and no model calls
+            == 0
+        )  # and no model calls
         shadow_row = session.get(ShadowRow, row.id)
         assert shadow_row is not None
         pauses = json.loads(shadow_row.pauses)
@@ -576,9 +607,7 @@ def test_whatif_vetoed_decision_never_fills(sessions: sessionmaker[Session]) -> 
         _live_account(session)
         _seed_candles(session, "BTC-EUR", sim, NOW)
         _seed_candles(session, "USDC-EUR", sim, NOW)
-        session.add(
-            _decision(id="v1", at=NOW - 4 * HOUR, action="BUY", status="vetoed")
-        )
+        session.add(_decision(id="v1", at=NOW - 4 * HOUR, action="BUY", status="vetoed"))
         session.commit()
         row = _whatif_row(session, start, NOW, {})
         asyncio.run(whatif.run_whatif(session, row, _infos("BTC-EUR")))
@@ -614,24 +643,21 @@ def test_whatif_unchanged_settings_reproduce_reality(
         _seed_candles(session, "BTC-EUR", sim, NOW)
         _seed_candles(session, "USDC-EUR", sim, NOW)
         session.add(
-            EquitySnapshotRow(
-                account_id=1, cycle=0, at=start, equity="10000", cash="10000"
-            )
+            EquitySnapshotRow(account_id=1, cycle=0, at=start, equity="10000", cash="10000")
         )
         plan = json.dumps(
-            {"entry": "100", "fill_entry": "100.03", "stop": "95", "target": "115",
-             "qty": "10", "notional": "1000.30", "rr": "2.97"}
+            {
+                "entry": "100",
+                "fill_entry": "100.03",
+                "stop": "95",
+                "target": "115",
+                "qty": "10",
+                "notional": "1000.30",
+                "rr": "2.97",
+            }
         )
-        session.add(
-            _decision(
-                id="buy-1", at=opened, action="BUY", status="executed", plan=plan
-            )
-        )
-        session.add(
-            _trade_row(
-                id=None, decision_id="buy-1", opened_at=opened, closed_at=closed
-            )
-        )
+        session.add(_decision(id="buy-1", at=opened, action="BUY", status="executed", plan=plan))
+        session.add(_trade_row(id=None, decision_id="buy-1", opened_at=opened, closed_at=closed))
         session.commit()
         row = _whatif_row(session, start, NOW, {})
         asyncio.run(whatif.run_whatif(session, row, _infos("BTC-EUR")))
@@ -753,9 +779,7 @@ def test_ask_answer_with_tool_call(sessions: sessionmaker[Session]) -> None:
     session = sessions()
     try:
         account = _live_account(session)
-        session.add(
-            _decision(id="d1", at=NOW - HOUR, action="HOLD", status="none")
-        )
+        session.add(_decision(id="d1", at=NOW - HOUR, action="HOLD", status="none"))
         session.commit()
 
         call_log: list[dict[str, Any]] = []
@@ -872,4 +896,3 @@ def test_weekly_review_fallback_and_persist(sessions: sessionmaker[Session]) -> 
         assert row2 is None
     finally:
         session.close()
-

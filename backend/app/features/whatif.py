@@ -329,8 +329,7 @@ class _Sim:
         close_events = [
             trade
             for trade in all_live
-            if trade.closed_at is not None
-            and start <= repo.aware_utc(trade.closed_at) <= end
+            if trade.closed_at is not None and start <= repo.aware_utc(trade.closed_at) <= end
         ]
         close_events.sort(key=lambda trade: repo.aware_utc(trade.closed_at or start))
 
@@ -375,9 +374,7 @@ class _Sim:
             mark = candles[-1].close if candles else self.broker.positions[pair].last
             self._close(pair, mark, end, "window_end")
         self._sample(end)
-        self.equity_curve = [
-            SeriesPoint(time=t, value=v) for t, v in sorted(self._curve.items())
-        ]
+        self.equity_curve = [SeriesPoint(time=t, value=v) for t, v in sorted(self._curve.items())]
 
         return self._result(start, end, start_equity)
 
@@ -422,8 +419,7 @@ class _Sim:
                 # real book never had closes here at the signal price.
                 real_close = self.real_trades.get(pos.decision_id)
                 if real_close is None or (
-                    real_close.closed_at is not None
-                    and repo.aware_utc(real_close.closed_at) <= t
+                    real_close.closed_at is not None and repo.aware_utc(real_close.closed_at) <= t
                 ):
                     self._close(row.pair, self._price_at(row.pair, t), t, "model_sell")
             return
@@ -477,9 +473,7 @@ class _Sim:
         """Re-run the deterministic layer under scenario settings."""
         candles = {
             tf: drop_forming(
-                self._candles_1h_to(pair, t)
-                if tf == "1h"
-                else self._candles_to(pair, tf, t),
+                self._candles_1h_to(pair, t) if tf == "1h" else self._candles_to(pair, tf, t),
                 tf,
                 t,
             )
@@ -496,9 +490,7 @@ class _Sim:
         )
         ctx_candles = {
             name: drop_forming(
-                self._candles_1h_to(mkt, t)
-                if tf == "1h"
-                else self._candles_to(mkt, tf, t),
+                self._candles_1h_to(mkt, t) if tf == "1h" else self._candles_to(mkt, tf, t),
                 tf,
                 t,
             )
@@ -567,9 +559,7 @@ class _Sim:
             else:
                 fill = self.broker.buy_fill_price(price)
                 decision_id = row.id if row else f"standin-{uuid.uuid4().hex[:8]}"
-                self._open(
-                    pair, fill, verdict.plan.qty, draft.stop, draft.target, t, decision_id
-                )
+                self._open(pair, fill, verdict.plan.qty, draft.stop, draft.target, t, decision_id)
                 self._log_added(
                     pair, t, fill, row.id if row else None, reason="stand-in", stand_in=True
                 )
