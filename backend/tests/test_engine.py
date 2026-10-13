@@ -31,6 +31,7 @@ from app.db import (
     AccountRow,
     DecisionRow,
     LlmCallRow,
+    MarketRow,
     TradeRow,
     make_engine,
     make_session_factory,
@@ -982,3 +983,77 @@ async def test_openai_decider_not_used_when_decider_is_rules(env: Path) -> None:
     e.market.add_zigzag("USDC-EUR")
     await e.engine.run_cycle()
     assert stub.calls == 0
+
+
+# ----------------------------------------------------------- eligibility ---
+
+
+async def test_failing_market_takes_no_entries(env: Path) -> None:
+    """An active market that fails the eligibility check stays in the
+    cycle — price, 24h change and a recorded decision keep flowing — but
+    a BUY ends as SKIP named by the eligibility gate."""
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e.market.add_uptrend("SOL-EUR")
+    e.market.add_uptrend("BTC-EUR", base=60_000.0)
+    e.market.add_uptrend("USDC-EUR", base=0.92)
+    s = e.session()
+    s.add(MarketRow(market="SOL-EUR", active=True, eligible=False, failed_rule="volume"))
+    # Full history so warming_up doesn't hide the eligibility gate.
+    repo.upsert_candles(s, "SOL-EUR", "1h", _zigzag(800, HOUR, NOW))
+    repo.upsert_candles(s, "SOL-EUR", "4h", _zigzag(300, 4 * HOUR, NOW))
+    repo.upsert_candles(s, "SOL-EUR", "1d", _zigzag(300, DAY, NOW))
+    s.commit()
+    s.close()
+    await e.engine.run_cycle()
+    assert "SOL-EUR" not in e.broker.positions
+    # The cycle still ran: the pair got its price and 24h change — dropping
+    # it from the cycle froze both at nothing and showed +0.00% in the GUI.
+    assert "SOL-EUR" in e.engine.prices
+    assert not e.engine.prices["SOL-EUR"].stale
+    assert e.engine.prices["SOL-EUR"].chg_24h_pct != 0
+    s = e.session()
+    rows = _decisions(s)
+    s.close()
+    assert rows[0].action == "SKIP" and rows[0].error == "Market eligibility"
+
+
+async def test_held_position_on_failing_market_still_gets_decided(env: Path) -> None:
+    """A failing market takes no new entries, but an open position on it
+    keeps its cycle — the pair still gets its decision call so SELL stays
+    possible."""
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e.held("SOL-EUR")
+    e.market.add_uptrend("SOL-EUR")
+    e.market.add_uptrend("BTC-EUR", base=60_000.0)
+    e.market.add_uptrend("USDC-EUR", base=0.92)
+    s = e.session()
+    s.add(MarketRow(market="SOL-EUR", active=True, eligible=False, failed_rule="volume"))
+    s.commit()
+    s.close()
+    await e.engine.run_cycle()
+    s = e.session()
+    rows = _decisions(s)
+    s.close()
+    assert rows and rows[0].pair == "SOL-EUR" and rows[0].action == "HOLD"
+    assert "SOL-EUR" in e.broker.positions
+
+
+async def test_held_position_on_deactivated_market_still_gets_decided(env: Path) -> None:
+    """Deactivation removes the market from settings and flips its row
+    inactive, but an open position keeps its cycle until it closes."""
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e.held("SOL-EUR")
+    e.market.add_uptrend("SOL-EUR")
+    e.market.add_uptrend("BTC-EUR", base=60_000.0)
+    e.market.add_uptrend("USDC-EUR", base=0.92)
+    s = e.session()
+    s.add(MarketRow(market="SOL-EUR", active=False, eligible=True))
+    s.commit()
+    s.close()
+    e.settings.active_markets = []
+    await e.engine.run_cycle()
+    s = e.session()
+    rows = _decisions(s)
+    s.close()
+    assert rows and rows[0].pair == "SOL-EUR" and rows[0].action == "HOLD"
+    assert "SOL-EUR" in e.broker.positions

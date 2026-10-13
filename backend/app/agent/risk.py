@@ -50,6 +50,7 @@ class BuyContext:
     risk_pct: Decimal = Decimal("1")  # 1.0 normal, 0.5 while throttled
     entry_paused_until: datetime | None = None  # timed pause ends here
     entry_paused_indefinite: bool = False  # "until I resume"
+    entries_allowed: bool = True  # failing or deactivated market blocks entries
 
 
 def _gate(name: str, status: str, value: str) -> Gate:
@@ -88,6 +89,15 @@ def check_buy(
         gates.append(_gate("Entry pause", "fail", f"until {ctx.entry_paused_until.isoformat()}"))
         return BuyVerdict("skip", gates, skip_reason="Entry pause")
     gates.append(_gate("Entry pause", "pass", "open"))
+
+    # -- Market eligibility ------------------------------------------------
+    # A market failing the daily eligibility check (or deactivated) takes no
+    # new entries; it stays in the cycle so prices, exits and decisions keep
+    # working. This gate is BUY-only like the pause.
+    if not ctx.entries_allowed:
+        gates.append(_gate("Market eligibility", "fail", "entries blocked"))
+        return BuyVerdict("skip", gates, skip_reason="Market eligibility")
+    gates.append(_gate("Market eligibility", "pass", "eligible"))
 
     # -- Min reward/risk -------------------------------------------------
     rr = (target - fill_entry) / fill_dist if fill_dist > 0 else ZERO

@@ -19,6 +19,7 @@ from app.agent.market.universe import (
     apply_check,
     backfill_market,
     deactivate_market,
+    entries_allowed,
     failed_rules,
     run_eligibility_check,
     warming_up,
@@ -262,6 +263,29 @@ async def test_run_eligibility_check_over_eur_markets(session: Session) -> None:
     assert get_market_row(session, "GOOD-EUR") is not None
 
 
+async def test_history_check_counts_closed_bars_only(session: Session) -> None:
+    """The exchange's `limit` includes the still-forming daily bar, which we
+    drop — a market with exactly `min_daily_candles` closed bars must pass."""
+    cfg = MarketSettings()
+    forming = Candle(
+        open_time=NOW,
+        open="100",
+        high="101",
+        low="99",
+        close="100",
+        volume="15000",
+    )
+    daily = [*_candles(cfg.min_daily_candles, price=100.0, volume=15_000.0), forming]
+    client = FakeMarket(
+        [_info("EDGE-EUR", "EDGE")],
+        {"EDGE-EUR": _ticker("EDGE-EUR")},
+        {"EDGE-EUR": daily},
+    )
+    rows, _ = await run_eligibility_check(client, session, cfg, NOW)
+    assert rows[0].eligible
+    assert rows[0].daily_candles == cfg.min_daily_candles
+
+
 # ------------------------------------------------------- activate/backfill -
 
 
@@ -330,3 +354,22 @@ async def test_deactivate(session: Session) -> None:
     session.commit()
     row = deactivate_market(session, "GOOD-EUR")
     assert row is not None and not row.active
+
+
+# -------------------------------------------------------- entries allowed --
+
+
+def test_entries_allowed(session: Session) -> None:
+    """New entries need an active, eligible market. A missing row means
+    the check never ran and stays tradeable; a failing or inactive row
+    takes no new entries."""
+    assert entries_allowed(session, "X-EUR")
+    session.add(MarketRow(market="OK-EUR", active=True, eligible=True))
+    session.add(MarketRow(market="FAIL-EUR", active=True, eligible=False, failed_rule="volume"))
+    session.add(MarketRow(market="OFF-EUR", active=False, eligible=True))
+    session.add(MarketRow(market="DEAD-EUR", active=False, eligible=False))
+    session.commit()
+    assert entries_allowed(session, "OK-EUR")
+    assert not entries_allowed(session, "FAIL-EUR")
+    assert not entries_allowed(session, "OFF-EUR")
+    assert not entries_allowed(session, "DEAD-EUR")

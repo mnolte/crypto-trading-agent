@@ -34,7 +34,7 @@ from app.agent.market.base import (
     MarketInfo,
     drop_forming,
 )
-from app.agent.market.universe import warming_up
+from app.agent.market.universe import entries_allowed, warming_up
 from app.agent.risk import BuyContext, check_buy, check_exit, update_trail
 from app.agent.signals import (
     PairSignals,
@@ -371,6 +371,12 @@ class Engine:
                     for m in settings.active_markets
                     if not warming_up(session, m, settings.market)
                 ]
+                # A held position keeps its cycle on a deactivated or
+                # failing market — the model still manages it until it
+                # closes; "one position per pair" blocks any new entry.
+                for pair in self.broker.positions:
+                    if pair not in pairs:
+                        pairs.append(pair)
                 sem = asyncio.Semaphore(MAX_PARALLEL_PAIRS)
 
                 async def guarded(pair: str) -> None:
@@ -543,6 +549,7 @@ class Engine:
 
         pos = self.broker.positions.get(pair)
         pause = repo.active_entry_pause(session, pair, now)
+        entries_open = entries_allowed(session, pair)
         prev_4h = compute_tf_values(candles["4h"][:-1], "4h") if len(candles["4h"]) > 1 else None
         decider = (
             self.openai_decider
@@ -569,7 +576,7 @@ class Engine:
                 cycle=self.cycle,
                 position=pos,
                 context_candles={k: v for k, v in context.items() if isinstance(v, list)},
-                entries_paused=pause is not None,
+                entries_paused=pause is not None or not entries_open,
             )
         )
         return await self._execute_draft(
@@ -694,6 +701,7 @@ class Engine:
                     repo.aware_utc(pause.until) if pause is not None and pause.until else None
                 ),
                 entry_paused_indefinite=pause is not None and pause.until is None,
+                entries_allowed=entries_allowed(session, pair),
             )
             verdict = check_buy(ctx, self.broker, self.market_rules.get(pair), settings)
             gates = verdict.gates
@@ -985,6 +993,7 @@ class Engine:
                     repo.aware_utc(pause.until) if pause is not None and pause.until else None
                 ),
                 entry_paused_indefinite=pause is not None and pause.until is None,
+                entries_allowed=entries_allowed(session, row.pair),
             ),
             self.broker,
             self.market_rules.get(row.pair),

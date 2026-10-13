@@ -34,6 +34,7 @@ from app.agent.broker.paper import HeldPosition, PaperBroker
 from app.agent.deciders.base import DecideContext, Draft, RiskView
 from app.agent.deciders.openai_decider import OpenAIDecider
 from app.agent.market.base import Candle, MarketClient, MarketInfo, drop_forming
+from app.agent.market.universe import entries_allowed
 from app.agent.risk import BuyContext, check_buy, check_exit, update_trail
 from app.agent.signals import aligned_correlation, compute_pair_signals, compute_tf_values
 from app.db import AMSTERDAM, AccountRow, DecisionRow, EquitySnapshotRow, ShadowRow
@@ -312,7 +313,7 @@ class ShadowRunner:
             cycle=cycle,
             position=pos,
             context_candles=ctx_candles,
-            entries_paused=pause is not None,
+            entries_paused=pause is not None or not entries_allowed(session, pair),
         )
         # The shadow's own daily call cap — beyond it the Rules baseline
         # answers, like the live daily budget.
@@ -374,6 +375,7 @@ class ShadowRunner:
                         repo.aware_utc(pause.until) if pause is not None and pause.until else None
                     ),
                     entry_paused_indefinite=pause is not None and pause.until is None,
+                    entries_allowed=entries_allowed(session, pair),
                 ),
                 broker,
                 self.market_rules.get(pair),
