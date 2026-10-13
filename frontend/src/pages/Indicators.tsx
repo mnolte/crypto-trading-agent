@@ -462,7 +462,15 @@ function OverlayToggle({
       type="button"
       aria-pressed={on}
       className={on ? "chip chip--pill" : "chip chip--pill chip--neutral"}
-      style={on ? { borderColor: "var(--accent-line)", color: "var(--accent)" } : undefined}
+      style={
+        on
+          ? {
+              borderColor: "var(--accent)",
+              background: "var(--accent-bg)",
+              color: "var(--text)",
+            }
+          : undefined
+      }
       onClick={onClick}
     >
       {label}

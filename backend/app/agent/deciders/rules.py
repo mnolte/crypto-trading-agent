@@ -20,8 +20,8 @@ from __future__ import annotations
 from decimal import Decimal
 
 from app.agent.deciders.base import DecideContext, Draft
-from app.agent.signals import PairSignals
-from app.models import Settings, Signal
+from app.agent.signals import PairSignals, TfValues
+from app.models import Settings, Signal, Tf
 
 COND_NAMES = ["C1", "C2", "C3", "C4", "C5", "C6"]
 
@@ -47,12 +47,53 @@ def evaluate_conditions(sig: PairSignals, settings: Settings) -> dict[str, bool]
     }
 
 
-def _cond_signals(conds: dict[str, bool]) -> list[Signal]:
-    """Represent the condition verdicts as signal chips for the decision."""
-    return [
+def _cond_signals(conds: dict[str, bool], sig: PairSignals, settings: Settings) -> list[Signal]:
+    """Represent the condition verdicts as signal chips for the decision,
+    plus the same test evaluated on the other timeframes so the drawer's
+    signal stack fills every column of a condition row."""
+    out = [
         Signal(name=name, tf="1h", read="bullish" if conds[name] else "neutral")
         for name in COND_NAMES
     ]
+    out += _cond_other_tf_signals(sig, float(settings.market.adx_threshold))
+    return out
+
+
+def _cond_other_tf_signals(sig: PairSignals, adx_threshold: float) -> list[Signal]:
+    """C1..C6 on 4h and 1d. C1 has no single-timeframe form, so its cells are
+    the two legs of the condition itself: the 4h EMA cross and the daily
+    close vs EMA 200. A missing input emits nothing, so the cell shows a
+    dash rather than a verdict."""
+
+    def gt(a: float | None, b: float | None) -> bool | None:
+        return None if a is None or b is None else a > b
+
+    def band(v: float | None) -> bool | None:
+        return None if v is None else 45 <= v <= 70
+
+    def over(v: float | None, limit: float) -> bool | None:
+        return None if v is None else v > limit
+
+    def at_least(v: float | None, limit: float) -> bool | None:
+        return None if v is None else v >= limit
+
+    h4, d1 = sig.tf["4h"], sig.tf["1d"]
+    tfs: list[tuple[Tf, TfValues]] = [("4h", h4), ("1d", d1)]
+    out: list[Signal] = []
+
+    def add(name: str, tf: Tf, passed: bool | None) -> None:
+        if passed is not None:
+            out.append(Signal(name=name, tf=tf, read="bullish" if passed else "neutral"))
+
+    add("C1", "4h", gt(h4.ema20, h4.ema50))
+    add("C1", "1d", gt(d1.close, d1.ema200))
+    for tf, v in tfs:
+        add("C2", tf, gt(v.ema20, v.ema50))
+        add("C3", tf, gt(v.close, v.vwap))
+        add("C4", tf, band(v.rsi14))
+        add("C5", tf, over(v.obv_trend, 0.1))
+        add("C6", tf, at_least(v.adx14, adx_threshold))
+    return out
 
 
 class RulesDecider:
@@ -77,14 +118,14 @@ class RulesDecider:
         if ctx.holding:
             sell = self._check_sell(ctx, sig)
             if sell is not None:
-                sell.signals = _cond_signals(conds)
+                sell.signals = _cond_signals(conds, sig, settings)
                 sell.prefilter = True
                 return sell
             return Draft(
                 action="HOLD",
                 confidence=confidence,
                 reasoning=f"Holding: no sell rule fired. {base_reason}.",
-                signals=_cond_signals(conds),
+                signals=_cond_signals(conds, sig, settings),
                 invalidation=None,
                 prefilter=True,
             )
@@ -94,7 +135,7 @@ class RulesDecider:
                 action="HOLD",
                 confidence=confidence,
                 reasoning=f"Pre-filter: {base_reason}.",
-                signals=_cond_signals(conds),
+                signals=_cond_signals(conds, sig, settings),
                 prefilter=False,
             )
 
@@ -150,7 +191,7 @@ class RulesDecider:
         settings = ctx.settings
         rules = settings.rules
         h1 = sig.tf["1h"]
-        cond_signals = _cond_signals(conds)
+        cond_signals = _cond_signals(conds, sig, settings)
 
         if sig.regime.trend != "up":
             return Draft(

@@ -698,12 +698,12 @@ function ActivityCard({
       className="row__side"
       title="Activity"
       label="Activity"
-      actions={<span className="card__meta">{errorsOnly ? "errors · 24h" : "all pairs"}</span>}
+      actions={<span className="card__meta">{errorsOnly ? "errors · 24h" : "all pairs · 24h"}</span>}
     >
       <span id="activity" style={{ position: "absolute", marginTop: -80 }} />
       {items.length > 0 ? (
         <ol className="activity">
-          {items.slice(0, 20).map((item, i) => (
+          {items.map((item, i) => (
             <li key={`${item.at}-${i}`} className="activity__row">
               <span className="activity__time num">{formatTime(item.at)}</span>
               <Chip variant={ACTIVITY_TONE[item.kind] ?? "neutral"}>

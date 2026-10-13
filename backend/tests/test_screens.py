@@ -834,6 +834,32 @@ def test_activity_endpoint(screens_client: tuple[TestClient, SimMarket]) -> None
     assert all(i["kind"] == "fill" for i in fills)
 
 
+def test_snapshot_activity_newest_first_last_24h(
+    screens_client: tuple[TestClient, SimMarket],
+) -> None:
+    """The dashboard feed is the last 24 hours, newest first."""
+    client, _ = screens_client
+    session = _db(client)
+    now = utcnow()
+    try:
+        for i, age in enumerate([30 * HOUR, 2 * HOUR, HOUR]):
+            session.add(
+                ActivityRow(
+                    at=now - age,
+                    kind="decision",
+                    pair="BTC-EUR",
+                    text=f"event {i}",
+                    decision_id=None,
+                )
+            )
+        session.commit()
+    finally:
+        session.close()
+
+    items = client.get("/api/snapshot").json()["activity"]
+    assert [i["text"] for i in items] == ["event 2", "event 1"]
+
+
 # ----------------------------------------------------------------- agent bits
 
 

@@ -834,17 +834,12 @@ def resolve_matching_errors(session: Session, text: str, note: str) -> int:
     return len(rows)
 
 
-def recent_activity(session: Session, limit: int = 100) -> list[ActivityRow]:
-    return list(
-        session.scalars(select(ActivityRow).order_by(ActivityRow.id.desc()).limit(limit)).all()
-    )
-
-
 def list_activity(
     session: Session,
     pair: str | None = None,
     kind: str | None = None,
     before: int | None = None,
+    since: datetime | None = None,
     limit: int = 50,
 ) -> list[ActivityRow]:
     """Newest-first activity rows; ``before`` is a row-id cursor."""
@@ -855,6 +850,8 @@ def list_activity(
         conds.append(ActivityRow.kind == kind)
     if before is not None:
         conds.append(ActivityRow.id < before)
+    if since is not None:
+        conds.append(ActivityRow.at >= _utc_naive(since))
     return list(
         session.scalars(
             select(ActivityRow).where(*conds).order_by(ActivityRow.id.desc()).limit(limit)

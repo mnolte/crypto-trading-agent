@@ -295,3 +295,15 @@ def test_bad_price_fails_ranges(session: Session) -> None:
     brief, meta = build_brief(_inputs(session, price=Decimal("0")))
     checks = {c.name: c for c in input_checks(brief, meta)}
     assert checks["Ranges valid"].status == "fail"
+
+
+def test_min_stop_pct_matches_the_fee_gate(session: Session) -> None:
+    """``limits.min_stop_pct`` is the smallest stop distance that passes
+    the "Costs vs risk" gate: round-trip costs under max_cost_pct_of_risk
+    of the stop, so the floor is cost_pct * 100 / max_cost_pct_of_risk."""
+    brief, _ = build_brief(_inputs(session))
+    # Defaults: 0.25% fee + 0.05% slippage per side, costs under 30% of risk.
+    assert brief["limits"]["min_stop_pct"] == pytest.approx(2.0)
+    settings = Settings(risk={"max_cost_pct_of_risk": "50"})
+    brief, _ = build_brief(_inputs(session, settings=settings))
+    assert brief["limits"]["min_stop_pct"] == pytest.approx(1.2)

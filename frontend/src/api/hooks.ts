@@ -498,6 +498,11 @@ export function useSnapshotStream(): { connected: boolean } {
         if (message.type === "snapshot" && message.data) {
           setConnected(true);
           client.setQueryData(["snapshot"], message.data as Snapshot);
+          // A push means backend state changed (cycle, fill, control action):
+          // every other query goes stale so open screens refetch.
+          void client.invalidateQueries({
+            predicate: (query) => query.queryKey[0] !== "snapshot",
+          });
         } else if (
           message.type === "alert" &&
           message.data &&

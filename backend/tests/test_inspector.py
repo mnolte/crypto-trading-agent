@@ -337,3 +337,79 @@ def test_replay_records_a_linked_call(client: TestClient, monkeypatch: pytest.Mo
     orig = client.get("/api/llm-calls/c1").json()
     assert [r["id"] for r in orig["replays"]] == [detail["id"]]
     assert orig["replays"][0]["differs"] is False
+
+
+def test_replay_of_a_call_without_output_schema(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review and briefing calls store no ``text`` field — the replay must
+    not write ``"text": null`` and the returned detail must serialize."""
+    from app.agent.openai_client import CallResult
+
+    _call_row(
+        client,
+        call_id="c1",
+        feature="review",
+        pair="",
+        parsed="Some markdown review",
+        request_json=json.dumps(
+            {
+                "model": "gpt-4o-mini",
+                "instructions": "REVIEW PROMPT",
+                "input": json.dumps({"facts": {"equity_eur": "10000.00"}}),
+                "temperature": 0,
+                "max_output_tokens": 600,
+            }
+        ),
+    )
+    set_secret("openai", "sk-test")
+
+    class FakeClient:
+        def __init__(self, key: str) -> None:
+            pass
+
+        async def call(self, payload: dict[str, Any]) -> CallResult:
+            return CallResult(
+                status="ok",
+                request_bytes=json.dumps(payload).encode(),
+                response_bytes=b'{"id":"resp_2"}',
+                output_text="Equity is €10,000.00 this week.",
+                input_tokens=10,
+                output_tokens=5,
+            )
+
+        async def aclose(self) -> None:
+            pass
+
+    monkeypatch.setattr("app.api.inspector.OpenAIResponsesClient", FakeClient)
+    response = client.post(
+        "/api/llm-calls/c1/replay",
+        json={},
+        headers={"X-Local-Token": _token(client)},
+    )
+    assert response.status_code == 200
+    detail = response.json()
+    assert "text" not in json.loads(detail["request_json"])
+    # The review's own output check re-runs, not the decision schema's.
+    assert detail["status"] == "ok"
+    assert detail["output_checks"] == [
+        {"name": "Numbers match facts", "status": "pass", "detail": ""}
+    ]
+    assert client.get(f"/api/llm-calls/{detail['id']}").status_code == 200
+
+
+def test_detail_tolerates_a_null_text_field(client: TestClient) -> None:
+    _call_row(
+        client,
+        call_id="c1",
+        request_json=json.dumps(
+            {
+                "model": "gpt-4o-mini",
+                "input": json.dumps({"pair": "SOL-EUR"}),
+                "text": None,
+            }
+        ),
+    )
+    detail = client.get("/api/llm-calls/c1").json()
+    assert detail["output_schema"] is None
+    assert detail["brief"] is not None

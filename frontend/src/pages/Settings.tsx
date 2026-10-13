@@ -219,6 +219,7 @@ export function Settings() {
           )}
           <DataTable
             minWidth={640}
+            maxHeight={420}
             columns={[
               { key: "market", label: "Market" },
               { key: "vol", label: "30d vol/day", numeric: true },

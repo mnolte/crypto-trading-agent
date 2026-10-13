@@ -36,7 +36,12 @@ from app.agent.deciders.openai_decider import OpenAIDecider
 from app.agent.market.base import Candle, MarketClient, MarketInfo, drop_forming
 from app.agent.market.universe import entries_allowed
 from app.agent.risk import BuyContext, check_buy, check_exit, update_trail
-from app.agent.signals import aligned_correlation, compute_pair_signals, compute_tf_values
+from app.agent.signals import (
+    aligned_correlation,
+    compute_pair_signals,
+    compute_tf_values,
+    decision_signals,
+)
 from app.db import AMSTERDAM, AccountRow, DecisionRow, EquitySnapshotRow, ShadowRow
 from app.models import Decision, Gate, Regime, Settings, ShadowOut, ShadowPause, Tf
 
@@ -477,7 +482,7 @@ class ShadowRunner:
             confidence=draft.confidence,
             reasoning=draft.reasoning,
             invalidation=draft.invalidation,
-            signals=draft.signals,
+            signals=decision_signals(draft.signals, signals),
             plan=plan,
             gates=gates or [],
             status=status,

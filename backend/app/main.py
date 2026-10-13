@@ -91,7 +91,10 @@ async def refresh_market_data(state: AppState) -> None:
     session = state.session_factory()
     try:
         infos = await state.market_client.markets()
-        state.market_rules = {i.market: i for i in infos}
+        # The engine and shadow runner hold this dict by reference —
+        # update it in place so they see the fetched rules too.
+        state.market_rules.clear()
+        state.market_rules.update({i.market: i for i in infos})
         await run_eligibility_check(state.market_client, session, state.settings.market)
         for market in state.settings.active_markets:
             row = session.get(MarketRow, market)

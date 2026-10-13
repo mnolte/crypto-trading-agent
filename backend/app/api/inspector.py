@@ -30,6 +30,7 @@ from app.agent.prompts import PromptNotFoundError, load_prompt
 from app.api.deps import AppState, get_state, require_token
 from app.config import get_secret
 from app.db import AMSTERDAM, DecisionRow, LlmCallRow, OutcomeRow, utcnow
+from app.features.briefings import text_numbers_ok
 from app.models import (
     CheckOut,
     CostsOut,
@@ -139,10 +140,15 @@ def _request_parts(row: LlmCallRow) -> tuple[str | None, str | None, str | None]
         body = json.loads(row.request_json)
     except json.JSONDecodeError:
         return None, None, None
-    schema = body.get("text", {}).get("format", {}).get("schema")
+    text = body.get("text") or {}
+    schema = (text.get("format") or {}).get("schema")
+    instructions = body.get("instructions")
+    brief = body.get("input")
+    if brief is not None and not isinstance(brief, str):
+        brief = json.dumps(brief)  # Ask calls store a message list
     return (
-        body.get("instructions"),
-        body.get("input"),
+        instructions if isinstance(instructions, str) else None,
+        brief,
         json.dumps(schema) if schema is not None else None,
     )
 
@@ -434,13 +440,14 @@ async def replay_call(request: Request, call_id: str, body: LlmCallReplayIn) -> 
         except PromptNotFoundError:
             raise HTTPException(status_code=404, detail="unknown prompt version") from None
         orig_request = json.loads(orig.request_json)
+        # Re-send the stored request as it was — output schema, tools and
+        # all — with the model and prompt swapped out.
         payload = {
+            **orig_request,
             "model": body.model or orig.model,
             "instructions": prompt.body,
-            "input": orig_request.get("input"),
             "temperature": prompt.temperature,
             "max_output_tokens": prompt.max_output_tokens,
-            "text": orig_request.get("text"),
         }
         client = OpenAIResponsesClient(api_key)
         try:
@@ -448,19 +455,57 @@ async def replay_call(request: Request, call_id: str, body: LlmCallReplayIn) -> 
         finally:
             await client.aclose()
 
-        brief_json = json.loads(orig_request.get("input") or "{}")
-        meta = _meta_from_brief(brief_json)
-        out, parse_error = parse_model_output(result.output_text)
-        # The Rules baseline isn't re-evaluated for replays — its inputs are
-        # not part of the stored request.
-        verdict = check_output(out, parse_error, brief_json, meta, "?", settings)
-        for i, check in enumerate(verdict.checks):
-            if check.name == "Rules baseline":
-                verdict.checks[i] = CheckOut(
-                    name="Rules baseline",
-                    status="pass",
-                    detail="not evaluated for a replay",
-                )
+        input_data = orig_request.get("input")
+        brief_json = json.loads(input_data) if isinstance(input_data, str) else {}
+        schema_sent = ((orig_request.get("text") or {}).get("format") or {}).get("schema")
+        if schema_sent is not None:
+            # Decision-shaped calls: the post-checks re-run on the output.
+            meta = _meta_from_brief(brief_json)
+            out, parse_error = parse_model_output(result.output_text)
+            # The Rules baseline isn't re-evaluated for replays — its inputs
+            # are not part of the stored request.
+            verdict = check_output(out, parse_error, brief_json, meta, "?", settings)
+            for i, check in enumerate(verdict.checks):
+                if check.name == "Rules baseline":
+                    verdict.checks[i] = CheckOut(
+                        name="Rules baseline",
+                        status="pass",
+                        detail="not evaluated for a replay",
+                    )
+            out_checks = verdict.checks
+            status = (
+                result.status
+                if out is not None or result.status != "ok"
+                else "invalid_output"
+            )
+        else:
+            # Prose calls (briefings, reviews): the number check re-runs
+            # against the facts in the stored input. For Ask and anything
+            # else there is nothing stored to check the text against.
+            facts = brief_json.get("facts")
+            if isinstance(facts, dict) and facts:
+                candidate = (result.output_text or "").strip()
+                bad = text_numbers_ok(candidate, facts) if candidate else ["empty"]
+                out_checks = [
+                    CheckOut(
+                        name="Numbers match facts",
+                        status="pass" if not bad else "fail",
+                        detail=(
+                            ""
+                            if not bad
+                            else f"not in facts: {', '.join(str(b) for b in bad[:6])}"
+                        ),
+                    )
+                ]
+            else:
+                out_checks = [
+                    CheckOut(
+                        name="Output checks",
+                        status="pass",
+                        detail="not evaluated for a replay",
+                    )
+                ]
+            status = result.status
         new_row = LlmCallRow(
             id=uuid.uuid4().hex[:16],
             at=now,
@@ -472,7 +517,7 @@ async def replay_call(request: Request, call_id: str, body: LlmCallReplayIn) -> 
             replay_of=orig.id,
             model=payload["model"],
             prompt_version=prompt.version,
-            status=result.status if out is not None or result.status != "ok" else "invalid_output",
+            status=status,
             attempts=json.dumps(
                 [
                     {
@@ -499,7 +544,7 @@ async def replay_call(request: Request, call_id: str, body: LlmCallReplayIn) -> 
             ),
             parsed=result.output_text,
             input_checks=orig.input_checks,
-            output_checks=json.dumps([c.model_dump() for c in verdict.checks]),
+            output_checks=json.dumps([c.model_dump() for c in out_checks]),
             verdict=None,
             verdict_note=None,
             verdict_at=None,
