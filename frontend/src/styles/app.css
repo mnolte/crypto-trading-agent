@@ -1892,6 +1892,7 @@ input[type="checkbox"].check {
   margin: 0;
   line-height: 1.65;
   color: var(--text-soft);
+  white-space: pre-line;
 }
 
 .card__link {
