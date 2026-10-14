@@ -1,10 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
   api,
   post,
   type AskConversationListOut,
   type AskConversationOut,
+  type ActivityListOut,
   type AskIn,
   type AskOut,
   type BriefingListOut,
@@ -69,6 +70,25 @@ export function useCandles(pair: string | null, tf: Tf, bars = 300) {
     queryFn: () => api<CandleFeed>(`/api/candles/${pair}?tf=${tf}&bars=${bars}`),
     enabled: pair !== null,
     staleTime: 30_000,
+  });
+}
+
+/**
+ * Newest-first activity log. `kind` filters server-side; pages follow the
+ * `next_before` cursor so "Show more" keeps loading older entries.
+ */
+export function useActivity(kind?: string, limit = 25) {
+  return useInfiniteQuery({
+    queryKey: ["activity", kind ?? "all"],
+    queryFn: ({ pageParam }) => {
+      const qs = new URLSearchParams({ limit: String(limit) });
+      if (kind) qs.set("kind", kind);
+      if (pageParam) qs.set("before", String(pageParam));
+      return api<ActivityListOut>(`/api/activity?${qs}`);
+    },
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.next_before ?? undefined,
+    staleTime: 15_000,
   });
 }
 
