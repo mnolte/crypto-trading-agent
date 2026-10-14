@@ -61,6 +61,14 @@ def no_briefing_loop(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.features.briefings.briefing_loop", _noop)
 
 
+@pytest.fixture(autouse=True)
+def no_context_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _noop(*args: object, **kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr("app.main.context_loop", _noop)
+
+
 @pytest.fixture
 def env_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, migrated_db: Path) -> Iterator[Path]:
     data = tmp_path / "data"

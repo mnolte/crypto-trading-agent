@@ -46,6 +46,7 @@ class HealthOut(BaseModel):
     cycle: int
     last_cycle_at: datetime | None
     sources: dict[str, str]
+    source_age_s: dict[str, int | None]
     errors_24h: int
 
 
@@ -66,7 +67,16 @@ def health(state: Annotated[AppState, Depends(get_state)]) -> HealthOut:
             sources[status.spec.id] = "ok"
     session = state.session_factory()
     try:
+        now = utcnow()
         errors_24h = repo.error_count_since(session, datetime.now(AMSTERDAM) - timedelta(hours=24))
+        source_age_s = {
+            source: (
+                max(0, int((now - newest).total_seconds()))
+                if (newest := repo.newest_market_context(session, source)) is not None
+                else None
+            )
+            for source in ("okx", "deribit")
+        }
     finally:
         session.close()
     return HealthOut(
@@ -74,6 +84,7 @@ def health(state: Annotated[AppState, Depends(get_state)]) -> HealthOut:
         cycle=state.cycle,
         last_cycle_at=None,
         sources=sources,
+        source_age_s=source_age_s,
         errors_24h=errors_24h,
     )
 

@@ -47,6 +47,7 @@ def test_migrations_use_ta_db_path(env_paths: Path) -> None:
     assert "trades" in tables
     assert "decisions" in tables
     assert "llm_calls" in tables
+    assert "market_context" in tables
     assert _alembic_version(db_path) == _head()
 
 

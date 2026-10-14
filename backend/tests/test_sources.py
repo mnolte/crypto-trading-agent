@@ -88,7 +88,7 @@ def _token(client: TestClient) -> str:
 def test_sources_listed(client: TestClient) -> None:
     body = client.get("/api/sources").json()
     by_id = {s["id"]: s for s in body}
-    assert set(by_id) == {"bitvavo", "openai"}
+    assert set(by_id) == {"bitvavo", "openai", "okx", "deribit"}
     assert by_id["bitvavo"]["key_requirement"] == "none"
     assert by_id["bitvavo"]["enabled"] is True
     openai = by_id["openai"]

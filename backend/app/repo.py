@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import cast
 
@@ -26,6 +26,7 @@ from app.db import (
     ErrorRow,
     ExitTickRow,
     LlmCallRow,
+    MarketContextRow,
     MarketRow,
     OutcomeFailureRow,
     OutcomeRow,
@@ -195,6 +196,86 @@ def upsert_market_row(session: Session, row: MarketRow) -> MarketRow:
     merged = session.merge(row)
     session.commit()
     return merged
+
+
+# ----------------------------------------------------------- market context --
+
+
+def upsert_market_context(session: Session, rows: list[dict[str, object]]) -> int:
+    if not rows:
+        return 0
+    statement = sqlite_insert(cast(Table, MarketContextRow.__table__)).values(rows)
+    session.execute(
+        statement.on_conflict_do_update(
+            index_elements=["source", "metric", "symbol", "ts"],
+            set_={
+                "value": statement.excluded.value,
+                "meta": statement.excluded.meta,
+                "fetched_at": statement.excluded.fetched_at,
+            },
+        )
+    )
+    session.commit()
+    return len(rows)
+
+
+def list_market_context(
+    session: Session,
+    *,
+    metric: str | None = None,
+    symbol: str | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> list[MarketContextRow]:
+    conditions = []
+    if metric is not None:
+        conditions.append(MarketContextRow.metric == metric)
+    if symbol is not None:
+        conditions.append(MarketContextRow.symbol == symbol)
+    if start is not None:
+        conditions.append(MarketContextRow.ts >= _utc_naive(start))
+    if end is not None:
+        conditions.append(MarketContextRow.ts <= _utc_naive(end))
+    return list(
+        session.scalars(
+            select(MarketContextRow).where(*conditions).order_by(MarketContextRow.ts)
+        ).all()
+    )
+
+
+def newest_market_context(session: Session, source: str) -> datetime | None:
+    value = session.scalar(
+        select(func.max(MarketContextRow.ts)).where(MarketContextRow.source == source)
+    )
+    return aware_utc(value) if value is not None else None
+
+
+def percentile_90d(session: Session, metric: str, symbol: str, at: datetime) -> float | None:
+    end = _utc_naive(at)
+    start = _utc_naive(at - timedelta(days=90))
+    rows = session.execute(
+        select(MarketContextRow.ts, MarketContextRow.value)
+        .where(
+            MarketContextRow.metric == metric,
+            MarketContextRow.symbol == symbol,
+            MarketContextRow.ts >= start,
+            MarketContextRow.ts < end,
+        )
+        .order_by(MarketContextRow.ts)
+    ).all()
+    if not rows or aware_utc(at) - aware_utc(rows[0].ts) < timedelta(days=30):
+        return None
+    current = session.scalar(
+        select(MarketContextRow.value).where(
+            MarketContextRow.metric == metric,
+            MarketContextRow.symbol == symbol,
+            MarketContextRow.ts == end,
+        )
+    )
+    if current is None:
+        return None
+    below_or_equal = sum(value <= current for _, value in rows)
+    return below_or_equal / len(rows) * 100
 
 
 # ----------------------------------------------------------------- accounts --

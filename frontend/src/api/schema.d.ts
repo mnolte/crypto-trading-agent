@@ -255,6 +255,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Context Rows */
+        get: operations["context_rows_api_context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/costs": {
         parameters: {
             query?: never;
@@ -1472,6 +1489,39 @@ export interface components {
              * @enum {string}
              */
             status: "pass" | "warn" | "fail";
+        };
+        /** ContextOut */
+        ContextOut: {
+            /**
+             * Fetched At
+             * Format: date-time
+             */
+            fetched_at: string;
+            /** Id */
+            id: number;
+            /** Meta */
+            meta: {
+                [key: string]: unknown;
+            };
+            /** Metric */
+            metric: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "okx" | "deribit";
+            /**
+             * Symbol
+             * @enum {string}
+             */
+            symbol: "BTC" | "ETH";
+            /**
+             * Ts
+             * Format: date-time
+             */
+            ts: string;
+            /** Value */
+            value: number;
         };
         /**
          * CostsOut
@@ -4173,6 +4223,10 @@ export interface components {
             errors_24h: number;
             /** Last Cycle At */
             last_cycle_at: string | null;
+            /** Source Age S */
+            source_age_s: {
+                [key: string]: number | null;
+            };
             /** Sources */
             sources: {
                 [key: string]: string;
@@ -4653,6 +4707,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CandleFeed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    context_rows_api_context_get: {
+        parameters: {
+            query?: {
+                metric?: string | null;
+                symbol?: ("BTC" | "ETH") | null;
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContextOut"][];
                 };
             };
             /** @description Validation Error */
