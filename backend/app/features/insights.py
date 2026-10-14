@@ -187,9 +187,7 @@ def _atr_series(session: Session, rows: list[DecisionRow]) -> dict[str, _AtrPctS
     hours: dict[str, list[datetime]] = {}
     for r in rows:
         hours.setdefault(r.pair, []).append(_hour_floor(repo.aware_utc(r.at)))
-    return {
-        pair: _AtrPctSeries.load(session, pair, min(ts), max(ts)) for pair, ts in hours.items()
-    }
+    return {pair: _AtrPctSeries.load(session, pair, min(ts), max(ts)) for pair, ts in hours.items()}
 
 
 def compute_insights(

@@ -274,9 +274,7 @@ def test_insights_atr_series_matches_frozen_read(
     session = sessions()
     try:
         _seed_candles(session, "BTC-EUR", sim, NOW)
-        series = insights._AtrPctSeries.load(
-            session, "BTC-EUR", NOW - 100 * HOUR, NOW - HOUR
-        )
+        series = insights._AtrPctSeries.load(session, "BTC-EUR", NOW - 100 * HOUR, NOW - HOUR)
         for hour in (NOW - 50 * HOUR, NOW - 30 * HOUR, NOW - HOUR):
             candles = drop_forming(
                 repo.load_candles(session, "BTC-EUR", "1h", 800, end=hour + HOUR),
@@ -284,9 +282,7 @@ def test_insights_atr_series_matches_frozen_read(
                 hour + HOUR,
             )
             expected = (
-                compute_tf_values(candles, "1h").atr_percentile
-                if len(candles) >= 16
-                else None
+                compute_tf_values(candles, "1h").atr_percentile if len(candles) >= 16 else None
             )
             if expected is None:
                 assert series.at(hour) is None
