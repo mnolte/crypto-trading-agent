@@ -253,7 +253,9 @@ class ContextCollector:
                     delay = (
                         min(float(retry_after), 30.0)
                         if retry_after
-                        else 1.0 if response.status_code == 429 else 0.25
+                        else 1.0
+                        if response.status_code == 429
+                        else 0.25
                     )
                     await self._sleep(delay)
                     continue
