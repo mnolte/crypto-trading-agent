@@ -15,7 +15,7 @@ export function EmptyState({
   return (
     <div className="empty">
       <span className="empty__title">{title}</span>
-      {children && <span className="empty__body">{children}</span>}
+      {children && <div className="empty__body">{children}</div>}
       {footer && <span className="empty__foot">{footer}</span>}
       {actions && <div className="dev-row">{actions}</div>}
     </div>

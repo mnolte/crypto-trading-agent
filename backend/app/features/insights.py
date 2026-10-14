@@ -10,16 +10,17 @@ data shared with the Readiness criterion.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Literal
 
+import numpy as np
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import repo
-from app.agent.market.base import drop_forming
-from app.agent.signals import compute_tf_values
+from app.agent.market.base import Candle
+from app.agent.signals import ATR_PCT_LOOKBACK, Floats, atr, atr_percentile
 from app.db import AMSTERDAM, DecisionRow, OutcomeRow
 from app.models import (
     CalibrationBucketOut,
@@ -56,6 +57,7 @@ CONF_BUCKETS = (
 )
 CAL_BUCKETS = CONF_BUCKETS[1:]  # calibration uses the spec's four bands
 SLICE_MIN = 10  # below this a slice is hidden entirely
+_ATR_WINDOW = 800  # candles behind each decision hour, as in the brief's read
 
 
 class _Slice:
@@ -138,23 +140,56 @@ def _decider_label(row: DecisionRow, shadow_names: dict[str, str]) -> str:
     return "Rules baseline"
 
 
-def _atr_pct_at(
-    session: Session, pair: str, at: datetime, cache: dict[tuple[str, datetime], float | None]
-) -> float | None:
-    """ATR(1h) 30-day percentile at the decision's hour — recomputed from
-    stored candles (the percentile itself is not stored on the decision)."""
-    hour = at.replace(minute=0, second=0, microsecond=0)
-    key = (pair, hour)
-    if key in cache:
-        return cache[key]
-    candles = drop_forming(
-        repo.load_candles(session, pair, "1h", 800, end=hour + timedelta(hours=1)),
-        "1h",
-        hour + timedelta(hours=1),
-    )
-    value = compute_tf_values(candles, "1h").atr_percentile if len(candles) >= 16 else None
-    cache[key] = value
-    return value
+def _hour_floor(at: datetime) -> datetime:
+    return at.replace(minute=0, second=0, microsecond=0)
+
+
+class _AtrPctSeries:
+    """One pair's 1h ATR% series, computed once per request.
+
+    ``at(hour)`` reproduces the frozen per-hour read exactly: the last
+    closed candle is the one that opened at ``hour``, the window is the
+    last ``_ATR_WINDOW`` candles and the percentile needs at least 16.
+    """
+
+    def __init__(self, candles: list[Candle]) -> None:
+        self.opens: Floats = np.array([c.open_time.timestamp() for c in candles])
+        high = np.array([float(c.high) for c in candles])
+        low = np.array([float(c.low) for c in candles])
+        close = np.array([float(c.close) for c in candles])
+        self.atr_pct = atr(high, low, close) / close * 100.0
+
+    @classmethod
+    def load(
+        cls, session: Session, pair: str, first_hour: datetime, last_hour: datetime
+    ) -> _AtrPctSeries:
+        hours = int((last_hour - first_hour).total_seconds() // 3600)
+        candles = repo.load_candles(
+            session,
+            pair,
+            "1h",
+            hours + _ATR_WINDOW + 8,
+            end=last_hour + timedelta(hours=1),
+        )
+        return cls(candles)
+
+    def at(self, hour: datetime) -> float | None:
+        """ATR% 30-day percentile at ``hour``, or None with short history."""
+        i = int(np.searchsorted(self.opens, hour.timestamp(), side="right")) - 1
+        n = min(_ATR_WINDOW, i + 1)
+        if i < 0 or n < 16:
+            return None
+        return atr_percentile(self.atr_pct[i + 1 - n : i + 1], ATR_PCT_LOOKBACK["1h"])
+
+
+def _atr_series(session: Session, rows: list[DecisionRow]) -> dict[str, _AtrPctSeries]:
+    """One ATR% series per pair that has decisions in the window."""
+    hours: dict[str, list[datetime]] = {}
+    for r in rows:
+        hours.setdefault(r.pair, []).append(_hour_floor(repo.aware_utc(r.at)))
+    return {
+        pair: _AtrPctSeries.load(session, pair, min(ts), max(ts)) for pair, ts in hours.items()
+    }
 
 
 def compute_insights(
@@ -169,10 +204,12 @@ def compute_insights(
     prompt_version: str | None = None,
 ) -> InsightsOut:
     """Slice every stored decision (live and shadow) by ``dimension``."""
-    end = end or now
+    end = repo.aware_utc(end or now).astimezone(UTC)
     if start is None:
         first = session.scalar(select(DecisionRow.at).order_by(DecisionRow.at.asc()).limit(1))
         start = repo.aware_utc(first) if first is not None else end - timedelta(days=30)
+    else:
+        start = repo.aware_utc(start).astimezone(UTC)
 
     shadows = repo.list_shadows(session)
     shadow_names = {s.id: s.name for s in shadows}
@@ -181,8 +218,8 @@ def compute_insights(
         session.scalars(
             select(DecisionRow)
             .where(
-                DecisionRow.at >= repo.aware_utc(start).replace(tzinfo=None),
-                DecisionRow.at <= repo.aware_utc(end).replace(tzinfo=None),
+                DecisionRow.at >= start.replace(tzinfo=None),
+                DecisionRow.at <= end.replace(tzinfo=None),
             )
             .order_by(DecisionRow.at.asc())
         ).all()
@@ -208,15 +245,23 @@ def compute_insights(
         ).all()
     }
 
-    atr_cache: dict[tuple[str, datetime], float | None] = {}
+    min_decisions = settings.learning.insights_min_decisions
+    # The volatility slice and the findings scan need the ATR% percentile at
+    # each decision's hour; below the finding bar no slice can be a finding,
+    # so the candle work is skipped unless the dimension itself asks for it.
+    atr_series = (
+        _atr_series(session, rows)
+        if dimension == "volatility" or len(rows) >= min_decisions
+        else {}
+    )
     slices: dict[str, _Slice] = {}
     for row in rows:
-        atr = (
-            _atr_pct_at(session, row.pair, repo.aware_utc(row.at), atr_cache)
+        atr_pct = (
+            atr_series[row.pair].at(_hour_floor(repo.aware_utc(row.at)))
             if dimension == "volatility"
             else None
         )
-        key = _bucket_of(row, dimension, atr)
+        key = _bucket_of(row, dimension, atr_pct)
         if key is None:
             continue
         label = key
@@ -241,7 +286,6 @@ def compute_insights(
             elif out.label == "missed":
                 sl.missed += 1
 
-    min_decisions = settings.learning.insights_min_decisions
     slice_outs = [
         InsightSliceOut(
             key=s.key,
@@ -259,7 +303,7 @@ def compute_insights(
     ]
 
     calibration, gap = _calibration(rows, outcomes)
-    findings = _findings(session, rows, outcomes, shadow_names, settings)
+    findings = _findings(rows, outcomes, shadow_names, settings, atr_series)
 
     decider_options = [DeciderOption(id="all", label="All deciders")]
     decider_options.append(DeciderOption(id="openai", label="Live · model decisions"))
@@ -269,7 +313,10 @@ def compute_insights(
             DeciderOption(id=f"shadow:{s.id}", label=f"{s.name} · {s.prompt_version}")
         )
 
-    largest = max((s.decisions for s in slice_outs), default=0)
+    # The biggest slice sets the "N more to go" count — including slices
+    # still hidden under SLICE_MIN, otherwise the count overstates the gap.
+    largest = max(slices.values(), key=lambda s: s.decisions, default=None)
+    largest_n = largest.decisions if largest is not None else 0
     return InsightsOut(
         dimension=dimension,
         start=start,
@@ -277,8 +324,11 @@ def compute_insights(
         decider=decider,
         prompt_version=prompt_version,
         min_decisions=min_decisions,
+        slice_min=SLICE_MIN,
         total_decisions=len(rows),
-        decisions_needed=max(0, min_decisions - largest),
+        decisions_needed=max(0, min_decisions - largest_n),
+        largest_slice_label=largest.label if largest is not None else None,
+        largest_slice_decisions=largest_n,
         decider_options=decider_options,
         findings=findings,
         slices=slice_outs,
@@ -320,11 +370,11 @@ def _calibration(
 
 
 def _findings(
-    session: Session,
     rows: list[DecisionRow],
     outcomes: dict[str, OutcomeRow],
     shadow_names: dict[str, str],
     settings: Settings,
+    atr_series: dict[str, _AtrPctSeries],
 ) -> list[InsightFinding]:
     """The three cards: calibration-based confidence check, plus the best
     and worst finding-level slices across every dimension."""
@@ -360,18 +410,23 @@ def _findings(
             )
 
     # --- best / worst slices --------------------------------------------------
-    atr_cache: dict[tuple[str, datetime], float | None] = {}
     best: tuple[Decimal, _Slice, str] | None = None
     worst: tuple[Decimal, _Slice, str] | None = None
-    for dim in ("pair", "hour", "weekday", "regime", "volatility", "confidence"):
+    # Below the finding bar no slice can qualify — skip the scan (and the
+    # volatility bucketing) entirely.
+    for dim in (
+        ("pair", "hour", "weekday", "regime", "volatility", "confidence")
+        if len(rows) >= min_decisions
+        else ()
+    ):
         grouped: dict[str, _Slice] = {}
         for row in rows:
-            atr = (
-                _atr_pct_at(session, row.pair, repo.aware_utc(row.at), atr_cache)
+            atr_pct = (
+                atr_series[row.pair].at(_hour_floor(repo.aware_utc(row.at)))
                 if dim == "volatility"
                 else None
             )
-            key = _bucket_of(row, dim, atr)
+            key = _bucket_of(row, dim, atr_pct)
             if key is None:
                 continue
             sl = grouped.setdefault(key, _Slice(key, key))
