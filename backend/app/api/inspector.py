@@ -473,11 +473,7 @@ async def replay_call(request: Request, call_id: str, body: LlmCallReplayIn) -> 
                         detail="not evaluated for a replay",
                     )
             out_checks = verdict.checks
-            status = (
-                result.status
-                if out is not None or result.status != "ok"
-                else "invalid_output"
-            )
+            status = result.status if out is not None or result.status != "ok" else "invalid_output"
         else:
             # Prose calls (briefings, reviews): the number check re-runs
             # against the facts in the stored input. For Ask and anything
@@ -491,9 +487,7 @@ async def replay_call(request: Request, call_id: str, body: LlmCallReplayIn) -> 
                         name="Numbers match facts",
                         status="pass" if not bad else "fail",
                         detail=(
-                            ""
-                            if not bad
-                            else f"not in facts: {', '.join(str(b) for b in bad[:6])}"
+                            "" if not bad else f"not in facts: {', '.join(str(b) for b in bad[:6])}"
                         ),
                     )
                 ]
