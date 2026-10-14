@@ -2,6 +2,16 @@
 
 Newest first. Each entry names the sections it touches.
 
+## 2026-10-14 — v0.2: positioning data
+
+- New section "v0.2: positioning data" before "After v0.1": step 1 collector (OKX
+  funding, open interest, long/short ratio; Deribit DVOL and 25-delta skew; BTC and
+  ETH, hourly, no effect on decisions), step 2 `sentiment` brief block and
+  `decision.v2.md` tested as Shadow A, step 3 promotion rule, news flag and macro
+  calendar, build order PRs 9–11, and what stays out of v0.2.
+- "After v0.1": the first group now points to v0.2.
+- Step 2 GUI: the sentiment block sits below the signal stack in the Decision drawer, which also gains News flag and Macro event gate rows (matches design/CHANGES.md 2026-10-14).
+
 ## 2026-10-11 — Shadows and What-if
 
 - User features → Shadow strategies: briefs come from the same cycle snapshot as live

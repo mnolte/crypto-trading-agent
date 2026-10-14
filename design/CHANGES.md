@@ -2,6 +2,26 @@
 
 Newest first. Each entry names the screens it touches.
 
+## 2026-10-14 — v0.2: positioning data and event flags
+
+All additions carry a blue v0.2 tag in the screens (handoff only, not shown in the app).
+
+- Decision drawer: "Market positioning · BTC" section below the signal stack (funding,
+  open interest, long/short accounts, DVOL, 25-delta skew; value, 90-day percentile,
+  read with extremes in amber); safety gates gain News flag and Macro event rows.
+- Dashboard: News flag button between Pause and Stop & flatten; when on, an amber banner
+  with Clear flag, and the "This cycle" line adds "News flag on since 04:20." before
+  per-coin pauses.
+- Settings: Data sources table now has "OKX market data" and "Deribit options data" (on,
+  with days stored); CoinGecko and alternative.me read "Off · after v0.2". Risk limits
+  gain an "Event flags" block: news flag and macro event gate (off by default, with a
+  link to What-if).
+- States: news flag banner, macro event banner, "Set the news flag?" dialog with an
+  optional reason, and a stale-source row.
+- Insights: a "Positioning · v0.2" slice tab (BUY outcomes by funding and skew read at
+  entry).
+- What-if: macro event gate option in the scenario.
+
 ## 2026-10-11 — ADX wording
 
 - Indicators: ADX pane label and the reads footnote say "25 or more = trending"

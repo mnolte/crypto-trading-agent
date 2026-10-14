@@ -131,6 +131,12 @@ Follows the spec's build order. A PR builds only the screens listed for it.
 | 6 Execution modes and polish | States: approval queue, browser notification, shock brake banner; Settings → notifications; error badge; outcome section in the drawer; inspector scorecard |
 | 7 Understanding and safety | Dashboard: "This cycle" line, morning briefing, risk budget card, per-coin pause; Readiness; Settings → learning and explanations, live readiness, risk throttle and correlation fields; glossary tooltips |
 | 8 Evidence | Ask panel, Insights, What-if, Reviews, Settings → shadow strategies; States: What-if running, Insights before data, Ask limit reached |
+| 9 Market context collector | Settings → data sources: OKX market data and Deribit options data rows (status, days stored, on/off); States: source stale row |
+| 10 Sentiment block | Decision drawer: Market positioning section and News flag gate row; Dashboard: News flag button, banner and quiet-line text; Settings → risk limits: Event flags (news flag); Insights: Positioning slice; States: news flag banner and set-flag dialog |
+| 11 Macro calendar | Settings → risk limits: Event flags (macro event gate); Decision drawer: Macro event gate row; What-if: macro event gate option; States: macro event banner |
+
+Blue **v0.2** tags in the screens and screenshots mark what v0.2 adds. They are for the
+handoff only: do not render them in the app.
 
 ## Visual check in every PR
 
