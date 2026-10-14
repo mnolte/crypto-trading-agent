@@ -54,6 +54,22 @@ SOURCES: tuple[SourceSpec, ...] = (
         freshness_limit_s=None,
         rate_limit="per-minute token limit",
     ),
+    SourceSpec(
+        id="okx",
+        name="OKX market data",
+        purpose="BTC/ETH funding, open interest and long/short positioning",
+        key="none",
+        freshness_limit_s=3600,
+        rate_limit="public endpoint limits",
+    ),
+    SourceSpec(
+        id="deribit",
+        name="Deribit options data",
+        purpose="BTC/ETH DVOL and 25-delta options skew",
+        key="none",
+        freshness_limit_s=3600,
+        rate_limit="public endpoint limits",
+    ),
 )
 
 _SPECS = {s.id: s for s in SOURCES}
@@ -168,6 +184,10 @@ async def test_source_key(source_id: str) -> tuple[bool, str | None]:
                 )
             elif source_id == "bitvavo":
                 response = await client.get("https://api.bitvavo.com/v2/time")
+            elif source_id == "okx":
+                response = await client.get("https://www.okx.com/api/v5/public/time")
+            elif source_id == "deribit":
+                response = await client.get("https://www.deribit.com/api/v2/public/test")
             else:
                 return False, "no test for this source"
         if response.status_code == 200:

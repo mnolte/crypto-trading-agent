@@ -14,7 +14,7 @@ from typing import IO
 from zoneinfo import ZoneInfo
 
 from alembic.config import Config
-from sqlalchemy import create_engine
+from sqlalchemy import UniqueConstraint, create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -435,6 +435,20 @@ class AskConversationRow(Base):
     updated_at: Mapped[datetime]
     title: Mapped[str]
     messages: Mapped[str]  # JSON list[AskMessage]
+
+
+class MarketContextRow(Base):
+    __tablename__ = "market_context"
+    __table_args__ = (UniqueConstraint("source", "metric", "symbol", "ts"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    source: Mapped[str]
+    metric: Mapped[str]
+    symbol: Mapped[str]
+    ts: Mapped[datetime]
+    value: Mapped[float]
+    meta: Mapped[str] = mapped_column(default="{}")
+    fetched_at: Mapped[datetime]
 
 
 def make_engine(db_path: Path) -> Engine:

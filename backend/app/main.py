@@ -29,6 +29,7 @@ from app.agent.market.universe import (
     warming_up,
 )
 from app.agent.outcomes import outcome_loop
+from app.api import context as context_routes
 from app.api import evidence, inspector, notifications, routes, screens, ws
 from app.api import sources as source_routes
 from app.api import understanding as understanding_routes
@@ -39,6 +40,8 @@ from app.api.deps import (
     generate_local_token,
 )
 from app.config import REPO_ROOT, get_env
+from app.context.collector import ContextCollector
+from app.context.scheduler import context_loop
 from app.db import EngineLock, MarketRow, make_engine, make_session_factory, run_migrations, utcnow
 from app.features import briefings as briefings_mod
 from app.features.shadows import ShadowRunner
@@ -236,6 +239,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await agent_engine.start()
         state.status = agent_engine.status
         state.tasks.append(asyncio.create_task(refresh_market_data(state)))
+        state.tasks.append(
+            asyncio.create_task(context_loop(ContextCollector(session_factory, registry)))
+        )
         state.tasks.append(asyncio.create_task(outcome_loop(session_factory, asyncio.Event())))
         state.tasks.append(asyncio.create_task(backup_loop(env.ta_db_path, env.ta_data_dir)))
         state.tasks.append(
@@ -268,6 +274,7 @@ def create_app() -> FastAPI:
     app.include_router(routes.router)
     app.include_router(screens.router)
     app.include_router(source_routes.router)
+    app.include_router(context_routes.router)
     app.include_router(inspector.router)
     app.include_router(understanding_routes.router)
     app.include_router(evidence.router)

@@ -133,7 +133,15 @@ class MarketUpdateIn(BaseModel):
 
 @router.get("/sources")
 def list_sources(state: Annotated[AppState, Depends(get_state)]) -> list[SourceOut]:
-    return [_source_out(s) for s in state.sources.statuses()]
+    statuses = state.sources.statuses()
+    session = state.session_factory()
+    try:
+        for status in statuses:
+            if status.spec.id in ("okx", "deribit"):
+                status.runtime.last_success_at = repo.newest_market_context(session, status.spec.id)
+    finally:
+        session.close()
+    return [_source_out(status) for status in statuses]
 
 
 @router.put("/sources/{source_id}", dependencies=[Depends(require_token)])

@@ -747,6 +747,65 @@
         "title": "CheckOut",
         "type": "object"
       },
+      "ContextOut": {
+        "properties": {
+          "fetched_at": {
+            "format": "date-time",
+            "title": "Fetched At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "title": "Meta",
+            "type": "object"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "okx",
+              "deribit"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "symbol": {
+            "enum": [
+              "BTC",
+              "ETH"
+            ],
+            "title": "Symbol",
+            "type": "string"
+          },
+          "ts": {
+            "format": "date-time",
+            "title": "Ts",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "metric",
+          "symbol",
+          "ts",
+          "value",
+          "meta",
+          "fetched_at"
+        ],
+        "title": "ContextOut",
+        "type": "object"
+      },
       "CostsOut": {
         "description": "Estimated spend per feature for one month, against the cap.",
         "properties": {
@@ -6727,6 +6786,20 @@
             ],
             "title": "Last Cycle At"
           },
+          "source_age_s": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Source Age S",
+            "type": "object"
+          },
           "sources": {
             "additionalProperties": {
               "type": "string"
@@ -6744,6 +6817,7 @@
           "cycle",
           "last_cycle_at",
           "sources",
+          "source_age_s",
           "errors_24h"
         ],
         "title": "HealthOut",
@@ -7528,6 +7602,110 @@
           }
         },
         "summary": "Get Candles"
+      }
+    },
+    "/api/context": {
+      "get": {
+        "operationId": "context_rows_api_context_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "metric",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Metric"
+            }
+          },
+          {
+            "in": "query",
+            "name": "symbol",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "BTC",
+                    "ETH"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Symbol"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ContextOut"
+                  },
+                  "title": "Response Context Rows Api Context Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Context Rows"
       }
     },
     "/api/costs": {
