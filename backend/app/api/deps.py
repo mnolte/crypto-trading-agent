@@ -234,7 +234,7 @@ def build_snapshot(state: AppState) -> Snapshot:
                 text=row.text,
                 decision_id=row.decision_id,
             )
-            for row in reversed(repo.recent_activity(session, limit=60))
+            for row in repo.list_activity(session, since=now - timedelta(hours=24), limit=2000)
         ]
         today = repo.trades_today(session, broker.account_id)
         usage = Usage(

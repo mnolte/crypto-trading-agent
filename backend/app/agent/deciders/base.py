@@ -37,9 +37,10 @@ class DecideContext:
     position: HeldPosition | None = None
     # Market-wide context the brief may use: btc_1h/btc_4h/btc_1d/usdc_1h.
     context_candles: dict[str, list[Candle]] = field(default_factory=dict)
-    # True while a per-coin or global entry pause is in force. Flat pairs
-    # don't reach the model then (no BUY could execute anyway); an open
-    # position still gets its call so SELL keeps working.
+    # True while new entries are off for the pair: a per-coin or global
+    # pause, or a market failing/deactivated in the eligibility check. Flat
+    # pairs don't reach the model then (no BUY could execute anyway); an
+    # open position still gets its call so SELL keeps working.
     entries_paused: bool = False
 
 

@@ -385,6 +385,51 @@ def test_number_check_accepts_fact_roundings() -> None:
     ]
 
 
+def test_number_check_sign_carried_by_words() -> None:
+    """A negative fact may be written as magnitude + direction word."""
+    facts = {"btc_week_pct": -2.3043523749738437, "equity_change_24h_eur": "-12.50"}
+    for text in [
+        "BTC experienced a decline of approximately 2.30% over the same period.",
+        "BTC fell 2.30% this week; equity is down €12.50.",
+        "The week closed 2.30% lower for BTC.",
+        "BTC: -2.30%.",
+    ]:
+        assert briefings.text_numbers_ok(text, facts) == [], text
+    # No direction word, a positive claim or an explicit wrong sign fail.
+    for text in [
+        "BTC moved 2.30% this week.",
+        "BTC gained 2.30% this week.",
+        "BTC moved +2.30% this week.",
+    ]:
+        assert briefings.text_numbers_ok(text, facts) == [Decimal("2.30")], text
+
+
+def test_number_check_allows_other_date_and_time_formats() -> None:
+    """A date or moment from the facts may be written in any format —
+    the parts count, not the punctuation or the order."""
+    facts = {
+        "for_date": "2026-10-13",
+        "generated_at": "2026-10-13T06:00:51.634857+00:00",
+        "alerts": ["entries paused until 2026-10-13T03:00:45.000025+00:00"],
+    }
+    for text in [
+        "As of October 13, 2026 nothing happened.",
+        "As of 13 October 2026 nothing happened.",
+        "Generated on 13-10-2026.",
+        "Generated on 13/10/2026.",
+        "Generated on 13.10.2026.",
+        "Copied verbatim: 2026-10-13T06:00:51.634857+00:00.",
+        "Entries paused until 03:00 today.",
+        "Entries paused until 03:00:45 today.",
+        # 03:00 UTC on 2026-10-13 is 05:00 in Europe/Amsterdam (CEST).
+        "Entries paused until 05:00 local time.",
+    ]:
+        assert briefings.text_numbers_ok(text, facts) == [], text
+    # A wrong day or minute still fails.
+    assert briefings.text_numbers_ok("As of October 14, 2026.", facts) == [Decimal("14")]
+    assert briefings.text_numbers_ok("Paused until 03:30.", facts) == [Decimal("30")]
+
+
 # ------------------------------------------------------------- api routes --
 
 

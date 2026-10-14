@@ -41,7 +41,7 @@ export function Insights() {
     return new Date(Date.now() - days * 86_400_000).toISOString();
   }, [period]);
 
-  const { data } = useInsights({ dimension, from, decider });
+  const { data, isPending } = useInsights({ dimension, from, decider });
 
   return (
     <AppShell
@@ -109,7 +109,9 @@ export function Insights() {
             value={dimension}
             onChange={setDimension}
           />
-          {data && data.slices.length > 0 ? (
+          {isPending ? (
+            <EmptyState title="Loading…" />
+          ) : data && data.slices.length > 0 ? (
             <>
               <DataTable
                 minWidth={620}
@@ -139,23 +141,49 @@ export function Insights() {
               </DataTable>
               <p className="card__meta">
                 Rows with fewer than {data.min_decisions} decisions are greyed:
-                too few to trust. Avoided: the hypothetical stop was hit first
-                after a HOLD or SKIP. Missed: the target was hit first.
+                too few to trust.
+                {data.decisions_needed > 0 &&
+                  ` The largest slice (${data.largest_slice_label}) has ${data.largest_slice_decisions} of ${data.min_decisions} — ${data.decisions_needed} more to go.`}
+                {" "}Avoided: the hypothetical stop was hit first after a
+                HOLD or SKIP. Missed: the target was hit first.
               </p>
             </>
           ) : (
             <EmptyState
-              title="Not enough decisions yet"
+              title="No findings yet"
               footer={
-                data
-                  ? `A slice needs ${data.min_decisions} decisions to count as a finding${
-                      data.decisions_needed > 0
-                        ? ` — at least ${data.decisions_needed} more to go`
-                        : ""
-                    }.`
+                data && data.decisions_needed > 0
+                  ? `At least ${data.decisions_needed} more decisions to go.`
                   : undefined
               }
-            />
+            >
+              {data && (
+                <>
+                  {`A finding needs ${data.min_decisions} decisions in a slice. You have ${data.total_decisions} so far${
+                    data.largest_slice_label
+                      ? `; the largest slice (${data.largest_slice_label}) has ${data.largest_slice_decisions}`
+                      : ""
+                  }. Early signals appear greyed from ${data.slice_min}.`}
+                  {data.largest_slice_decisions > 0 && (
+                    <div
+                      className="meter meter--muted"
+                      style={{ marginTop: "var(--space-2)" }}
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={data.min_decisions}
+                      aria-valuenow={data.largest_slice_decisions}
+                    >
+                      <div
+                        className="meter__fill"
+                        style={{
+                          width: `${Math.min(100, (data.largest_slice_decisions / data.min_decisions) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+            </EmptyState>
           )}
         </Card>
 

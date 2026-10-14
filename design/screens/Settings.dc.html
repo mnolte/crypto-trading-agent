@@ -125,6 +125,11 @@ button,input,select{font-family:inherit}
         <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Throttle after losses in a row / drawdown (%)</span><span style="display: flex; gap: 8px"><input type="number" value="3" aria-label="Losses in a row" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px; width: 50%"><input type="number" value="4" aria-label="Drawdown percent" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-family: 'IBM Plex Mono', monospace; font-size: 14px; width: 50%"></span></label>
       </div>
       <label style="display: flex; align-items: flex-start; gap: 10px; min-height: 44px; font-size: 14px; line-height: 1.45"><input type="checkbox" style="width: 20px; height: 20px; margin-top: 1px; accent-color: #F2B94B"><span>Trailing stop from +2R (2 × ATR below the highest close)<br><span style="font-size: 12px; color: #98A2AF">Off by default. Test it in What-if or as a shadow strategy first.</span></span></label>
+      <div style="display: flex; flex-direction: column; gap: 12px; padding-top: 14px; border-top: 1px solid #232A35">
+        <h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Event flags<span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; margin-left: 6px; border-radius: 4px; background: #13202F; border: 1px solid #24405F; color: #7FB8FF; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0; text-transform: none; vertical-align: middle">v0.2</span></h3>
+        <label style="display: flex; align-items: flex-start; gap: 10px; min-height: 44px; font-size: 14px; line-height: 1.45"><input type="checkbox" style="width: 20px; height: 20px; margin-top: 1px; accent-color: #F2B94B"><span>News flag: block new entries on all pairs until I clear it<br><span style="font-size: 12px; color: #98A2AF">For an exchange hack, an ETF decision or major regulation. Exits keep working. Also on the Dashboard.</span></span></label>
+        <label style="display: flex; align-items: flex-start; gap: 10px; min-height: 44px; font-size: 14px; line-height: 1.45"><input type="checkbox" style="width: 20px; height: 20px; margin-top: 1px; accent-color: #F2B94B"><span>Macro event gate: no new entries from 6h before to 1h after FOMC, US CPI and US jobs reports<br><span style="font-size: 12px; color: #98A2AF">Off by default. 18 events in config/macro_events.yaml · next: FOMC, 28 Oct 18:00 UTC. <a href="WhatIf.dc.html">Test in What-if first</a></span></span></label>
+      </div>
     </section>
 
     <section aria-label="Decision model" style="flex: 1 1 480px; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
@@ -257,23 +262,18 @@ button,input,select{font-family:inherit}
               <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" checked aria-label="Bitvavo market data enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
             </tr>
             <tr style="border-top: 1px solid #232A35">
-              <td style="padding: 12px 8px 12px 0; font-weight: 500">
-                <div style="display: flex; flex-direction: column; gap: 6px">
-                  <span>Futures data</span>
-                  <select aria-label="Futures data provider" style="height: 32px; padding: 0 6px; border-radius: 6px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 12px; width: 120px"><option>Binance</option><option>Bybit</option><option>OKX</option></select>
-                </div>
-              </td>
-              <td style="padding: 12px 8px; color: #C9CFD6">Funding, open interest, long/short ratio</td>
+              <td style="padding: 12px 8px 12px 0; font-weight: 500">OKX market data<span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; margin-left: 6px; border-radius: 4px; background: #13202F; border: 1px solid #24405F; color: #7FB8FF; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0; text-transform: none; vertical-align: middle">v0.2</span></td>
+              <td style="padding: 12px 8px; color: #C9CFD6">Funding, open interest, long/short ratio · BTC and ETH, hourly</td>
               <td style="padding: 12px 8px"><span style="padding: 2px 6px; border-radius: 4px; background: #1C222C; color: #C9CFD6; font-size: 11px">no key needed</span></td>
-              <td style="padding: 12px 8px; color: #98A2AF">Off · planned v0.2</td>
-              <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" aria-label="Futures data enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
+              <td style="padding: 12px 8px"><span style="color: #3DD68C">OK</span> <span style="color: #98A2AF; font-family: 'IBM Plex Mono', monospace">12:05 · 91 days stored</span></td>
+              <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" checked aria-label="OKX market data enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
             </tr>
             <tr style="border-top: 1px solid #232A35">
-              <td style="padding: 12px 8px 12px 0; font-weight: 500">Deribit</td>
-              <td style="padding: 12px 8px; color: #C9CFD6">Options implied volatility (DVOL) and skew</td>
+              <td style="padding: 12px 8px 12px 0; font-weight: 500">Deribit options data<span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; margin-left: 6px; border-radius: 4px; background: #13202F; border: 1px solid #24405F; color: #7FB8FF; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0; text-transform: none; vertical-align: middle">v0.2</span></td>
+              <td style="padding: 12px 8px; color: #C9CFD6">DVOL and 25-delta skew · BTC and ETH, hourly</td>
               <td style="padding: 12px 8px"><span style="padding: 2px 6px; border-radius: 4px; background: #1C222C; color: #C9CFD6; font-size: 11px">no key needed</span></td>
-              <td style="padding: 12px 8px; color: #98A2AF">Off · planned v0.2</td>
-              <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" aria-label="Deribit enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
+              <td style="padding: 12px 8px"><span style="color: #3DD68C">OK</span> <span style="color: #98A2AF; font-family: 'IBM Plex Mono', monospace">12:05 · skew 34 days</span></td>
+              <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" checked aria-label="Deribit options data enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
             </tr>
             <tr style="border-top: 1px solid #232A35">
               <td style="padding: 12px 8px 12px 0; font-weight: 500">CoinGecko</td>
@@ -285,14 +285,14 @@ button,input,select{font-family:inherit}
                   <button type="button" style="height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 12px; cursor: pointer">Save &amp; test</button>
                 </div>
               </td>
-              <td style="padding: 12px 8px; color: #98A2AF">Off · planned v0.2</td>
+              <td style="padding: 12px 8px; color: #98A2AF">Off · after v0.2</td>
               <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" aria-label="CoinGecko enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
             </tr>
             <tr style="border-top: 1px solid #232A35">
               <td style="padding: 12px 8px 12px 0; font-weight: 500">alternative.me</td>
               <td style="padding: 12px 8px; color: #C9CFD6">Fear &amp; Greed Index</td>
               <td style="padding: 12px 8px"><span style="padding: 2px 6px; border-radius: 4px; background: #1C222C; color: #C9CFD6; font-size: 11px">no key needed</span></td>
-              <td style="padding: 12px 8px; color: #98A2AF">Off · planned v0.2</td>
+              <td style="padding: 12px 8px; color: #98A2AF">Off · after v0.2</td>
               <td style="padding: 12px 0 12px 8px; text-align: right"><input type="checkbox" aria-label="Fear and Greed enabled" style="width: 20px; height: 20px; accent-color: #F2B94B"></td>
             </tr>
             <tr style="border-top: 1px solid #232A35">

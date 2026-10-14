@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import uuid
 from collections import deque
 from collections.abc import Awaitable, Callable
@@ -34,13 +35,14 @@ from app.agent.market.base import (
     MarketInfo,
     drop_forming,
 )
-from app.agent.market.universe import warming_up
+from app.agent.market.universe import entries_allowed, warming_up
 from app.agent.risk import BuyContext, check_buy, check_exit, update_trail
 from app.agent.signals import (
     PairSignals,
     aligned_correlation,
     compute_pair_signals,
     compute_tf_values,
+    decision_signals,
 )
 from app.db import AccountRow, DecisionRow, utcnow
 from app.models import (
@@ -65,12 +67,15 @@ MAX_PARALLEL_PAIRS = 3
 TF_LIMITS: dict[Tf, int] = {"1h": 800, "4h": 300, "1d": 300}
 TF_SECONDS = {"1h": 3600, "4h": 14400, "1d": 86400}
 SHOCK_WINDOW_S = 3600
+SHOCK_RANGE_ATR_MULT = Decimal("3")  # spec-fixed: candle range over 3 x ATR(1h)
 EXIT_TICK_PCT = Decimal("0.5")  # watcher prices within 0.5% of stop/target
 CORR_BARS = 720
 
 Clock = Callable[[], datetime]
 Sleeper = Callable[[float], Awaitable[None]]
 Notifier = Callable[[str, str, str], Awaitable[None]]
+
+log = logging.getLogger(__name__)
 
 
 def _stale_limit_s(tf: str, settings: Settings) -> int:
@@ -164,11 +169,49 @@ class Engine:
             session.commit()
         finally:
             session.close()
+        await self.refresh_prices()
         self._stop.clear()
         self.tasks = [
             asyncio.create_task(self._scheduler_loop()),
             asyncio.create_task(self._watcher_loop()),
         ]
+
+    async def refresh_prices(self) -> None:
+        """One price pass over the active markets and held pairs.
+
+        Spec restart behaviour: the backend refreshes prices at startup so
+        the GUI shows a live price and 24h change per pair badge while the
+        agent waits in Paused. Never raises: a failing source must not stop
+        startup.
+        """
+        try:
+            session = self._sessions()
+            try:
+                settings = self._settings()
+                now = self.clock()
+                pairs = dict.fromkeys([*settings.active_markets, *self.broker.positions])
+                for pair in pairs:
+                    try:
+                        candles = await self._fetch_closed(session, pair, "1h", now)
+                    except Exception:
+                        # Stored candles still give the GUI a last price.
+                        log.exception("startup price refresh failed for %s", pair)
+                        session.rollback()
+                        candles = drop_forming(
+                            repo.load_candles(session, pair, "1h", TF_LIMITS["1h"]),
+                            "1h",
+                            now,
+                        )
+                    if not candles:
+                        continue
+                    if candle_age_s(candles[-1], "1h", now) > _stale_limit_s("1h", settings):
+                        self._mark_stale(pair, candles[-1].close)
+                    else:
+                        self._update_price(session, pair, candles[-1].close, candles, now)
+            finally:
+                session.close()
+        except Exception:
+            log.exception("startup price refresh failed")
 
     async def stop(self) -> None:
         self._stop.set()
@@ -184,6 +227,7 @@ class Engine:
         """Stop the scheduler. Exits keep being watched."""
         if self.status == "running":
             self.status = "paused"
+            self.next_run_at = None
 
     def resume(self) -> None:
         """Resume cycles; refused while Killed until the kill is acknowledged."""
@@ -191,6 +235,7 @@ class Engine:
             raise KilledRefusal("agent is Killed; acknowledge the kill first")
         if self.status == "paused":
             self.status = "running"
+            self.next_run_at = self._next_due(self.clock())
 
     async def run_now(self) -> bool:
         """Start a cycle now if none is running. Refused while Killed: no
@@ -290,6 +335,7 @@ class Engine:
             self.broker.persist(session, self.clock())
             self.kill = None
             self.status = "paused"
+            self.next_run_at = None
             repo.add_activity(session, "system", "Kill acknowledged; agent Paused")
             session.commit()
         finally:
@@ -330,7 +376,29 @@ class Engine:
             if now < due:
                 await self._sleep(min(1.0, max(0.0, (due - now).total_seconds())))
                 continue
-            await self.run_cycle()
+            try:
+                await self.run_cycle()
+            except Exception as exc:
+                # A crashed cycle must never kill the scheduler.
+                await self._note_cycle_error(exc)
+
+    async def _note_cycle_error(self, exc: Exception) -> None:
+        """Best-effort error record for a crashed cycle; never raises."""
+        log.exception("cycle %d failed", self.cycle)
+        try:
+            session = self._sessions()
+            try:
+                repo.add_activity(
+                    session,
+                    "error",
+                    f"cycle {self.cycle} failed: {exc}",
+                    at=self.clock(),
+                )
+                session.commit()
+            finally:
+                session.close()
+        except Exception:
+            log.exception("recording the cycle error failed too")
 
     async def _watcher_loop(self) -> None:
         while not self._stop.is_set():
@@ -371,6 +439,12 @@ class Engine:
                     for m in settings.active_markets
                     if not warming_up(session, m, settings.market)
                 ]
+                # A held position keeps its cycle on a deactivated or
+                # failing market — the model still manages it until it
+                # closes; "one position per pair" blocks any new entry.
+                for pair in self.broker.positions:
+                    if pair not in pairs:
+                        pairs.append(pair)
                 sem = asyncio.Semaphore(MAX_PARALLEL_PAIRS)
 
                 async def guarded(pair: str) -> None:
@@ -378,6 +452,8 @@ class Engine:
                         pair_session = self._sessions()
                         try:
                             await self._decide_pair(pair_session, pair, context, now)
+                        except Exception as exc:
+                            await self._record_pair_failure(pair_session, pair, exc)
                         finally:
                             pair_session.close()
 
@@ -397,8 +473,46 @@ class Engine:
             finally:
                 session.close()
                 self.cycle_in_progress = False
-                self.next_run_at = self._next_due(self.clock() + timedelta(seconds=1))
+                self.next_run_at = (
+                    self._next_due(self.clock() + timedelta(seconds=1))
+                    if self.status == "running"
+                    else None
+                )
             await self._push()
+
+    async def _record_pair_failure(self, session: Session, pair: str, exc: Exception) -> None:
+        """A crashed pair still ends as a recorded HOLD — never a trade,
+        never silent — and the other pairs' work is untouched."""
+        log.exception("cycle %d: deciding %s failed", self.cycle, pair)
+        try:
+            session.rollback()
+            now = self.clock()
+            decision_id = uuid.uuid4().hex[:16]
+            repo.add_activity(
+                session,
+                "error",
+                f"cycle failed for {pair}: {exc}",
+                pair=pair,
+                decision_id=decision_id,
+                at=now,
+            )
+            self._record_decision(
+                session,
+                pair,
+                now,
+                Draft(
+                    action="HOLD",
+                    confidence=0.0,
+                    reasoning=f"cycle error: {exc}",
+                    signals=[],
+                ),
+                None,
+                [],
+                error=f"cycle error: {exc}",
+                decision_id=decision_id,
+            )
+        except Exception:
+            session.rollback()
 
     async def _load_context(
         self, session: Session, settings: Settings, now: datetime
@@ -543,6 +657,7 @@ class Engine:
 
         pos = self.broker.positions.get(pair)
         pause = repo.active_entry_pause(session, pair, now)
+        entries_open = entries_allowed(session, pair)
         prev_4h = compute_tf_values(candles["4h"][:-1], "4h") if len(candles["4h"]) > 1 else None
         decider = (
             self.openai_decider
@@ -569,7 +684,7 @@ class Engine:
                 cycle=self.cycle,
                 position=pos,
                 context_candles={k: v for k, v in context.items() if isinstance(v, list)},
-                entries_paused=pause is not None,
+                entries_paused=pause is not None or not entries_open,
             )
         )
         return await self._execute_draft(
@@ -694,6 +809,7 @@ class Engine:
                     repo.aware_utc(pause.until) if pause is not None and pause.until else None
                 ),
                 entry_paused_indefinite=pause is not None and pause.until is None,
+                entries_allowed=entries_allowed(session, pair),
             )
             verdict = check_buy(ctx, self.broker, self.market_rules.get(pair), settings)
             gates = verdict.gates
@@ -985,6 +1101,7 @@ class Engine:
                     repo.aware_utc(pause.until) if pause is not None and pause.until else None
                 ),
                 entry_paused_indefinite=pause is not None and pause.until is None,
+                entries_allowed=entries_allowed(session, row.pair),
             ),
             self.broker,
             self.market_rules.get(row.pair),
@@ -1100,6 +1217,7 @@ class Engine:
             await self._close_position(session, pair, price, now, "kill")
             closed.append(pair)
         self.status = "killed"
+        self.next_run_at = None
         account = self.broker.account
         account.kill_at = now
         account.last_kill_at = now
@@ -1145,7 +1263,7 @@ class Engine:
         if atr_1h is None or atr_1h <= 0:
             return
         rng = last_1h.high - last_1h.low
-        if rng > 3 * atr_1h:
+        if rng > SHOCK_RANGE_ATR_MULT * atr_1h:
             await self._trigger_shock(session, now, settings, f"{pair} candle range")
 
     async def _trigger_shock(
@@ -1294,7 +1412,7 @@ class Engine:
             confidence=draft.confidence,
             reasoning=draft.reasoning,
             invalidation=draft.invalidation,
-            signals=draft.signals,
+            signals=decision_signals(draft.signals, signals),
             plan=plan,
             gates=gates,
             status=status,

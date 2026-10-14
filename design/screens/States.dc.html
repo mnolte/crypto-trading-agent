@@ -192,6 +192,46 @@ button,input{font-family:inherit}
     </div>
   </div>
 
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Banner · news flag<span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; margin-left: 6px; border-radius: 4px; background: #13202F; border: 1px solid #24405F; color: #7FB8FF; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0; text-transform: none; vertical-align: middle">v0.2</span></div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 20px; background: #3A2A0E; border: 1px solid #6B4E17; border-radius: 10px; color: #FFD58A">
+      <span style="flex: 1 1 400px; line-height: 1.5">News flag on since 04:20: "Exchange outage at a major venue". No new entries on any pair until you clear it; stops, targets and the exit watcher keep working.</span>
+      <button type="button" style="height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #6B4E17; background: transparent; color: #FFD58A; font-size: 13px; cursor: pointer">Clear flag</button>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Banner · macro event window<span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; margin-left: 6px; border-radius: 4px; background: #13202F; border: 1px solid #24405F; color: #7FB8FF; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0; text-transform: none; vertical-align: middle">v0.2</span></div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 20px; background: #3A2A0E; border: 1px solid #6B4E17; border-radius: 10px; color: #FFD58A">
+      <span style="flex: 1 1 400px; line-height: 1.5">Macro event: FOMC decision at 18:00 UTC. No new entries from 12:00 to 19:00 UTC; open positions are managed as usual.</span>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">3:12 to event</span>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+    <div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Dialog · set news flag<span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; margin-left: 6px; border-radius: 4px; background: #13202F; border: 1px solid #24405F; color: #7FB8FF; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0; text-transform: none; vertical-align: middle">v0.2</span></div>
+      <div role="dialog" aria-label="Set news flag" style="background: #12161D; border: 1px solid #2E3643; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 600">Set the news flag?</h2>
+        <p style="margin: 0; font-size: 14px; color: #C9CFD6; line-height: 1.5">New entries stop on every pair, for live and shadows, until you clear the flag. Exits keep working. Use it for hard events: an exchange hack, an ETF decision, major regulation.</p>
+        <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #98A2AF">Reason (optional, logged)</span><input type="text" value="Exchange outage at a major venue" style="height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 14px"></label>
+        <div style="display: flex; justify-content: flex-end; gap: 10px">
+          <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; cursor: pointer">Cancel</button>
+          <button type="button" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 0; background: #F2B94B; color: #0B0E13; font-size: 14px; font-weight: 600; cursor: pointer">Set flag</button>
+        </div>
+      </div>
+    </div>
+    <div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Settings row · source stale<span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; margin-left: 6px; border-radius: 4px; background: #13202F; border: 1px solid #24405F; color: #7FB8FF; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0; text-transform: none; vertical-align: middle">v0.2</span></div>
+      <div style="background: #12161D; border: 1px solid #232A35; border-radius: 12px; padding: 14px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 13px">
+        <span style="font-weight: 500; flex: 0 0 160px">OKX market data</span>
+        <span style="color: #C9CFD6; flex: 1 1 200px">Funding, open interest, long/short ratio</span>
+        <span><span style="color: #FFD58A">Stale</span> <span style="color: #98A2AF; font-family: 'IBM Plex Mono', monospace">last 09:05 · 3 failures · timeout</span></span>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.5">A failing collector never affects trading cycles. In decision.v2 briefs the stale values are sent as null with the reason, and the drawer shows "stale" in the Read column.</p>
+    </div>
+  </div>
+
   <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
     <div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
       <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Dialog · delete all data</div>

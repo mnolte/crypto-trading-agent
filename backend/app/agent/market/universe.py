@@ -155,7 +155,9 @@ async def _daily_candles(
     client: MarketClient, session: Session, market: str, limit: int, now: datetime
 ) -> list[Candle]:
     """Closed daily candles, freshest from the exchange, stored for reuse."""
-    fetched = drop_forming(await client.candles(market, "1d", limit, end=now), "1d", now)
+    # Ask for one extra bar: the exchange's `limit` includes the still
+    # forming candle, which we drop — this lands exactly `limit` closed.
+    fetched = drop_forming(await client.candles(market, "1d", limit + 1, end=now), "1d", now)
     if fetched:
         upsert_candles(session, market, "1d", fetched)
         return fetched
@@ -271,6 +273,16 @@ def warming_up(session: Session, market: str, cfg: MarketSettings) -> bool:
         or counts.get("4h", 0) < cfg.history_4h
         or counts.get("1d", 0) < cfg.history_1d
     )
+
+
+def entries_allowed(session: Session, market: str) -> bool:
+    """A market takes new entries only while it is active and passing the
+    daily eligibility check — a market that is failing stays active for
+    display but takes no new entries, and a deactivated one takes none.
+    A missing row means the check never ran; the freshness and input
+    checks still guard the pair."""
+    row = session.get(MarketRow, market)
+    return row is None or (row.active and row.eligible)
 
 
 async def backfill_market(

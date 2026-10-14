@@ -124,6 +124,16 @@ def test_one_position_per_pair() -> None:
     assert v.outcome == "skip" and v.skip_reason == "One position per pair"
 
 
+def test_ineligible_market_blocks_entries() -> None:
+    """A failing or deactivated market takes no new entries — a BUY-only
+    gate like the entry pause; exits and prices keep working."""
+    v = check_buy(_ctx(entries_allowed=False), _broker(), None, _settings())
+    assert v.outcome == "skip" and v.skip_reason == "Market eligibility"
+    assert next(g for g in v.gates if g.name == "Market eligibility").status == "fail"
+    ok = check_buy(_ctx(), _broker(), None, _settings())
+    assert next(g for g in ok.gates if g.name == "Market eligibility").status == "pass"
+
+
 def test_cooldown_after_stopout() -> None:
     v = check_buy(
         _ctx(last_stop_out_at=NOW - timedelta(hours=5, minutes=59)),

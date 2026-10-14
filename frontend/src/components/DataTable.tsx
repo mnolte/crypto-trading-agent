@@ -12,13 +12,19 @@ export function DataTable({
   columns,
   children,
   minWidth,
+  maxHeight,
 }: {
   columns: Column[];
   children: ReactNode;
   minWidth?: number;
+  /** Cap the height in px: body scrolls vertically and the header sticks. */
+  maxHeight?: number;
 }) {
   return (
-    <div className="table-scroll">
+    <div
+      className={maxHeight ? "table-scroll table-scroll--cap" : "table-scroll"}
+      style={maxHeight ? { maxHeight } : undefined}
+    >
       <table className="dtable" style={minWidth ? { minWidth } : undefined}>
         <thead>
           <tr>

@@ -12,6 +12,7 @@ from them so the timeframes always agree.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import math
 from datetime import UTC, datetime, timedelta
@@ -93,6 +94,31 @@ class _MarketWalk:
         self.next_close = close
         self.next_open = open_time + HOUR
 
+    def clone(self) -> _MarketWalk:
+        """A copy that continues the same walk: same bars, same rng stream.
+
+        Candle objects are immutable, so the history list is shared; the rng
+        state and the frontier are copied, making the clone indistinguishable
+        from a walk generated from scratch.
+        """
+        walk = _MarketWalk.__new__(_MarketWalk)
+        walk.rng = np.random.default_rng(0)
+        walk.rng.bit_generator.state = copy.deepcopy(self.rng.bit_generator.state)
+        walk.vol = self.vol
+        walk.base_vol = self.base_vol
+        walk.candles = list(self.candles)
+        walk.next_open = self.next_open
+        walk.next_close = self.next_close
+        return walk
+
+
+# Per-process template walks keyed by (seed, market). Generating the hourly
+# history from GENESIS is the slow part of a SimMarket, so the first walk to
+# reach a given frontier becomes the template: later SimMarket instances clone
+# it instead of replaying thousands of bars. Cloning preserves the rng stream,
+# so prices stay identical to generating each instance from scratch.
+_WALK_TEMPLATES: dict[tuple[int, str], _MarketWalk] = {}
+
 
 def _aggregate(candles: list[Candle], tf: Tf) -> list[Candle]:
     """Aggregate 1h bars into 4h or 1d bars (aligned to UTC boundaries)."""
@@ -144,7 +170,7 @@ class SimMarket:
         # demos/e2e); a datetime pins the walk to a fixed instant (tests).
         self._now = (now if now.tzinfo is not None else now.replace(tzinfo=UTC)) if now else None
         self.market_names = list(markets or [*DEFAULT_MARKETS, "USDC-EUR"])
-        self._walks = {m: _MarketWalk(seed, m) for m in self.market_names}
+        self._walks: dict[str, _MarketWalk] = {}
 
     # -- fake clock ---------------------------------------------------------
 
@@ -165,7 +191,12 @@ class SimMarket:
 
     def _walk(self, market: str) -> _MarketWalk:
         if market not in self._walks:
-            self._walks[market] = _MarketWalk(self.seed, market)
+            key = (self.seed, market)
+            template = _WALK_TEMPLATES.get(key)
+            if template is None:
+                template = _MarketWalk(self.seed, market)
+                _WALK_TEMPLATES[key] = template
+            self._walks[market] = template.clone()
             if market not in self.market_names:
                 self.market_names.append(market)
         return self._walks[market]
@@ -179,14 +210,23 @@ class SimMarket:
         start: datetime | None = None,
         end: datetime | None = None,
     ) -> list[Candle]:
-        walk = self._walk(market)
         needed = end or self.now
         if start is not None:
             needed = max(needed, start)
+        walk = self._walk(market)
         walk.ensure(needed)
+        key = (self.seed, market)
+        template = _WALK_TEMPLATES[key]
+        if walk.next_open > template.next_open:
+            # The clone outran the template: adopt it so later SimMarket
+            # instances start from the longer history.
+            _WALK_TEMPLATES[key] = walk.clone()
         bars: list[Candle] = walk.candles
         if interval != "1h":
-            bars = _aggregate(bars, interval)
+            # The template can hold bars beyond `needed`; a fresh walk would
+            # stop there, so aggregate only what it would have generated to
+            # keep the trailing (forming) bucket identical.
+            bars = _aggregate([c for c in bars if c.open_time <= needed], interval)
         if start is not None:
             bars = [c for c in bars if c.open_time >= start]
         if end is not None:

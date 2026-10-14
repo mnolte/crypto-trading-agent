@@ -1839,6 +1839,21 @@
             "title": "Findings",
             "type": "array"
           },
+          "largest_slice_decisions": {
+            "title": "Largest Slice Decisions",
+            "type": "integer"
+          },
+          "largest_slice_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Largest Slice Label"
+          },
           "min_decisions": {
             "title": "Min Decisions",
             "type": "integer"
@@ -1853,6 +1868,10 @@
               }
             ],
             "title": "Prompt Version"
+          },
+          "slice_min": {
+            "title": "Slice Min",
+            "type": "integer"
           },
           "slices": {
             "items": {
@@ -1878,8 +1897,11 @@
           "decider",
           "prompt_version",
           "min_decisions",
+          "slice_min",
           "total_decisions",
           "decisions_needed",
+          "largest_slice_label",
+          "largest_slice_decisions",
           "decider_options",
           "findings",
           "slices",

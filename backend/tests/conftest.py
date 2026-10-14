@@ -7,6 +7,7 @@ in a per-test dict so they never touch the OS keychain or a developer's
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -17,7 +18,21 @@ from fastapi.testclient import TestClient
 import app.config
 from app.agent.market.sim import SimMarket
 from app.config import get_env
+from app.db import run_migrations
 from app.main import create_app
+
+
+@pytest.fixture(scope="session")
+def migrated_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A fully migrated database built once per test process.
+
+    Per-test databases are file copies of this template, so app startup runs
+    a no-op ``upgrade head`` instead of replaying every migration. Tests that
+    exercise the migration itself unlink the copy and start from nothing.
+    """
+    template = tmp_path_factory.mktemp("db-template") / "agent.db"
+    run_migrations(template)
+    return template
 
 
 @pytest.fixture(autouse=True)
@@ -33,9 +48,24 @@ def fake_keyring(monkeypatch: pytest.MonkeyPatch) -> dict[tuple[str, str], str]:
     return store
 
 
+@pytest.fixture(autouse=True)
+def no_briefing_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The startup briefing/weekly-review loop never fires in tests: inside
+    its 4-hour grace window it writes activity rows mid-test and races
+    seeded data. Tests that need a briefing call generate_briefing or
+    maybe_brief/maybe_weekly_review directly."""
+
+    async def _noop(*args: object, **kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr("app.features.briefings.briefing_loop", _noop)
+
+
 @pytest.fixture
-def env_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
+def env_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, migrated_db: Path) -> Iterator[Path]:
     data = tmp_path / "data"
+    data.mkdir()
+    shutil.copyfile(migrated_db, data / "agent.db")
     monkeypatch.setenv("TA_DB_PATH", str(data / "agent.db"))
     monkeypatch.setenv("TA_DATA_DIR", str(data))
     monkeypatch.setenv("TA_DATA_SOURCE", "sim")

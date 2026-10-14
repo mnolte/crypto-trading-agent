@@ -400,7 +400,14 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
             "min_rr": float(s.risk.min_rr),
             "min_stop_atr": float(s.risk.stop_min_atr),
             "max_stop_atr": float(s.risk.stop_max_atr),
-            "min_stop_pct": 2 * float(s.paper.fee_pct) + 4 * float(s.paper.slippage_pct),
+            # The smallest stop distance that passes the "Costs vs risk"
+            # gate: round-trip costs must stay under max_cost_pct_of_risk
+            # of the stop, so the floor is cost_pct / (max_cost / 100).
+            "min_stop_pct": float(
+                (s.paper.fee_pct * 2 + s.paper.slippage_pct * 2) * 100 / s.risk.max_cost_pct_of_risk
+            )
+            if s.risk.max_cost_pct_of_risk > 0
+            else None,
             "max_age_s": {tf: TF_SECONDS[tf] + s.market.stale_grace_s for tf in TF_KEYS},
         },
         "time": {"hour": ams.hour, "weekday": ams.strftime("%A")},

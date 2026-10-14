@@ -186,6 +186,32 @@ def test_conditions_each_boundary() -> None:
     assert not any(c.values())
 
 
+async def test_condition_signals_fill_other_timeframes() -> None:
+    """The stored chips evaluate each condition on 4h and 1d as well, so the
+    drawer's signal stack fills every column; a missing input stays a dash."""
+    decider = RulesDecider()
+    sig = _bullish_signals()
+    d = await decider.decide(_ctx(sig, holding=True))
+    cells = {(s.name, s.tf): s.read for s in d.signals}
+    # C1 is the composite: its 4h cell is the 4h EMA cross, its 1d cell the
+    # daily close vs EMA 200 — the two legs of the condition itself.
+    assert cells[("C1", "4h")] == "bullish"
+    assert cells[("C1", "1d")] == "bullish"
+    # The fixture sets only EMAs on 4h and close/EMA200 on 1d: C2 fills 4h,
+    # C3..C6 stay dashes on both extra columns.
+    assert cells[("C2", "4h")] == "bullish"
+    assert ("C2", "1d") not in cells
+    for name in ("C3", "C4", "C5", "C6"):
+        assert (name, "4h") not in cells and (name, "1d") not in cells
+
+    # A failed per-tf test still emits a verdict — only missing inputs dash.
+    h4_down = _tf(ema20=100.0, ema50=101.0)
+    d = await decider.decide(_ctx(_signals(sig.tf["1h"], h4_down, sig.tf["1d"])))
+    cells = {(s.name, s.tf): s.read for s in d.signals}
+    assert cells[("C1", "4h")] == "neutral"
+    assert cells[("C2", "4h")] == "neutral"
+
+
 async def test_prefilter() -> None:
     decider = RulesDecider()
     # C1 + only 2 of C2..C6 (C3, C4) → no model call.

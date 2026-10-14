@@ -114,9 +114,9 @@ export function IndicatorChart({
 
     if (overlays.ema) {
       for (const [key, color, width] of [
-        ["ema20", css("--accent"), 1],
-        ["ema50", "#5AA9FF", 1],
-        ["ema200", css("--text"), 1],
+        ["ema20", css("--series-ema20"), 1],
+        ["ema50", css("--series-ema50"), 1],
+        ["ema200", css("--series-ema200"), 1],
       ] as const) {
         chart
           .addSeries(
@@ -131,7 +131,7 @@ export function IndicatorChart({
       chart
         .addSeries(
           LineSeries,
-          { color: "#B48CFF", lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false },
+          { color: css("--series-vwap"), lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false },
           0,
         )
         .setData(toLine(series.vwap));
@@ -161,7 +161,7 @@ export function IndicatorChart({
     const REGIME_COLOR: Record<string, string> = {
       up: css("--up"),
       down: css("--down-text"),
-      sideways: "#9FB4CC",
+      sideways: css("--side"),
     };
     band.setData(
       regimeBand.map((b) => ({

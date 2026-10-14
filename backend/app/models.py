@@ -899,8 +899,11 @@ class InsightsOut(BaseModel):
     decider: str
     prompt_version: str | None
     min_decisions: int
+    slice_min: int  # slices under this are hidden, at/above show greyed
     total_decisions: int
     decisions_needed: int  # until the largest slice reaches the finding bar
+    largest_slice_label: str | None  # biggest slice even when under slice_min
+    largest_slice_decisions: int
     decider_options: list[DeciderOption]
     findings: list[InsightFinding]
     slices: list[InsightSliceOut]

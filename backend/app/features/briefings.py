@@ -17,7 +17,7 @@ import asyncio
 import json
 import re
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal
@@ -192,6 +192,7 @@ def compute_facts(
                 1
                 for s in signals
                 if s.get("name", "") in ("C2", "C3", "C4", "C5", "C6")
+                and s.get("tf") == "1h"
                 and s.get("read") == "bullish"
             )
             ranked.append((met, pair))
@@ -247,18 +248,64 @@ def compute_facts(
 
 _MINUS = "\u2212"
 _NUMBER = re.compile(r"[-+\u2212]?\d{1,3}(?:,\d{3})+(?:\.\d+)?|[-+\u2212]?\d+(?:\.\d+)?")
+# A full stop ends a sentence only when it is not a decimal point.
+_SENT_END = re.compile(r"[.!?](?!\d)|\n")
+# Words that put a minus on an unsigned magnitude ("a decline of 2.30%",
+# "down €12.50"). Consulted only when a written number matches no fact
+# but its negation does — so "gained 2.30%" for a -2.30% fact still fails.
+_NEGATIVE_WORDS = re.compile(
+    r"\b(?:declin\w*|down\w*|dropp?\w*|fell|fall(?:s|ing|en)?|decreas\w*|"
+    r"loss(?:es)?|lost|lower(?:ed|ing)?|minus|negativ\w*|shed|slid\w*|"
+    r"slipp?\w*|dipp?\w*|below|underwater|red|retreat\w*|sank|sunk|"
+    r"weaken\w*|drawdown|worse|worst|behind|lag\w*|trailing|underperform\w*|"
+    r"deficit|off|tumble\w*|slump\w*|plunge\w*|crater\w*|pullback|"
+    r"correction|shrank|shrunk|halv\w*|cut|gave back|pared|erased)\b",
+    re.IGNORECASE,
+)
+# An ISO 8601 date or datetime inside a fact string ("2026-10-13",
+# "2026-10-13T03:00:45.000025+00:00"). The tokeniser above reads a
+# date's hyphens as minus signs and loses the day and month; every
+# component is a fact number on its own, because the text may write
+# the same moment in another format ("October 13, 2026", "13-10-2026").
+_ISO_MOMENT = re.compile(
+    r"(?<!\d)\d{4}-\d{2}-\d{2}"
+    r"(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?(?!\d)"
+)
+# A date or clock time as written in the text — ISO or day-first order
+# with -, / or . separators, or HH:MM[:SS]. Checked part by part, so
+# "13-10-2026" and "13.10.2026" pass the way "2026-10-13" does.
+_TEXT_MOMENT = re.compile(
+    r"(?<!\d)(?:\d{4}-\d{1,2}-\d{1,2}(?:[T ]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?"
+    r"(?:Z|[+-]\d{1,2}:?\d{2})?)?|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|"
+    r"\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?)(?!\d)"
+)
+
+
+def _number_tokens(text: str) -> Iterator[tuple[Decimal, int, int, bool]]:
+    """Every numeric token: value, span and whether a sign was written."""
+    for match in _NUMBER.finditer(text):
+        raw = match.group(0)
+        signed = raw[0] in "-+\u2212"
+        cleaned = raw.replace(_MINUS, "-").replace("+", "").replace(",", "")
+        try:
+            yield Decimal(cleaned), match.start(), match.end(), signed
+        except ArithmeticError:
+            continue
 
 
 def numbers_in_text(text: str) -> list[Decimal]:
     """Every numeric token in the text, normalised (signs, commas stripped)."""
-    out: list[Decimal] = []
-    for match in _NUMBER.finditer(text):
-        raw = match.group(0).replace(_MINUS, "-").replace("+", "").replace(",", "")
-        try:
-            out.append(Decimal(raw))
-        except ArithmeticError:
-            continue
-    return out
+    return [n for n, _, _, _ in _number_tokens(text)]
+
+
+def _sentence_around(text: str, start: int, end: int) -> str:
+    """The sentence containing the match; decimal points don't end it."""
+    left = 0
+    for m in _SENT_END.finditer(text, 0, start):
+        left = m.end()
+    nxt = _SENT_END.search(text, end)
+    right = nxt.start() if nxt else len(text)
+    return text[left:right]
 
 
 def _decimals(value: Decimal) -> int:
@@ -266,9 +313,41 @@ def _decimals(value: Decimal) -> int:
     return -exp if isinstance(exp, int) and exp < 0 else 0
 
 
+def _moment_numbers(text: str) -> set[Decimal]:
+    """The components of each ISO date or datetime inside a fact string —
+    year, month, day, hour, minute, second and zone offset — as separate
+    numbers, plus, for an aware moment, the same components in
+    Europe/Amsterdam, the display timezone."""
+    out: set[Decimal] = set()
+
+    def parts(moment: datetime, with_time: bool) -> None:
+        out.update(Decimal(p) for p in (moment.year, moment.month, moment.day))
+        if with_time:
+            out.update(Decimal(p) for p in (moment.hour, moment.minute))
+            out.add(Decimal(moment.second))
+            if moment.microsecond:
+                out.add(Decimal(moment.second) + Decimal(moment.microsecond) / 1_000_000)
+
+    for match in _ISO_MOMENT.finditer(text):
+        try:
+            moment = datetime.fromisoformat(match.group(0))
+        except ValueError:
+            continue
+        parts(moment, ":" in match.group(0))
+        offset = moment.utcoffset()
+        if offset is not None:
+            secs = int(offset.total_seconds())
+            hours, rem = divmod(abs(secs), 3600)
+            out.add(Decimal(hours if secs >= 0 else -hours))
+            out.add(Decimal(rem // 60))
+            parts(moment.astimezone(AMSTERDAM), ":" in match.group(0))
+    return out
+
+
 def fact_numbers(facts: object) -> set[Decimal]:
     """Every numeric value in the facts tree; strings that carry numbers
-    (e.g. "08:00") contribute their digits too."""
+    (e.g. "08:00") contribute their digits too, and ISO dates and
+    datetimes contribute their components in every format."""
     out: set[Decimal] = set()
     if isinstance(facts, bool):
         return out
@@ -278,6 +357,7 @@ def fact_numbers(facts: object) -> set[Decimal]:
         out.add(Decimal(str(round(facts, 6))))
     elif isinstance(facts, str):
         out.update(numbers_in_text(facts))
+        out.update(_moment_numbers(facts))
     elif isinstance(facts, dict):
         for key, value in facts.items():
             out.update(fact_numbers(key))
@@ -290,13 +370,39 @@ def fact_numbers(facts: object) -> set[Decimal]:
 
 def text_numbers_ok(text: str, facts: dict[str, Any]) -> list[Decimal]:
     """Numbers in the text that no fact rounds to, at the precision written.
-    An empty list means the text passed the number check."""
+    An empty list means the text passed the number check. A date or clock
+    time is checked part by part, so a fact's moment may be written in
+    another format ("October 13, 2026", "13-10-2026", "05:00"). A
+    magnitude written without a sign may stand in for a negative fact
+    when the words around it carry the sign ("a decline of 2.30%",
+    "down €12.50"); without such a word it fails, so a wrongly signed
+    claim is caught."""
     allowed = fact_numbers(facts)
     bad: list[Decimal] = []
-    for n in numbers_in_text(text):
-        places = _decimals(n)
-        if not any(f.quantize(Decimal(1).scaleb(-places)) == n for f in allowed):
-            bad.append(n)
+    quantum = Decimal(1)
+
+    def matches(n: Decimal) -> bool:
+        return any(f.quantize(quantum.scaleb(-_decimals(n))) == n for f in allowed)
+
+    moments = list(_TEXT_MOMENT.finditer(text))
+    for moment in moments:
+        for piece in re.findall(r"\d+(?:\.\d+)?", moment.group(0)):
+            n = Decimal(piece)
+            head, dot, tail = piece.partition(".")
+            if not matches(n) and not (dot and matches(Decimal(head)) and matches(Decimal(tail))):
+                bad.append(n)
+    for n, start, end, signed in _number_tokens(text):
+        if any(m.start() <= start and end <= m.end() for m in moments):
+            continue
+        if matches(n):
+            continue
+        if (
+            not signed
+            and any(f < 0 and f.quantize(quantum.scaleb(-_decimals(n))) == -n for f in allowed)
+            and _NEGATIVE_WORDS.search(_sentence_around(text, start, end))
+        ):
+            continue
+        bad.append(n)
     return bad
 
 

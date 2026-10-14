@@ -79,15 +79,19 @@ def _series(
 def screens_client(
     env_paths: Path, monkeypatch: pytest.MonkeyPatch
 ) -> Iterator[tuple[TestClient, SimMarket]]:
-    """The app on the simulated market with the startup backfill stubbed —
-    the database contains only what a test seeds."""
+    """The app on the simulated market with the startup backfill and price
+    refresh stubbed — the database contains only what a test seeds."""
     sim = SimMarket(seed=11)
     monkeypatch.setattr("app.api.deps.make_market_client", lambda settings: sim)
 
     async def _no_refresh(state: AppState) -> None:
         return None
 
+    async def _no_price_refresh(engine: object) -> None:
+        return None
+
     monkeypatch.setattr("app.main.refresh_market_data", _no_refresh)
+    monkeypatch.setattr("app.agent.engine.Engine.refresh_prices", _no_price_refresh)
     with TestClient(create_app(), base_url="http://127.0.0.1") as c:
         yield c, sim
 
@@ -832,6 +836,32 @@ def test_activity_endpoint(screens_client: tuple[TestClient, SimMarket]) -> None
 
     fills = client.get("/api/activity?kind=fill").json()["items"]
     assert all(i["kind"] == "fill" for i in fills)
+
+
+def test_snapshot_activity_newest_first_last_24h(
+    screens_client: tuple[TestClient, SimMarket],
+) -> None:
+    """The dashboard feed is the last 24 hours, newest first."""
+    client, _ = screens_client
+    session = _db(client)
+    now = utcnow()
+    try:
+        for i, age in enumerate([30 * HOUR, 2 * HOUR, HOUR]):
+            session.add(
+                ActivityRow(
+                    at=now - age,
+                    kind="decision",
+                    pair="BTC-EUR",
+                    text=f"event {i}",
+                    decision_id=None,
+                )
+            )
+        session.commit()
+    finally:
+        session.close()
+
+    items = client.get("/api/snapshot").json()["activity"]
+    assert [i["text"] for i in items] == ["event 2", "event 1"]
 
 
 # ----------------------------------------------------------------- agent bits

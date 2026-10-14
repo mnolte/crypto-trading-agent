@@ -30,7 +30,9 @@ from app.config import get_env
 from app.db import (
     AccountRow,
     DecisionRow,
+    ErrorRow,
     LlmCallRow,
+    MarketRow,
     TradeRow,
     make_engine,
     make_session_factory,
@@ -349,6 +351,37 @@ async def test_decision_records_the_real_btc_regime(env: Path) -> None:
     assert btc_regime["trend"] == "down"
 
 
+async def test_decision_signals_fill_all_timeframes(env: Path) -> None:
+    """Stored signals lead with the decider's chips, then the computed
+    per-tf reads, so the drawer's signal stack fills 1h, 4h and 1d."""
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e.market.add_uptrend("SOL-EUR")
+    e.market.add_zigzag("BTC-EUR")
+    e.market.add_zigzag("USDC-EUR")
+    await e.engine.run_cycle()
+    s = e.session()
+    rows = _decisions(s)
+    s.close()
+    stored = json.loads(rows[0].signals)
+    assert [sig["name"] for sig in stored[:6]] == [f"C{i}" for i in range(1, 7)]
+    cells = {(sig["name"], sig["tf"]) for sig in stored}
+    for name in (
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "C6",
+        "RSI 14",
+        "EMA 20 vs 50",
+        "Price vs VWAP",
+        "OBV trend",
+        "ADX 14",
+    ):
+        for tf in ("1h", "4h", "1d"):
+            assert (name, tf) in cells, f"missing {name} on {tf}"
+
+
 async def test_third_position_sized_to_half(env: Path) -> None:
     e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
     # Two full-size positions: 1% risk each (stops 4% away).
@@ -511,6 +544,43 @@ async def test_restart_paused_with_positions(env: Path) -> None:
     assert e2.engine.status == "paused"
 
 
+async def test_restart_refreshes_prices_while_paused(env: Path) -> None:
+    """Spec restart behaviour: the backend refreshes prices at startup and
+    waits Paused — pair badges show a live 24h change before any cycle."""
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e.market.add_uptrend("SOL-EUR")
+    assert e.engine.status == "paused" and not e.engine.prices
+    await e.engine.refresh_prices()
+    info = e.engine.prices["SOL-EUR"]
+    assert not info.stale
+    assert info.last == e.market.series[("SOL-EUR", "1h")][-1].close
+    assert info.chg_24h_pct != 0
+
+
+async def test_restart_price_refresh_falls_back_to_stored(env: Path) -> None:
+    """A failing source can't stop startup: stored candles still give a
+    last price, marked stale when beyond the freshness limit; a pair with
+    no data at all is simply skipped."""
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR", "LTC-EUR"])
+    s = e.session()
+    repo.upsert_candles(s, "SOL-EUR", "1h", _zigzag(30, HOUR, NOW - 3 * HOUR))
+    s.commit()
+    s.close()
+
+    class FailingMarket(ScriptMarket):
+        async def candles(
+            self, market: str, interval: str, limit: int, **kw: object
+        ) -> list[Candle]:
+            raise MarketDataError("simulated outage")
+
+    e.engine.client = FailingMarket(NOW)
+    await e.engine.refresh_prices()
+    info = e.engine.prices["SOL-EUR"]
+    assert info.stale and info.last > 0
+    assert "LTC-EUR" not in e.engine.prices
+    assert e.engine.status == "paused"
+
+
 async def test_pending_expires_at_next_cycle(env: Path) -> None:
     settings = Settings(active_markets=["SOL-EUR"], data_source="sim", execution_mode="manual")
     e = EngineEnv(env / "agent.db", markets=["SOL-EUR"], settings=settings)
@@ -638,10 +708,15 @@ async def test_pause_resume_run_now(env: Path) -> None:
     e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
     e.engine.resume()
     assert e.engine.status == "running"
+    # Resume schedules the next run so the countdown shows right away.
+    assert e.engine.next_run_at == NOW + timedelta(seconds=45)
     e.engine.pause()
     assert str(e.engine.status) == "paused"
+    assert e.engine.next_run_at is None
     assert await e.engine.run_now()
     assert e.engine.cycle == 1
+    # Still paused after a manual run: nothing is scheduled.
+    assert e.engine.next_run_at is None
 
 
 async def test_flatten_closes_and_pauses(env: Path) -> None:
@@ -982,3 +1057,166 @@ async def test_openai_decider_not_used_when_decider_is_rules(env: Path) -> None:
     e.market.add_zigzag("USDC-EUR")
     await e.engine.run_cycle()
     assert stub.calls == 0
+
+
+# ------------------------------------------------------------- resilience --
+
+
+class _CrashyDecider:
+    """Decides like Rules except for one pair, where it blows up a set
+    number of times before recovering."""
+
+    name = "rules"
+
+    def __init__(self, crash_on: str, crashes: int = 1) -> None:
+        self._crash_on = crash_on
+        self._left = crashes
+        self._inner = RulesDecider()
+
+    async def decide(self, ctx: DecideContext) -> Draft:
+        if ctx.pair == self._crash_on and self._left > 0:
+            self._left -= 1
+            raise RuntimeError("decider exploded")
+        return await self._inner.decide(ctx)
+
+
+async def test_pair_crash_records_a_hold_and_the_cycle_lives(env: Path) -> None:
+    """A pair whose decider raises ends as a recorded HOLD with the error;
+    the other pair still decides and the next cycle runs normally."""
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR", "ETH-EUR"])
+    e.engine.decider = _CrashyDecider("ETH-EUR")
+    e.market.add_uptrend("SOL-EUR")
+    e.market.add_uptrend("ETH-EUR", base=3_000.0)
+    e.market.add_uptrend("BTC-EUR", base=60_000.0)
+    e.market.add_uptrend("USDC-EUR", base=0.92)
+    await e.engine.run_cycle()
+    assert "SOL-EUR" in e.broker.positions
+    assert "ETH-EUR" not in e.broker.positions
+    s = e.session()
+    rows = {r.pair: r for r in _decisions(s)}
+    errors = list(s.scalars(select(ErrorRow).where(ErrorRow.pair == "ETH-EUR")))
+    s.close()
+    assert rows["ETH-EUR"].action == "HOLD"
+    assert "cycle error" in (rows["ETH-EUR"].error or "")
+    assert errors and errors[0].affected_decision_or_fill
+    # The next cycle runs: the crash did not poison the engine.
+    e.clock.advance(minutes=15)
+    await e.engine.run_cycle()
+    assert e.engine.cycle == 2
+    s = e.session()
+    eth = [r for r in _decisions(s) if r.pair == "ETH-EUR"]
+    s.close()
+    assert len(eth) == 2 and eth[1].action == "BUY"
+
+
+async def test_scheduler_survives_a_crashed_cycle(env: Path) -> None:
+    """An exception out of run_cycle is recorded as an error and the
+    scheduler keeps running — the next cycle still trades."""
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e.market.add_uptrend("SOL-EUR")
+    e.market.add_uptrend("BTC-EUR", base=60_000.0)
+    e.market.add_uptrend("USDC-EUR", base=0.92)
+    real_cycle = e.engine.run_cycle
+    calls = 0
+
+    async def flaky_cycle() -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            # Mimic run_cycle's finally: leave next_run_at sane.
+            e.engine.next_run_at = e.engine._next_due(e.clock() + timedelta(seconds=1))
+            raise RuntimeError("boom")
+        await real_cycle()
+        if calls >= 3:
+            e.engine._stop.set()
+
+    e.engine.run_cycle = flaky_cycle  # type: ignore[method-assign]
+    e.engine.status = "running"
+    e.engine.next_run_at = e.clock() - timedelta(seconds=1)
+
+    async def sleeper(seconds: float) -> None:
+        e.clock.advance(seconds=max(seconds, 1.0))
+
+    e.engine._sleep = sleeper
+    await e.engine._scheduler_loop()
+    assert calls == 3
+    assert "SOL-EUR" in e.broker.positions
+    s = e.session()
+    errors = list(s.scalars(select(ErrorRow)).all())
+    s.close()
+    assert errors and "boom" in errors[0].text
+    assert e.engine.status == "running"
+
+
+# ----------------------------------------------------------- eligibility ---
+
+
+async def test_failing_market_takes_no_entries(env: Path) -> None:
+    """An active market that fails the eligibility check stays in the
+    cycle — price, 24h change and a recorded decision keep flowing — but
+    a BUY ends as SKIP named by the eligibility gate."""
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e.market.add_uptrend("SOL-EUR")
+    e.market.add_uptrend("BTC-EUR", base=60_000.0)
+    e.market.add_uptrend("USDC-EUR", base=0.92)
+    s = e.session()
+    s.add(MarketRow(market="SOL-EUR", active=True, eligible=False, failed_rule="volume"))
+    # Full history so warming_up doesn't hide the eligibility gate.
+    repo.upsert_candles(s, "SOL-EUR", "1h", _zigzag(800, HOUR, NOW))
+    repo.upsert_candles(s, "SOL-EUR", "4h", _zigzag(300, 4 * HOUR, NOW))
+    repo.upsert_candles(s, "SOL-EUR", "1d", _zigzag(300, DAY, NOW))
+    s.commit()
+    s.close()
+    await e.engine.run_cycle()
+    assert "SOL-EUR" not in e.broker.positions
+    # The cycle still ran: the pair got its price and 24h change — dropping
+    # it from the cycle froze both at nothing and showed +0.00% in the GUI.
+    assert "SOL-EUR" in e.engine.prices
+    assert not e.engine.prices["SOL-EUR"].stale
+    assert e.engine.prices["SOL-EUR"].chg_24h_pct != 0
+    s = e.session()
+    rows = _decisions(s)
+    s.close()
+    assert rows[0].action == "SKIP" and rows[0].error == "Market eligibility"
+
+
+async def test_held_position_on_failing_market_still_gets_decided(env: Path) -> None:
+    """A failing market takes no new entries, but an open position on it
+    keeps its cycle — the pair still gets its decision call so SELL stays
+    possible."""
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e.held("SOL-EUR")
+    e.market.add_uptrend("SOL-EUR")
+    e.market.add_uptrend("BTC-EUR", base=60_000.0)
+    e.market.add_uptrend("USDC-EUR", base=0.92)
+    s = e.session()
+    s.add(MarketRow(market="SOL-EUR", active=True, eligible=False, failed_rule="volume"))
+    s.commit()
+    s.close()
+    await e.engine.run_cycle()
+    s = e.session()
+    rows = _decisions(s)
+    s.close()
+    assert rows and rows[0].pair == "SOL-EUR" and rows[0].action == "HOLD"
+    assert "SOL-EUR" in e.broker.positions
+
+
+async def test_held_position_on_deactivated_market_still_gets_decided(env: Path) -> None:
+    """Deactivation removes the market from settings and flips its row
+    inactive, but an open position keeps its cycle until it closes."""
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e.held("SOL-EUR")
+    e.market.add_uptrend("SOL-EUR")
+    e.market.add_uptrend("BTC-EUR", base=60_000.0)
+    e.market.add_uptrend("USDC-EUR", base=0.92)
+    s = e.session()
+    s.add(MarketRow(market="SOL-EUR", active=False, eligible=True))
+    s.commit()
+    s.close()
+    e.settings.active_markets = []
+    await e.engine.run_cycle()
+    s = e.session()
+    rows = _decisions(s)
+    s.close()
+    assert rows and rows[0].pair == "SOL-EUR" and rows[0].action == "HOLD"
+    assert "SOL-EUR" in e.broker.positions

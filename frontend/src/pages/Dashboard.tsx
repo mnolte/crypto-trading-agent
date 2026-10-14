@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { UTCTimestamp } from "lightweight-charts";
 import type {
-  ActivityItem,
+  ActivityOut,
   BriefingOut,
   Decision,
   EntryPause,
@@ -12,6 +12,7 @@ import type {
   Tf,
 } from "../api/client";
 import {
+  useActivity,
   useBriefings,
   useCandles,
   useDecisions,
@@ -44,6 +45,7 @@ import {
   formatAge,
   formatChange,
   formatCountdown,
+  formatDateTime,
   formatEur,
   formatPct,
   formatPrice,
@@ -261,8 +263,8 @@ export function Dashboard() {
       <div className="row">
         <PositionsCard positions={snapshot?.positions ?? []} />
         <ActivityCard
-          activity={snapshot?.activity ?? []}
           errorsOnly={searchParams.get("activity") === "errors"}
+          onOpen={setDecisionId}
         />
       </div>
 
@@ -685,40 +687,114 @@ const ACTIVITY_TONE: Record<string, "up" | "down" | "amber" | "neutral"> = {
   kill: "down",
 };
 
+const ACTIVITY_FILTERS: { value: string; label: string }[] = [
+  { value: "", label: "All" },
+  { value: "error", label: "Errors" },
+  { value: "fill", label: "Fills" },
+  { value: "decision", label: "Decisions" },
+  { value: "skip", label: "Skips" },
+];
+
 function ActivityCard({
-  activity,
   errorsOnly,
+  onOpen,
 }: {
-  activity: ActivityItem[];
   errorsOnly: boolean;
+  onOpen: (decisionId: string) => void;
 }) {
-  const items = errorsOnly ? activity.filter((item) => item.kind === "error") : activity;
+  const [kind, setKind] = useState("");
+  useEffect(() => {
+    if (errorsOnly) setKind("error");
+  }, [errorsOnly]);
+  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } =
+    useActivity(kind || undefined);
+  const items = (data?.pages ?? []).flatMap((page) => page.items);
+  const now = useNow(30_000);
+  const active = ACTIVITY_FILTERS.find((f) => f.value === kind);
   return (
     <Card
       className="row__side"
       title="Activity"
       label="Activity"
-      actions={<span className="card__meta">{errorsOnly ? "errors · 24h" : "all pairs"}</span>}
+      actions={
+        <SegmentedControl
+          flat
+          label="Filter activity"
+          value={kind}
+          onChange={setKind}
+          options={ACTIVITY_FILTERS}
+        />
+      }
     >
       <span id="activity" style={{ position: "absolute", marginTop: -80 }} />
       {items.length > 0 ? (
-        <ol className="activity">
-          {items.slice(0, 20).map((item, i) => (
-            <li key={`${item.at}-${i}`} className="activity__row">
-              <span className="activity__time num">{formatTime(item.at)}</span>
-              <Chip variant={ACTIVITY_TONE[item.kind] ?? "neutral"}>
-                {item.kind.toUpperCase()}
-              </Chip>
-              <span className="activity__text">{item.text}</span>
-            </li>
-          ))}
-        </ol>
+        <>
+          <ol className="activity">
+            {items.map((item) => (
+              <li key={item.id}>
+                {item.decision_id ? (
+                  <button
+                    type="button"
+                    className="activity__row activity__row--link"
+                    title={`Open decision · ${formatDateTime(item.at)}`}
+                    onClick={() => item.decision_id && onOpen(item.decision_id)}
+                  >
+                    <ActivityRow item={item} now={now} />
+                  </button>
+                ) : (
+                  <div className="activity__row" title={formatDateTime(item.at)}>
+                    <ActivityRow item={item} now={now} />
+                  </div>
+                )}
+              </li>
+            ))}
+          </ol>
+          {hasNextPage && (
+            <div className="activity__foot">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={isFetchingNextPage}
+                onClick={() => void fetchNextPage()}
+              >
+                {isFetchingNextPage ? "Loading…" : "Show more"}
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
         <EmptyState
-          title="Nothing yet"
-          footer="Decisions, fills and errors are listed here."
+          title={isLoading ? "Loading…" : "Nothing yet"}
+          footer={
+            isLoading
+              ? undefined
+              : kind
+                ? `No ${active?.label.toLowerCase() ?? kind} entries so far.`
+                : "Decisions, fills and errors are listed here."
+          }
         />
       )}
     </Card>
+  );
+}
+
+function ActivityRow({ item, now }: { item: ActivityOut; now: number }) {
+  return (
+    <>
+      <span className="activity__time">
+        <span className="num">{formatTime(item.at)}</span>
+        <span className="activity__age num">
+          {formatAge(Math.max(0, (now - Date.parse(item.at)) / 1000))}
+        </span>
+      </span>
+      <Chip variant={ACTIVITY_TONE[item.kind] ?? "neutral"}>
+        {item.kind.toUpperCase()}
+      </Chip>
+      <span className="activity__text">
+        {item.pair && <span className="activity__pair num">{item.pair}</span>}
+        {item.text}
+      </span>
+      {item.decision_id && <span className="activity__open" aria-hidden>›</span>}
+    </>
   );
 }

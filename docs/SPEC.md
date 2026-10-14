@@ -848,6 +848,60 @@ Devin should ship this in eight PRs, each with its tests passing, so the agent i
 7. **Understanding and safety:** glossary and plain-language mode, "Why so quiet?" status, risk budget meter, per-coin pause, Readiness screen, daily briefing with the number check.
 8. **Evidence:** Ask panel with read-only tools, Insights screen with calibration chart, What-if simulator, shadow strategies, weekly review and Reviews screen.
 
+## v0.2: positioning data
+
+v0.2 adds derivatives positioning data for BTC and ETH: what traders do with money in futures and options. It is built in three steps. Live decisions do not change until step 3 promotes a result, so the v0.1 measurement run stays clean.
+
+### Step 1: collect (no effect on decisions)
+
+An hourly collector stores six metrics for BTC and ETH from public, read-only endpoints. No API keys, no account or trading endpoints.
+
+| Metric | What it shows | Source | Cadence | Backfill |
+| --- | --- | --- | --- | --- |
+| `funding_rate_settled` | Every settled funding rate, normalised to % per 8h | OKX v5, BTC-USDT-SWAP and ETH-USDT-SWAP | Each settlement | About 3 months |
+| `funding_rate_current` | The current funding rate, % per 8h | OKX v5 | Hourly | None |
+| `open_interest_usd` | Open interest in USD | OKX v5 | Hourly | As far as the API allows |
+| `long_short_account_ratio` | Accounts net long ÷ accounts net short | OKX v5 trading statistics | Hourly | As far as the API allows |
+| `dvol` | Deribit implied volatility index, hourly close | Deribit v2 | Hourly | Full |
+| `skew_25d` | Implied vol of the 25-delta put minus the 25-delta call, in vol points, on the expiry closest to 30 days (expiries under 7 days ignored) | Deribit v2 option chain, computed | Hourly | None; history starts at collection |
+
+- Storage: a `market_context` table with source, metric, symbol, ts (the data's own UTC timestamp), value, meta (JSON, for example the expiry used and the put, call and ATM IVs behind the skew) and fetched_at. Unique on source, metric, symbol and ts; writes are upserts. All rows are kept (about 15 an hour).
+- Schedule: an hourly job at minute 5, separate from the 15-minute trading cycle. After sleep or a restart it runs once; settled funding and DVOL fill their own gaps from history on the next run.
+- Isolation: a collector failure never delays, blocks or fails a trading cycle. Each request has a 10 s timeout and one retry on a network error, 5xx or 429; after that the failure is logged and the job moves on. Each API's rate limits are respected.
+- Backfill: `uv run python -m backend.context.backfill --days 90` fills whatever history each endpoint provides and says which metrics could not be backfilled. Running it twice adds nothing.
+- Visibility: Settings → Data sources and API keys gets rows for "OKX market data" and "Deribit options data" (key not needed), each with an on/off switch and the last successful fetch; off means no requests. `/api/health` shows each source's status and the age of its newest row. `GET /api/context?metric=&symbol=&from=&to=` returns stored rows for checking. No new screen.
+- Helper for step 2: `percentile_90d(metric, symbol, at)` returns the value's percentile among that metric's values in the 90 days before it, or null with fewer than 30 days of data.
+- Sources are confirmed reachable from the Netherlands before the build starts. Binance and Bybit no longer serve the Netherlands; OKX does. If OKX turns out to be unusable, the build stops and asks; it does not switch exchanges on its own.
+
+### Step 2: sentiment block, tested as a shadow
+
+Starts when every metric has at least 30 days of data and the v0.1 measurement run has lasted at least 4 weeks.
+
+- Brief: a new `sentiment` block with, for BTC and ETH, the current funding rate, open interest and its 24h change in %, the long/short ratio, DVOL and the 25-delta skew. Every value comes with its 90-day percentile and a read: extreme high at the 90th percentile or above, extreme low at the 10th or below, otherwise normal. Briefs for other coins carry the BTC and ETH values labelled market-wide. Freshness limit: 2 hours (9 hours for settled funding). A stale or missing value is sent as null with the reason, and never blocks a decision.
+- Prompt: a new file, `decision.v2.md`, explains the block. Positioning extremes are contrarian warnings: they can lower confidence or turn a BUY into a HOLD, and are never a reason to buy on their own. The output schema stays the same. The signal-claims check also covers the sentiment reads.
+- Test: Shadow A runs the live model with `decision.v2` against live on `decision.v1`. The sentiment block is the only difference, so the comparison measures what it adds.
+- No gates use sentiment data in v0.2.
+- GUI: the Decision drawer shows the sentiment block (value, 90-day percentile and read per data point) below the signal stack, and two new rows in its safety gates: News flag and Macro event. Insights gets a positioning slice: BUY outcomes grouped by the funding and skew reads at entry.
+
+### Step 3: decide
+
+After Shadow A has at least 30 closed trades, compare it with live over the same window, leaving out any shadow pause windows: average R after fees, max drawdown, profit factor, and missed vs avoided for HOLD and SKIP. Promote `decision.v2` when its average R is at least 0.05R higher and its max drawdown is no worse; otherwise keep `decision.v1`, keep collecting and look again after 30 more trades. Either way the result is logged in the decisions below.
+
+### Risk flags
+
+- **News flag:** a switch in Settings and on the Dashboard that blocks new entries on all pairs until cleared, for events such as an exchange hack or a major regulatory decision. Exits keep working; it appears in the quiet line and is logged. Ships with step 2 and applies to live and shadows.
+- **Macro calendar:** `config/macro_events.yaml` lists FOMC decisions, US CPI releases and US jobs reports (date, time UTC, type), kept up to date by Marc. A "Macro event" gate blocks new entries from 6 hours before to 1 hour after an event. Because the dates are known in advance, it is tested in What-if over the v0.1 period first, and switched on only if it does not lower average R.
+
+### Build order (v0.2)
+
+9. **Market context collector:** step 1.
+10. **Sentiment block:** the `sentiment` brief block, `decision.v2.md`, signal-claims check, Decision drawer and Insights additions, the news flag.
+11. **Macro calendar:** the events file, the gate (off by default) and its What-if support.
+
+### Not in v0.2
+
+Fear & Greed, BTC dominance and market cap trend (the next group, once v0.2 has a result), on-chain flows, news tone scores, social media sentiment, traditional markets, and hosting on a VPS, which gets its own section when the v0.1 measurement run ends.
+
 ## After v0.1: sentiment and external market context
 
 Once v0.1 runs and outcomes are being recorded, add these sources one at a time and keep each only if replays and outcomes show it improves decisions.
@@ -874,7 +928,7 @@ Briefs for every other coin use the BTC and ETH values as market-wide sentiment,
 | Scheduled macro events (FOMC, US CPI, US jobs report) | Flag for an event within 6h, so new entries can wait | Dates file in config | n/a |
 | Hard news events (exchange hack, ETF decision, major regulation) | Flag only, never a sentiment score; a flag blocks new entries until cleared | Manual flag in Settings first; an automated source later | Until cleared |
 
-Add one group at a time, starting with funding, open interest and options data, and keep each only if replays and outcomes show it improves decisions. Not planned: social media sentiment (expensive, noisy, easy to manipulate) and news tone scores. Later, only if outcome data shows value: traditional markets (S&P 500 or Nasdaq futures, dollar index), liquidation data, and on-chain flows.
+Funding, open interest, the long/short ratio and options data are the first group and are specified in v0.2 above. Add the other groups one at a time, and keep each only if replays and outcomes show it improves decisions. Not planned: social media sentiment (expensive, noisy, easy to manipulate) and news tone scores. Later, only if outcome data shows value: traditional markets (S&P 500 or Nasdaq futures, dollar index), liquidation data, and on-chain flows.
 
 **Later features** (after going live, or once running on the VPS)
 

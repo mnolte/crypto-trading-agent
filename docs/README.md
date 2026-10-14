@@ -43,6 +43,9 @@ design/               the visual reference (see design/DESIGN.md)
 | 6 Execution modes and polish | GUI screens → Dashboard (pending approval); Outcome tracking; Settings, secrets and persistence (notifications, operations, restart and sleep) |
 | 7 Understanding and safety | User features → Understanding the agent, Trust and safety |
 | 8 Evidence | User features → Improving with evidence |
+| 9 Market context collector | v0.2: positioning data → Step 1; Settings, secrets and persistence (data sources) |
+| 10 Sentiment block | v0.2 → Step 2 and Risk flags (news flag); OpenAI decision layer (brief, post-checks, prompt versions); User features → Shadow strategies, Insights |
+| 11 Macro calendar | v0.2 → Risk flags (macro calendar); Risk gates; User features → What-if simulator |
 
 Every PR also checks the "Testing and acceptance criteria" items that belong to it.
 

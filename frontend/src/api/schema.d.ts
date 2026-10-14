@@ -1855,10 +1855,16 @@ export interface components {
             end: string;
             /** Findings */
             findings: components["schemas"]["InsightFinding"][];
+            /** Largest Slice Decisions */
+            largest_slice_decisions: number;
+            /** Largest Slice Label */
+            largest_slice_label: string | null;
             /** Min Decisions */
             min_decisions: number;
             /** Prompt Version */
             prompt_version: string | null;
+            /** Slice Min */
+            slice_min: number;
             /** Slices */
             slices: components["schemas"]["InsightSliceOut"][];
             /**

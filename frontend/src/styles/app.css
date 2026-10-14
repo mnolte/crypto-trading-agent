@@ -821,6 +821,18 @@ textarea {
   overflow-x: auto;
 }
 
+.table-scroll--cap {
+  overflow-y: auto;
+}
+
+.table-scroll--cap .dtable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+  box-shadow: 0 1px 0 var(--line);
+}
+
 .dtable {
   width: 100%;
   border-collapse: collapse;
@@ -1430,20 +1442,52 @@ input[type="checkbox"].check {
   display: flex;
   flex-direction: column;
   font-size: var(--fs-small);
+  max-height: 30rem;
+  overflow-y: auto;
 }
 .activity__row {
   display: flex;
   gap: var(--space-3);
   align-items: baseline;
-  padding: 9px 0;
+  width: 100%;
+  padding: 9px var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
+  border: 0;
   border-top: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.activity li:first-child > .activity__row { border-top: 0; }
+.activity__row--link { cursor: pointer; }
+.activity__row--link:hover, .activity__row--link:focus-visible {
+  background: var(--panel-hover);
 }
 .activity__time {
   color: var(--text-muted);
-  flex: 0 0 48px;
+  flex: 0 0 56px;
+  display: flex;
+  flex-direction: column;
+}
+.activity__age { color: var(--text-faint); font-size: var(--fs-caption); }
+.activity__pair {
+  color: var(--text-muted);
+  margin-right: var(--space-2);
 }
 .activity__text {
   color: var(--text-soft);
+  flex: 1;
+  min-width: 0;
+}
+.activity__open { color: var(--text-faint); }
+.activity__row--link:hover .activity__open { color: var(--accent-soft); }
+.activity__foot {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
 }
 
 /* Decision drawer. */
@@ -1878,6 +1922,7 @@ input[type="checkbox"].check {
   margin: 0;
   line-height: 1.65;
   color: var(--text-soft);
+  white-space: pre-line;
 }
 
 .card__link {

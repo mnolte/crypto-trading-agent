@@ -21,9 +21,10 @@ from app import repo
 from app.agent.broker.paper import PaperBroker
 from app.agent.deciders.base import Draft
 from app.agent.deciders.rules import RulesDecider
-from app.agent.market.base import MarketInfo
+from app.agent.market.base import MarketInfo, drop_forming
 from app.agent.market.sim import SimMarket
 from app.agent.openai_client import CallResult
+from app.agent.signals import compute_tf_values
 from app.db import (
     AccountRow,
     AskConversationRow,
@@ -240,7 +241,55 @@ def test_insights_hides_slices_under_ten(sessions: sessionmaker[Session]) -> Non
         out = insights.compute_insights(session, now=NOW, settings=Settings(), dimension="pair")
         assert out.slices == []  # 9 decisions is under the slice bar
         assert out.total_decisions == 9
-        assert out.decisions_needed > 0
+        # The hidden slice still counts toward "N more to go".
+        assert out.largest_slice_label == "BTC-EUR"
+        assert out.largest_slice_decisions == 9
+        assert out.decisions_needed == 21
+    finally:
+        session.close()
+
+
+def test_insights_decisions_needed_with_no_decisions(
+    sessions: sessionmaker[Session],
+) -> None:
+    session = sessions()
+    try:
+        _account(sessions)
+        session = sessions()
+        out = insights.compute_insights(session, now=NOW, settings=Settings(), dimension="pair")
+        assert out.total_decisions == 0
+        assert out.largest_slice_label is None
+        assert out.largest_slice_decisions == 0
+        assert out.decisions_needed == 30
+    finally:
+        session.close()
+
+
+def test_insights_atr_series_matches_frozen_read(
+    sessions: sessionmaker[Session],
+) -> None:
+    """The per-pair ATR% series returns the same percentile the old
+    per-hour candle recompute produced."""
+    sim = SimMarket(seed=7, markets=["BTC-EUR"], now=NOW)
+    session = sessions()
+    try:
+        _seed_candles(session, "BTC-EUR", sim, NOW)
+        series = insights._AtrPctSeries.load(session, "BTC-EUR", NOW - 100 * HOUR, NOW - HOUR)
+        for hour in (NOW - 50 * HOUR, NOW - 30 * HOUR, NOW - HOUR):
+            candles = drop_forming(
+                repo.load_candles(session, "BTC-EUR", "1h", 800, end=hour + HOUR),
+                "1h",
+                hour + HOUR,
+            )
+            expected = (
+                compute_tf_values(candles, "1h").atr_percentile if len(candles) >= 16 else None
+            )
+            if expected is None:
+                assert series.at(hour) is None
+            else:
+                assert series.at(hour) == pytest.approx(expected)
+        # Before the first candle there is nothing to read.
+        assert series.at(NOW - 2000 * HOUR) is None
     finally:
         session.close()
 

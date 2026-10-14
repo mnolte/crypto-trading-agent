@@ -778,3 +778,14 @@ def compute_pair_signals(
         regime=regime,
         context=compute_context(candles_1h, btc_1h, usdc_1h),
     )
+
+
+def decision_signals(claims: list[Signal], reads: PairSignals | None) -> list[Signal]:
+    """The signal list stored on a decision: the decider's own chips (C1..C6
+    or the model's claims) first, then the computed per-tf reads, so the
+    drawer's signal stack fills all three timeframe columns."""
+    out = list(claims)
+    if reads is not None:
+        seen = {(s.name, s.tf) for s in out}
+        out += [s for s in reads.signals if (s.name, s.tf) not in seen]
+    return out

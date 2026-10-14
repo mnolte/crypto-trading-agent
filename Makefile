@@ -5,7 +5,7 @@ UV := uv
 FE := cd frontend && corepack pnpm
 
 dev: ## backend (uvicorn --reload) + Vite dev server, Ctrl-C stops both
-	@trap 'kill 0' INT TERM EXIT; \
+	@trap 'trap - INT TERM EXIT; kill 0' INT TERM EXIT; \
 	  $(UV) run uvicorn --app-dir backend app.main:app --reload --host 127.0.0.1 --port 8000 & \
 	  $(FE) dev & \
 	  wait
@@ -17,7 +17,7 @@ run: ## build the UI, serve everything on 127.0.0.1:8000
 test: test-backend test-frontend test-e2e openapi-check ## pytest + Vitest (+ Playwright where present)
 
 test-backend:
-	$(UV) run pytest backend/tests -m "not slow"
+	$(UV) run pytest backend/tests -m "not slow" -n 6 --dist load
 
 soak: ## the 2000-cycle engine soak (slow marker, excluded from the suite)
 	$(UV) run pytest backend/tests -m slow -v
@@ -48,7 +48,7 @@ ci-backend:
 	$(UV) run ruff check .
 	$(UV) run ruff format --check .
 	$(UV) run mypy .
-	$(UV) run pytest -m "not slow"
+	$(UV) run pytest -m "not slow" -n 6 --dist load
 
 ci-frontend:
 	$(FE) install --frozen-lockfile
