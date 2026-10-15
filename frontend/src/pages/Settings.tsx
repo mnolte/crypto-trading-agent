@@ -40,6 +40,7 @@ import { FormField, Input, Select } from "../components/FormField";
 import { Meter } from "../components/Meter";
 import { PauseSelect } from "../components/PauseSelect";
 import {
+  formatDateTime,
   formatEur,
   formatEurCompact,
   formatPct,
@@ -735,7 +736,7 @@ export function Settings() {
                 <span className="shadow-row__name">{s.name}</span>
                 <span className="card__meta">
                   {s.model} · {s.prompt_version} · since{" "}
-                  {s.created_at.slice(0, 10)}
+                  {formatDateTime(s.created_at)}
                   {s.paused ? " · paused (cost cap)" : ""}
                 </span>
               </div>

@@ -45,7 +45,15 @@ describe("formatTime / formatDateTime", () => {
   it("renders in Europe/Amsterdam", () => {
     // 2024-10-09T10:30:00Z -> 12:30 CEST
     expect(formatTime("2024-10-09T10:30:00Z")).toBe("12:30");
-    expect(formatDateTime("2024-10-09T10:30:00Z")).toBe("09 Oct 12:30");
+    expect(formatDateTime("2024-10-09T10:30:00Z")).toBe(
+      "09 Oct 2024, 12:30 CEST",
+    );
+    expect(formatDateTime("2026-10-15T05:00:45.002174+00:00")).toBe(
+      "15 Oct 2026, 07:00 CEST",
+    );
+    expect(formatDateTime("2026-01-15T05:00:45+00:00")).toBe(
+      "15 Jan 2026, 06:00 CET",
+    );
   });
 
   it("renders an em dash for bad input", () => {

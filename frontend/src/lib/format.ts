@@ -51,16 +51,19 @@ export function formatTime(iso: string): string {
   });
 }
 
-/** "09 Oct 14:05" in Europe/Amsterdam. */
+/** "09 Oct 2024, 12:30 CEST" in Europe/Amsterdam. */
 export function formatDateTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  const day = d.toLocaleDateString("en-GB", {
+  return d.toLocaleString("en-GB", {
     day: "2-digit",
     month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
     timeZone: DISPLAY_TZ,
   });
-  return `${day} ${formatTime(iso)}`;
 }
 
 /** "12:30:04 CEST" in Europe/Amsterdam — the decision drawer's timestamp. */
