@@ -63,6 +63,27 @@
   definition: >-
     The Rules check that decides whether the model is asked at all. It saves
     model calls when nothing looks promising.
+- term: c1
+  definition: >-
+    The higher-timeframe trend check: the 4-hour EMA 20 is above the EMA 50
+    and the daily close is above the daily EMA 200. It must hold for any buy.
+- term: c2
+  definition: The 1-hour EMA 20 is above the EMA 50 — the short-term trend is up.
+- term: c3
+  definition: >-
+    The 1-hour close is above VWAP, so price is higher than the session's
+    volume-weighted average.
+- term: c4
+  definition: >-
+    The 1-hour RSI is between 45 and 70 — momentum is positive without being
+    overdone.
+- term: c5
+  definition: >-
+    The 1-hour OBV trend is above +0.1 — volume confirms buyers are more
+    active.
+- term: c6
+  definition: >-
+    The 1-hour ADX is at least 25 — the market is trending, not ranging.
 - term: fee gate
   definition: >-
     The check that skips a trade when round-trip fees and slippage would eat

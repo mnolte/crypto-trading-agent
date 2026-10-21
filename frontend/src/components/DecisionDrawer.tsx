@@ -15,6 +15,7 @@ import { GateList } from "./GateList";
 import { Meter } from "./Meter";
 import { RegimeChip } from "./RegimeChip";
 import { Drawer } from "./SlidePanel";
+import { GlossaryTerm } from "./GlossaryTerm";
 import { Button } from "./Button";
 import { DataTable } from "./DataTable";
 
@@ -267,7 +268,9 @@ function SignalTable({
     >
       {names.map((name) => (
         <tr key={name}>
-          <td className="text">{name}</td>
+          <td className="text">
+            <GlossaryTerm term={name}>{name}</GlossaryTerm>
+          </td>
           {TFS.map((tf) => {
             const cell = decision.find((s) => s.name === name && s.tf === tf);
             return (

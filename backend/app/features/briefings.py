@@ -355,6 +355,9 @@ def fact_numbers(facts: object) -> set[Decimal]:
         out.add(Decimal(str(facts)))
     elif isinstance(facts, float):
         out.add(Decimal(str(round(facts, 6))))
+        # The model sees the float's full repr in the JSON brief, so the
+        # verbatim spelling is a fact too — not only its 6-decimal rounding.
+        out.add(Decimal(str(facts)))
     elif isinstance(facts, str):
         out.update(numbers_in_text(facts))
         out.update(_moment_numbers(facts))

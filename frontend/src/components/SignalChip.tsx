@@ -1,5 +1,6 @@
 import type { components } from "../api/schema";
 import { Chip } from "./Chip";
+import { GlossaryTerm } from "./GlossaryTerm";
 
 type Signal = components["schemas"]["Signal"];
 
@@ -21,7 +22,9 @@ export function SignalChip({ signal }: { signal: Signal }) {
   const direction = READ_DIRECTION[signal.read];
   return (
     <Chip variant={CHIP_BY_DIRECTION[String(direction) as keyof typeof CHIP_BY_DIRECTION]}>
-      {signal.name} {signal.tf}
+      <GlossaryTerm term={signal.name}>
+        {signal.name} {signal.tf}
+      </GlossaryTerm>
     </Chip>
   );
 }
