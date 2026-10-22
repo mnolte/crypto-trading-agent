@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import ROUND_DOWN, Decimal
 
 from app.agent.broker.paper import HeldPosition, PaperBroker
+from app.agent.limit import entry_fee_pct, entry_round_trip_cost_pct
 from app.agent.market.base import MarketInfo
 from app.models import Gate, Plan, Settings
 
@@ -72,10 +73,14 @@ def check_buy(
     entry, stop, target = ctx.entry, ctx.stop, ctx.target
     equity = broker.equity()
 
-    # The expected fill is one slippage step above the signal price. Every
-    # gate and the sizing run on it so a BUY that only works at the signal
-    # price — worse R/R, a fatter cost share, more real risk — is a SKIP.
-    fill_entry = entry * (1 + paper.slippage_pct / HUNDRED)
+    # The expected fill: one slippage step above the signal price for a
+    # market entry, the exact limit price for a post-only entry. Every gate
+    # and the sizing run on it so a BUY that only works at the signal price
+    # — worse R/R, a fatter cost share, more real risk — is a SKIP.
+    if paper.entry_orders == "limit":
+        fill_entry = entry
+    else:
+        fill_entry = entry * (1 + paper.slippage_pct / HUNDRED)
     stop_dist = entry - stop
     fill_dist = fill_entry - stop
 
@@ -107,9 +112,10 @@ def check_buy(
     gates.append(_gate("Min reward/risk", "pass", f"R/R {_fmt(rr)}"))
 
     # -- Costs vs risk (the fee gate) ------------------------------------
-    # Round-trip taker fees + slippage both ways must stay under
-    # max_cost_pct_of_risk % of the stop distance.
-    cost_pct = paper.fee_pct * 2 + paper.slippage_pct * 2
+    # Entry-side costs + stop-exit costs must stay under
+    # max_cost_pct_of_risk % of the stop distance. A limit entry pays the
+    # maker fee and no slippage; the stop exit is always market.
+    cost_pct = entry_round_trip_cost_pct(paper)
     stop_dist_pct = fill_dist / fill_entry * HUNDRED if fill_entry > 0 else ZERO
     if stop_dist_pct <= 0 or cost_pct > risk.max_cost_pct_of_risk / HUNDRED * stop_dist_pct:
         gates.append(
@@ -235,8 +241,8 @@ def check_buy(
     qty = min(qty, exposure_room / fill_entry)
     gates.append(_gate("Max total exposure", "pass", f"room {_fmt(exposure_room)} EUR"))
 
-    # Cash available incl. the buy-side fee.
-    cash_room = broker.cash / (fill_entry * (1 + paper.fee_pct / HUNDRED))
+    # Cash available incl. the buy-side fee (maker for limit entries).
+    cash_room = broker.cash / (fill_entry * (1 + entry_fee_pct(paper) / HUNDRED))
     if cash_room <= 0:
         gates.append(_gate("Cash available incl. fees", "fail", f"cash {_fmt(broker.cash)} EUR"))
         return BuyVerdict("skip", gates, skip_reason="Cash available incl. fees")
@@ -298,25 +304,31 @@ def check_exit(
     atr_1h: Decimal | None,
     now: datetime,
     settings: Settings,
+    target_is_limit: bool = False,
 ) -> str | None:
     """The exits the agent always takes — checked every 30 s on the ticker.
 
     Returns the exit reason or None. Breakeven and trailing mutate
     ``pos.stop`` in place and return None; the caller persists the row.
+    When ``target_is_limit`` the target rests on the book as a limit order
+    — touching it is not a fill, so the price check is skipped here and
+    the watcher's through-the-tick rule decides the fill.
     """
     risk = settings.risk
     paper = settings.paper
 
     if price <= pos.stop:
         return "stop"
-    if price >= pos.target:
+    if not target_is_limit and price >= pos.target:
         return "target"
     if utc(pos.opened_at) + timedelta(days=float(risk.time_stop_days)) <= now:
         return "time_stop"
 
-    # Breakeven: at +1R the stop moves to entry plus round-trip fees.
+    # Breakeven: at +1R the stop moves to entry plus the round-trip fees —
+    # the entry's actual fee (maker for a limit fill) plus a market exit's.
     r_unit = pos.r_unit if pos.r_unit > 0 else pos.entry - pos.stop
-    be_stop = pos.entry * (1 + (paper.fee_pct * 2) / HUNDRED)
+    entry_fee = paper.maker_fee_pct if pos.entry_maker else paper.taker_fee_pct
+    be_stop = pos.entry * (1 + (entry_fee + paper.taker_fee_pct) / HUNDRED)
     if r_unit > 0 and price >= pos.entry + r_unit and pos.stop < be_stop:
         pos.stop = be_stop
 

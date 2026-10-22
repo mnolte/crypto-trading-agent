@@ -2,6 +2,23 @@
 
 Newest first. Each entry names the screens it touches.
 
+## 2026-10-22 — Prompt versions in captions
+
+- The sentiment prompt is now decision.v3 (spec: "Prompt v2: decision quality").
+  Decision drawer positioning caption, States stale-source note and the Shadow A row
+  say decision.v3; the Shadow B row uses v2. Wording only.
+
+## 2026-10-21 — v0.2: limit entries (Shadow B)
+
+- Settings → Market data & paper account: fields in a 2 × 2 grid (starting balance,
+  slippage on market orders, taker fee, maker fee); new "Entry orders" segmented
+  control (Market / Limit post-only) with a note on minimum stops and Shadow B.
+- Settings → Shadow strategies: Shadow B row (decision v1, limit entries, "7/10
+  filled", tooltip with the missed-fill average); "Add shadow" disabled at 2 of 2;
+  Promote text mentions the entry order type.
+- States: Decision drawer footer for a limit entry in three states: waiting for
+  fill, filled (with fee and size), unfilled (cancelled, tracked as a missed fill).
+
 ## 2026-10-14 — v0.2: positioning data and event flags
 
 All additions carry a blue v0.2 tag in the screens (handoff only, not shown in the app).

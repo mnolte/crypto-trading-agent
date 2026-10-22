@@ -132,6 +132,7 @@ class PositionRow(Base):
     invalidation_price: Mapped[str | None]
     highest_close: Mapped[str | None]  # highest 1h close since entry (trailing)
     r_unit: Mapped[str]  # entry - stop at fill: the R multiple for exits
+    entry_maker: Mapped[bool] = mapped_column(default=False)  # filled via a limit order
 
 
 class TradeRow(Base):
@@ -319,6 +320,35 @@ class ExitTickRow(Base):
     at: Mapped[datetime]
     price: Mapped[str]
     kind: Mapped[str]  # "fill" | "watch"
+
+
+class PaperOrderRow(Base):
+    """One simulated limit order: a post-only entry or a resting target.
+
+    ``min_price`` tracks the lowest traded price seen while the order was
+    open so a cancelled entry can show how close the fill came. Entry legs
+    expire at the pair's next cycle (``expires_at``); target legs rest on
+    the book until the position exits.
+    """
+
+    __tablename__ = "paper_orders"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    decision_id: Mapped[str]
+    account_id: Mapped[int]
+    pair: Mapped[str]
+    side: Mapped[str]  # "buy" | "sell"
+    leg: Mapped[str]  # "entry" | "target"
+    limit_price: Mapped[str]
+    qty: Mapped[str]
+    placed_at: Mapped[datetime]
+    expires_at: Mapped[datetime | None]
+    status: Mapped[str] = mapped_column(default="open")  # "open" | "filled" | "cancelled"
+    filled_at: Mapped[datetime | None] = mapped_column(default=None)
+    fill_price: Mapped[str | None] = mapped_column(default=None)
+    cancelled_at: Mapped[datetime | None] = mapped_column(default=None)
+    cancel_reason: Mapped[str | None] = mapped_column(default=None)
+    min_price: Mapped[str | None] = mapped_column(default=None)
 
 
 class EntryPauseRow(Base):

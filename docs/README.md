@@ -46,6 +46,8 @@ design/               the visual reference (see design/DESIGN.md)
 | 9 Market context collector | v0.2: positioning data → Step 1; Settings, secrets and persistence (data sources) |
 | 10 Sentiment block | v0.2 → Step 2 and Risk flags (news flag); OpenAI decision layer (brief, post-checks, prompt versions); User features → Shadow strategies, Insights |
 | 11 Macro calendar | v0.2 → Risk flags (macro calendar); Risk gates; User features → What-if simulator |
+| 12 Limit entries | v0.2 → Limit entries, tested as Shadow B; Risk gates (fee gate); Market data and paper broker (paper broker); Outcome tracking; User features → Shadow strategies |
+| 13 Decision quality (prompt v2) | v0.2 → Prompt v2: decision quality; OpenAI decision layer (brief, output schema, post-checks, logging); GUI screens → LLM inspector (Re-run); backend/prompts/decision.v2.md |
 
 Every PR also checks the "Testing and acceptance criteria" items that belong to it.
 

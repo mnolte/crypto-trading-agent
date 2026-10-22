@@ -30,6 +30,7 @@ from app.db import (
     MarketRow,
     OutcomeFailureRow,
     OutcomeRow,
+    PaperOrderRow,
     PositionRow,
     SettingsHistoryRow,
     SettingsRow,
@@ -341,6 +342,7 @@ def save_position_row(
     highest_close: Decimal | None,
     r_unit: Decimal,
     initial_stop: Decimal,
+    entry_maker: bool = False,
 ) -> None:
     """Persist one account's open position on a pair.
 
@@ -363,6 +365,7 @@ def save_position_row(
             invalidation_price=None,
             highest_close=None,
             r_unit="0",
+            entry_maker=entry_maker,
         )
     row.account_id = account_id
     row.qty = str(pos.qty)
@@ -375,6 +378,7 @@ def save_position_row(
     row.invalidation_price = str(invalidation_price) if invalidation_price is not None else None
     row.highest_close = str(highest_close) if highest_close is not None else None
     row.r_unit = str(r_unit)
+    row.entry_maker = entry_maker
     session.merge(row)
 
 
@@ -462,6 +466,80 @@ def trades_today(session: Session, account_id: int, now: datetime | None = None)
     now = now or utcnow()
     midnight_ams = now.astimezone(AMSTERDAM).replace(hour=0, minute=0, second=0, microsecond=0)
     return list_trade_rows(session, account_id, start=midnight_ams, end=now, limit=500)
+
+
+# ------------------------------------------------------------- paper orders --
+
+
+def add_paper_order(session: Session, row: PaperOrderRow) -> PaperOrderRow:
+    session.add(row)
+    session.flush()  # assign the autoincrement id
+    return row
+
+
+def open_paper_orders(
+    session: Session,
+    account_id: int | None = None,
+    pair: str | None = None,
+    leg: str | None = None,
+) -> list[PaperOrderRow]:
+    conds = [PaperOrderRow.status == "open"]
+    if account_id is not None:
+        conds.append(PaperOrderRow.account_id == account_id)
+    if pair is not None:
+        conds.append(PaperOrderRow.pair == pair)
+    if leg is not None:
+        conds.append(PaperOrderRow.leg == leg)
+    return list(
+        session.scalars(select(PaperOrderRow).where(*conds).order_by(PaperOrderRow.id)).all()
+    )
+
+
+def cancel_paper_order(
+    session: Session, row: PaperOrderRow, now: datetime, reason: str
+) -> PaperOrderRow:
+    row.status = "cancelled"
+    row.cancelled_at = _utc_naive(now)
+    row.cancel_reason = reason
+    return row
+
+
+def fill_paper_order(
+    session: Session, row: PaperOrderRow, now: datetime, qty: Decimal | None = None
+) -> PaperOrderRow:
+    """Mark the order filled at its limit price (the paper fill rule)."""
+    row.status = "filled"
+    row.filled_at = _utc_naive(now)
+    row.fill_price = row.limit_price
+    if qty is not None:
+        row.qty = str(qty)
+    return row
+
+
+def paper_orders_for_decision(session: Session, decision_id: str) -> list[PaperOrderRow]:
+    return list(
+        session.scalars(
+            select(PaperOrderRow)
+            .where(PaperOrderRow.decision_id == decision_id)
+            .order_by(PaperOrderRow.id)
+        ).all()
+    )
+
+
+def count_paper_orders(
+    session: Session, account_id: int, leg: str | None = None
+) -> tuple[int, int]:
+    """(placed, filled) order counts for a shadow's fill-rate display."""
+    conds = [PaperOrderRow.account_id == account_id]
+    if leg is not None:
+        conds.append(PaperOrderRow.leg == leg)
+    placed = session.scalar(select(func.count()).select_from(PaperOrderRow).where(*conds))
+    filled = session.scalar(
+        select(func.count())
+        .select_from(PaperOrderRow)
+        .where(*conds, PaperOrderRow.status == "filled")
+    )
+    return placed or 0, filled or 0
 
 
 # ---------------------------------------------------------------- decisions --

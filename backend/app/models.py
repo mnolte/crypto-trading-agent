@@ -68,7 +68,7 @@ class Decision(BaseModel):
     signals: list[Signal]
     plan: Plan | None = None
     gates: list[Gate]
-    status: Literal["executed", "pending", "approved", "vetoed", "expired", "none"]
+    status: Literal["executed", "pending", "approved", "vetoed", "expired", "unfilled", "none"]
     execute_at: datetime | None = None
     error: str | None = None
     regime: Regime
@@ -258,8 +258,12 @@ class PaperSettings(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     start_balance_eur: Decimal = Decimal("10000")
-    fee_pct: Decimal = Decimal("0.25")
+    taker_fee_pct: Decimal = Decimal("0.25")
+    maker_fee_pct: Decimal = Decimal("0.15")
     slippage_pct: Decimal = Decimal("0.05")
+    # Market (default) or Limit (post-only): entries and targets pay the
+    # maker fee and may not fill; stops and forced exits stay market.
+    entry_orders: Literal["market", "limit"] = "market"
 
 
 class MarketSettings(BaseModel):
@@ -462,6 +466,27 @@ class OutcomeFailureOut(BaseModel):
     reason: str
 
 
+class PaperOrderOut(BaseModel):
+    """One simulated limit order (entry or target leg)."""
+
+    id: int
+    decision_id: str
+    pair: str
+    side: Literal["buy", "sell"]
+    leg: Literal["entry", "target"]
+    limit_price: MoneyDecimal
+    qty: MoneyDecimal
+    placed_at: datetime
+    expires_at: datetime | None = None
+    status: Literal["open", "filled", "cancelled"]
+    filled_at: datetime | None = None
+    fill_price: MoneyDecimal | None = None
+    cancelled_at: datetime | None = None
+    cancel_reason: str | None = None
+    min_price: MoneyDecimal | None = None  # lowest trade price while open
+    last_price: MoneyDecimal | None = None  # current market price (display only)
+
+
 class DecisionDetail(BaseModel):
     decision: Decision
     raw_brief: str | None = None
@@ -473,6 +498,7 @@ class DecisionDetail(BaseModel):
     outcomes: list[OutcomeOut] = []
     outcome_failures: list[OutcomeFailureOut] = []
     outcome_pending_until: datetime | None = None
+    entry_order: PaperOrderOut | None = None
 
 
 class LevelOut(BaseModel):
@@ -1015,6 +1041,10 @@ class ShadowOut(BaseModel):
     decisions: int
     daily_call_limit: int
     calls_today: int
+    entry_orders: Literal["market", "limit"] = "market"
+    orders_placed: int = 0  # limit entry orders placed while running
+    orders_filled: int = 0
+    missed_fill_avg_r: MoneyDecimal | None = None  # avg R unfilled entries would have made
 
 
 class ShadowPromoteIn(BaseModel):

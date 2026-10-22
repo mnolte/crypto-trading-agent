@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import type { Tf } from "../api/client";
-import { useDecision } from "../api/hooks";
+import { useDecision, useSettings } from "../api/hooks";
 import {
   formatChange,
   formatDateTime,
@@ -10,6 +10,7 @@ import {
   formatTimeTz,
 } from "../lib/format";
 import { ActionBadge } from "./ActionBadge";
+import { Chip } from "./Chip";
 import { EmptyState } from "./EmptyState";
 import { GateList } from "./GateList";
 import { Meter } from "./Meter";
@@ -46,7 +47,9 @@ export function DecisionDrawer({
   onNavigate: (id: string) => void;
 }) {
   const { data, isLoading, isError } = useDecision(id);
+  const { data: feeSettings } = useSettings();
   const decision = data?.decision;
+  const order = data?.entry_order;
 
   const meta = decision
     ? `Cycle #${decision.cycle} · ${formatTimeTz(decision.at)} · ${
@@ -65,6 +68,61 @@ export function DecisionDrawer({
               ? ` · ${decision.status}`
               : ""}
           {data?.fill_price ? ` · filled at ${formatPrice(data.fill_price)}` : ""}
+        </div>
+      )}
+      {order && (
+        <div className="drawer-order">
+          <div className="num drawer-order__line">
+            {order.status === "open" &&
+              `Limit ${formatPrice(order.limit_price)} placed ${formatTimeTz(order.placed_at)} · post-only${
+                feeSettings ? ` · maker ${feeSettings.paper.maker_fee_pct}%` : ""
+              }`}
+            {order.status === "filled" &&
+              `Limit ${formatPrice(order.limit_price)} placed ${formatTimeTz(order.placed_at)} · filled ${
+                order.filled_at ? formatTimeTz(order.filled_at) : "—"
+              } at ${formatPrice(order.fill_price ?? order.limit_price)} · ${formatQty(order.qty)} ${order.pair.split("-")[0]}`}
+            {order.status === "cancelled" &&
+              `Limit ${formatPrice(order.limit_price)} placed ${formatTimeTz(order.placed_at)} · cancelled ${
+                order.cancelled_at ? formatTimeTz(order.cancelled_at) : "—"
+              }${order.cancel_reason ? ` · ${order.cancel_reason}` : ""} · low since placing ${
+                order.min_price ? formatPrice(order.min_price) : "—"
+              }`}
+          </div>
+          <div className="chip-row">
+            {order.status === "open" && (
+              <>
+                <Chip variant="amber">Waiting for fill</Chip>
+                <span className="card__meta">
+                  Last{" "}
+                  {order.last_price ? formatPrice(order.last_price) : "—"} ·
+                  fills when price trades below{" "}
+                  {formatPrice(order.limit_price)}
+                  {order.expires_at
+                    ? ` · cancels ${formatTimeTz(order.expires_at)}`
+                    : ""}
+                </span>
+              </>
+            )}
+            {order.status === "filled" && (
+              <>
+                <Chip variant="up">Filled</Chip>
+                <span className="card__meta">
+                  {decision?.plan
+                    ? `Target ${formatPrice(decision.plan.target)} rests as a limit order; stop ${formatPrice(decision.plan.stop)} exits at market`
+                    : "Filled at the limit price"}
+                </span>
+              </>
+            )}
+            {order.status === "cancelled" && (
+              <>
+                <Chip variant="neutral">Unfilled</Chip>
+                <span className="card__meta">
+                  Price never traded below the limit. Outcome tracked as a
+                  missed fill.
+                </span>
+              </>
+            )}
+          </div>
         </div>
       )}
       <div className="drawer-actions">

@@ -20,6 +20,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from app.agent.deciders.base import DecideContext, Draft
+from app.agent.limit import entry_round_trip_cost_pct
 from app.agent.signals import PairSignals, TfValues
 from app.models import Settings, Signal, Tf
 
@@ -250,11 +251,11 @@ class RulesDecider:
         paper = settings.paper
         risk = settings.risk
         # Mirror the fee gate on the expected fill price so a widened stop
-        # still passes it.
-        fill_entry = entry * (1 + paper.slippage_pct / 100)
-        min_stop_dist = (
-            (paper.fee_pct * 2 + paper.slippage_pct * 2) / risk.max_cost_pct_of_risk * fill_entry
+        # still passes it: slipped for market entries, exact for limit.
+        fill_entry = (
+            entry if paper.entry_orders == "limit" else entry * (1 + paper.slippage_pct / 100)
         )
+        min_stop_dist = entry_round_trip_cost_pct(paper) / risk.max_cost_pct_of_risk * fill_entry
         if fill_entry - stop < min_stop_dist:
             stop = fill_entry - min_stop_dist
         if entry - stop > rules.stop_max_atr * atr:

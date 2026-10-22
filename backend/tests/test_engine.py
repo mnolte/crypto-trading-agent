@@ -25,7 +25,14 @@ from app.agent.broker.paper import HeldPosition, PaperBroker
 from app.agent.deciders.base import DecideContext, Draft
 from app.agent.deciders.rules import RulesDecider
 from app.agent.engine import Engine, KilledRefusal
-from app.agent.market.base import Candle, MarketDataError, MarketInfo, OrderBook, Ticker24h
+from app.agent.market.base import (
+    BookLevel,
+    Candle,
+    MarketDataError,
+    MarketInfo,
+    OrderBook,
+    Ticker24h,
+)
 from app.config import get_env
 from app.db import (
     AccountRow,
@@ -115,6 +122,7 @@ class ScriptMarket:
         self.series: dict[tuple[str, str], list[Candle]] = {}
         self.tickers: dict[str, Decimal] = {}
         self.calls_1h: dict[str, int] = {}
+        self.books: dict[str, OrderBook] = {}
         self.now = now
 
     def add_uptrend(self, market: str, base: float = 100.0) -> None:
@@ -183,8 +191,15 @@ class ScriptMarket:
         bars = [c for c in self.series.get((market, interval), []) if c.open_time <= self.now]
         return bars[-limit:]
 
+    def set_book(self, market: str, bid: Decimal, ask: Decimal) -> None:
+        self.books[market] = OrderBook(
+            market=market,
+            bids=[BookLevel(price=bid, size=Decimal("5"))],
+            asks=[BookLevel(price=ask, size=Decimal("5"))],
+        )
+
     async def order_book(self, market: str, depth: int = 50) -> OrderBook:
-        return OrderBook(market=market, bids=[], asks=[])
+        return self.books.get(market) or OrderBook(market=market, bids=[], asks=[])
 
     async def ticker_price(self, market: str) -> Decimal:
         return self.tickers.get(market, Decimal("0"))

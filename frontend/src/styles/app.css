@@ -1575,6 +1575,24 @@ input[type="checkbox"].check {
 }
 .drawer-actions__grow { flex: 1; justify-content: center; }
 
+/* Limit-order state in the decision drawer footer. */
+.drawer-order {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.drawer-order__line {
+  font-size: var(--fs-caption);
+  color: var(--text-muted);
+}
+.drawer-order .chip-row {
+  align-items: center;
+}
+.drawer-order .chip-row .card__meta {
+  flex: 1 1 220px;
+}
+
 /* Frozen-mode bar on Indicators. */
 .frozen-bar {
   display: flex;

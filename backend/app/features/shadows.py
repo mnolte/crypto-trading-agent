@@ -20,9 +20,9 @@ import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -33,6 +33,8 @@ from app.agent.brief import TF_KEYS
 from app.agent.broker.paper import HeldPosition, PaperBroker
 from app.agent.deciders.base import DecideContext, Draft, RiskView
 from app.agent.deciders.openai_decider import OpenAIDecider
+from app.agent.engine import CYCLE_S
+from app.agent.limit import buy_fills, post_only_limit, sell_fills
 from app.agent.market.base import Candle, MarketClient, MarketInfo, drop_forming
 from app.agent.market.universe import entries_allowed
 from app.agent.risk import BuyContext, check_buy, check_exit, update_trail
@@ -42,8 +44,16 @@ from app.agent.signals import (
     compute_tf_values,
     decision_signals,
 )
-from app.db import AMSTERDAM, AccountRow, DecisionRow, EquitySnapshotRow, ShadowRow
-from app.models import Decision, Gate, Regime, Settings, ShadowOut, ShadowPause, Tf
+from app.db import (
+    AMSTERDAM,
+    AccountRow,
+    DecisionRow,
+    EquitySnapshotRow,
+    OutcomeRow,
+    PaperOrderRow,
+    ShadowRow,
+)
+from app.models import Decision, Gate, Plan, Regime, Settings, ShadowOut, ShadowPause, Tf
 
 log = logging.getLogger(__name__)
 
@@ -57,11 +67,12 @@ def _utc(dt: datetime) -> datetime:
 
 
 def apply_shadow_overrides(base: Settings, overrides: dict[str, object]) -> Settings:
-    """The same whitelist as What-if — a shadow can only change risk, rules,
-    market and paper leaves plus the active pair list."""
-    from app.features.whatif import apply_overrides
+    """The What-if whitelist plus the entry order type — a shadow can only
+    change risk, rules, market and paper leaves, the entry order type and
+    the active pair list (Shadow B = decision.v1 + limit entries)."""
+    from app.features.whatif import SHADOW_EXTRA_KEYS, apply_overrides
 
-    return apply_overrides(base, overrides)
+    return apply_overrides(base, overrides, extra_keys=SHADOW_EXTRA_KEYS)
 
 
 @dataclass
@@ -144,9 +155,10 @@ class ShadowRunner:
         return settings
 
     def _build(self, session: Session, row: ShadowRow, account: AccountRow) -> _Shadow:
-        broker = PaperBroker(account, self._live_settings().paper)
-        broker.load_positions(session)
         settings = self._shadow_settings(session, row)
+        # The shadow's own fee/slippage overrides drive its fills.
+        broker = PaperBroker(account, settings.paper)
+        broker.load_positions(session)
 
         def risk_view(s: Session, sh_row: ShadowRow = row, brk: PaperBroker = broker) -> RiskView:
             live = self._live_settings()
@@ -239,6 +251,8 @@ class ShadowRunner:
         self, session: Session, shadow: _Shadow, pair: str, now: datetime, cycle: int
     ) -> None:
         settings = shadow.settings
+        # An unfilled limit entry dies at its pair's next cycle.
+        self._cancel_entry_orders(session, shadow, now, "next cycle", pair=pair)
         candles: dict[str, list[Candle]] = {
             tf: drop_forming(repo.load_candles(session, pair, tf, 900, end=now), tf, now)
             for tf in TF_KEYS
@@ -354,79 +368,87 @@ class ShadowRunner:
         plan = None
         error = None
         action = draft.action
+        filled_buy = False
         filled_sell = False
         decision_id = uuid.uuid4().hex[:16]
 
         if draft.action == "BUY":
-            correlated = self._correlated(session, shadow, pair, candles["1h"], now)
-            pause = repo.active_entry_pause(session, pair, now)
-            atr = Decimal(str(signals.tf["1h"].atr14)) if signals.tf["1h"].atr14 else None
-            verdict = check_buy(
-                BuyContext(
-                    pair=pair,
-                    now=now,
-                    entry=draft.entry or price,
-                    stop=draft.stop or ZERO,
-                    target=draft.target or ZERO,
-                    atr_1h=atr,
-                    has_position=pair in broker.positions,
-                    last_stop_out_at=self._last_stop_out(session, shadow, pair),
-                    correlated_pairs=correlated,
-                    daily_loss_hit=(
-                        broker.today_loss_pct(now) >= settings.risk.daily_loss_limit_pct
+            limit_price: Decimal | None = None
+            if settings.paper.entry_orders == "limit":
+                # Post-only: the decision's entry moved to the bid when it
+                # would cross; gates and sizing run at the placed limit.
+                limit_price = await self._post_only_price(pair, draft.entry or price)
+                if limit_price is None:
+                    action = "SKIP"
+                    error = "order book unavailable"
+            if action != "SKIP":
+                correlated = self._correlated(session, shadow, pair, candles["1h"], now)
+                pause = repo.active_entry_pause(session, pair, now)
+                atr = Decimal(str(signals.tf["1h"].atr14)) if signals.tf["1h"].atr14 else None
+                verdict = check_buy(
+                    BuyContext(
+                        pair=pair,
+                        now=now,
+                        entry=(limit_price if limit_price is not None else (draft.entry or price)),
+                        stop=draft.stop or ZERO,
+                        target=draft.target or ZERO,
+                        atr_1h=atr,
+                        has_position=pair in broker.positions,
+                        last_stop_out_at=self._last_stop_out(session, shadow, pair),
+                        correlated_pairs=correlated,
+                        daily_loss_hit=(
+                            broker.today_loss_pct(now) >= settings.risk.daily_loss_limit_pct
+                        ),
+                        risk_pct=self._risk_pct(session, shadow),
+                        entry_paused_until=(
+                            repo.aware_utc(pause.until)
+                            if pause is not None and pause.until
+                            else None
+                        ),
+                        entry_paused_indefinite=pause is not None and pause.until is None,
+                        entries_allowed=entries_allowed(session, pair),
                     ),
-                    risk_pct=self._risk_pct(session, shadow),
-                    entry_paused_until=(
-                        repo.aware_utc(pause.until) if pause is not None and pause.until else None
-                    ),
-                    entry_paused_indefinite=pause is not None and pause.until is None,
-                    entries_allowed=entries_allowed(session, pair),
-                ),
-                broker,
-                self.market_rules.get(pair),
-                settings,
-            )
-            gates = verdict.gates
-            if verdict.outcome == "skip":
-                action = "SKIP"
-                error = verdict.skip_reason
-            else:
-                plan = verdict.plan
-                assert plan is not None
-                broker.buy(
-                    session,
-                    pair,
-                    price,
-                    plan.qty,
-                    plan.stop,
-                    plan.target,
-                    decision_id,
-                    now,
-                    invalidation_price=draft.invalidation_price,
+                    broker,
+                    self.market_rules.get(pair),
+                    settings,
                 )
-                repo.add_exit_tick(session, broker.account_id, pair, price, "fill", at=now)
-                repo.add_activity(
-                    session,
-                    "fill",
-                    f"[{shadow.row.name}] BUY {pair} qty {plan.qty} @ "
-                    f"{broker.positions[pair].entry}",
-                    pair=pair,
-                    at=now,
-                )
+                gates = verdict.gates
+                if verdict.outcome == "skip":
+                    action = "SKIP"
+                    error = verdict.skip_reason
+                else:
+                    plan = verdict.plan
+                    assert plan is not None
+                    if limit_price is not None:
+                        # Resting order — the stored plan is what the
+                        # fill-time recheck re-runs against.
+                        self._place_entry_order(session, shadow, pair, decision_id, plan, now)
+                    else:
+                        broker.buy(
+                            session,
+                            pair,
+                            price,
+                            plan.qty,
+                            plan.stop,
+                            plan.target,
+                            decision_id,
+                            now,
+                            invalidation_price=draft.invalidation_price,
+                        )
+                        repo.add_exit_tick(session, broker.account_id, pair, price, "fill", at=now)
+                        repo.add_activity(
+                            session,
+                            "fill",
+                            f"[{shadow.row.name}] BUY {pair} qty {plan.qty} @ "
+                            f"{broker.positions[pair].entry}",
+                            pair=pair,
+                            at=now,
+                        )
+                        filled_buy = True
         elif draft.action == "SELL":
             if pair in broker.positions:
-                trade = broker.close(session, pair, price, now, "model_sell")
-                if trade is not None:
-                    filled_sell = True
-                    repo.add_exit_tick(session, broker.account_id, pair, price, "fill", at=now)
-                    repo.add_activity(
-                        session,
-                        "exit",
-                        f"[{shadow.row.name}] model_sell {pair} @ {price} "
-                        f"realised {trade.realised_eur} EUR",
-                        pair=pair,
-                        at=now,
-                    )
+                await self._close_shadow_position(session, shadow, pair, price, now, "model_sell")
+                filled_sell = pair not in broker.positions
         pos = broker.positions.get(pair)
         if draft.action != "BUY" and pos is not None and draft.invalidation_price is not None:
             pos.invalidation_price = draft.invalidation_price
@@ -439,7 +461,7 @@ class ShadowRunner:
             draft,
             gates=gates,
             action=action,
-            status="executed" if plan is not None or filled_sell else "none",
+            status="executed" if filled_buy or filled_sell else "none",
             plan=plan,
             error=error,
             decision_id=decision_id,
@@ -507,11 +529,247 @@ class ShadowRunner:
                 call_row.decision_id = decision.id
         session.flush()
 
+    # ------------------------------------------------------ limit orders ==
+
+    async def _post_only_price(self, pair: str, entry: Decimal) -> Decimal | None:
+        """The limit a post-only buy rests at — None when the book can't
+        be read: any failure means no order is placed."""
+        try:
+            book = await self.client.order_book(pair, 1)
+        except Exception:
+            return None
+        if book.best_bid is None or book.best_ask is None:
+            return None
+        return post_only_limit(entry, book.best_bid, book.best_ask)
+
+    def _tick_size(self, pair: str) -> Decimal | None:
+        info = self.market_rules.get(pair)
+        return info.tick_size if info is not None else None
+
+    def _place_entry_order(
+        self,
+        session: Session,
+        shadow: _Shadow,
+        pair: str,
+        decision_id: str,
+        plan: Any,
+        now: datetime,
+    ) -> PaperOrderRow:
+        order = repo.add_paper_order(
+            session,
+            PaperOrderRow(
+                decision_id=decision_id,
+                account_id=shadow.broker.account_id,
+                pair=pair,
+                side="buy",
+                leg="entry",
+                limit_price=str(plan.fill_entry),
+                qty=str(plan.qty),
+                placed_at=now.replace(tzinfo=None),
+                expires_at=(now + timedelta(seconds=CYCLE_S)).replace(tzinfo=None),
+            ),
+        )
+        repo.add_activity(
+            session,
+            "order",
+            f"[{shadow.row.name}] BUY {pair} limit {plan.fill_entry} placed (post-only)",
+            pair=pair,
+            decision_id=decision_id,
+            at=now,
+        )
+        return order
+
+    def _place_target_order(
+        self, session: Session, shadow: _Shadow, pair: str, pos: HeldPosition, now: datetime
+    ) -> PaperOrderRow:
+        return repo.add_paper_order(
+            session,
+            PaperOrderRow(
+                decision_id=pos.decision_id,
+                account_id=shadow.broker.account_id,
+                pair=pair,
+                side="sell",
+                leg="target",
+                limit_price=str(pos.target),
+                qty=str(pos.qty),
+                placed_at=now.replace(tzinfo=None),
+                expires_at=None,
+            ),
+        )
+
+    def _cancel_order(
+        self, session: Session, shadow: _Shadow, order: PaperOrderRow, now: datetime, reason: str
+    ) -> None:
+        repo.cancel_paper_order(session, order, now, reason)
+        repo.add_activity(
+            session,
+            "order",
+            f"[{shadow.row.name}] {order.pair} limit {order.limit_price} cancelled: {reason}",
+            pair=order.pair,
+            decision_id=order.decision_id,
+            at=now,
+        )
+        if order.leg != "entry":
+            return
+        row = repo.get_decision_row(session, order.decision_id)
+        if row is not None and row.status in ("none", "approved"):
+            row.status = "unfilled"
+
+    def _cancel_entry_orders(
+        self,
+        session: Session,
+        shadow: _Shadow,
+        now: datetime,
+        reason: str,
+        *,
+        pair: str | None = None,
+    ) -> int:
+        count = 0
+        for order in repo.open_paper_orders(session, shadow.broker.account_id, pair, leg="entry"):
+            self._cancel_order(session, shadow, order, now, reason)
+            count += 1
+        return count
+
+    def _entry_block_reason(
+        self, session: Session, shadow: _Shadow, pair: str, now: datetime
+    ) -> str | None:
+        """The entry-blocking gates a shadow honours: entry pause and the
+        daily loss limit (the shock brake is a live-engine concept)."""
+        if repo.active_entry_pause(session, pair, now) is not None:
+            return "entry pause"
+        if shadow.broker.today_loss_pct(now) >= shadow.settings.risk.daily_loss_limit_pct:
+            return "daily loss limit"
+        return None
+
+    async def _fill_entry_order(
+        self, session: Session, shadow: _Shadow, order: PaperOrderRow, price: Decimal, now: datetime
+    ) -> bool:
+        """Trade-through: recheck every gate at the limit price, then fill
+        at the exact limit or cancel."""
+        broker = shadow.broker
+        settings = shadow.settings
+        row = repo.get_decision_row(session, order.decision_id)
+        if row is None or row.plan is None:
+            self._cancel_order(session, shadow, order, now, "missing plan")
+            return False
+        plan = Plan.model_validate_json(row.plan)
+        candles_1h = drop_forming(
+            repo.load_candles(session, order.pair, "1h", CORR_BARS, end=now), "1h", now
+        )
+        pause = repo.active_entry_pause(session, order.pair, now)
+        verdict = check_buy(
+            BuyContext(
+                pair=order.pair,
+                now=now,
+                entry=Decimal(order.limit_price),
+                stop=plan.stop,
+                target=plan.target,
+                atr_1h=self._atr_1h(session, order.pair, now),
+                has_position=order.pair in broker.positions,
+                last_stop_out_at=self._last_stop_out(session, shadow, order.pair),
+                correlated_pairs=self._correlated(session, shadow, order.pair, candles_1h, now),
+                daily_loss_hit=(broker.today_loss_pct(now) >= settings.risk.daily_loss_limit_pct),
+                risk_pct=self._risk_pct(session, shadow),
+                entry_paused_until=(
+                    repo.aware_utc(pause.until) if pause is not None and pause.until else None
+                ),
+                entry_paused_indefinite=pause is not None and pause.until is None,
+                entries_allowed=entries_allowed(session, order.pair),
+            ),
+            broker,
+            self.market_rules.get(order.pair),
+            settings,
+        )
+        if verdict.outcome == "skip" or verdict.plan is None:
+            self._cancel_order(session, shadow, order, now, verdict.skip_reason or "gate")
+            return False
+        fill_plan = verdict.plan
+        pos = broker.buy(
+            session,
+            order.pair,
+            Decimal(order.limit_price),
+            fill_plan.qty,
+            fill_plan.stop,
+            fill_plan.target,
+            order.decision_id,
+            now,
+            invalidation_price=(
+                Decimal(row.invalidation_price) if row.invalidation_price else None
+            ),
+            order_type="limit",
+            last_price=price,
+        )
+        repo.fill_paper_order(session, order, now, fill_plan.qty)
+        row.plan = fill_plan.model_dump_json()
+        row.status = "executed"
+        row.execute_at = now.replace(tzinfo=None)
+        repo.add_exit_tick(session, broker.account_id, order.pair, price, "fill", at=now)
+        repo.add_activity(
+            session,
+            "fill",
+            f"[{shadow.row.name}] BUY {order.pair} qty {fill_plan.qty} @ {pos.entry} (limit)",
+            pair=order.pair,
+            decision_id=order.decision_id,
+            at=now,
+        )
+        return True
+
+    async def _tick_entry_orders(
+        self, session: Session, shadow: _Shadow, now: datetime
+    ) -> set[str]:
+        filled: set[str] = set()
+        for order in repo.open_paper_orders(session, shadow.broker.account_id, leg="entry"):
+            price = await self._price_fn(order.pair)
+            if price <= 0:
+                continue
+            if order.min_price is None or price < Decimal(order.min_price):
+                order.min_price = str(price)
+            block = self._entry_block_reason(session, shadow, order.pair, now)
+            if block is not None or (
+                order.expires_at is not None and repo.aware_utc(order.expires_at) <= now
+            ):
+                self._cancel_order(session, shadow, order, now, block or "next cycle")
+                continue
+            if not buy_fills(price, Decimal(order.limit_price), self._tick_size(order.pair)):
+                continue
+            if await self._fill_entry_order(session, shadow, order, price, now):
+                filled.add(order.pair)
+        return filled
+
+    async def _close_shadow_position(
+        self,
+        session: Session,
+        shadow: _Shadow,
+        pair: str,
+        price: Decimal,
+        now: datetime,
+        reason: str,
+        *,
+        order_type: Literal["market", "limit"] = "market",
+        filled_order: PaperOrderRow | None = None,
+    ) -> None:
+        for order in repo.open_paper_orders(session, shadow.broker.account_id, pair):
+            if filled_order is not None and order.id == filled_order.id:
+                repo.fill_paper_order(session, order, now)
+            else:
+                repo.cancel_paper_order(session, order, now, f"exit: {reason}")
+        trade = shadow.broker.close(session, pair, price, now, reason, order_type=order_type)
+        if trade is not None:
+            repo.add_exit_tick(session, shadow.broker.account_id, pair, price, "fill", at=now)
+            repo.add_activity(
+                session,
+                "exit",
+                f"[{shadow.row.name}] {reason} {pair} @ {price} realised {trade.realised_eur} EUR",
+                pair=pair,
+                at=now,
+            )
+
     # -------------------------------------------------------------- watcher
 
     async def tick(self, now: datetime) -> None:
-        """The 30-second watcher pass for shadow positions — stops, targets,
-        breakeven, trailing and the time stop keep working during a pause.
+        """The 30-second watcher pass: resting limit entries fill or
+        cancel; stops, targets, breakeven, trailing and the time stop keep
+        working during a pause.
 
         Runs on its own session with per-shadow commits — a shadow failure
         can never roll back the live watcher's staged work."""
@@ -519,7 +777,11 @@ class ShadowRunner:
         try:
             for shadow in self._shadows(session):
                 try:
+                    filled = await self._tick_entry_orders(session, shadow, now)
                     for pair, pos in list(shadow.broker.positions.items()):
+                        if pair in filled:
+                            # A just-filled entry's exits start next tick.
+                            continue
                         price = await self._price_fn(pair)
                         if price <= 0:
                             continue
@@ -528,22 +790,42 @@ class ShadowRunner:
                         if last_1h:
                             update_trail(pos, last_1h[-1].close)
                         atr = self._atr_1h(session, pair, now)
-                        reason = check_exit(pos, price, atr, now, shadow.settings)
+                        limit_targets = shadow.settings.paper.entry_orders == "limit"
+                        target_order = next(
+                            (
+                                o
+                                for o in repo.open_paper_orders(
+                                    session, shadow.broker.account_id, pair, leg="target"
+                                )
+                            ),
+                            None,
+                        )
+                        reason = check_exit(
+                            pos, price, atr, now, shadow.settings, target_is_limit=limit_targets
+                        )
                         if reason is not None:
-                            trade = shadow.broker.close(session, pair, price, now, reason)
-                            if trade is not None:
-                                repo.add_exit_tick(
-                                    session, shadow.broker.account_id, pair, price, "fill", at=now
-                                )
-                                repo.add_activity(
-                                    session,
-                                    "exit",
-                                    f"[{shadow.row.name}] {reason} {pair} @ {price} "
-                                    f"realised {trade.realised_eur} EUR",
-                                    pair=pair,
-                                    at=now,
-                                )
+                            # Stops, time stops and forced exits stay market.
+                            await self._close_shadow_position(
+                                session, shadow, pair, price, now, reason
+                            )
                             continue
+                        if limit_targets:
+                            if sell_fills(price, pos.target, self._tick_size(pair)):
+                                await self._close_shadow_position(
+                                    session,
+                                    shadow,
+                                    pair,
+                                    pos.target,
+                                    now,
+                                    "target",
+                                    order_type="limit",
+                                    filled_order=target_order,
+                                )
+                                continue
+                            if target_order is None:
+                                target_order = self._place_target_order(
+                                    session, shadow, pair, pos, now
+                                )
                         repo.save_position_row(
                             session,
                             pos.to_model(),
@@ -552,6 +834,7 @@ class ShadowRunner:
                             pos.highest_close,
                             pos.r_unit,
                             pos.original_stop,
+                            pos.entry_maker,
                         )
                         if self._near_level(pos, price):
                             repo.add_exit_tick(
@@ -716,12 +999,14 @@ def shadow_out(session: Session, row: ShadowRow, live_account_id: int, now: date
         )
         or 0
     )
+    overrides = json.loads(row.overrides or "{}")
+    placed, filled = repo.count_paper_orders(session, row.account_id, leg="entry")
     return ShadowOut(
         id=row.id,
         name=row.name,
         model=row.model,
         prompt_version=row.prompt_version,
-        overrides=json.loads(row.overrides or "{}"),
+        overrides=overrides,
         status=row.status,
         paused=bool(pauses) and pauses[-1].end is None,
         pauses=pauses,
@@ -735,7 +1020,51 @@ def shadow_out(session: Session, row: ShadowRow, live_account_id: int, now: date
         decisions=decisions,
         daily_call_limit=row.daily_call_limit,
         calls_today=repo.shadow_calls_today(session, row.account_id, row.id, now),
+        entry_orders="limit" if overrides.get("paper.entry_orders") == "limit" else "market",
+        orders_placed=placed,
+        orders_filled=filled,
+        missed_fill_avg_r=_missed_fill_avg_r(session, row.account_id),
     )
+
+
+def _missed_fill_avg_r(session: Session, account_id: int) -> Decimal | None:
+    """The average R the unfilled limit entries would have made — first
+    touch of the planned target/stop, else the 72h forward move in R —
+    over the latest computed outcome per cancelled entry."""
+    rows = session.scalars(
+        select(DecisionRow).where(
+            DecisionRow.account_id == account_id,
+            DecisionRow.status == "unfilled",
+            DecisionRow.action == "BUY",
+        )
+    ).all()
+    rs: list[Decimal] = []
+    for row in rows:
+        if not row.plan:
+            continue
+        plan = Plan.model_validate_json(row.plan)
+        r_dist = plan.fill_entry - plan.stop
+        if r_dist <= 0:
+            continue
+        outcome = session.scalar(
+            select(OutcomeRow)
+            .where(OutcomeRow.decision_id == row.id)
+            .order_by(OutcomeRow.horizon.desc())
+            .limit(1)
+        )
+        if outcome is None:
+            continue
+        if outcome.first_touch == "target":
+            rs.append((plan.target - plan.fill_entry) / r_dist)
+        elif outcome.first_touch == "stop":
+            rs.append(Decimal("-1"))
+        else:
+            stop_pct = r_dist / plan.fill_entry * 100
+            if stop_pct > 0:
+                rs.append(Decimal(outcome.forward_return_pct) / stop_pct)
+    if not rs:
+        return None
+    return sum(rs, Decimal("0")) / Decimal(len(rs))
 
 
 def _unpaused_segments(

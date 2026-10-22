@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from app import repo
 from app.agent.broker.paper import HeldPosition
+from app.agent.limit import entry_round_trip_cost_pct
 from app.agent.market.base import TF_SECONDS, Candle
 from app.agent.signals import (
     PairSignals,
@@ -401,10 +402,12 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
             "min_stop_atr": float(s.risk.stop_min_atr),
             "max_stop_atr": float(s.risk.stop_max_atr),
             # The smallest stop distance that passes the "Costs vs risk"
-            # gate: round-trip costs must stay under max_cost_pct_of_risk
-            # of the stop, so the floor is cost_pct / (max_cost / 100).
+            # gate: entry + stop-exit costs must stay under
+            # max_cost_pct_of_risk of the stop, so the floor is
+            # cost_pct / (max_cost / 100). It follows the order type of
+            # the account this brief is for — ~1.5% limit, ~2.0% market.
             "min_stop_pct": float(
-                (s.paper.fee_pct * 2 + s.paper.slippage_pct * 2) * 100 / s.risk.max_cost_pct_of_risk
+                entry_round_trip_cost_pct(s.paper) * 100 / s.risk.max_cost_pct_of_risk
             )
             if s.risk.max_cost_pct_of_risk > 0
             else None,

@@ -51,6 +51,7 @@ from app.db import (
     MarketRow,
     OutcomeFailureRow,
     OutcomeRow,
+    PaperOrderRow,
     PositionRow,
     TradeRow,
     utcnow,
@@ -76,6 +77,7 @@ from app.models import (
     LiquidityOut,
     OutcomeFailureOut,
     OutcomeOut,
+    PaperOrderOut,
     PerformanceOut,
     PerfTotals,
     PerPairPerf,
@@ -131,6 +133,35 @@ def decision_out(row: DecisionRow) -> Decision:
 
 def _session(state: AppState) -> Session:
     return state.session_factory()
+
+
+def _paper_order_out(row: PaperOrderRow | None, state: AppState) -> PaperOrderOut | None:
+    if row is None:
+        return None
+    last: Decimal | None = None
+    engine = state.agent_engine
+    if engine is not None:
+        info = engine.prices.get(row.pair)
+        if info is not None:
+            last = info.last
+    return PaperOrderOut(
+        id=row.id,
+        decision_id=row.decision_id,
+        pair=row.pair,
+        side=cast("Literal['buy', 'sell']", row.side),
+        leg=cast("Literal['entry', 'target']", row.leg),
+        limit_price=Decimal(row.limit_price),
+        qty=Decimal(row.qty),
+        placed_at=repo.aware_utc(row.placed_at),
+        expires_at=repo.aware_utc(row.expires_at) if row.expires_at else None,
+        status=cast("Literal['open', 'filled', 'cancelled']", row.status),
+        filled_at=repo.aware_utc(row.filled_at) if row.filled_at else None,
+        fill_price=Decimal(row.fill_price) if row.fill_price else None,
+        cancelled_at=repo.aware_utc(row.cancelled_at) if row.cancelled_at else None,
+        cancel_reason=row.cancel_reason,
+        min_price=Decimal(row.min_price) if row.min_price else None,
+        last_price=last,
+    )
 
 
 def _candle_points(candles: list[Candle]) -> list[CandlePoint]:
@@ -333,6 +364,17 @@ def get_decision(request: Request, decision_id: str) -> DecisionDetail:
         next_horizon = next(
             (hours for hours in (4, 24, 72) if hours not in completed_horizons), None
         )
+        # The entry order that carried (or still carries) this decision —
+        # the drawer renders waiting / filled / unfilled from it.
+        order_row = session.scalar(
+            select(PaperOrderRow)
+            .where(
+                PaperOrderRow.decision_id == row.id,
+                PaperOrderRow.leg == "entry",
+            )
+            .order_by(PaperOrderRow.id.desc())
+            .limit(1)
+        )
         return DecisionDetail(
             decision=decision_out(row),
             raw_brief=row.raw_brief,
@@ -348,6 +390,7 @@ def get_decision(request: Request, decision_id: str) -> DecisionDetail:
                 if next_horizon is not None
                 else None
             ),
+            entry_order=_paper_order_out(order_row, state),
         )
     finally:
         session.close()
@@ -1100,7 +1143,7 @@ def flatten_preview(request: Request) -> FlattenPreview:
             count=0, pairs=[], est_fees_eur=Decimal("0"), unrealised_eur=Decimal("0")
         )
     positions = list(engine.broker.positions.values())
-    fee_pct = state.settings.paper.fee_pct / Decimal("100")
+    fee_pct = state.settings.paper.taker_fee_pct / Decimal("100")
     return FlattenPreview(
         count=len(positions),
         pairs=sorted(p.pair for p in positions),
