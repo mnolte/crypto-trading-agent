@@ -1,37 +1,54 @@
 #!/usr/bin/env python3
 """
-regime_history.py — how long does each coin spend in an up, sideways or down regime?
+regime_history.py — how long does each coin spend in each regime, and are its
+sideways ranges wide enough to trade after costs?
 
-Labels every closed 4h bar with the Trading Agent's regime rules (docs/SPEC.md,
-"Indicator definitions -> Regime") and reports, per market:
-  - share of time in each regime
-  - how long regime runs last (median, mean, 90th percentile, longest)
-  - how many separate down stretches there were per year
-  - the current regime and its age
-
-Rules (same as the agent):
+Part 1, regimes. Labels every closed 4h bar with the Trading Agent's regime rules
+(docs/SPEC.md, "Indicator definitions -> Regime") and reports per market the share of
+time in each regime, how long runs last, down stretches per year and the current regime.
   up        4h ADX >= 25, 4h EMA 20 > EMA 50, daily close > daily EMA 200
   down      4h ADX >= 25, 4h EMA 20 < EMA 50, daily close < daily EMA 200
-  sideways  everything else
-  A new label only takes effect after 2 closed 4h bars in a row agree.
+  sideways  everything else; a new label needs 2 closed 4h bars in a row
+
+Part 2, sideways ranges (skip with --no-ranges). Uses 1h candles too:
+  - width of every sideways stretch (highest high to lowest low)
+  - every sideways hour where price is within 1 x ATR(1h) above the nearest support,
+    as the agent's sideways rule requires: the room up to the nearest resistance, and
+    whether a BUY would pass the agent's gates. The stop must sit just below a real
+    support (support - 0.1 x ATR) inside the allowed zone (at least the fee-gate minimum
+    below price, at most 5 x ATR(1h)), and the nearest resistance must give 2.0R.
+    Checked for market orders (costs 0.6%, minimum stop 2.0%) and limit entries
+    (costs 0.45%, minimum stop 1.5%).
+  - a simple illustrative backtest of those setups: one position per pair, stop first
+    when a candle touches both levels, stop to breakeven + fees at +1R, 5-day time stop,
+    6h cooldown, fees and slippage included. No model, no other gates. Limit entries are
+    assumed to always fill, so the limit result is an upper bound.
+  Supports and resistances are swing lows and highs (3 bars each side) from the last
+  200 1h bars and 120 4h bars, as in the agent, without merging nearby levels.
 
 Only reads public Bitvavo candles. No API key, no account, no orders, and it does
-not touch the agent or its database. Standard library only.
+not touch the agent or its database. Standard library only. Candles are cached in
+$TA_DATA_DIR/candle_cache (data/candle_cache by default) so a second run only
+fetches what is new.
 
 Usage:
   python3 regime_history.py                      # 9 default markets, 4 years
   python3 regime_history.py --years 6 BTC-EUR ETH-EUR
-  python3 regime_history.py --csv runs.csv       # also write every run to a CSV
+  python3 regime_history.py --no-ranges          # part 1 only, much faster
+  python3 regime_history.py --csv runs.csv --trades-csv trades.csv
 """
 
 import argparse
+import bisect
 import csv
 import json
+import os
 import statistics
 import sys
 import time
 import urllib.request
 from datetime import UTC, datetime
+from typing import Any
 
 API = "https://api.bitvavo.com/v2"
 DEFAULT_MARKETS = [
@@ -47,22 +64,50 @@ DEFAULT_MARKETS = [
 ]
 ADX_TREND = 25.0
 CONFIRM_BARS = 2
-H4_MS = 4 * 3600 * 1000
-D1_MS = 24 * 3600 * 1000
+H1_MS = 3600 * 1000
+H4_MS = 4 * H1_MS
+D1_MS = 24 * H1_MS
+STEP = {"1h": H1_MS, "4h": H4_MS, "1d": D1_MS}
+# Same data dir the backend uses (config.py: $TA_DATA_DIR, default ./data)
+CACHE_DEFAULT = os.path.join(os.environ.get("TA_DATA_DIR", "data"), "candle_cache")
+
+# Agent settings used by part 2 (Settings defaults in the spec)
+MIN_RR = 2.0
+MIN_STOP_ATR = 0.5
+MAX_STOP_ATR = 5.0
+STOP_BUFFER_ATR = 0.1
+NEAR_SUPPORT_ATR = 1.0
+TIME_STOP_H = 5 * 24
+COOLDOWN_H = 6
+SWING_K = 3
+LOOKBACK_1H = 200
+LOOKBACK_4H = 120
+# per-leg costs in %: entry, exit at target, exit at stop / time stop / breakeven
+# target rules: the agent's sideways rule (nearest resistance) and an alternative
+# (the top of the range: highest 4h swing high of the last 120 4h bars above price)
+TARGETS = ("nearest", "range_top")
+COSTS: dict[str, dict[str, float]] = {
+    "market": {"entry": 0.30, "target": 0.30, "stop": 0.30, "min_stop_pct": 2.0},
+    "limit": {"entry": 0.15, "target": 0.15, "stop": 0.30, "min_stop_pct": 1.5},
+}
+
+Bar = tuple[int, float, float, float]  # open_ts_ms, high, low, close
+Label = tuple[int, str | None]  # close_ts_ms, regime label
+Run = tuple[str, int, int, int]  # label, start_close_ts, bars, first h4 index
+Variant = tuple[str, str]  # (order mode, target rule)
+Trade = tuple[int, int, str, float]  # entry_ts, exit_ts, reason, net_R
 
 
 # ---------------------------------------------------------------- data
 
 
-def fetch_candles(market, interval, since_ms):
-    """All closed candles from since_ms until now, oldest first. Pages backwards."""
-    step = H4_MS if interval == "4h" else D1_MS
-    now_ms = int(time.time() * 1000)
-    out = {}
+def _fetch(market: str, interval: str, since_ms: int, now_ms: int) -> dict[int, list[float]]:
+    step = STEP[interval]
+    out: dict[int, list[float]] = {}
     end = now_ms
     while True:
         url = f"{API}/{market}/candles?interval={interval}&limit=1440&end={end}"
-        req = urllib.request.Request(url, headers={"User-Agent": "regime-history/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "regime-history/1.1"})
         with urllib.request.urlopen(req, timeout=30) as r:
             rows = json.loads(r.read())
         if isinstance(rows, dict):  # error object
@@ -72,27 +117,50 @@ def fetch_candles(market, interval, since_ms):
         for ts, _o, h, low, c, _v in rows:
             ts = int(ts)
             if ts + step <= now_ms:  # closed bars only (ts is the open time)
-                out[ts] = (float(h), float(low), float(c))
+                out[ts] = [float(h), float(low), float(c)]
         oldest = min(int(r[0]) for r in rows)
         if oldest <= since_ms or len(rows) < 1440:
             break
         end = oldest - 1
         time.sleep(0.25)  # stay far below the rate limit
-    ts_sorted = sorted(t for t in out if t >= since_ms - 400 * step)  # warm-up kept
-    return [(t, *out[t]) for t in ts_sorted]
+    return out
+
+
+def fetch_candles(
+    market: str, interval: str, since_ms: int, cache_dir: str | None = None
+) -> list[Bar]:
+    """Closed candles from since_ms until now, oldest first: (open_ts, high, low, close)."""
+    now_ms = int(time.time() * 1000)
+    cached: dict[int, list[float]] = {}
+    path = None
+    if cache_dir:
+        os.makedirs(cache_dir, exist_ok=True)
+        path = os.path.join(cache_dir, f"{market}_{interval}.json")
+        if os.path.exists(path):
+            with open(path) as f:
+                cached = {int(k): v for k, v in json.load(f).items()}
+    if cached and min(cached) <= since_ms:
+        fresh = _fetch(market, interval, max(cached), now_ms)  # only what is new
+    else:
+        fresh = _fetch(market, interval, since_ms, now_ms)
+    cached.update(fresh)
+    if path:
+        with open(path, "w") as f:
+            json.dump({str(k): v for k, v in cached.items()}, f)
+    return [(t, cached[t][0], cached[t][1], cached[t][2]) for t in sorted(cached) if t >= since_ms]
 
 
 # ---------------------------------------------------------------- indicators
 
 
-def ema(values, n):
+def ema(values: list[float], n: int) -> list[float | None]:
     """EMA seeded with the SMA of the first n values; None until n + 50 bars (spec)."""
-    res = [None] * len(values)
+    res: list[float | None] = [None] * len(values)
     if len(values) < n:
         return res
     k = 2 / (n + 1)
     e = sum(values[:n]) / n
-    raw = [None] * len(values)
+    raw: list[float | None] = [None] * len(values)
     raw[n - 1] = e
     for i in range(n, len(values)):
         e = values[i] * k + e * (1 - k)
@@ -103,10 +171,32 @@ def ema(values, n):
     return res
 
 
-def adx(highs, lows, closes, n=14):
+def atr(
+    highs: list[float], lows: list[float], closes: list[float], n: int = 14
+) -> list[float | None]:
+    """Wilder's ATR. None until n bars."""
+    size = len(closes)
+    res: list[float | None] = [None] * size
+    if size <= n:
+        return res
+    tr = [highs[0] - lows[0]] + [
+        max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1]))
+        for i in range(1, size)
+    ]
+    a = sum(tr[1 : n + 1]) / n
+    res[n] = a
+    for i in range(n + 1, size):
+        a = (a * (n - 1) + tr[i]) / n
+        res[i] = a
+    return res
+
+
+def adx(
+    highs: list[float], lows: list[float], closes: list[float], n: int = 14
+) -> list[float | None]:
     """Wilder's ADX. None until enough bars."""
     size = len(closes)
-    res = [None] * size
+    res: list[float | None] = [None] * size
     if size < 2 * n + 1:
         return res
     tr, pdm, mdm = [0.0] * size, [0.0] * size, [0.0] * size
@@ -119,9 +209,9 @@ def adx(highs, lows, closes, n=14):
     s_tr = sum(tr[1 : n + 1])
     s_p = sum(pdm[1 : n + 1])
     s_m = sum(mdm[1 : n + 1])
-    dx = [None] * size
+    dx: list[float | None] = [None] * size
 
-    def _dx(st, sp, sm):
+    def _dx(st: float, sp: float, sm: float) -> float:
         if st == 0:
             return 0.0
         pdi, mdi = 100 * sp / st, 100 * sm / st
@@ -133,18 +223,34 @@ def adx(highs, lows, closes, n=14):
         s_p = s_p - s_p / n + pdm[i]
         s_m = s_m - s_m / n + mdm[i]
         dx[i] = _dx(s_tr, s_p, s_m)
-    a = sum(dx[n : 2 * n]) / n
+    a = sum(x for x in dx[n : 2 * n] if x is not None) / n
     res[2 * n - 1] = a
     for i in range(2 * n, size):
-        a = (a * (n - 1) + dx[i]) / n
+        dx_i = dx[i]
+        assert dx_i is not None  # filled by the smoothing loop above
+        a = (a * (n - 1) + dx_i) / n
         res[i] = a
     return res
+
+
+def swings(
+    highs: list[float], lows: list[float], k: int = SWING_K
+) -> tuple[list[tuple[int, float]], list[tuple[int, float]]]:
+    """Swing highs and lows: (index, price) where the bar is the extreme of k bars each side."""
+    sh: list[tuple[int, float]] = []
+    sl: list[tuple[int, float]] = []
+    for j in range(k, len(highs) - k):
+        if highs[j] == max(highs[j - k : j + k + 1]):
+            sh.append((j, highs[j]))
+        if lows[j] == min(lows[j - k : j + k + 1]):
+            sl.append((j, lows[j]))
+    return sh, sl
 
 
 # ---------------------------------------------------------------- regime
 
 
-def label_bars(h4, d1):
+def label_bars(h4: list[Bar], d1: list[Bar]) -> list[Label]:
     """Confirmed regime label per closed 4h bar: list of (close_ts_ms, label or None)."""
     c4 = [b[3] for b in h4]
     e20, e50 = ema(c4, 20), ema(c4, 50)
@@ -153,19 +259,25 @@ def label_bars(h4, d1):
     e200 = ema(cd, 200)
     d_close_ts = [b[0] + D1_MS for b in d1]
 
-    out, j, current, pending, streak = [], -1, None, None, 0
+    out: list[Label] = []
+    j = -1
+    current: str | None = None
+    pending: str | None = None
+    streak = 0
     for i, bar in enumerate(h4):
         close_ts = bar[0] + H4_MS
         while j + 1 < len(d1) and d_close_ts[j + 1] <= close_ts:  # latest daily bar closed by now
             j += 1
-        if None in (e20[i], e50[i], a14[i]) or j < 0 or e200[j] is None:
+        e20v, e50v, adxv = e20[i], e50[i], a14[i]
+        d_ref = e200[j] if j >= 0 else None
+        if e20v is None or e50v is None or adxv is None or d_ref is None:
             out.append((close_ts, None))
             continue
-        trending = a14[i] >= ADX_TREND
-        d_up, d_dn = cd[j] > e200[j], cd[j] < e200[j]
-        if trending and e20[i] > e50[i] and d_up:
+        trending = adxv >= ADX_TREND
+        d_up, d_dn = cd[j] > d_ref, cd[j] < d_ref
+        if trending and e20v > e50v and d_up:
             raw = "up"
-        elif trending and e20[i] < e50[i] and d_dn:
+        elif trending and e20v < e50v and d_dn:
             raw = "down"
         else:
             raw = "sideways"
@@ -182,41 +294,195 @@ def label_bars(h4, d1):
     return out
 
 
-def runs_of(labels):
-    runs, start, cur, n = [], None, None, 0
-    for ts, lab in labels:
+def runs_of(labels: list[Label]) -> list[Run]:
+    """(label, start_close_ts, bars, first_index) for each run of equal labels."""
+    runs: list[Run] = []
+    start: int | None = None
+    cur: str | None = None
+    first: int | None = None
+    n = 0
+    for idx, (ts, lab) in enumerate(labels):
         if lab is None:
             continue
         if lab != cur:
-            if cur is not None:
-                runs.append((cur, start, n))
-            cur, start, n = lab, ts, 0
+            if cur is not None and start is not None and first is not None:
+                runs.append((cur, start, n, first))
+            cur, start, n, first = lab, ts, 0, idx
         n += 1
-    if cur is not None:
-        runs.append((cur, start, n))
+    if cur is not None and start is not None and first is not None:
+        runs.append((cur, start, n, first))
     return runs
+
+
+# ---------------------------------------------------------------- sideways ranges
+
+
+def range_widths(h4: list[Bar], runs: list[Run], since_ms: int) -> list[float]:
+    """High-to-low width (%) of every sideways run that starts in the window."""
+    widths: list[float] = []
+    for lab, start, n, first in runs:
+        if lab != "sideways" or start < since_ms:
+            continue
+        seg = h4[first : first + n]
+        lo = min(b[2] for b in seg)
+        hi = max(b[1] for b in seg)
+        widths.append(100 * (hi - lo) / lo)
+    return widths
+
+
+def analyse_ranges(
+    h1: list[Bar], h4: list[Bar], labels4: list[Label], since_ms: int
+) -> tuple[dict[str, Any], dict[Variant, dict[int, tuple[float, float]]]]:
+    """Near-support samples, feasibility per cost mode, and setups for the backtest."""
+    hi1, lo1, c1 = [b[1] for b in h1], [b[2] for b in h1], [b[3] for b in h1]
+    atr1 = atr(hi1, lo1, c1)
+    sh1, sl1 = swings(hi1, lo1)
+    sh4, sl4 = swings([b[1] for b in h4], [b[2] for b in h4])
+    close4 = [b[0] + H4_MS for b in h4]
+    sh1_idx, sl1_idx = [j for j, _ in sh1], [j for j, _ in sl1]
+    sh4_idx, sl4_idx = [j for j, _ in sh4], [j for j, _ in sl4]
+
+    def levels(
+        piv: list[tuple[int, float]], piv_idx: list[int], lo_i: int, hi_i: int
+    ) -> list[float]:
+        a, b = bisect.bisect_left(piv_idx, lo_i), bisect.bisect_right(piv_idx, hi_i)
+        return [p for _, p in piv[a:b]]
+
+    variants: list[Variant] = [(m, t) for t in TARGETS for m in COSTS]
+    stats: dict[str, Any] = {
+        "sideways_h": 0,
+        "near_h": 0,
+        "no_structure_h": 0,
+        "upside": [],
+        "upside_top": [],
+        "feasible": dict.fromkeys(variants, 0),
+        "no_stop": dict.fromkeys(variants, 0),
+        "low_rr": dict.fromkeys(variants, 0),
+    }
+    setups: dict[Variant, dict[int, tuple[float, float]]] = {
+        v: {} for v in variants
+    }  # 1h index -> (stop, target)
+    k4 = -1
+    for i, bar in enumerate(h1):
+        ct = bar[0] + H1_MS
+        while k4 + 1 < len(close4) and close4[k4 + 1] <= ct:  # latest closed 4h bar
+            k4 += 1
+        av = atr1[i]
+        if ct < since_ms or k4 < 0 or labels4[k4][1] != "sideways" or av is None:
+            continue
+        stats["sideways_h"] += 1
+        price, a = c1[i], av
+        # confirmed swings only: pivot j is known once bar j + SWING_K has closed
+        k4c = k4 - SWING_K
+        lows = levels(sl1, sl1_idx, i - LOOKBACK_1H, i - SWING_K) + levels(
+            sl4, sl4_idx, k4 - LOOKBACK_4H, k4c
+        )
+        highs = levels(sh1, sh1_idx, i - LOOKBACK_1H, i - SWING_K) + levels(
+            sh4, sh4_idx, k4 - LOOKBACK_4H, k4c
+        )
+        supports = [p for p in lows if p < price]
+        resists = [p for p in highs if p > price]
+        if not supports or not resists:
+            stats["no_structure_h"] += 1
+            continue
+        s1, r1 = max(supports), min(resists)
+        tops = [p for p in levels(sh4, sh4_idx, k4 - LOOKBACK_4H, k4c) if p > price]
+        r_top = max(tops) if tops else max(resists)
+        if price - s1 > NEAR_SUPPORT_ATR * a:
+            continue
+        stats["near_h"] += 1
+        stats["upside"].append(100 * (r1 / price - 1))
+        stats["upside_top"].append(100 * (r_top / price - 1))
+        for mode, tgt in variants:
+            c = COSTS[mode]
+            target = r1 if tgt == "nearest" else r_top
+            zone_hi = min(price * (1 - c["min_stop_pct"] / 100), price - MIN_STOP_ATR * a)
+            zone_lo = price - MAX_STOP_ATR * a
+            stops = [
+                s - STOP_BUFFER_ATR * a
+                for s in supports
+                if zone_lo <= s - STOP_BUFFER_ATR * a <= zone_hi
+            ]
+            if not stops:
+                stats["no_stop"][(mode, tgt)] += 1
+                continue
+            stop = max(stops)
+            if (target - price) / (price - stop) < MIN_RR:
+                stats["low_rr"][(mode, tgt)] += 1
+                continue
+            stats["feasible"][(mode, tgt)] += 1
+            setups[(mode, tgt)][i] = (stop, target)
+    return stats, setups
+
+
+def backtest(h1: list[Bar], setups: dict[int, tuple[float, float]], mode: str) -> list[Trade]:
+    """One position at a time. Returns list of trades (entry_ts, exit_ts, reason, net_R)."""
+    c = COSTS[mode]
+    trades: list[Trade] = []
+    n = len(h1)
+    idx = sorted(setups)
+    pos = 0
+    while pos < len(idx):
+        i = idx[pos]
+        stop, target = setups[i]
+        entry = h1[i][3]
+        risk = entry - stop
+        be_stop = entry * (1 + (c["entry"] + c["stop"]) / 100)
+        cur_stop = stop
+        moved = False
+        exit_px: float | None = None
+        reason: str | None = None
+        j = i
+        for j in range(i + 1, min(i + 1 + TIME_STOP_H, n)):
+            _, hi, lo, _cl = h1[j]
+            if lo <= cur_stop:  # stop first when both are touched
+                exit_px, reason = cur_stop, ("breakeven" if moved else "stop")
+                break
+            if hi >= target:
+                exit_px, reason = target, "target"
+                break
+            if not moved and hi >= entry + risk:  # from the next bar on
+                cur_stop, moved = max(cur_stop, be_stop), True
+        if exit_px is None:
+            j = min(i + TIME_STOP_H, n - 1)
+            exit_px, reason = h1[j][3], "time"
+        exit_cost = c["target"] if reason == "target" else c["stop"]
+        gross_pct = 100 * (exit_px / entry - 1)
+        net_r = (gross_pct - c["entry"] - exit_cost) / (100 * risk / entry)
+        assert reason is not None  # every exit path sets a reason
+        trades.append((h1[i][0], h1[j][0], reason, net_r))
+        resume = j + COOLDOWN_H
+        pos = bisect.bisect_left(idx, resume)
+    return trades
 
 
 # ---------------------------------------------------------------- report
 
 
-def days(bars):
+def days(bars: int) -> float:
     return bars * 4 / 24
 
 
-def fmt_d(x):
+def fmt_d(x: float) -> str:
     return f"{x:5.1f}d" if x < 100 else f"{x:5.0f}d"
 
 
-def iso(ms):
+def iso(ms: int) -> str:
     return datetime.fromtimestamp(ms / 1000, tz=UTC).strftime("%Y-%m-%d")
 
 
-def report(market, labels, runs, since_ms):
+def pct(values: list[float], q: float) -> float:
+    v = sorted(values)
+    return v[min(len(v) - 1, int(q * len(v)))] if v else float("nan")
+
+
+def report_regimes(
+    market: str, labels: list[Label], runs: list[Run], since_ms: int
+) -> float | None:
     labelled = [(t, lab) for t, lab in labels if lab is not None and t >= since_ms]
     if not labelled:
         print(f"\n{market}: not enough history")
-        return
+        return None
     total = len(labelled)
     span_years = (labelled[-1][0] - labelled[0][0]) / (365.25 * D1_MS)
     print(
@@ -234,59 +500,130 @@ def report(market, labels, runs, since_ms):
             print(f"  {reg:9} {share:5.1f}% {0:>5}")
             continue
         lens = sorted(days(r[2]) for r in rr)
-        p90 = lens[min(len(lens) - 1, int(0.9 * len(lens)))]
         longest = max(rr, key=lambda r: r[2])
         print(
             f"  {reg:9} {share:5.1f}% {len(rr):>5} {fmt_d(statistics.median(lens)):>7} "
-            f"{fmt_d(statistics.mean(lens)):>7} {fmt_d(p90):>7} "
+            f"{fmt_d(statistics.mean(lens)):>7} {fmt_d(pct(lens, 0.9)):>7} "
             f"{fmt_d(days(longest[2])):>8}  {iso(longest[1])}"
         )
     downs = [r for r in runs if r[0] == "down" and r[1] >= since_ms]
     buy_ok = 100 * sum(1 for _, lab in labelled if lab != "down") / total
-    if market.startswith("BTC-"):
-        note = "BTC may also buy in a down regime (confidence cap 0.6)"
-    else:
-        note = "BUY allowed outside down regimes (sideways only near support)"
+    note = (
+        "BTC may also buy in a down regime (confidence cap 0.6)"
+        if market.startswith("BTC-")
+        else "BUY allowed outside down regimes (sideways only near support)"
+    )
     print(
         f"  down stretches per year: {len(downs) / span_years:.1f}   "
         f"time a BUY is possible: {buy_ok:.0f}%  ({note})"
     )
     last = runs[-1]
     print(f"  now: {last[0]} for {last[2]} bars ({days(last[2]):.1f} days)")
+    return span_years
 
 
-def main():
+def report_ranges(
+    widths: list[float],
+    stats: dict[str, Any],
+    results: dict[Variant, list[Trade]],
+    span_years: float,
+) -> None:
+    print("  sideways ranges")
+    if widths:
+        print(
+            f"    stretch width (high to low): median {statistics.median(widths):.1f}%   "
+            f"p75 {pct(widths, 0.75):.1f}%   "
+            f"at least 4.5%: {100 * sum(w >= 4.5 for w in widths) / len(widths):.0f}% "
+            f"of stretches   "
+            f"at least 3.5%: {100 * sum(w >= 3.5 for w in widths) / len(widths):.0f}%"
+        )
+    sh, near = stats["sideways_h"], stats["near_h"]
+    if not sh:
+        print("    no sideways hours in the window")
+        return
+    print(f"    near support (within 1 x ATR(1h)): {100 * near / sh:.1f}% of {sh} sideways hours")
+    if near:
+        up, top = stats["upside"], stats["upside_top"]
+        print(
+            f"    room to nearest resistance from there: median {statistics.median(up):.2f}%   "
+            f"p75 {pct(up, 0.75):.2f}%   p90 {pct(up, 0.9):.2f}%"
+        )
+        print(
+            f"    room to the range top from there:      median {statistics.median(top):.2f}%   "
+            f"p75 {pct(top, 0.75):.2f}%   p90 {pct(top, 0.9):.2f}%"
+        )
+        for v in stats["feasible"]:
+            f, ns, lr = stats["feasible"][v], stats["no_stop"][v], stats["low_rr"][v]
+            print(
+                f"    BUY passes the gates ({v[0]:6}, target {v[1]:9}): "
+                f"{100 * f / near:5.1f}% of near-support hours   "
+                f"(no support in stop zone {100 * ns / near:.0f}%, "
+                f"below 2.0R {100 * lr / near:.0f}%)"
+            )
+    print(
+        "  illustrative range backtest (no model, no other gates; limit assumes every entry fills)"
+    )
+    for (mode, tgt), trades in results.items():
+        label = f"{mode:6} -> {tgt:9}"
+        if not trades:
+            print(f"    {label}: no trades")
+            continue
+        rs = [t[3] for t in trades]
+        wins = sum(r > 0.05 for r in rs)  # breakeven exits (about 0R) are not wins
+        by = {
+            k: sum(1 for t in trades if t[2] == k) for k in ("target", "stop", "breakeven", "time")
+        }
+        print(
+            f"    {label}: {len(trades):3} trades ({len(trades) / span_years:4.1f}/yr)   "
+            f"win {100 * wins / len(rs):3.0f}%   "
+            f"avg {statistics.mean(rs):+.2f}R   total {sum(rs):+.1f}R   "
+            f"exits: target {by['target']}, stop {by['stop']}, "
+            f"breakeven {by['breakeven']}, time {by['time']}"
+        )
+
+
+def main() -> None:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("markets", nargs="*", default=DEFAULT_MARKETS)
     ap.add_argument("--years", type=float, default=4.0, help="years to analyse (default 4)")
+    ap.add_argument("--no-ranges", action="store_true", help="skip part 2 (no 1h candles needed)")
     ap.add_argument("--csv", help="write every regime run to this CSV file")
+    ap.add_argument("--trades-csv", help="write every backtest trade to this CSV file")
+    ap.add_argument(
+        "--cache",
+        default=CACHE_DEFAULT,
+        help=f"candle cache folder (default {CACHE_DEFAULT}; '' to disable)",
+    )
     args = ap.parse_args()
 
     since_ms = int((time.time() - args.years * 365.25 * 86400) * 1000)
-    # Extra history so EMA 200 on 1d (250 bars incl. warm-up) is valid at the start.
-    warm_d1 = since_ms - 260 * D1_MS
-    warm_h4 = since_ms - 120 * H4_MS
+    warm_d1 = since_ms - 260 * D1_MS  # EMA 200 on 1d is valid after 250 bars
+    warm_h4 = since_ms - 150 * H4_MS
+    warm_h1 = since_ms - 300 * H1_MS
 
-    rows = []
+    run_rows: list[dict[str, object]] = []
+    trade_rows: list[dict[str, object]] = []
+    summary: list[dict[str, Any]] = []
     print(
         f"Regime history, last {args.years:g} years. Rules: ADX >= {ADX_TREND:g}, "
         f"{CONFIRM_BARS}-bar confirmation. Durations in days (1 bar = 4h)."
     )
     for m in args.markets:
         try:
-            d1 = [b for b in fetch_candles(m, "1d", warm_d1) if b[0] >= warm_d1]
-            h4 = [b for b in fetch_candles(m, "4h", warm_h4) if b[0] >= warm_h4]
+            d1 = fetch_candles(m, "1d", warm_d1, args.cache or None)
+            h4 = fetch_candles(m, "4h", warm_h4, args.cache or None)
+            h1 = [] if args.no_ranges else fetch_candles(m, "1h", warm_h1, args.cache or None)
         except Exception as e:
             print(f"\n{m}: could not fetch candles ({e})", file=sys.stderr)
             continue
         labels = label_bars(h4, d1)
         runs = runs_of(labels)
-        report(m, labels, runs, since_ms)
-        for reg, start, n in runs:
+        span = report_regimes(m, labels, runs, since_ms)
+        for reg, start, n, _ in runs:
             if start >= since_ms:
-                rows.append(
+                run_rows.append(
                     {
                         "market": m,
                         "regime": reg,
@@ -295,12 +632,79 @@ def main():
                         "days": round(days(n), 2),
                     }
                 )
-    if args.csv and rows:
+        if args.no_ranges or not span or not h1:
+            continue
+        widths = range_widths(h4, runs, since_ms)
+        stats, setups = analyse_ranges(h1, h4, labels, since_ms)
+        results = {v: backtest(h1, setups[v], v[0]) for v in setups}
+        report_ranges(widths, stats, results, span)
+        row: dict[str, Any] = {
+            "name": m,
+            "modes": {},
+            "span": span,
+            "near_pct": 100 * stats["near_h"] / stats["sideways_h"] if stats["sideways_h"] else 0,
+            "median_room": statistics.median(stats["upside"]) if stats["upside"] else float("nan"),
+            "median_top": statistics.median(stats["upside_top"])
+            if stats["upside_top"]
+            else float("nan"),
+        }
+        for (mode, tgt), trades in results.items():
+            rs = [t[3] for t in trades]
+            row["modes"][(mode, tgt)] = (
+                len(trades) / span,
+                statistics.mean(rs) if rs else float("nan"),
+                sum(rs),
+            )
+            for t in trades:
+                trade_rows.append(
+                    {
+                        "market": m,
+                        "orders": mode,
+                        "target": tgt,
+                        "entry_utc": iso(t[0]),
+                        "exit_utc": iso(t[1]),
+                        "exit": t[2],
+                        "net_r": round(t[3], 3),
+                    }
+                )
+        summary.append(row)
+
+    if summary:
+        print("\nSummary of sideways range trading (illustrative; trades per year, average net R)")
+        short = {"market": "mkt", "limit": "lim", "nearest": "nearest", "range_top": "top"}
+        hdr = "".join(f"  {short[m] + ' > ' + short[tg]:>15}" for tg in TARGETS for m in COSTS)
+        print(f"  {'market':9} {'near':>6} {'room':>6} {'top':>6}{hdr}")
+        tot: dict[Variant, list[float]] = {}
+        for r in summary:
+            cells = ""
+            for tg in TARGETS:
+                for m in COSTS:
+                    n, avg, total = r["modes"][(m, tg)]
+                    cells += f"  {n:5.1f} {avg:+5.2f}R   " if n else f"  {'-':>15}"
+                    a = tot.setdefault((m, tg), [0.0, 0.0])
+                    a[0] += n
+                    a[1] += total
+            print(
+                f"  {r['name']:9} {r['near_pct']:5.1f}% {r['median_room']:5.2f}% "
+                f"{r['median_top']:5.2f}%{cells}"
+            )
+        span_avg = statistics.mean(r["span"] for r in summary)
+        print(
+            "  all markets together, net R per year: "
+            + ",  ".join(f"{m} -> {tg}: {v[1] / span_avg:+.1f}R" for (m, tg), v in tot.items())
+        )
+    if args.csv and run_rows:
         with open(args.csv, "w", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=list(rows[0]))
+            w = csv.DictWriter(f, fieldnames=list(run_rows[0]))
             w.writeheader()
-            w.writerows(rows)
-        print(f"\nWrote {len(rows)} runs to {args.csv}")
+            w.writerows(run_rows)
+        print(f"\nWrote {len(run_rows)} runs to {args.csv}")
+    if args.trades_csv and trade_rows:
+        with open(args.trades_csv, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(trade_rows[0]))
+            w.writeheader()
+            w.writerows(trade_rows)
+        print(f"Wrote {len(trade_rows)} trades to {args.trades_csv}")
     print(
         "\nNote: a market listed on Bitvavo later than the start date is analysed from its listing."
     )
