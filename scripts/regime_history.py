@@ -23,6 +23,7 @@ Usage:
   python3 regime_history.py --years 6 BTC-EUR ETH-EUR
   python3 regime_history.py --csv runs.csv       # also write every run to a CSV
 """
+
 import argparse
 import csv
 import json
@@ -30,11 +31,20 @@ import statistics
 import sys
 import time
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 API = "https://api.bitvavo.com/v2"
-DEFAULT_MARKETS = ["BTC-EUR", "ETH-EUR", "SOL-EUR", "XRP-EUR", "ADA-EUR",
-                   "LINK-EUR", "AVAX-EUR", "DOGE-EUR", "LTC-EUR"]
+DEFAULT_MARKETS = [
+    "BTC-EUR",
+    "ETH-EUR",
+    "SOL-EUR",
+    "XRP-EUR",
+    "ADA-EUR",
+    "LINK-EUR",
+    "AVAX-EUR",
+    "DOGE-EUR",
+    "LTC-EUR",
+]
 ADX_TREND = 25.0
 CONFIRM_BARS = 2
 H4_MS = 4 * 3600 * 1000
@@ -42,6 +52,7 @@ D1_MS = 24 * 3600 * 1000
 
 
 # ---------------------------------------------------------------- data
+
 
 def fetch_candles(market, interval, since_ms):
     """All closed candles from since_ms until now, oldest first. Pages backwards."""
@@ -58,20 +69,21 @@ def fetch_candles(market, interval, since_ms):
             raise RuntimeError(f"{market} {interval}: {rows}")
         if not rows:
             break
-        for ts, o, h, l, c, v in rows:
+        for ts, _o, h, low, c, _v in rows:
             ts = int(ts)
-            if ts + step <= now_ms:          # closed bars only (ts is the open time)
-                out[ts] = (float(h), float(l), float(c))
+            if ts + step <= now_ms:  # closed bars only (ts is the open time)
+                out[ts] = (float(h), float(low), float(c))
         oldest = min(int(r[0]) for r in rows)
         if oldest <= since_ms or len(rows) < 1440:
             break
         end = oldest - 1
-        time.sleep(0.25)                     # stay far below the rate limit
+        time.sleep(0.25)  # stay far below the rate limit
     ts_sorted = sorted(t for t in out if t >= since_ms - 400 * step)  # warm-up kept
     return [(t, *out[t]) for t in ts_sorted]
 
 
 # ---------------------------------------------------------------- indicators
+
 
 def ema(values, n):
     """EMA seeded with the SMA of the first n values; None until n + 50 bars (spec)."""
@@ -104,7 +116,9 @@ def adx(highs, lows, closes, n=14):
         pdm[i] = up if (up > dn and up > 0) else 0.0
         mdm[i] = dn if (dn > up and dn > 0) else 0.0
         tr[i] = max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1]))
-    s_tr = sum(tr[1:n + 1]); s_p = sum(pdm[1:n + 1]); s_m = sum(mdm[1:n + 1])
+    s_tr = sum(tr[1 : n + 1])
+    s_p = sum(pdm[1 : n + 1])
+    s_m = sum(mdm[1 : n + 1])
     dx = [None] * size
 
     def _dx(st, sp, sm):
@@ -119,7 +133,7 @@ def adx(highs, lows, closes, n=14):
         s_p = s_p - s_p / n + pdm[i]
         s_m = s_m - s_m / n + mdm[i]
         dx[i] = _dx(s_tr, s_p, s_m)
-    a = sum(dx[n:2 * n]) / n
+    a = sum(dx[n : 2 * n]) / n
     res[2 * n - 1] = a
     for i in range(2 * n, size):
         a = (a * (n - 1) + dx[i]) / n
@@ -128,6 +142,7 @@ def adx(highs, lows, closes, n=14):
 
 
 # ---------------------------------------------------------------- regime
+
 
 def label_bars(h4, d1):
     """Confirmed regime label per closed 4h bar: list of (close_ts_ms, label or None)."""
@@ -141,7 +156,7 @@ def label_bars(h4, d1):
     out, j, current, pending, streak = [], -1, None, None, 0
     for i, bar in enumerate(h4):
         close_ts = bar[0] + H4_MS
-        while j + 1 < len(d1) and d_close_ts[j + 1] <= close_ts:   # latest daily bar closed by now
+        while j + 1 < len(d1) and d_close_ts[j + 1] <= close_ts:  # latest daily bar closed by now
             j += 1
         if None in (e20[i], e50[i], a14[i]) or j < 0 or e200[j] is None:
             out.append((close_ts, None))
@@ -184,6 +199,7 @@ def runs_of(labels):
 
 # ---------------------------------------------------------------- report
 
+
 def days(bars):
     return bars * 4 / 24
 
@@ -193,20 +209,26 @@ def fmt_d(x):
 
 
 def iso(ms):
-    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+    return datetime.fromtimestamp(ms / 1000, tz=UTC).strftime("%Y-%m-%d")
 
 
 def report(market, labels, runs, since_ms):
-    labelled = [(t, l) for t, l in labels if l is not None and t >= since_ms]
+    labelled = [(t, lab) for t, lab in labels if lab is not None and t >= since_ms]
     if not labelled:
         print(f"\n{market}: not enough history")
         return
     total = len(labelled)
     span_years = (labelled[-1][0] - labelled[0][0]) / (365.25 * D1_MS)
-    print(f"\n{market}   {iso(labelled[0][0])} to {iso(labelled[-1][0])}   ({span_years:.1f} years, {total} 4h bars)")
-    print(f"  {'regime':9} {'time':>6} {'runs':>5} {'median':>7} {'mean':>7} {'p90':>7} {'longest':>8}  longest from")
+    print(
+        f"\n{market}   {iso(labelled[0][0])} to {iso(labelled[-1][0])}   "
+        f"({span_years:.1f} years, {total} 4h bars)"
+    )
+    print(
+        f"  {'regime':9} {'time':>6} {'runs':>5} {'median':>7} {'mean':>7} "
+        f"{'p90':>7} {'longest':>8}  longest from"
+    )
     for reg in ("up", "sideways", "down"):
-        share = 100 * sum(1 for _, l in labelled if l == reg) / total
+        share = 100 * sum(1 for _, lab in labelled if lab == reg) / total
         rr = [r for r in runs if r[0] == reg and r[1] >= since_ms]
         if not rr:
             print(f"  {reg:9} {share:5.1f}% {0:>5}")
@@ -214,19 +236,29 @@ def report(market, labels, runs, since_ms):
         lens = sorted(days(r[2]) for r in rr)
         p90 = lens[min(len(lens) - 1, int(0.9 * len(lens)))]
         longest = max(rr, key=lambda r: r[2])
-        print(f"  {reg:9} {share:5.1f}% {len(rr):>5} {fmt_d(statistics.median(lens)):>7} "
-              f"{fmt_d(statistics.mean(lens)):>7} {fmt_d(p90):>7} {fmt_d(days(longest[2])):>8}  {iso(longest[1])}")
+        print(
+            f"  {reg:9} {share:5.1f}% {len(rr):>5} {fmt_d(statistics.median(lens)):>7} "
+            f"{fmt_d(statistics.mean(lens)):>7} {fmt_d(p90):>7} "
+            f"{fmt_d(days(longest[2])):>8}  {iso(longest[1])}"
+        )
     downs = [r for r in runs if r[0] == "down" and r[1] >= since_ms]
-    buy_ok = 100 * sum(1 for _, l in labelled if l != "down") / total
-    note = "BTC may also buy in a down regime (confidence cap 0.6)" if market.startswith("BTC-") else \
-           "BUY allowed outside down regimes (sideways only near support)"
-    print(f"  down stretches per year: {len(downs) / span_years:.1f}   time a BUY is possible: {buy_ok:.0f}%  ({note})")
+    buy_ok = 100 * sum(1 for _, lab in labelled if lab != "down") / total
+    if market.startswith("BTC-"):
+        note = "BTC may also buy in a down regime (confidence cap 0.6)"
+    else:
+        note = "BUY allowed outside down regimes (sideways only near support)"
+    print(
+        f"  down stretches per year: {len(downs) / span_years:.1f}   "
+        f"time a BUY is possible: {buy_ok:.0f}%  ({note})"
+    )
     last = runs[-1]
     print(f"  now: {last[0]} for {last[2]} bars ({days(last[2]):.1f} days)")
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("markets", nargs="*", default=DEFAULT_MARKETS)
     ap.add_argument("--years", type=float, default=4.0, help="years to analyse (default 4)")
     ap.add_argument("--csv", help="write every regime run to this CSV file")
@@ -238,8 +270,10 @@ def main():
     warm_h4 = since_ms - 120 * H4_MS
 
     rows = []
-    print(f"Regime history, last {args.years:g} years. Rules: ADX >= {ADX_TREND:g}, "
-          f"{CONFIRM_BARS}-bar confirmation. Durations in days (1 bar = 4h).")
+    print(
+        f"Regime history, last {args.years:g} years. Rules: ADX >= {ADX_TREND:g}, "
+        f"{CONFIRM_BARS}-bar confirmation. Durations in days (1 bar = 4h)."
+    )
     for m in args.markets:
         try:
             d1 = [b for b in fetch_candles(m, "1d", warm_d1) if b[0] >= warm_d1]
@@ -252,15 +286,24 @@ def main():
         report(m, labels, runs, since_ms)
         for reg, start, n in runs:
             if start >= since_ms:
-                rows.append({"market": m, "regime": reg, "start_utc": iso(start),
-                             "bars_4h": n, "days": round(days(n), 2)})
+                rows.append(
+                    {
+                        "market": m,
+                        "regime": reg,
+                        "start_utc": iso(start),
+                        "bars_4h": n,
+                        "days": round(days(n), 2),
+                    }
+                )
     if args.csv and rows:
         with open(args.csv, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=list(rows[0]))
             w.writeheader()
             w.writerows(rows)
         print(f"\nWrote {len(rows)} runs to {args.csv}")
-    print("\nNote: a market listed on Bitvavo later than the start date is analysed from its listing.")
+    print(
+        "\nNote: a market listed on Bitvavo later than the start date is analysed from its listing."
+    )
 
 
 if __name__ == "__main__":
