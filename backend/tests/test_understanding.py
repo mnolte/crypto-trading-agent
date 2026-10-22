@@ -390,9 +390,7 @@ def test_number_check_accepts_float_as_serialised() -> None:
     copy that spelling verbatim — checking only the 6-decimal rounding
     rejects a number that is in the facts it was given."""
     facts = {"return_since_start_pct": -1.068054595481099}
-    assert (
-        briefings.text_numbers_ok("Equity is -1.068054595481099% since the start.", facts) == []
-    )
+    assert briefings.text_numbers_ok("Equity is -1.068054595481099% since the start.", facts) == []
     # Roundings of the same figure keep passing.
     assert briefings.text_numbers_ok("Equity is -1.07% since the start.", facts) == []
     assert briefings.text_numbers_ok("Equity is -1.0680546% since the start.", facts) == []
