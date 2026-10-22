@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -32,6 +33,8 @@ from app import repo
 from app.agent import budget
 from app.agent.brief import (
     MAX_ENTRY_DISTANCE_PCT,
+    TF_FIELDS,
+    TF_FIELDS_1D_EXTRA,
     BriefInputs,
     BriefMeta,
     brief_json,
@@ -65,44 +68,104 @@ CONTEXT_SPECS: dict[str, tuple[str, Tf, int]] = {
     "usdc_1h": ("USDC-EUR", "1h", 48),
 }
 
+# Signal names the model cites, normalised (lowercase, a-z and 0-9 only),
+# mapped to the brief's canonical keys. A cited name is matched against the
+# brief's own keys first ("vwap_dist" -> "vwapdist"); this table covers the
+# names that don't normalise to a key, like "VWAP Distance".
 SIGNAL_ALIASES: dict[str, str] = {
     "rsi": "rsi",
-    "rsi 14": "rsi",
-    "ema 20 vs 50": "ema20_vs_50",
-    "ema20 vs 50": "ema20_vs_50",
-    "ema20_vs_50": "ema20_vs_50",
-    "ema cross": "ema20_vs_50",
+    "rsi14": "rsi",
+    "ema20vs50": "ema20_vs_50",
+    "ema2050": "ema20_vs_50",
+    "emacross": "ema20_vs_50",
+    "ema20ema50": "ema20_vs_50",
+    "emas": "ema20_vs_50",
+    "vwapdist": "vwap_dist",
+    "vwapdistance": "vwap_dist",
     "vwap": "vwap_dist",
-    "price vs vwap": "vwap_dist",
-    "vwap_dist": "vwap_dist",
-    "vwap dist": "vwap_dist",
+    "vsvwap": "vwap_dist",
+    "pricevsvwap": "vwap_dist",
+    "obvtrend": "obv_trend",
     "obv": "obv_trend",
-    "obv trend": "obv_trend",
-    "obv_trend": "obv_trend",
     "adx": "adx",
-    "adx 14": "adx",
+    "adx14": "adx",
+    "atrpct": "atr_pct",
     "atr": "atr_pct",
-    "atr %": "atr_pct",
-    "atr_pct": "atr_pct",
-    "atr rank": "atr_rank",
-    "atr percentile": "atr_rank",
-    "atr_rank": "atr_rank",
+    "atrpercent": "atr_pct",
+    "atrrank": "atr_rank",
+    "atrpercentile": "atr_rank",
+    "volxavg": "vol_x_avg",
     "volume": "vol_x_avg",
-    "volume x avg": "vol_x_avg",
-    "vol_x_avg": "vol_x_avg",
-    "ema 200": "ema200_dist",
+    "volumexavg": "vol_x_avg",
+    "volumevsaverage": "vol_x_avg",
+    "relvolume": "vol_x_avg",
+    "ema200dist": "ema200_dist",
     "ema200": "ema200_dist",
-    "price vs ema 200": "ema200_dist",
-    "ema200_dist": "ema200_dist",
-    "btc trend": "btc_trend_4h",
-    "btc 4h trend": "btc_trend_4h",
-    "btc_trend_4h": "btc_trend_4h",
-    "btc 1d trend": "btc_trend_1d",
-    "btc daily trend": "btc_trend_1d",
-    "btc_trend_1d": "btc_trend_1d",
-    "eth/btc": "eth_btc_trend",
-    "eth_btc_trend": "eth_btc_trend",
+    "vsema200": "ema200_dist",
+    "pricevsema200": "ema200_dist",
+    # market_context keys (timeframe-free)
+    "btctrend": "btc_trend_4h",
+    "btc4htrend": "btc_trend_4h",
+    "btc1dtrend": "btc_trend_1d",
+    "btcdailytrend": "btc_trend_1d",
+    "ethbtc": "eth_btc_trend",
 }
+
+# Keys that live per timeframe; ema200_dist only exists on 1d.
+_TF_SIGNAL_KEYS = set(TF_FIELDS) | set(TF_FIELDS_1D_EXTRA)
+
+
+def _norm_signal_name(name: str) -> str:
+    """Lowercase, keep a-z and 0-9: 'VWAP Distance' -> 'vwapdistance'."""
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+def signal_claims_check(signals: list[ModelSignal], brief: dict[str, Any]) -> CheckOut:
+    """Compare each cited signal with the brief's read on its own tf.
+
+    A cited name is normalised, then matched against the brief's canonical
+    keys and the alias table. A match on a timeframe the brief doesn't
+    carry (e.g. ema200_dist on 1h) warns "no such value"; a name that
+    matches nothing warns "not in brief". A matching name with a
+    contradicting read is still a warn — aliases never turn a
+    contradiction into a pass.
+    """
+    tf_blocks = brief.get("tf", {})
+    ctx_block = brief.get("market_context", {})
+    canonical: dict[str, str] = {}
+    for block in tf_blocks.values():
+        if isinstance(block, dict):
+            for key in block:
+                canonical.setdefault(_norm_signal_name(key), key)
+    for key in ctx_block:
+        canonical.setdefault(_norm_signal_name(key), key)
+
+    problems: list[str] = []
+    for sig in signals:
+        norm = _norm_signal_name(sig.name)
+        field = canonical.get(norm) or SIGNAL_ALIASES.get(norm)
+        label = f"{sig.name} · {sig.tf}"
+        if field is None:
+            problems.append(f"{label}: not in brief")
+            continue
+        block = tf_blocks.get(sig.tf)
+        item = block.get(field) if isinstance(block, dict) else None
+        if not isinstance(item, dict) or item.get("read") is None:
+            item = ctx_block.get(field)
+        brief_read = item.get("read") if isinstance(item, dict) else None
+        if brief_read is None:
+            if field in _TF_SIGNAL_KEYS:
+                problems.append(f"{label}: no such value on {sig.tf}")
+            else:
+                problems.append(f"{label}: not in brief")
+        elif brief_read != sig.read:
+            problems.append(f"{label}: model says {sig.read}, brief says {brief_read}")
+    detail = "; ".join(dict.fromkeys(problems))
+    return CheckOut(
+        name="Signal claims",
+        status="warn" if detail else "pass",
+        detail=detail or "every claim matches the brief",
+    )
 
 
 class ModelSignal(BaseModel):
@@ -296,35 +359,7 @@ def check_output(
         )
 
     # ---- signal claims ---------------------------------------------------
-    mismatch: list[str] = []
-    unknown: list[str] = []
-    tf_blocks = brief.get("tf", {})
-    ctx_block = brief.get("market_context", {})
-    for sig in out.signals:
-        field = SIGNAL_ALIASES.get(sig.name.lower().strip())
-        brief_read: str | None = None
-        if field is not None:
-            item = tf_blocks.get(sig.tf, {}).get(field)
-            if isinstance(item, dict):
-                brief_read = item.get("read")
-            if brief_read is None:
-                item = ctx_block.get(field)
-                if isinstance(item, dict):
-                    brief_read = item.get("read")
-        if brief_read is None:
-            unknown.append(sig.name)
-        elif brief_read != sig.read:
-            mismatch.append(
-                f"{sig.name} ({sig.tf}): model says {sig.read}, brief says {brief_read}"
-            )
-    claims_detail = "; ".join(mismatch + [f"not in brief: {n}" for n in unknown])
-    checks.append(
-        CheckOut(
-            name="Signal claims",
-            status="warn" if claims_detail else "pass",
-            detail=claims_detail or "every claim matches the brief",
-        )
-    )
+    checks.append(signal_claims_check(out.signals, brief))
 
     # ---- stale-data rule ------------------------------------------------
     if meta.stale_tfs:

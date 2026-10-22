@@ -17,15 +17,18 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import repo
-from app.agent.brief import BriefMeta
+from app.agent.brief import TF_FIELDS, BriefMeta
 from app.agent.broker.paper import PaperBroker
 from app.agent.deciders.base import DecideContext, Draft, RiskView
 from app.agent.deciders.openai_decider import (
+    SIGNAL_ALIASES,
     ModelDecision,
+    ModelSignal,
     OpenAIDecider,
     check_output,
     decision_schema,
     parse_model_output,
+    signal_claims_check,
 )
 from app.agent.market.base import Candle, MarketClient, MarketDataError, OrderBook
 from app.agent.openai_client import CallResult
@@ -258,6 +261,125 @@ def test_unknown_signal_claim_warns() -> None:
 def test_matching_signal_claims_pass() -> None:
     verdict = _check(_buy())
     assert _named(verdict.checks, "Signal claims").status == "pass"
+
+
+# ---------------------------------------------------- signal claims -----
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+# The market_context keys the brief can carry (all tf-free).
+_CTX_KEYS = (
+    "btc_trend_4h",
+    "btc_trend_1d",
+    "btc_chg_24h_pct",
+    "btc_atr_rank_1h",
+    "eth_btc_trend",
+    "eur_usd_1h_pct",
+    "eur_usd_24h_pct",
+    "rs_btc_24h_pct",
+    "rs_btc_7d_pct",
+    "corr_btc_30d",
+)
+
+
+def _full_brief(read: str = "bullish") -> dict[str, Any]:
+    """A brief carrying every signal field on every tf plus all context
+    keys, all read `read`."""
+    tf = {name: {"value": 1.0, "read": read} for name in TF_FIELDS}
+    return _brief(
+        tf={
+            "1h": dict(tf),
+            "4h": dict(tf),
+            "1d": {**tf, "ema200_dist": {"value": 1.0, "read": read}},
+        },
+        market_context={name: {"value": 1.0, "read": read} for name in _CTX_KEYS},
+    )
+
+
+def _sig(name: str, tf: str, read: str = "bullish") -> ModelSignal:
+    return ModelSignal.model_validate({"name": name, "tf": tf, "read": read})
+
+
+def test_cycle410_fixture_signal_claims_pass() -> None:
+    """Stored BTC-EUR call req_102120132edb44c48b5328dd35f94b1d (cycle 410,
+    21 Oct 2026): the model cited "VWAP Distance", "EMA 20 vs 50" and "OBV
+    Trend" — names the old check reported as "not in brief" twice. Every
+    cited read matches the brief, so the check passes."""
+    brief = json.loads((FIXTURES / "brief_cycle410.json").read_text())
+    out, err = parse_model_output((FIXTURES / "output_cycle410.json").read_text())
+    assert err is None and out is not None
+    check = signal_claims_check(out.signals, brief)
+    assert check.status == "pass", check.detail
+
+
+@pytest.mark.parametrize(
+    "cited", ["VWAP Distance", "VWAP", "price vs VWAP", "vwap_dist", "VWAP-Dist."]
+)
+def test_vwap_name_variants_resolve(cited: str) -> None:
+    check = signal_claims_check([_sig(cited, "1h")], _full_brief())
+    assert check.status == "pass", check.detail
+
+
+@pytest.mark.parametrize(("alias", "key"), sorted(SIGNAL_ALIASES.items()))
+def test_every_alias_resolves_to_a_brief_key(alias: str, key: str) -> None:
+    """Each alias maps to a canonical key, and a claim citing the alias
+    resolves to it — never 'not in brief'."""
+    canonical = set(TF_FIELDS) | {"ema200_dist"} | set(_CTX_KEYS)
+    assert key in canonical
+    tf = "1d" if key == "ema200_dist" else "1h"
+    check = signal_claims_check([_sig(alias, tf)], _full_brief())
+    assert check.status == "pass", f"{alias} -> {key}: {check.detail}"
+
+
+def test_unknown_signal_warns_not_in_brief() -> None:
+    check = signal_claims_check([_sig("macd", "1h")], _full_brief())
+    assert check.status == "warn"
+    assert check.detail == "macd · 1h: not in brief"
+
+
+@pytest.mark.parametrize("key", sorted(TF_FIELDS))
+def test_contradiction_on_1h_flagged(key: str) -> None:
+    check = signal_claims_check([_sig(key, "1h", "bearish")], _full_brief())
+    assert check.status == "warn"
+    assert f"{key} · 1h: model says bearish, brief says bullish" == check.detail
+
+
+def test_aliased_contradiction_still_flagged() -> None:
+    """'VWAP Distance' resolves to vwap_dist; a contradicting read is a
+    warn, never a pass."""
+    check = signal_claims_check([_sig("VWAP Distance", "1h", "bearish")], _full_brief())
+    assert check.status == "warn"
+    assert "model says bearish, brief says bullish" in check.detail
+
+
+def test_ema200_on_1h_warns_no_such_value() -> None:
+    check = signal_claims_check([_sig("ema200_dist", "1h")], _full_brief())
+    assert check.status == "warn"
+    assert check.detail == "ema200_dist · 1h: no such value on 1h"
+
+
+def test_missing_tf_warns_no_such_value() -> None:
+    brief = _full_brief()
+    del brief["tf"]["4h"]
+    check = signal_claims_check([_sig("rsi", "4h")], brief)
+    assert check.status == "warn"
+    assert check.detail == "rsi · 4h: no such value on 4h"
+
+
+def test_context_keys_match_regardless_of_tf() -> None:
+    check = signal_claims_check([_sig("BTC trend", "4h")], _full_brief())
+    assert check.status == "pass", check.detail
+
+
+def test_duplicate_claims_merge_to_one_message() -> None:
+    check = signal_claims_check(
+        [_sig("macd", "1h"), _sig("macd", "1h"), _sig("RSI", "1h", "bearish")],
+        _full_brief(),
+    )
+    assert check.status == "warn"
+    assert check.detail == (
+        "macd · 1h: not in brief; RSI · 1h: model says bearish, brief says bullish"
+    )
 
 
 def test_stale_data_allows_only_hold() -> None:

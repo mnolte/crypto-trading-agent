@@ -1,0 +1,57 @@
+{
+ "action": "HOLD",
+ "confidence": 0.5,
+ "entry": 75287.0,
+ "stop": null,
+ "target": null,
+ "reasoning": "The market is currently in a sideways trend, and while the 1h indicators are bullish, the regime requires a more cautious approach. The price is above the nearest support but not within the acceptable range for a BUY. Additionally, the 1d data is stale, which further supports a HOLD decision. There are no open positions to sell, and the conditions do not favor a new entry at this time.",
+ "signals": [
+  {
+   "name": "RSI",
+   "tf": "1h",
+   "read": "bullish"
+  },
+  {
+   "name": "EMA 20 vs 50",
+   "tf": "1h",
+   "read": "bullish"
+  },
+  {
+   "name": "VWAP Distance",
+   "tf": "1h",
+   "read": "bullish"
+  },
+  {
+   "name": "OBV Trend",
+   "tf": "1h",
+   "read": "bullish"
+  },
+  {
+   "name": "ADX",
+   "tf": "1h",
+   "read": "trending"
+  },
+  {
+   "name": "RSI",
+   "tf": "4h",
+   "read": "bullish"
+  },
+  {
+   "name": "EMA 20 vs 50",
+   "tf": "4h",
+   "read": "bullish"
+  },
+  {
+   "name": "VWAP Distance",
+   "tf": "4h",
+   "read": "bullish"
+  },
+  {
+   "name": "OBV Trend",
+   "tf": "4h",
+   "read": "bullish"
+  }
+ ],
+ "invalidation": null,
+ "invalidation_price": null
+}
