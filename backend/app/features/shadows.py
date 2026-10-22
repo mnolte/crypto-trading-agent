@@ -657,6 +657,11 @@ class ShadowRunner:
             repo.load_candles(session, order.pair, "1h", CORR_BARS, end=now), "1h", now
         )
         pause = repo.active_entry_pause(session, order.pair, now)
+        # The order was placed post-only — recheck in limit mode even if
+        # the shadow's overrides have since changed.
+        gate_settings = settings.model_copy(
+            update={"paper": settings.paper.model_copy(update={"entry_orders": "limit"})}
+        )
         verdict = check_buy(
             BuyContext(
                 pair=order.pair,
@@ -678,7 +683,7 @@ class ShadowRunner:
             ),
             broker,
             self.market_rules.get(order.pair),
-            settings,
+            gate_settings,
         )
         if verdict.outcome == "skip" or verdict.plan is None:
             self._cancel_order(session, shadow, order, now, verdict.skip_reason or "gate")
@@ -700,6 +705,7 @@ class ShadowRunner:
             last_price=price,
         )
         repo.fill_paper_order(session, order, now, fill_plan.qty)
+        self._place_target_order(session, shadow, order.pair, pos, now)
         row.plan = fill_plan.model_dump_json()
         row.status = "executed"
         row.execute_at = now.replace(tzinfo=None)
@@ -718,7 +724,12 @@ class ShadowRunner:
         self, session: Session, shadow: _Shadow, now: datetime
     ) -> set[str]:
         filled: set[str] = set()
-        for order in repo.open_paper_orders(session, shadow.broker.account_id, leg="entry"):
+        orders = repo.open_paper_orders(session, shadow.broker.account_id, leg="entry")
+        if shadow.settings.paper.entry_orders != "limit":
+            for order in orders:
+                self._cancel_order(session, shadow, order, now, "switched to market")
+            return filled
+        for order in orders:
             price = await self._price_fn(order.pair)
             if price <= 0:
                 continue
@@ -790,7 +801,9 @@ class ShadowRunner:
                         if last_1h:
                             update_trail(pos, last_1h[-1].close)
                         atr = self._atr_1h(session, pair, now)
-                        limit_targets = shadow.settings.paper.entry_orders == "limit"
+                        # Target style follows the position's entry leg,
+                        # not the shadow's current setting.
+                        limit_targets = pos.entry_maker
                         target_order = next(
                             (
                                 o
@@ -800,6 +813,11 @@ class ShadowRunner:
                             ),
                             None,
                         )
+                        if not limit_targets and target_order is not None:
+                            self._cancel_order(
+                                session, shadow, target_order, now, "market position"
+                            )
+                            target_order = None
                         reason = check_exit(
                             pos, price, atr, now, shadow.settings, target_is_limit=limit_targets
                         )

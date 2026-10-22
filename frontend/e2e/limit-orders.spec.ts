@@ -21,9 +21,12 @@ async function localToken(request: APIRequestContext): Promise<string> {
 
 test.setTimeout(60_000);
 
+let headers: Record<string, string>;
+let originalSettings: unknown;
+
 test.beforeAll(async ({ request }) => {
   const token = await localToken(request);
-  const headers = { "X-Local-Token": token };
+  headers = { "X-Local-Token": token };
   // Pause the agent so the watcher cannot cancel the seeded open order,
   // then wait out any in-flight cycle — direct SQLite writes must not
   // collide with the engine's commits (locked-database stalls).
@@ -38,10 +41,27 @@ test.beforeAll(async ({ request }) => {
       { timeout: 50_000, intervals: [500, 1000, 2000] },
     )
     .toBe(false);
+  // The seeded open order rests as a post-only limit. The watcher cancels
+  // any open entry order under market entries, so switch the runtime to
+  // limit entries before seeding; afterAll restores the original settings.
+  const res = await request.get("/api/settings");
+  originalSettings = await res.json();
+  const updated = { ...(originalSettings as Record<string, unknown>) };
+  updated.paper = {
+    ...(updated.paper as Record<string, unknown>),
+    entry_orders: "limit",
+  };
+  await request.put("/api/settings", { headers, data: updated });
   execFileSync("uv", ["run", "python", "e2e/seed-limit-orders.py"], {
     cwd: path.resolve(REPO, "frontend"),
     env: { ...process.env, TA_DB_PATH: DB, PYTHONPATH: "../backend" },
   });
+});
+
+test.afterAll(async ({ request }) => {
+  if (headers && originalSettings !== undefined) {
+    await request.put("/api/settings", { headers, data: originalSettings });
+  }
 });
 
 const STATES = [

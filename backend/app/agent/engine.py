@@ -1110,6 +1110,11 @@ class Engine:
             return False
         plan = Plan.model_validate_json(row.plan)
         candles = drop_forming(repo.load_candles(session, order.pair, "1h", CORR_BARS), "1h", now)
+        # The order was placed post-only — the recheck runs in limit mode
+        # (exact fill, maker fee) even if the account has since switched.
+        gate_settings = settings.model_copy(
+            update={"paper": settings.paper.model_copy(update={"entry_orders": "limit"})}
+        )
         verdict = check_buy(
             await self._buy_ctx(
                 session,
@@ -1120,11 +1125,11 @@ class Engine:
                 target=plan.target,
                 atr_1h=self._atr_1h(session, order.pair, now),
                 candles_1h=candles,
-                settings=settings,
+                settings=gate_settings,
             ),
             self.broker,
             self.market_rules.get(order.pair),
-            settings,
+            gate_settings,
         )
         if verdict.outcome == "skip" or verdict.plan is None:
             self._cancel_order(session, order, now, verdict.skip_reason or "gate")
@@ -1146,6 +1151,8 @@ class Engine:
             last_price=price,
         )
         repo.fill_paper_order(session, order, now, fill_plan.qty)
+        # The new position's target rests on the book from the fill tick.
+        self._place_target_order(session, order.pair, pos, now)
         row.plan = fill_plan.model_dump_json()
         row.status = "executed"
         row.execute_at = now.replace(tzinfo=None)
@@ -1174,7 +1181,14 @@ class Engine:
         the pairs whose entry filled this tick — a newly filled position's
         exits are evaluated from the next tick on."""
         filled: set[str] = set()
-        for order in repo.open_paper_orders(session, self.broker.account_id, leg="entry"):
+        orders = repo.open_paper_orders(session, self.broker.account_id, leg="entry")
+        if settings.paper.entry_orders != "limit":
+            # Resting limit entries only exist in limit mode — when the
+            # account switches to market they can no longer be managed.
+            for order in orders:
+                self._cancel_order(session, order, now, "switched to market")
+            return filled
+        for order in orders:
             price = await self._price(order.pair)
             if price <= 0:
                 continue
@@ -1293,7 +1307,11 @@ class Engine:
             if last_1h:
                 update_trail(pos, last_1h[-1].close)
             atr = self._atr_1h(session, pair, now)
-            limit_targets = settings.paper.entry_orders == "limit"
+            # The target's style belongs to the position: a maker-filled
+            # entry rests its target as a limit sell, a taker-filled one
+            # keeps the market touch — flipping the entry-orders setting
+            # never retroactively changes an open position's exit.
+            limit_targets = pos.entry_maker
             target_order = next(
                 (
                     o
@@ -1303,6 +1321,9 @@ class Engine:
                 ),
                 None,
             )
+            if not limit_targets and target_order is not None:
+                self._cancel_order(session, target_order, now, "market position")
+                target_order = None
             reason = check_exit(pos, price, atr, now, settings, target_is_limit=limit_targets)
             if reason is not None:
                 # Stops, time stops and every forced exit stay market.

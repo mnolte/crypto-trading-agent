@@ -34,6 +34,7 @@ from app.db import (
     DecisionRow,
     OutcomeRow,
     PaperOrderRow,
+    PositionRow,
     TradeRow,
     run_migrations,
 )
@@ -478,6 +479,85 @@ async def test_limit_entry_stop_exits_at_market(env: Path) -> None:
         sell_fee = pos.qty * slipped * Decimal("0.0025")  # taker on exit
         expected = pos.qty * (slipped - pos.entry) - entry_fee - sell_fee
         assert Decimal(trade.realised_eur) == expected
+    finally:
+        s.close()
+
+
+async def test_switch_to_market_cancels_resting_entry(env: Path) -> None:
+    """Flipping Entry orders back to Market cancels a resting limit entry —
+    it can no longer be managed post-only."""
+    e = _uptrend_env(env)
+    last = e.market.series[("SOL-EUR", "1h")][-1].close
+    e.market.set_book("SOL-EUR", last * Decimal("0.90"), last * Decimal("1.20"))
+    await e.engine.run_cycle()
+    s = e.session()
+    try:
+        order = _orders(s)[0]
+    finally:
+        s.close()
+    e.settings = e.settings.model_copy(
+        update={"paper": e.settings.paper.model_copy(update={"entry_orders": "market"})}
+    )
+    await e.engine.tick()
+    s = e.session()
+    try:
+        fresh = s.get(PaperOrderRow, order.id)
+        assert fresh is not None
+        assert fresh.status == "cancelled" and fresh.cancel_reason == "switched to market"
+        assert _decision(s, fresh.decision_id).status == "unfilled"
+    finally:
+        s.close()
+
+
+async def test_target_style_follows_the_position(env: Path) -> None:
+    """A limit-filled position keeps its resting limit target after the
+    account switches back to market entries — and entry_maker survives
+    every watcher save of the position row."""
+    e = _uptrend_env(env)
+    last = e.market.series[("SOL-EUR", "1h")][-1].close
+    e.market.set_book("SOL-EUR", last * Decimal("0.90"), last * Decimal("1.20"))
+    await e.engine.run_cycle()
+    s = e.session()
+    try:
+        order = _orders(s)[0]
+        limit = Decimal(order.limit_price)
+    finally:
+        s.close()
+    e.market.tickers["SOL-EUR"] = limit - Decimal("0.01")
+    await e.engine.tick()
+    pos = e.broker.positions.get("SOL-EUR")
+    assert pos is not None and pos.entry_maker
+    # The target rests on the book from the fill tick.
+    s = e.session()
+    try:
+        assert any(o.leg == "target" and o.status == "open" for o in _orders(s))
+    finally:
+        s.close()
+    # A neutral tick persists the position; entry_maker must survive.
+    e.market.tickers["SOL-EUR"] = pos.entry
+    await e.engine.tick()
+    s = e.session()
+    try:
+        row = s.get(PositionRow, ("SOL-EUR", order.account_id))
+        assert row is not None and row.entry_maker
+    finally:
+        s.close()
+    # Switching to market entries does not touch the open position's exit:
+    # a touch is not a fill, a tick above fills at the exact limit.
+    e.settings = e.settings.model_copy(
+        update={"paper": e.settings.paper.model_copy(update={"entry_orders": "market"})}
+    )
+    e.market.tickers["SOL-EUR"] = pos.target
+    await e.engine.tick()
+    assert "SOL-EUR" in e.broker.positions
+    e.market.tickers["SOL-EUR"] = pos.target + Decimal("0.01")
+    await e.engine.tick()
+    assert "SOL-EUR" not in e.broker.positions
+    s = e.session()
+    try:
+        trade = s.scalars(select(TradeRow).where(TradeRow.decision_id == pos.decision_id)).one()
+        assert trade.exit_reason == "target"
+        assert Decimal(trade.exit) == pos.target
     finally:
         s.close()
 

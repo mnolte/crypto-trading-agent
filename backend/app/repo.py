@@ -342,7 +342,7 @@ def save_position_row(
     highest_close: Decimal | None,
     r_unit: Decimal,
     initial_stop: Decimal,
-    entry_maker: bool = False,
+    entry_maker: bool | None = None,
 ) -> None:
     """Persist one account's open position on a pair.
 
@@ -365,7 +365,7 @@ def save_position_row(
             invalidation_price=None,
             highest_close=None,
             r_unit="0",
-            entry_maker=entry_maker,
+            entry_maker=bool(entry_maker),
         )
     row.account_id = account_id
     row.qty = str(pos.qty)
@@ -378,7 +378,10 @@ def save_position_row(
     row.invalidation_price = str(invalidation_price) if invalidation_price is not None else None
     row.highest_close = str(highest_close) if highest_close is not None else None
     row.r_unit = str(r_unit)
-    row.entry_maker = entry_maker
+    if entry_maker is not None:
+        # None means "persist everything else, keep the stored entry leg"
+        # — ticker/invalidation saves must not clobber it.
+        row.entry_maker = entry_maker
     session.merge(row)
 
 
@@ -1057,6 +1060,7 @@ def delete_all_data(session: Session) -> None:
         ShadowRow,
         WhatifRow,
         AskConversationRow,
+        PaperOrderRow,
     ):
         session.execute(delete(table))
     session.commit()
