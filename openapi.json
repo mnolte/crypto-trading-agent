@@ -1412,6 +1412,17 @@
       },
       "Gate": {
         "properties": {
+          "limit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -2237,6 +2248,17 @@
               }
             ],
             "title": "Brief"
+          },
+          "brief_upgraded": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brief Upgraded"
           },
           "cost_eur": {
             "anyOf": [
@@ -4805,6 +4827,18 @@
             "default": "2",
             "title": "Shock Brake Hours"
           },
+          "stop_buffer_atr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0.1",
+            "title": "Stop Buffer Atr"
+          },
           "stop_max_atr": {
             "anyOf": [
               {
@@ -4969,6 +5003,11 @@
           "shock_brake_hours": {
             "default": "2",
             "title": "Shock Brake Hours",
+            "type": "string"
+          },
+          "stop_buffer_atr": {
+            "default": "0.1",
+            "title": "Stop Buffer Atr",
             "type": "string"
           },
           "stop_max_atr": {
@@ -5414,6 +5453,7 @@
               "risk_per_trade_pct": "1.0",
               "shock_brake_btc_move_pct": "4",
               "shock_brake_hours": "2",
+              "stop_buffer_atr": "0.1",
               "stop_max_atr": "5",
               "stop_min_atr": "0.5",
               "throttle_consecutive_losses": 3,
@@ -5640,6 +5680,7 @@
               "risk_per_trade_pct": "1.0",
               "shock_brake_btc_move_pct": "4",
               "shock_brake_hours": "2",
+              "stop_buffer_atr": "0.1",
               "stop_max_atr": "5",
               "stop_min_atr": "0.5",
               "throttle_consecutive_losses": 3,
@@ -9093,7 +9134,7 @@
     },
     "/api/llm-calls/{call_id}/replay": {
       "post": {
-        "description": "Re-send the stored request, optionally on another model or prompt\nversion. Replays count against the daily budget and pause at 80% of the\nmonthly cap.",
+        "description": "Re-send the stored request, optionally on another model or prompt\nversion. Replays count against the daily budget and pause at 80% of the\nmonthly cap. A target prompt with a newer brief version gets the stored\nbrief upgraded first \u2014 from candles closed by the call's own time.",
         "operationId": "replay_call_api_llm_calls__call_id__replay_post",
         "parameters": [
           {

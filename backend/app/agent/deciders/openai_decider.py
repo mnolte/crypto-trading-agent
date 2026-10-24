@@ -20,7 +20,7 @@ import json
 import math
 import re
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -41,8 +41,8 @@ from app.agent.brief import (
     build_brief,
     input_checks,
     pair_history,
-    previous_decision,
 )
+from app.agent.brief_v2 import BRIEF_VERSION, previous_decision_v2
 from app.agent.broker.paper import PaperBroker
 from app.agent.deciders.base import DecideContext, Draft, RiskView
 from app.agent.deciders.rules import RulesDecider
@@ -120,7 +120,9 @@ def _norm_signal_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", name.lower())
 
 
-def signal_claims_check(signals: list[ModelSignal], brief: dict[str, Any]) -> CheckOut:
+def signal_claims_check(
+    signals: Sequence[ModelSignal | ModelSignalV2], brief: dict[str, Any]
+) -> CheckOut:
     """Compare each cited signal with the brief's read on its own tf.
 
     A cited name is normalised, then matched against the brief's canonical
@@ -176,9 +178,9 @@ class ModelSignal(BaseModel):
     read: SignalRead
 
 
-class ModelDecision(BaseModel):
-    """The model's output, schema-checked. Levels are nullable; the
-    post-checks decide whether each may be empty."""
+class _DecisionBase(BaseModel):
+    """The fields every decision output shares; each brief version pins its
+    own ``signals`` element type on top."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -188,16 +190,63 @@ class ModelDecision(BaseModel):
     stop: float | None = None
     target: float | None = None
     reasoning: str = Field(default="", max_length=600)
+
+
+class ModelDecision(_DecisionBase):
+    """The model's output, schema-checked. Levels are nullable; the
+    post-checks decide whether each may be empty."""
+
     signals: list[ModelSignal] = Field(default_factory=list)
     invalidation: str | None = None
     invalidation_price: float | None = None
 
 
-def decision_schema() -> dict[str, Any]:
+# Signal names v2 allows — exactly the brief's per-timeframe indicator
+# keys (ema200_dist exists on 1d only).
+SignalName = Literal[
+    "rsi",
+    "ema20_vs_50",
+    "vwap_dist",
+    "obv_trend",
+    "adx",
+    "atr_pct",
+    "atr_rank",
+    "vol_x_avg",
+    "ema200_dist",
+]
+
+StopBasis = Literal["S1", "S2", "S3", "S4", "S5"]
+TargetBasis = Literal["R1", "R2", "R3", "R4", "R5"]
+
+
+class ModelSignalV2(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: SignalName
+    tf: Tf
+    read: SignalRead
+
+
+class ModelDecisionV2(_DecisionBase):
+    """The v2 output: v1 plus the basis ids of the chosen stop and target
+    candidates, and signal names constrained to the brief's keys."""
+
+    signals: list[ModelSignalV2] = Field(default_factory=list)
+    invalidation: str | None = None
+    invalidation_price: float | None = None
+    stop_basis: StopBasis | None = None
+    target_basis: TargetBasis | None = None
+
+
+AnyDecision = ModelDecision | ModelDecisionV2
+
+
+def decision_schema(brief_version: int = 1) -> dict[str, Any]:
     """The structured-output schema sent with every call: the Pydantic
     schema, normalised for OpenAI strict mode (every property required,
     nullables via anyOf)."""
-    schema = ModelDecision.model_json_schema()
+    model = ModelDecisionV2 if brief_version >= BRIEF_VERSION else ModelDecision
+    schema = model.model_json_schema()
     schema["additionalProperties"] = False
     schema["required"] = list(schema["properties"].keys())
     for item in schema.get("$defs", {}).values():
@@ -206,7 +255,9 @@ def decision_schema() -> dict[str, Any]:
     return schema
 
 
-def parse_model_output(text: str | None) -> tuple[ModelDecision | None, str | None]:
+def parse_model_output(
+    text: str | None, brief_version: int = 1
+) -> tuple[AnyDecision | None, str | None]:
     """Parse and schema-check the model's text. Returns the decision or the
     reason it failed."""
     if not text:
@@ -215,8 +266,9 @@ def parse_model_output(text: str | None) -> tuple[ModelDecision | None, str | No
         data = json.loads(text)
     except json.JSONDecodeError as exc:
         return None, f"invalid JSON: {exc}"
+    model = ModelDecisionV2 if brief_version >= BRIEF_VERSION else ModelDecision
     try:
-        return ModelDecision.model_validate(data), None
+        return model.model_validate(data), None
     except ValidationError as exc:
         first = exc.errors()[0]
         loc = ".".join(str(p) for p in first["loc"])
@@ -233,17 +285,20 @@ class OutputVerdict:
 
 
 def check_output(
-    out: ModelDecision | None,
+    out: AnyDecision | None,
     parse_error: str | None,
     brief: dict[str, Any],
     meta: BriefMeta,
     rules_action: str,
     settings: Settings,
+    brief_version: int = 1,
 ) -> OutputVerdict:
     """The post-checks every model answer goes through. A fail resolves the
     decision to HOLD; warnings adjust (drop a bad invalidation price, cap
     confidence) and are recorded."""
     checks: list[CheckOut] = []
+    v2 = brief_version >= BRIEF_VERSION
+    tm = brief.get("trade_math") if isinstance(brief.get("trade_math"), dict) else None
 
     if out is None:
         checks.append(
@@ -275,13 +330,15 @@ def check_output(
         return v is not None and math.isfinite(v)
 
     if out.action == "BUY":
-        if not (
-            _finite(out.entry)
-            and _finite(out.stop)
-            and _finite(out.target)
-            and _finite(out.invalidation_price)
-        ):
-            level_fails.append("BUY needs entry, stop, target and an invalidation price")
+        # v2 moves the missing-invalidation case to a warn ("Invalidation"),
+        # so Levels sane only demands the three prices there.
+        needed = [_finite(out.entry), _finite(out.stop), _finite(out.target)]
+        if not v2:
+            needed.append(_finite(out.invalidation_price))
+        if not all(needed):
+            level_fails.append(
+                "BUY needs entry, stop and target" + ("" if v2 else " and an invalidation price")
+            )
         else:
             assert out.entry is not None and out.stop is not None and out.target is not None
             if not (out.stop < out.entry < out.target):
@@ -303,13 +360,21 @@ def check_output(
                     level_fails.append(
                         f"stop {dist_atr:.1f} x ATR(1h) from entry (allowed {lo}-{hi})"
                     )
-            assert out.invalidation_price is not None
-            if out.stop < out.invalidation_price < out.entry:
+            if out.invalidation_price is None:
+                pass  # v2: missing invalidation warns under "Invalidation"
+            elif out.stop < out.invalidation_price < out.entry:
                 kept_inv = Decimal(str(out.invalidation_price))
             else:
                 level_warns.append("invalidation price outside stop..entry; dropped")
     else:
-        for name, value in (("entry", out.entry), ("stop", out.stop), ("target", out.target)):
+        levels_set = (
+            ("entry", out.entry),
+            ("stop", out.stop),
+            ("target", out.target),
+            ("stop_basis", getattr(out, "stop_basis", None)),
+            ("target_basis", getattr(out, "target_basis", None)),
+        )
+        for name, value in levels_set:
             if value is not None:
                 level_warns.append(f"{name} set on {out.action}; ignored")
         if out.invalidation_price is not None:
@@ -324,6 +389,53 @@ def check_output(
             detail="; ".join(level_fails + level_warns) or "levels consistent",
         )
     )
+
+    # ---- trade math (v2): a BUY must be feasible and pinned to a listed pair
+    if v2 and out.action == "BUY":
+        tm_fails: list[str] = []
+        if tm is None:
+            checks.append(
+                CheckOut(
+                    name="Trade math",
+                    status="warn",
+                    detail="brief has no trade_math; BUY not verified",
+                )
+            )
+        elif tm.get("buy_feasible") is not True:
+            tm_fails.append(f"trade_math.buy_feasible is false: {tm.get('infeasible_reason')}")
+        else:
+            basis = (
+                getattr(out, "stop_basis", None),
+                getattr(out, "target_basis", None),
+            )
+            pairs = {(p.get("stop_id"), p.get("target_id")) for p in tm.get("pairs") or []}
+            if basis not in pairs:
+                tm_fails.append(f"({basis[0]}, {basis[1]}) is not a listed trade_math pair")
+            else:
+                cand = {
+                    c.get("id"): c.get("price")
+                    for c in (tm.get("stop_candidates") or []) + (tm.get("target_candidates") or [])
+                }
+                tick = meta.tick or 0.0
+                for name, level, want in (
+                    ("stop", out.stop, cand.get(basis[0])),
+                    ("target", out.target, cand.get(basis[1])),
+                ):
+                    if level is None or want is None:
+                        continue
+                    if abs(level - want) > max(tick, abs(want) * 1e-9):
+                        which = basis[0] if name == "stop" else basis[1]
+                        tm_fails.append(
+                            f"{name} {level} differs from {which} price {want} "
+                            "by more than one tick"
+                        )
+        checks.append(
+            CheckOut(
+                name="Trade math",
+                status="fail" if tm_fails else "pass",
+                detail="; ".join(tm_fails) or "BUY inside trade_math",
+            )
+        )
 
     # ---- R/R recomputed ------------------------------------------------
     rr_fail_capable = (
@@ -423,6 +535,51 @@ def check_output(
             detail="; ".join(regime_fails + regime_warns) or f"regime {reg.trend} respected",
         )
     )
+
+    # ---- invalidation required (v2): BUY, SELL and HOLD-while-holding
+    # must name what would prove them wrong, with its price.
+    if v2:
+        inv_warns: list[str] = []
+        needs_inv = out.action in ("BUY", "SELL") or (out.action == "HOLD" and meta.holding)
+        if needs_inv:
+            if not out.invalidation:
+                inv_warns.append("no invalidation text")
+            if out.invalidation_price is None:
+                inv_warns.append("no invalidation_price")
+        checks.append(
+            CheckOut(
+                name="Invalidation",
+                status="warn" if inv_warns else "pass",
+                detail="; ".join(inv_warns) or "invalidation present",
+            )
+        )
+
+    # ---- repeated rejected BUY (v2): same basis as the previous skipped
+    # BUY while its failed gates are unchanged — the gates skip it anyway.
+    if v2 and out.action == "BUY":
+        prev = meta.prev
+        brief_prev = brief.get("previous_decision") or {}
+        brief_gates = {g.get("name") for g in brief_prev.get("failed_gates") or []}
+        repeated = (
+            prev is not None
+            and prev.outcome == "skipped"
+            and prev.buy_basis[0] is not None
+            and prev.buy_basis
+            == (getattr(out, "stop_basis", None), getattr(out, "target_basis", None))
+            and brief_gates
+            and brief_gates == set(prev.failed_gate_names)
+        )
+        checks.append(
+            CheckOut(
+                name="Repeated rejected BUY",
+                status="warn" if repeated else "pass",
+                detail=(
+                    "same basis as the skipped previous BUY; gates will reject it again"
+                    if repeated
+                    else "not a repeat of the previous skipped BUY"
+                ),
+            )
+        )
 
     # ---- rules baseline -------------------------------------------------
     agrees = rules_action == out.action
@@ -664,11 +821,19 @@ class OpenAIDecider:
                 rules_draft.raw_response = row.response_raw
                 return rules_draft
 
-            out, parse_error = parse_model_output(result.output_text)
+            out, parse_error = parse_model_output(result.output_text, prompt.brief_version)
             if out is None:
                 row.status = "invalid_output"
             await self._track_model_result(row.status, parse_error or row.status)
-            verdict = check_output(out, parse_error, brief, meta, rules_draft.action, settings)
+            verdict = check_output(
+                out,
+                parse_error,
+                brief,
+                meta,
+                rules_draft.action,
+                settings,
+                brief_version=prompt.brief_version,
+            )
             row.output_checks = _checks_json(verdict.checks)
             repo.add_llm_call(session, row)
             session.commit()
@@ -684,7 +849,7 @@ class OpenAIDecider:
 
     def _draft(
         self,
-        out: ModelDecision | None,
+        out: AnyDecision | None,
         verdict: OutputVerdict,
         model: str,
         prompt_version: str,
@@ -728,7 +893,7 @@ class OpenAIDecider:
                     "type": "json_schema",
                     "name": "decision",
                     "strict": True,
-                    "schema": decision_schema(),
+                    "schema": decision_schema(prompt.brief_version),
                 }
             },
         }
@@ -756,7 +921,8 @@ class OpenAIDecider:
         )
         liquidity = await self._liquidity(session, ctx.pair)
         trades, hours_since = pair_history(session, broker.account_id, ctx.pair, now)
-        prev = previous_decision(session, broker.account_id, ctx.pair)
+        tick = self._tick_size(ctx.pair)
+        prev = previous_decision_v2(session, broker.account_id, ctx.pair, tick=tick)
 
         equity = broker.equity()
         day_start = Decimal(broker.account.day_start_equity)
@@ -800,8 +966,12 @@ class OpenAIDecider:
             risk_throttle=rv.throttle_on,
             shock_brake=rv.shock_brake_on,
         )
-        brief, meta = build_brief(inp)
+        brief, meta = build_brief(inp, prompt.brief_version)
         return brief, meta, self._payload(settings, prompt, brief)
+
+    def _tick_size(self, pair: str) -> float | None:
+        info = self._market_rules.get(pair)
+        return float(info.tick_size) if info is not None and info.tick_size else None
 
     async def _liquidity(self, session: Session, pair: str) -> dict[str, float | None]:
         """Order-book spread and ±0.5% depth plus today's volume vs the

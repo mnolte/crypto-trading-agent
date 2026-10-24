@@ -24,9 +24,14 @@ from sqlalchemy.orm import Session
 from app import repo
 from app.agent import budget
 from app.agent.brief import BriefMeta
-from app.agent.deciders.openai_decider import check_output, parse_model_output
+from app.agent.brief_v2 import brief_version_of
 from app.agent.openai_client import OpenAIResponsesClient
 from app.agent.prompts import PromptNotFoundError, load_prompt
+from app.agent.replay import (
+    evaluate_replay,
+    meta_from_brief,
+    replay_request,
+)
 from app.api.deps import AppState, get_state, require_token
 from app.config import get_secret
 from app.db import AMSTERDAM, DecisionRow, LlmCallRow, OutcomeRow, utcnow
@@ -42,7 +47,6 @@ from app.models import (
     LlmCallVerdictIn,
     OutcomeScorecardOut,
     OutcomeScorecardRow,
-    Regime,
     ReplayInfo,
 )
 
@@ -164,6 +168,18 @@ def _call_detail(row: LlmCallRow, session: Session) -> LlmCallDetail:
     system_prompt, brief, schema = _request_parts(row)
     replays = repo.list_replays(session, row.id)
     orig_action = _parsed_action(row)
+    upgraded: str | None = None
+    if row.replay_of:
+        orig = repo.get_llm_call(session, row.replay_of)
+        if orig is not None and orig.request_json and brief:
+            try:
+                orig_brief = json.loads(orig.request_json).get("input")
+                orig_brief = json.loads(orig_brief) if isinstance(orig_brief, str) else {}
+                have, want = brief_version_of(orig_brief), brief_version_of(json.loads(brief))
+                if want > have:
+                    upgraded = f"v{have} → v{want}"
+            except (json.JSONDecodeError, TypeError):
+                pass
     decision_action = None
     if row.decision_id:
         decision = repo.get_decision_row(session, row.decision_id)
@@ -216,6 +232,7 @@ def _call_detail(row: LlmCallRow, session: Session) -> LlmCallDetail:
         verdict=row.verdict,
         verdict_note=row.verdict_note,
         verdict_at=repo.aware_utc(row.verdict_at) if row.verdict_at else None,
+        brief_upgraded=upgraded,
     )
 
 
@@ -378,40 +395,15 @@ def download_call(request: Request, call_id: str) -> Response:
 
 
 def _meta_from_brief(brief: dict[str, Any]) -> BriefMeta:
-    """Rebuild the check meta a stored brief implies — replays don't have
-    live candles, so every value comes from the stored JSON."""
-    tf = brief.get("tf", {})
-    atr_pct = None
-    h1 = tf.get("1h", {})
-    if isinstance(h1.get("atr_pct"), dict):
-        atr_pct = h1["atr_pct"].get("value")
-    price = float(brief.get("price") or 0)
-    atr_1h = (atr_pct * price / 100) if atr_pct and price else None
-    data_age = brief.get("data_age_s", {})
-    limits = brief.get("limits", {}).get("max_age_s", {})
-    regime_data = brief.get("regime", {})
-    neutral = Regime(trend="sideways", volatility="normal", age_4h=0)
-    return BriefMeta(
-        pair=brief.get("pair", ""),
-        now=datetime.fromisoformat(brief["now"]) if brief.get("now") else utcnow(),
-        price=price,
-        atr_1h=atr_1h,
-        holding=brief.get("position") is not None,
-        regime=Regime.model_validate(regime_data["pair"]) if regime_data.get("pair") else neutral,
-        btc_regime=Regime.model_validate(regime_data["btc"]) if regime_data.get("btc") else None,
-        bars={},
-        data_age_s={k: float(v) for k, v in data_age.items()},
-        stale_tfs=[tf_ for tf_, age in data_age.items() if age > limits.get(tf_, 0)],
-        support=[lvl["price"] for lvl in brief.get("structure", {}).get("support", [])],
-        resistance=[lvl["price"] for lvl in brief.get("structure", {}).get("resistance", [])],
-    )
+    return meta_from_brief(brief)
 
 
 @router.post("/api/llm-calls/{call_id}/replay", dependencies=[Depends(require_token)])
 async def replay_call(request: Request, call_id: str, body: LlmCallReplayIn) -> LlmCallDetail:
     """Re-send the stored request, optionally on another model or prompt
     version. Replays count against the daily budget and pause at 80% of the
-    monthly cap."""
+    monthly cap. A target prompt with a newer brief version gets the stored
+    brief upgraded first — from candles closed by the call's own time."""
     state = get_state(request)
     session = _session(state)
     try:
@@ -439,41 +431,30 @@ async def replay_call(request: Request, call_id: str, body: LlmCallReplayIn) -> 
             prompt = load_prompt(body.prompt_version or orig.prompt_version)
         except PromptNotFoundError:
             raise HTTPException(status_code=404, detail="unknown prompt version") from None
-        orig_request = json.loads(orig.request_json)
-        # Re-send the stored request as it was — output schema, tools and
-        # all — with the model and prompt swapped out.
-        payload = {
-            **orig_request,
-            "model": body.model or orig.model,
-            "instructions": prompt.body,
-            "temperature": prompt.temperature,
-            "max_output_tokens": prompt.max_output_tokens,
-        }
+        market_info = None
+        engine = getattr(state, "agent_engine", None)
+        if engine is not None:
+            market_info = engine.market_rules.get(orig.pair)
+        payload, brief_json, meta, _upgraded = replay_request(
+            session,
+            orig,
+            prompt,
+            body.model,
+            settings=settings,
+            market_info=market_info,
+        )
         client = OpenAIResponsesClient(api_key)
         try:
             result = await client.call(payload)
         finally:
             await client.aclose()
 
-        input_data = orig_request.get("input")
-        brief_json = json.loads(input_data) if isinstance(input_data, str) else {}
-        schema_sent = ((orig_request.get("text") or {}).get("format") or {}).get("schema")
+        schema_sent = ((payload.get("text") or {}).get("format") or {}).get("schema")
         if schema_sent is not None:
             # Decision-shaped calls: the post-checks re-run on the output.
-            meta = _meta_from_brief(brief_json)
-            out, parse_error = parse_model_output(result.output_text)
-            # The Rules baseline isn't re-evaluated for replays — its inputs
-            # are not part of the stored request.
-            verdict = check_output(out, parse_error, brief_json, meta, "?", settings)
-            for i, check in enumerate(verdict.checks):
-                if check.name == "Rules baseline":
-                    verdict.checks[i] = CheckOut(
-                        name="Rules baseline",
-                        status="pass",
-                        detail="not evaluated for a replay",
-                    )
-            out_checks = verdict.checks
-            status = result.status if out is not None or result.status != "ok" else "invalid_output"
+            out_checks, status = evaluate_replay(
+                result, brief_json, meta, settings, prompt.brief_version
+            )
         else:
             # Prose calls (briefings, reviews): the number check re-runs
             # against the facts in the stored input. For Ask and anything

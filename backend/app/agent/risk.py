@@ -54,8 +54,8 @@ class BuyContext:
     entries_allowed: bool = True  # failing or deactivated market blocks entries
 
 
-def _gate(name: str, status: str, value: str) -> Gate:
-    return Gate(name=name, status=status, value=value)
+def _gate(name: str, status: str, value: str, limit: str | None = None) -> Gate:
+    return Gate(name=name, status=status, value=value, limit=limit)
 
 
 def _fmt(d: Decimal, places: int = 2) -> str:
@@ -106,10 +106,13 @@ def check_buy(
 
     # -- Min reward/risk -------------------------------------------------
     rr = (target - fill_entry) / fill_dist if fill_dist > 0 else ZERO
+    rr_limit = f"R/R >= {_fmt(risk.min_rr)}"
     if stop_dist <= 0 or fill_dist <= 0 or rr < risk.min_rr:
-        gates.append(_gate("Min reward/risk", "fail", f"R/R {_fmt(rr)} < {_fmt(risk.min_rr)}"))
+        gates.append(
+            _gate("Min reward/risk", "fail", f"R/R {_fmt(rr)} < {_fmt(risk.min_rr)}", rr_limit)
+        )
         return BuyVerdict("skip", gates, skip_reason="Min reward/risk")
-    gates.append(_gate("Min reward/risk", "pass", f"R/R {_fmt(rr)}"))
+    gates.append(_gate("Min reward/risk", "pass", f"R/R {_fmt(rr)}", rr_limit))
 
     # -- Costs vs risk (the fee gate) ------------------------------------
     # Entry-side costs + stop-exit costs must stay under
@@ -117,6 +120,7 @@ def check_buy(
     # maker fee and no slippage; the stop exit is always market.
     cost_pct = entry_round_trip_cost_pct(paper)
     stop_dist_pct = fill_dist / fill_entry * HUNDRED if fill_entry > 0 else ZERO
+    cost_limit = f"costs <= {_fmt(risk.max_cost_pct_of_risk)}% of stop distance"
     if stop_dist_pct <= 0 or cost_pct > risk.max_cost_pct_of_risk / HUNDRED * stop_dist_pct:
         gates.append(
             _gate(
@@ -124,11 +128,17 @@ def check_buy(
                 "fail",
                 f"costs {_fmt(cost_pct)}% > {_fmt(risk.max_cost_pct_of_risk)}% "
                 f"of {_fmt(stop_dist_pct)}% stop",
+                cost_limit,
             )
         )
         return BuyVerdict("skip", gates, skip_reason="Costs vs risk")
     gates.append(
-        _gate("Costs vs risk", "pass", f"costs {_fmt(cost_pct)}% of {_fmt(stop_dist_pct)}% stop")
+        _gate(
+            "Costs vs risk",
+            "pass",
+            f"costs {_fmt(cost_pct)}% of {_fmt(stop_dist_pct)}% stop",
+            cost_limit,
+        )
     )
 
     # -- One position per pair --------------------------------------------
@@ -148,18 +158,31 @@ def check_buy(
                     "Cooldown after stop-out",
                     "fail",
                     f"until {until.isoformat()}",
+                    f"{_fmt(risk.cooldown_after_stopout_hours)}h after a stop-out",
                 )
             )
             return BuyVerdict("skip", gates, skip_reason="Cooldown after stop-out")
-    gates.append(_gate("Cooldown after stop-out", "pass", "clear"))
+    gates.append(
+        _gate(
+            "Cooldown after stop-out",
+            "pass",
+            "clear",
+            f"{_fmt(risk.cooldown_after_stopout_hours)}h after a stop-out",
+        )
+    )
 
     # -- Correlated positions ---------------------------------------------
+    corr_limit = (
+        f"max {risk.correlated_max_positions} positions correlated "
+        f"> {_fmt(risk.correlated_threshold)}"
+    )
     if len(ctx.correlated_pairs) >= risk.correlated_max_positions:
         gates.append(
             _gate(
                 "Correlated positions",
                 "fail",
                 f"corr > {_fmt(risk.correlated_threshold)} with {', '.join(ctx.correlated_pairs)}",
+                corr_limit,
             )
         )
         return BuyVerdict("skip", gates, skip_reason="Correlated positions")
@@ -168,6 +191,7 @@ def check_buy(
             "Correlated positions",
             "pass",
             f"{len(ctx.correlated_pairs)} correlated",
+            corr_limit,
         )
     )
 
@@ -184,16 +208,11 @@ def check_buy(
     gates.append(_gate("Shock brake", "pass", "off"))
 
     # -- Daily loss limit --------------------------------------------------
+    loss_limit = f"-{_fmt(risk.daily_loss_limit_pct)}% of day-start equity"
     if ctx.daily_loss_hit:
-        gates.append(
-            _gate(
-                "Daily loss limit",
-                "fail",
-                f"-{_fmt(risk.daily_loss_limit_pct)}% of day-start equity",
-            )
-        )
+        gates.append(_gate("Daily loss limit", "fail", loss_limit, loss_limit))
         return BuyVerdict("skip", gates, skip_reason="Daily loss limit")
-    gates.append(_gate("Daily loss limit", "pass", "under limit"))
+    gates.append(_gate("Daily loss limit", "pass", "under limit", loss_limit))
 
     # ------------------------------------------------------------------ sizing
     if fill_dist <= 0 or fill_entry <= 0:
@@ -213,6 +232,7 @@ def check_buy(
 
     # Total open risk: existing risk plus the new trade's risk.
     open_risk_cap = equity * risk.total_open_risk_pct / HUNDRED
+    open_risk_limit = f"open risk <= {_fmt(risk.total_open_risk_pct)}% of equity"
     room = open_risk_cap - broker.open_risk()
     if room <= 0:
         gates.append(
@@ -220,14 +240,16 @@ def check_buy(
                 "Total open risk",
                 "fail",
                 f"{_fmt(risk.total_open_risk_pct)}% cap reached",
+                open_risk_limit,
             )
         )
         return BuyVerdict("skip", gates, skip_reason="Total open risk")
     qty = min(qty, room / fill_dist)
-    gates.append(_gate("Total open risk", "pass", f"room {_fmt(room)} EUR"))
+    gates.append(_gate("Total open risk", "pass", f"room {_fmt(room)} EUR", open_risk_limit))
 
     # Exposure cap (spot: no leverage).
     exposure_cap = equity * risk.max_exposure_pct / HUNDRED
+    exposure_limit = f"exposure <= {_fmt(risk.max_exposure_pct)}% of equity"
     exposure_room = exposure_cap - broker.exposure()
     if exposure_room <= 0:
         gates.append(
@@ -235,11 +257,14 @@ def check_buy(
                 "Max total exposure",
                 "fail",
                 f"{_fmt(risk.max_exposure_pct)}% cap reached",
+                exposure_limit,
             )
         )
         return BuyVerdict("skip", gates, skip_reason="Max total exposure")
     qty = min(qty, exposure_room / fill_entry)
-    gates.append(_gate("Max total exposure", "pass", f"room {_fmt(exposure_room)} EUR"))
+    gates.append(
+        _gate("Max total exposure", "pass", f"room {_fmt(exposure_room)} EUR", exposure_limit)
+    )
 
     # Cash available incl. the buy-side fee (maker for limit entries).
     cash_room = broker.cash / (fill_entry * (1 + entry_fee_pct(paper) / HUNDRED))

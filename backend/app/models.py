@@ -35,6 +35,7 @@ class Gate(BaseModel):
     name: str
     status: Literal["pass", "warn", "fail"]
     value: str
+    limit: str | None = None  # the threshold the gate measured against
 
 
 class Plan(BaseModel):
@@ -222,6 +223,7 @@ class RiskSettings(BaseModel):
     kill_drawdown_pct: Decimal = Decimal("8")
     stop_min_atr: Decimal = Decimal("0.5")
     stop_max_atr: Decimal = Decimal("5")
+    stop_buffer_atr: Decimal = Decimal("0.1")  # stop sits this many ATR(1h) below the level
     pending_entry_drift_pct: Decimal = Decimal("0.5")
     time_stop_days: Decimal = Decimal("5")
     trailing_stop_enabled: bool = False
@@ -763,6 +765,7 @@ class LlmCallDetail(BaseModel):
     verdict: str | None
     verdict_note: str | None
     verdict_at: datetime | None
+    brief_upgraded: str | None = None  # e.g. "v1 → v2" on a replay whose brief was upgraded
 
 
 class LlmCallReplayIn(BaseModel):

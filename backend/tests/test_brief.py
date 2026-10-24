@@ -288,7 +288,9 @@ def test_previous_decision_only_sees_this_account(session: Session) -> None:
         _seed_decision(session, f"other-{i}", 2, NOW - timedelta(minutes=i), "BUY")
     _seed_decision(session, "own", 1, NOW - timedelta(hours=1), "SELL")
     session.commit()
-    assert previous_decision(session, 1, "SOL-EUR") == ("SELL", "stop hit")
+    prev = previous_decision(session, 1, "SOL-EUR")
+    assert prev is not None
+    assert (prev.action, prev.invalidation) == ("SELL", "stop hit")
 
 
 def test_previous_decision_none_without_history(session: Session) -> None:

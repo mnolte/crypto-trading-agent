@@ -648,7 +648,8 @@ export interface paths {
          * Replay Call
          * @description Re-send the stored request, optionally on another model or prompt
          *     version. Replays count against the daily budget and pause at 80% of the
-         *     monthly cap.
+         *     monthly cap. A target prompt with a newer brief version gets the stored
+         *     brief upgraded first — from candles closed by the call's own time.
          */
         post: operations["replay_call_api_llm_calls__call_id__replay_post"];
         delete?: never;
@@ -1739,6 +1740,8 @@ export interface components {
         };
         /** Gate */
         Gate: {
+            /** Limit */
+            limit?: string | null;
             /** Name */
             name: string;
             /**
@@ -2031,6 +2034,8 @@ export interface components {
             attempts: components["schemas"]["LlmCallAttemptOut"][];
             /** Brief */
             brief: string | null;
+            /** Brief Upgraded */
+            brief_upgraded?: string | null;
             /** Cost Eur */
             cost_eur: string | null;
             /** Cost Usd */
@@ -3085,6 +3090,11 @@ export interface components {
              */
             shock_brake_hours: number | string;
             /**
+             * Stop Buffer Atr
+             * @default 0.1
+             */
+            stop_buffer_atr: number | string;
+            /**
              * Stop Max Atr
              * @default 5
              */
@@ -3200,6 +3210,11 @@ export interface components {
              * @default 2
              */
             shock_brake_hours: string;
+            /**
+             * Stop Buffer Atr
+             * @default 0.1
+             */
+            stop_buffer_atr: string;
             /**
              * Stop Max Atr
              * @default 5
@@ -3551,6 +3566,7 @@ export interface components {
              *       "risk_per_trade_pct": "1.0",
              *       "shock_brake_btc_move_pct": "4",
              *       "shock_brake_hours": "2",
+             *       "stop_buffer_atr": "0.1",
              *       "stop_max_atr": "5",
              *       "stop_min_atr": "0.5",
              *       "throttle_consecutive_losses": 3,
@@ -3765,6 +3781,7 @@ export interface components {
              *       "risk_per_trade_pct": "1.0",
              *       "shock_brake_btc_move_pct": "4",
              *       "shock_brake_hours": "2",
+             *       "stop_buffer_atr": "0.1",
              *       "stop_max_atr": "5",
              *       "stop_min_atr": "0.5",
              *       "throttle_consecutive_losses": 3,

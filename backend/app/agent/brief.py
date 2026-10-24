@@ -28,6 +28,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from app import repo
+from app.agent.brief_v2 import PrevDecision, previous_decision_v2, trade_math_block
 from app.agent.broker.paper import HeldPosition
 from app.agent.limit import entry_round_trip_cost_pct
 from app.agent.market.base import TF_SECONDS, Candle, MarketInfo
@@ -96,7 +97,7 @@ class BriefInputs:
     liquidity: dict[str, float | None] = field(default_factory=dict)
     pair_trades: list[tuple[datetime, Decimal]] = field(default_factory=list)
     hours_since_exit: float | None = None
-    previous_decision: tuple[str, str | None] | None = None
+    previous_decision: PrevDecision | None = None
     account: dict[str, float] = field(default_factory=dict)
     held_portfolio: list[tuple[str, float | None, float]] = field(default_factory=list)
     correlated_slots_left: int = 0
@@ -120,6 +121,8 @@ class BriefMeta:
     stale_tfs: list[str]
     support: list[float]
     resistance: list[float]
+    tick: float | None = None  # the market's price grid (one-tick checks)
+    prev: PrevDecision | None = None  # what code did with the previous decision
 
 
 def _clean(value: float | None, digits: int = 4) -> float | None:
@@ -294,8 +297,13 @@ def _position_block(inp: BriefInputs) -> dict[str, Any] | None:
     return out
 
 
-def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
-    """Assemble the brief JSON for one pair and the meta the checks need."""
+def build_brief(inp: BriefInputs, brief_version: int = 1) -> tuple[dict[str, Any], BriefMeta]:
+    """Assemble the brief JSON for one pair and the meta the checks need.
+
+    ``brief_version`` comes from the prompt file's header: version 1 keeps
+    the brief byte-identical to the original shape; version 2 extends
+    ``previous_decision`` and adds ``trade_math``.
+    """
     s = inp.settings
     adx_threshold = float(s.market.adx_threshold)
     candles = inp.candles
@@ -406,9 +414,7 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
             "hours_since_exit": _clean(inp.hours_since_exit, digits=1),
         },
         "previous_decision": (
-            {"action": inp.previous_decision[0], "invalidation": inp.previous_decision[1]}
-            if inp.previous_decision
-            else None
+            inp.previous_decision.to_brief(brief_version) if inp.previous_decision else None
         ),
         "account": {
             "exposure_pct": _clean(inp.account.get("exposure_pct"), digits=2),
@@ -444,6 +450,21 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
         "time": {"hour": ams.hour, "weekday": ams.strftime("%A")},
         "data_age_s": data_age,
     }
+    if brief_version >= 2:
+        brief["trade_math"] = trade_math_block(
+            pair=inp.pair,
+            now=inp.now,
+            price=float(inp.price),
+            atr_1h=inp.signals.tf["1h"].atr14,
+            tf1h=tf_block["1h"],
+            candles_1h=candles.get("1h", []),
+            candles_4h=candles.get("4h", []),
+            regime=inp.signals.regime,
+            holding=inp.holding,
+            limits=brief["limits"],
+            stop_buffer_atr=float(s.risk.stop_buffer_atr),
+            round_price=lambda v: _price(v, inp.market_info),
+        )
 
     # The checks compare the model's prices against the levels it was
     # shown — meta keeps the tick-rounded values, never the raw floats.
@@ -463,6 +484,12 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
         stale_tfs=stale,
         support=_levels(list(inp.signals.levels.support)),
         resistance=_levels(list(inp.signals.levels.resistance)),
+        tick=(
+            float(inp.market_info.tick_size)
+            if inp.market_info is not None and inp.market_info.tick_size
+            else None
+        ),
+        prev=inp.previous_decision,
     )
     return brief, meta
 
@@ -669,10 +696,8 @@ def pair_history(
 
 
 def previous_decision(
-    session: Session, account_id: int, pair: str
-) -> tuple[str, str | None] | None:
-    """The pair's previous decision — action and invalidation only."""
-    rows = repo.list_decision_rows(session, account_id=account_id, pair=pair, limit=1)
-    if not rows:
-        return None
-    return rows[0].action, rows[0].invalidation
+    session: Session, account_id: int, pair: str, *, tick: float | None = None
+) -> PrevDecision | None:
+    """The pair's previous decision with what code did with it — the v1
+    brief reads only action and invalidation from it."""
+    return previous_decision_v2(session, account_id, pair, tick=tick)
