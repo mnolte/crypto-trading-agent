@@ -1028,3 +1028,5 @@ Funding, open interest, the long/short ratio and options data are the first grou
 - [x] Exposure cap 100% (spot, no leverage): cash and the 2.5% open-risk cap are the real limits.
 - [x] Cycles are fixed at 15 minutes in v0.1.
 - [x] A pending approval expires at the pair's next cycle or after a 0.5% move; R/R, size and gates are recomputed at the fill price.
+- [x] Strategy research (October 2026, see docs/RESEARCH.md): after costs, the Rules BUY on 1h or 4h, range trading and a regime allocator did not beat a static BTC + cash mix at the same drawdown. New strategy features are paused: PR 10 and 11 wait; PR 12 is finished only if nearly done. PR 13 (prompt v2) goes ahead (decided 24 October 2026) because it improves decision quality and measurement without changing the strategy. The paper agent, the v0.2 collector and the fix PR continue.
+- [x] Rule for strategy changes: an idea goes into this spec only when, in the research script (`tools/regime_history.py`), it beats the static BTC + cash mix at the same maximum drawdown in the training and the test period, and the sensitivity grid around its settings agrees.
