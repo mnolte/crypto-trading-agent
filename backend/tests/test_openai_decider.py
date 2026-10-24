@@ -391,6 +391,23 @@ def test_stale_data_allows_only_hold() -> None:
     assert verdict.action == "HOLD"
 
 
+def test_stale_claim_on_fresh_data_warns() -> None:
+    """A model that sees a brief already passed the Fresh input check, so a
+    staleness claim in reasoning can only be a misread — flag it, without
+    changing the action (decision.v1's self-check rule invites this)."""
+    out = ModelDecision(
+        action="HOLD",
+        confidence=0.5,
+        reasoning="the data is stale with the 1h data age exceeding limits",
+    )
+    verdict = _check(out, rules_action="HOLD")
+    check = _named(verdict.checks, "Stale-data rule")
+    assert check.status == "warn"
+    assert verdict.action == "HOLD"
+    out = ModelDecision(action="HOLD", confidence=0.5, reasoning="trend unclear")
+    assert _named(_check(out, rules_action="HOLD").checks, "Stale-data rule").status == "pass"
+
+
 def test_buy_in_down_regime_fails_for_alt() -> None:
     meta = _meta(regime=Regime(trend="down", volatility="normal", age_4h=3))
     verdict = _check(_buy(), meta=meta)

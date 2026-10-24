@@ -372,6 +372,16 @@ def check_output(
                 + ("model held" if stale_ok else f"model answered {out.action}"),
             )
         )
+    elif re.search(r"\bstale\b", out.reasoning, re.IGNORECASE):
+        # Freshness is an input check — a model that sees a brief already
+        # passed it, so a stale claim in reasoning is always a misread.
+        checks.append(
+            CheckOut(
+                name="Stale-data rule",
+                status="warn",
+                detail="reasoning cites stale data, but every timeframe is fresh",
+            )
+        )
     else:
         checks.append(
             CheckOut(name="Stale-data rule", status="pass", detail="all timeframes fresh")
