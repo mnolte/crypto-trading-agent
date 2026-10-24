@@ -181,6 +181,7 @@ class ShadowRunner:
             clock=self.clock,
             feature=f"shadow:{row.id}",
             notify=self._notify,
+            market_rules=self.market_rules,
         )
         return _Shadow(row=row, account=account, broker=broker, settings=settings, decider=decider)
 

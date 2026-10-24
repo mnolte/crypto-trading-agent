@@ -46,7 +46,7 @@ from app.agent.brief import (
 from app.agent.broker.paper import PaperBroker
 from app.agent.deciders.base import DecideContext, Draft, RiskView
 from app.agent.deciders.rules import RulesDecider
-from app.agent.market.base import MarketClient, MarketDataError, drop_forming
+from app.agent.market.base import MarketClient, MarketDataError, MarketInfo, drop_forming
 from app.agent.openai_client import CallResult, OpenAIResponsesClient
 from app.agent.prompts import LoadedPrompt, PromptNotFoundError, load_prompt
 from app.agent.signals import aligned_correlation
@@ -476,10 +476,12 @@ class OpenAIDecider:
         rules: RulesDecider | None = None,
         notify: Callable[[str, str, str], Awaitable[None]] | None = None,
         feature: str = "decision",
+        market_rules: dict[str, MarketInfo] | None = None,
     ) -> None:
         self.feature = feature
         self._sessions = session_factory
         self.client = market_client
+        self._market_rules = market_rules if market_rules is not None else {}
         self._broker = broker
         self._risk_view = risk_view
         self.clock = clock
@@ -773,6 +775,7 @@ class OpenAIDecider:
             settings=settings,
             session=session,
             source=settings.data_source,
+            market_info=self._market_rules.get(ctx.pair),
             candles=candles,
             context_candles=context,
             btc_regime=ctx.btc_regime,

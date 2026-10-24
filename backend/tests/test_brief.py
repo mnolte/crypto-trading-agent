@@ -4,6 +4,7 @@ engine's own signal list, and the input checks that gate the call."""
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -14,12 +15,15 @@ from sqlalchemy.orm import Session
 
 from app.agent.brief import (
     BriefInputs,
+    _price,
     brief_json,
     build_brief,
     input_checks,
     previous_decision,
 )
-from app.agent.market.base import Candle
+from app.agent.broker.paper import HeldPosition
+from app.agent.deciders.openai_decider import ModelDecision, check_output
+from app.agent.market.base import Candle, MarketInfo
 from app.agent.signals import Levels, MarketContext, PairSignals, TfValues
 from app.db import DecisionRow, make_engine, make_session_factory, run_migrations
 from app.models import Regime, Settings
@@ -307,3 +311,181 @@ def test_min_stop_pct_matches_the_fee_gate(session: Session) -> None:
     settings = Settings(risk={"max_cost_pct_of_risk": "50"})
     brief, _ = build_brief(_inputs(session, settings=settings))
     assert brief["limits"]["min_stop_pct"] == pytest.approx(1.2)
+
+
+# ------------------------------------------------------------ price grid --
+
+
+def _market(market: str, tick: str) -> MarketInfo:
+    return MarketInfo(
+        market=market,
+        status="trading",
+        base=market.split("-")[0],
+        quote="EUR",
+        tick_size=Decimal(tick),
+    )
+
+
+def test_price_rounds_to_the_markets_tick() -> None:
+    btc = _market("BTC-EUR", "1.00")
+    assert _price(61240.49, btc) == 61240.0
+    assert _price(61240.5, btc) == 61241.0  # half up
+    eth = _market("ETH-EUR", "0.10")
+    assert _price(3011.44, eth) == 3011.4
+    assert _price(3011.45, eth) == 3011.5
+    pump = _market("PUMP-EUR", "0.0000001")
+    assert _price(0.00383245, pump) == 0.0038325
+    pepe = _market("PEPE-EUR", "0.0000000001")
+    assert _price(0.0000039902, pepe) == 0.0000039902
+    assert _price(0.00000399025, pepe) == 0.0000039903
+
+
+def test_price_falls_back_to_five_significant_digits() -> None:
+    assert _price(61240.567, None) == 61241.0
+    assert _price(0.000003991, None) == 0.000003991
+    assert _price(0.0, None) == 0.0
+    assert _price(None, None) is None
+    assert _price(float("nan"), None) is None
+
+
+def test_btc_brief_quotes_whole_euro_grid_prices(session: Session) -> None:
+    signals = _signals("BTC-EUR")
+    signals.levels.support = [61240.49, 61100.51]
+    signals.levels.resistance = [61500.26]
+    brief, meta = build_brief(
+        _inputs(
+            session,
+            pair="BTC-EUR",
+            signals=signals,
+            price=Decimal("61240.50"),
+            market_info=_market("BTC-EUR", "1.00"),
+        )
+    )
+    assert brief["price"] == 61241.0
+    assert [lv["price"] for lv in brief["structure"]["support"]] == [61240.0, 61101.0]
+    assert brief["structure"]["resistance"][0]["price"] == 61500.0
+    # Meta carries the same grid values the model saw.
+    assert meta.price == 61241.0
+    assert meta.support == [61240.0, 61101.0]
+    assert meta.resistance == [61500.0]
+
+
+def test_eth_brief_quotes_tenth_euro_grid_prices(session: Session) -> None:
+    brief, _ = build_brief(
+        _inputs(
+            session,
+            pair="ETH-EUR",
+            price=Decimal("3011.44"),
+            market_info=_market("ETH-EUR", "0.10"),
+        )
+    )
+    assert brief["price"] == 3011.4
+
+
+def test_low_priced_pair_keeps_its_levels_and_passes_input_checks(
+    session: Session,
+) -> None:
+    """PEPE-EUR priced at 4e-6 used to fail Ranges valid and No
+    cross-pair leak: a fixed 4-decimal round flattened every level to 0."""
+    pepe = _market("PEPE-EUR", "0.0000000001")
+    signals = _signals("PEPE-EUR")
+    signals.levels = Levels(
+        support=[0.00000385, 0.00000380],
+        resistance=[0.00000410, 0.00000420],
+        prev_day_high=0.00000405,
+        prev_day_low=0.00000378,
+    )
+    brief, meta = build_brief(
+        _inputs(
+            session,
+            pair="PEPE-EUR",
+            signals=signals,
+            price=Decimal("0.000003991"),
+            market_info=pepe,
+        )
+    )
+    assert brief["price"] == 0.000003991
+    assert brief["structure"]["support"][0]["price"] == 0.00000385
+    assert brief["structure"]["prev_day_low"]["price"] == 0.00000378
+    checks = {c.name: c for c in input_checks(brief, meta)}
+    assert checks["Ranges valid"].status == "pass", checks["Ranges valid"].detail
+    assert checks["No cross-pair leak"].status == "pass", checks["No cross-pair leak"].detail
+
+
+def test_low_priced_pair_never_uses_scientific_notation(session: Session) -> None:
+    brief, _ = build_brief(
+        _inputs(
+            session,
+            pair="PEPE-EUR",
+            price=Decimal("0.000003991"),
+            market_info=_market("PEPE-EUR", "0.0000000001"),
+        )
+    )
+    text = brief_json(brief)
+    assert '"price":0.000003991' in text
+    assert not re.search(r"\d[eE][-+]?\d", text)
+    assert json.loads(text)["price"] == 0.000003991
+
+
+def test_position_prices_round_to_the_tick(session: Session) -> None:
+    pos = HeldPosition(
+        pair="BTC-EUR",
+        qty=Decimal("0.1"),
+        entry=Decimal("61197.55"),
+        stop=Decimal("61000.40"),
+        target=Decimal("61500.66"),
+        opened_at=NOW - 10 * HOUR,
+        decision_id="d1",
+        last=Decimal("61200"),
+    )
+    brief, _ = build_brief(
+        _inputs(
+            session,
+            pair="BTC-EUR",
+            price=Decimal("61200.0"),
+            holding=True,
+            position=pos,
+            market_info=_market("BTC-EUR", "1.00"),
+        )
+    )
+    assert brief["position"]["entry"] == 61198.0
+    assert brief["position"]["stop"] == 61000.0
+    assert brief["position"]["target"] == 61501.0
+
+
+def test_model_level_copied_from_a_rounded_level_passes_the_post_checks(
+    session: Session,
+) -> None:
+    """Sideways regime: the raw resistance 61197.9 is quoted to the model
+    as 61198 on BTC's 1-euro grid. A target equal to the quoted level
+    must pass 'target above the nearest resistance' — the check compares
+    against the same grid, not the raw float."""
+    signals = _signals()
+    signals.regime = Regime(trend="sideways", volatility="normal", age_4h=12)
+    signals.levels.support = [61193.2]
+    signals.levels.resistance = [61197.9]
+    signals.tf["1h"].atr14 = 3.0
+    brief, meta = build_brief(
+        _inputs(
+            session,
+            pair="BTC-EUR",
+            signals=signals,
+            price=Decimal("61197.95"),
+            market_info=_market("BTC-EUR", "1.00"),
+        )
+    )
+    target = brief["structure"]["resistance"][0]["price"]
+    assert target == 61198.0
+    out = ModelDecision(
+        action="BUY",
+        confidence=0.5,
+        entry=61195.0,
+        stop=61193.0,
+        target=target,
+        invalidation_price=61194.0,
+        reasoning="sideways bounce off support",
+    )
+    verdict = check_output(out, None, brief, meta, "HOLD", Settings())
+    checks = {c.name: c for c in verdict.checks}
+    assert "target above the nearest resistance" not in checks["Regime rule"].detail
+    assert checks["Regime rule"].status != "fail"

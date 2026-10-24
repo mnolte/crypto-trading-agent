@@ -18,10 +18,11 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
-from decimal import Decimal
-from typing import Any
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, cast
 
 import numpy as np
 from sqlalchemy.orm import Session
@@ -29,7 +30,7 @@ from sqlalchemy.orm import Session
 from app import repo
 from app.agent.broker.paper import HeldPosition
 from app.agent.limit import entry_round_trip_cost_pct
-from app.agent.market.base import TF_SECONDS, Candle
+from app.agent.market.base import TF_SECONDS, Candle, MarketInfo
 from app.agent.signals import (
     PairSignals,
     TfValues,
@@ -87,6 +88,7 @@ class BriefInputs:
     settings: Settings
     session: Session
     source: str
+    market_info: MarketInfo | None = None  # tick size for price rounding
     candles: dict[str, list[Candle]] = field(default_factory=dict)
     context_candles: dict[str, list[Candle]] = field(default_factory=dict)
     btc_regime: Regime | None = None
@@ -125,6 +127,31 @@ def _clean(value: float | None, digits: int = 4) -> float | None:
     if value is None or not math.isfinite(value):
         return None
     return round(value, digits)
+
+
+def _sig(value: float, digits: int = 5) -> float:
+    """Round to ``digits`` significant digits."""
+    if value == 0:
+        return 0.0
+    return round(value, digits - 1 - math.floor(math.log10(abs(value))))
+
+
+def _price(value: float | Decimal | None, market: MarketInfo | None) -> float | None:
+    """A price quoted in the brief, on the market's own price grid.
+
+    Rounds to the market's tick size — the same rule fills use — so a level
+    the model copies is exchange-valid and passes the within-one-tick
+    checks. With no loaded rule the fallback is 5 significant digits."""
+    if value is None:
+        return None
+    v = float(value)
+    if not math.isfinite(v):
+        return None
+    tick = market.tick_size if market is not None else None
+    if tick is None or tick <= 0:
+        return _sig(v)
+    steps = (Decimal(str(v)) / tick).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+    return float(steps * tick)
 
 
 def _item(value: float | None, read: str | None, digits: int = 4) -> dict[str, Any]:
@@ -225,7 +252,7 @@ def _structure_block(inp: BriefInputs) -> dict[str, Any]:
     atr = inp.signals.tf["1h"].atr14
 
     def lvl(p: float) -> dict[str, Any]:
-        out: dict[str, Any] = {"price": _clean(p)}
+        out: dict[str, Any] = {"price": _price(p, inp.market_info)}
         if price:
             out["dist_pct"] = _clean((p / price - 1.0) * 100, digits=2)
         if price and atr:
@@ -249,9 +276,9 @@ def _position_block(inp: BriefInputs) -> dict[str, Any] | None:
     entry = float(pos.entry)
     out: dict[str, Any] = {
         "qty": float(pos.qty),
-        "entry": float(pos.entry),
-        "stop": float(pos.stop),
-        "target": float(pos.target),
+        "entry": _price(pos.entry, inp.market_info),
+        "stop": _price(pos.stop, inp.market_info),
+        "target": _price(pos.target, inp.market_info),
         "hours_held": round((inp.now - pos.opened_at).total_seconds() / 3600, 1),
         "unrealised_pct": _clean((price / entry - 1.0) * 100, digits=2) if entry else None,
     }
@@ -358,10 +385,11 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
         regime["btc"] = inp.btc_regime.model_dump()
 
     ams = inp.now.astimezone(AMSTERDAM)
+    price = _price(float(inp.price), inp.market_info)
     brief: dict[str, Any] = {
         "pair": inp.pair,
         "now": inp.now.isoformat(),
-        "price": float(inp.price),
+        "price": price,
         "tf": tf_block,
         "structure": _structure_block(inp),
         "market_context": mctx,
@@ -417,10 +445,15 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
         "data_age_s": data_age,
     }
 
+    # The checks compare the model's prices against the levels it was
+    # shown — meta keeps the tick-rounded values, never the raw floats.
+    def _levels(levels: list[float]) -> list[float]:
+        return [p for p in (_price(lv, inp.market_info) for lv in levels) if p is not None]
+
     meta = BriefMeta(
         pair=inp.pair,
         now=inp.now,
-        price=float(inp.price),
+        price=price if price is not None else float(inp.price),
         atr_1h=inp.signals.tf["1h"].atr14,
         holding=inp.holding,
         regime=inp.signals.regime,
@@ -428,15 +461,53 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
         bars=bars,
         data_age_s=data_age,
         stale_tfs=stale,
-        support=[float(p) for p in inp.signals.levels.support],
-        resistance=[float(p) for p in inp.signals.levels.resistance],
+        support=_levels(list(inp.signals.levels.support)),
+        resistance=_levels(list(inp.signals.levels.resistance)),
     )
     return brief, meta
 
 
+def _floatstr(value: float, allow_nan: bool) -> str:
+    """The stdlib's float rendering, without scientific notation: a
+    3.991e-06 price stays readable as 0.000003991 in the request JSON."""
+    if value != value or value in (math.inf, -math.inf):
+        if not allow_nan:
+            raise ValueError("Out of range float values are not JSON compliant")
+        return "NaN" if value != value else ("Infinity" if value > 0 else "-Infinity")
+    s = repr(value)
+    if "e" in s or "E" in s:
+        s = format(Decimal(s), "f")
+    return s
+
+
+class _BriefEncoder(json.JSONEncoder):
+    """The default encoder with ``_floatstr`` swapped in for floats."""
+
+    def iterencode(self, o: Any, _one_shot: bool = True) -> Iterator[str]:
+        markers: dict[int, Any] | None = {} if self.check_circular else None
+        encoder = (
+            json.encoder.encode_basestring_ascii
+            if self.ensure_ascii
+            else json.encoder.encode_basestring
+        )
+        _iterencode = json.encoder._make_iterencode(  # type: ignore[attr-defined]
+            markers,
+            self.default,
+            encoder,
+            self.indent,
+            lambda v: _floatstr(v, self.allow_nan),
+            self.key_separator,
+            self.item_separator,
+            self.sort_keys,
+            self.skipkeys,
+            _one_shot,
+        )
+        return cast("Iterator[str]", _iterencode(o, 0))
+
+
 def brief_json(brief: dict[str, Any]) -> str:
     """The brief serialized exactly as it goes into the request."""
-    return json.dumps(brief, separators=(",", ":"), ensure_ascii=False)
+    return json.dumps(brief, separators=(",", ":"), ensure_ascii=False, cls=_BriefEncoder)
 
 
 # ------------------------------------------------------------------ checks --

@@ -40,6 +40,24 @@ Part 3, up-regime trend trades (skip with --no-trend). The Rules BUY from the sp
     EMA 50), 5-day time stop; 6h cooldown after a stop-out
   Same costs as part 2. Limit entries are assumed to always fill (an upper bound).
 
+Part 4, research lab (only with --lab). Splits the period into a training part and a
+holdout test part (--split, default 2025-01-01) and reports both:
+  - trend variants of the Rules BUY: the spec as is; a 2.5R target without the Rules
+    SELL; a trailing stop from +2R without a target; and the same signals on 4h bars
+    (2.5R target, or trailing with a 20-day time stop). Market costs, no model.
+  - exposure filters: hold the coin while a filter is true, else EUR (regime up; C1;
+    daily close above EMA 200), against buy and hold, with 0.3% per switch: return,
+    max drawdown and time in the market.
+  Tune ideas on the train columns only; a variant counts only if the test columns agree.
+
+Part 5, portfolio test (only with --portfolio). All coins together, at 4h closes: hold up
+to --slots coins (default 3) whose filter is true, each bought with equity / slots and
+sold when the filter turns false; new candidates ranked by their 7-day return; 0.3% per
+side. Filters: regime up, C1, daily close above EMA 200, and regime up with BTC on the
+looser EMA 200 filter. Benchmarks: BTC buy and hold, static BTC + cash (20/30/50% BTC,
+rebalanced about monthly), BTC only with each filter, and equal-weight buy and hold. Train,
+test and full windows, plus a sensitivity grid (ADX 20/25/30 x 1-3 confirmation bars).
+
 Only reads public Bitvavo candles. No API key, no account, no orders, and it does
 not touch the agent or its database. Standard library only. Candles are cached in
 $TA_DATA_DIR/candle_cache (data/candle_cache by default) so a second run only
@@ -50,6 +68,8 @@ Usage:
   python3 regime_history.py --years 6 BTC-EUR ETH-EUR
   python3 regime_history.py --no-ranges --no-trend   # part 1 only, much faster
   python3 regime_history.py --csv runs.csv --trades-csv trades.csv
+  python3 regime_history.py --lab --no-ranges   # regimes, trend trades and the lab
+  python3 regime_history.py --portfolio --no-ranges --no-trend   # regimes + portfolio test
 """
 
 import argparse
@@ -61,6 +81,7 @@ import statistics
 import sys
 import time
 import urllib.request
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -332,7 +353,9 @@ def swings(
 # ---------------------------------------------------------------- regime
 
 
-def label_bars(h4: list[Bar], d1: list[Bar]) -> list[Label]:
+def label_bars(
+    h4: list[Bar], d1: list[Bar], adx_trend: float = ADX_TREND, confirm: int = CONFIRM_BARS
+) -> list[Label]:
     """Confirmed regime label per closed 4h bar: list of (close_ts_ms, label or None)."""
     c4 = [b[3] for b in h4]
     e20, e50 = ema(c4, 20), ema(c4, 50)
@@ -355,7 +378,7 @@ def label_bars(h4: list[Bar], d1: list[Bar]) -> list[Label]:
         if e20v is None or e50v is None or adxv is None or d_ref is None:
             out.append((close_ts, None))
             continue
-        trending = adxv >= ADX_TREND
+        trending = adxv >= adx_trend
         d_up, d_dn = cd[j] > d_ref, cd[j] < d_ref
         if trending and e20v > e50v and d_up:
             raw = "up"
@@ -368,7 +391,7 @@ def label_bars(h4: list[Bar], d1: list[Bar]) -> list[Label]:
         elif raw != current:
             streak = streak + 1 if raw == pending else 1
             pending = raw
-            if streak >= CONFIRM_BARS:
+            if streak >= confirm:
                 current, pending, streak = raw, None, 0
         else:
             pending, streak = None, 0
@@ -662,6 +685,521 @@ def analyse_trend(
     return stats, setups, sell
 
 
+# ---------------------------------------------------------------- research lab (part 4)
+
+LAB_COST = COSTS["market"]  # the lab uses market-order costs (the conservative case)
+SWITCH_COST_PCT = 0.30  # per side for the exposure filters: fee 0.25% + slippage 0.05%
+TRAIL_AFTER_R = 2.0  # spec: trailing starts once price reaches entry + 2R
+TRAIL_ATR = 2.0  # spec: highest close since entry - 2 x ATR, never down
+
+Setup = tuple[float, float | None]  # stop, target (None = no fixed target)
+LabTrade = tuple[int, float]  # entry_ts, net_R
+
+
+def rules_signals(
+    bars: list[Bar],
+    tf_ms: int,
+    h4: list[Bar],
+    d1: list[Bar],
+    labels4: list[Label],
+    since_ms: int,
+    use_1h_swings: bool,
+) -> tuple[dict[int, tuple[float, float, list[float]]], list[float | None], list[bool]]:
+    """Rules BUY signals on any timeframe (1h or 4h), as in the spec's Rules engine.
+
+    Returns {bar index: (raw_stop, atr, resistances above price)}, the ATR series and the
+    per-bar Rules SELL signal (close below EMA 50 with OBV trend below 0, or the 4h EMA 20
+    crossing below EMA 50).
+    """
+    hi, lo, cl = [b[1] for b in bars], [b[2] for b in bars], [b[3] for b in bars]
+    at = atr(hi, lo, cl)
+    e20, e50 = ema(cl, 20), ema(cl, 50)
+    rs, ad = rsi(cl), adx(hi, lo, cl)
+    vw, ob = vwap(bars), obv_trend(bars)
+    piv_hi, _ = swings(hi, lo)
+    piv_idx = [j for j, _ in piv_hi]
+    c4 = [b[3] for b in h4]
+    e20_4, e50_4 = ema(c4, 20), ema(c4, 50)
+    close4 = [b[0] + H4_MS for b in h4]
+    sh4, _ = swings([b[1] for b in h4], [b[2] for b in h4])
+    sh4_idx = [j for j, _ in sh4]
+    cd = [b[3] for b in d1]
+    e200 = ema(cd, 200)
+    close_d = [b[0] + D1_MS for b in d1]
+    lookback = LOOKBACK_1H if tf_ms == H1_MS else LOOKBACK_4H
+
+    def piv_between(piv: list[tuple[int, float]], idx: list[int], a: int, b: int) -> list[float]:
+        x, y = bisect.bisect_left(idx, a), bisect.bisect_right(idx, b)
+        return [p for _, p in piv[x:y]]
+
+    signals: dict[int, tuple[float, float, list[float]]] = {}
+    sell = [False] * len(bars)
+    k4 = kd = -1
+    for i, bar in enumerate(bars):
+        ct = bar[0] + tf_ms
+        prev_k4 = k4
+        while k4 + 1 < len(close4) and close4[k4 + 1] <= ct:
+            k4 += 1
+        while kd + 1 < len(close_d) and close_d[kd + 1] <= ct:
+            kd += 1
+        e50i, obi = e50[i], ob[i]
+        if e50i is not None and obi is not None and cl[i] < e50i and obi < 0:
+            sell[i] = True
+        if k4 != prev_k4 and k4 >= 1:
+            a20, a50, b20, b50 = e20_4[k4], e50_4[k4], e20_4[k4 - 1], e50_4[k4 - 1]
+            known = a20 is not None and a50 is not None and b20 is not None and b50 is not None
+            if known and a20 < a50 and b20 >= b50:  # type: ignore[operator]
+                sell[i] = True
+        if ct < since_ms or k4 < 0 or kd < 0 or labels4[k4][1] != "up":
+            continue
+        vals = (at[i], e20[i], e50[i], rs[i], ad[i], vw[i], ob[i], e20_4[k4], e50_4[k4], e200[kd])
+        if any(v is None for v in vals):
+            continue
+        a, m20, m50, r, x, vwp, o, f20, f50, d200 = (float(v) for v in vals)  # type: ignore[arg-type]
+        price = cl[i]
+        if not (f20 > f50 and cd[kd] > d200):  # C1
+            continue
+        met = sum((m20 > m50, price > vwp, RSI_LOW <= r <= RSI_HIGH, o > OBV_BULL, x >= ADX_TREND))
+        if met < RULES_MIN_CONDITIONS or price - m20 > RULES_MAX_EXTENSION_ATR * a:
+            continue
+        raw_stop = min(lo[max(0, i - RULES_STOP_LOOKBACK + 1) : i + 1]) - RULES_STOP_BUFFER_ATR * a
+        res = piv_between(piv_hi, piv_idx, i - lookback, i - SWING_K)
+        if use_1h_swings:
+            res += piv_between(sh4, sh4_idx, k4 - LOOKBACK_4H, k4 - SWING_K)
+        signals[i] = (raw_stop, a, [p for p in res if p > price])
+    return signals, at, sell
+
+
+def lab_setups(
+    bars: list[Bar], signals: dict[int, tuple[float, float, list[float]]], target_rule: str
+) -> dict[int, Setup]:
+    """Stops widened to the fee-gate minimum; target per rule ('rules', '2.5R' or 'none')."""
+    out: dict[int, Setup] = {}
+    for i, (raw_stop, a, res) in signals.items():
+        price = bars[i][3]
+        stop = min(raw_stop, price * (1 - LAB_COST["min_stop_pct"] / 100), price - MIN_STOP_ATR * a)
+        risk = price - stop
+        if risk > MAX_STOP_ATR * a:
+            continue
+        if target_rule == "none":
+            out[i] = (stop, None)
+            continue
+        near = [p for p in res if p - price <= RULES_TARGET_MAX_ATR * a]
+        rules_target = min(near) if target_rule == "rules" and near else None
+        target = rules_target if rules_target is not None else price + RULES_FALLBACK_R * risk
+        if (target - price) / risk >= MIN_RR:
+            out[i] = (stop, target)
+    return out
+
+
+def simulate(
+    bars: list[Bar],
+    at: list[float | None],
+    setups: dict[int, Setup],
+    time_stop_bars: int,
+    cooldown_bars: int,
+    sell: list[bool] | None,
+    trail: bool,
+) -> list[LabTrade]:
+    """One position at a time; stop first; breakeven + fees at +1R; optional trailing stop."""
+    c = LAB_COST
+    trades: list[LabTrade] = []
+    idx = sorted(setups)
+    pos, n = 0, len(bars)
+    while pos < len(idx):
+        i = idx[pos]
+        stop, target = setups[i]
+        entry = bars[i][3]
+        risk = entry - stop
+        be_stop = entry * (1 + (c["entry"] + c["stop"]) / 100)
+        cur_stop, best_close = stop, entry
+        trailing = False
+        exit_px: float | None = None
+        reason = "time"
+        j = i
+        for j in range(i + 1, min(i + 1 + time_stop_bars, n)):
+            hi, lo, cl = bars[j][1], bars[j][2], bars[j][3]
+            if lo <= cur_stop:
+                exit_px, reason = cur_stop, ("stop" if cur_stop < entry else "protected")
+                break
+            if target is not None and hi >= target:
+                exit_px, reason = target, "target"
+                break
+            if sell is not None and sell[j]:
+                exit_px, reason = cl, "sell"
+                break
+            if hi >= entry + risk:
+                cur_stop = max(cur_stop, be_stop)
+            best_close = max(best_close, cl)
+            aj = at[j]
+            if trail and aj is not None and (trailing or hi >= entry + TRAIL_AFTER_R * risk):
+                trailing = True
+                cur_stop = max(cur_stop, best_close - TRAIL_ATR * aj)
+        if exit_px is None:
+            j = min(i + time_stop_bars, n - 1)
+            exit_px = bars[j][3]
+        exit_cost = c["target"] if reason == "target" else c["stop"]
+        gross = 100 * (exit_px / entry - 1)
+        trades.append((bars[i][0], (gross - c["entry"] - exit_cost) / (100 * risk / entry)))
+        resume = j + (cooldown_bars if reason == "stop" else 1)
+        pos = bisect.bisect_left(idx, resume)
+    return trades
+
+
+# (label, timeframe, target rule, Rules SELL on, trailing, time stop in days)
+LAB_VARIANTS: list[tuple[str, str, str, bool, bool, int]] = [
+    ("1h spec: rules target + SELL", "1h", "rules", True, False, 5),
+    ("1h 2.5R target, no SELL", "1h", "2.5R", False, False, 5),
+    ("1h trailing from 2R, no target", "1h", "none", False, True, 5),
+    ("4h 2.5R target, no SELL", "4h", "2.5R", False, False, 5),
+    ("4h trailing from 2R, no target", "4h", "none", False, True, 20),
+]
+EXPOSURE_FILTERS = ("buy & hold", "regime up", "C1 (4h EMA + daily EMA 200)", "daily > EMA 200")
+
+
+def exposure(
+    h4: list[Bar], d1: list[Bar], labels4: list[Label], start_ms: int, end_ms: int
+) -> dict[str, tuple[float, float, float, int]]:
+    """Hold the coin while a filter is true, else EUR. Switch at 4h closes, 0.3% per side.
+
+    Returns per filter: (return %, max drawdown %, time in the market %, round trips).
+    """
+    c4 = [b[3] for b in h4]
+    e20_4, e50_4 = ema(c4, 20), ema(c4, 50)
+    cd = [b[3] for b in d1]
+    e200 = ema(cd, 200)
+    close_d = [b[0] + D1_MS for b in d1]
+    out: dict[str, tuple[float, float, float, int]] = {}
+    for name in EXPOSURE_FILTERS:
+        eq, peak, max_dd, held, inside, trips, bars_n = 1.0, 1.0, 0.0, False, 0, 0, 0
+        prev_close: float | None = None
+        kd = -1
+        for k, bar in enumerate(h4):
+            ct = bar[0] + H4_MS
+            while kd + 1 < len(close_d) and close_d[kd + 1] <= ct:
+                kd += 1
+            if ct < start_ms or ct > end_ms:
+                continue
+            if held and prev_close is not None:
+                eq *= bar[3] / prev_close
+            if name == "buy & hold":
+                want = True
+            elif name == "regime up":
+                want = labels4[k][1] == "up"
+            elif name.startswith("C1"):
+                a, b, d = e20_4[k], e50_4[k], e200[kd] if kd >= 0 else None
+                want = a is not None and b is not None and d is not None and a > b and cd[kd] > d
+            else:
+                d = e200[kd] if kd >= 0 else None
+                want = d is not None and cd[kd] > d
+            if want != held:
+                eq *= 1 - SWITCH_COST_PCT / 100
+                trips += 1 if held else 0
+                held = want
+            peak = max(peak, eq)
+            max_dd = max(max_dd, 100 * (1 - eq / peak))
+            inside += 1 if held else 0
+            bars_n += 1
+            prev_close = bar[3]
+        out[name] = (100 * (eq - 1), max_dd, 100 * inside / bars_n if bars_n else 0.0, trips)
+    return out
+
+
+def run_lab(
+    h1: list[Bar], h4: list[Bar], d1: list[Bar], labels4: list[Label], since_ms: int, split_ms: int
+) -> tuple[dict[str, list[LabTrade]], dict[str, dict[str, tuple[float, float, float, int]]]]:
+    sig1, at1, sell1 = rules_signals(h1, H1_MS, h4, d1, labels4, since_ms, use_1h_swings=True)
+    sig4, at4, sell4 = rules_signals(h4, H4_MS, h4, d1, labels4, since_ms, use_1h_swings=False)
+    trades: dict[str, list[LabTrade]] = {}
+    for label, tf, tgt, use_sell, trail, days_ in LAB_VARIANTS:
+        bars, sig, at, sell = (h1, sig1, at1, sell1) if tf == "1h" else (h4, sig4, at4, sell4)
+        per_day = 24 if tf == "1h" else 6
+        setups = lab_setups(bars, sig, tgt)
+        trades[label] = simulate(
+            bars,
+            at,
+            setups,
+            days_ * per_day,
+            COOLDOWN_H if tf == "1h" else 2,
+            sell if use_sell else None,
+            trail,
+        )
+    end_ms = h4[-1][0] + H4_MS if h4 else since_ms
+    expo = {
+        "train": exposure(h4, d1, labels4, since_ms, split_ms),
+        "test": exposure(h4, d1, labels4, split_ms, end_ms),
+    }
+    return trades, expo
+
+
+def split_stats(trades: list[LabTrade], split_ms: int) -> tuple[int, float, int, float]:
+    tr = [r for t, r in trades if t < split_ms]
+    te = [r for t, r in trades if t >= split_ms]
+    return (
+        len(tr),
+        statistics.mean(tr) if tr else float("nan"),
+        len(te),
+        statistics.mean(te) if te else float("nan"),
+    )
+
+
+# ---------------------------------------------------------------- portfolio test (part 5)
+
+RANK_BARS = 42  # 7 days of 4h bars: rank new candidates by their 7-day return
+SENS_ADX = (20.0, 25.0, 30.0)
+SENS_CONFIRM = (1, 2, 3)
+
+Filter = str  # "up", "c1" or "ema200"
+PfResult = tuple[float, float, float, int]  # return %, max drawdown %, time invested %, entries
+
+
+def coin_filters(
+    h4: list[Bar], d1: list[Bar], adx_trend: float = ADX_TREND, confirm: int = CONFIRM_BARS
+) -> dict[Filter, dict[int, bool]]:
+    """Per filter: {4h close ts: in the market?} for one coin."""
+    labels = label_bars(h4, d1, adx_trend, confirm)
+    c4 = [b[3] for b in h4]
+    e20, e50 = ema(c4, 20), ema(c4, 50)
+    cd = [b[3] for b in d1]
+    e200 = ema(cd, 200)
+    close_d = [b[0] + D1_MS for b in d1]
+    out: dict[Filter, dict[int, bool]] = {"up": {}, "c1": {}, "ema200": {}}
+    kd = -1
+    for k, bar in enumerate(h4):
+        ct = bar[0] + H4_MS
+        while kd + 1 < len(close_d) and close_d[kd + 1] <= ct:
+            kd += 1
+        d = e200[kd] if kd >= 0 else None
+        above = d is not None and cd[kd] > d
+        a, b = e20[k], e50[k]
+        out["up"][ct] = labels[k][1] == "up"
+        out["c1"][ct] = above and a is not None and b is not None and a > b
+        out["ema200"][ct] = above
+    return out
+
+
+def run_portfolio(
+    closes: dict[str, dict[int, float]],
+    timeline: list[int],
+    want: dict[str, dict[int, bool]] | None,
+    slots: int,
+    start_ms: int,
+    end_ms: int,
+    hold_only: str | None = None,
+) -> PfResult:
+    """Simulate at 4h closes between start and end, starting flat with equity 1.
+
+    want=None with hold_only=coin: buy and hold that coin. want=None and hold_only=None:
+    equal-weight buy and hold of every coin. Otherwise hold up to `slots` coins whose filter
+    is true, each bought with equity / slots, sold when its filter turns false.
+    """
+    cost = SWITCH_COST_PCT / 100
+    cash = 1.0
+    qty: dict[str, float] = {}
+    last: dict[str, float] = {}
+    peak, max_dd, invested, steps, entries = 1.0, 0.0, 0.0, 0, 0
+    hist: dict[str, list[float]] = {c: [] for c in closes}
+    started = False
+    for ts in timeline:
+        for c in closes:
+            px = closes[c].get(ts)
+            if px is not None:
+                last[c] = px
+                hist[c].append(px)
+        if ts < start_ms or ts > end_ms:
+            continue
+        coins = [c for c in closes if c in last]
+        if not started:
+            started = True
+            if want is None:
+                buy = [hold_only] if hold_only else coins
+                buy = [c for c in buy if c in last]
+                for c in buy:
+                    alloc = 1.0 / len(buy)
+                    qty[c] = alloc * (1 - cost) / last[c]
+                    entries += 1
+                cash = 0.0
+        if want is not None:
+            for c in list(qty):  # exits first
+                if not want[c].get(ts, False):
+                    cash += qty.pop(c) * last[c] * (1 - cost)
+            equity = cash + sum(q * last[c] for c, q in qty.items())
+            free = slots - len(qty)
+            if free > 0:
+                cands = [c for c in coins if c not in qty and want[c].get(ts, False)]
+
+                def mom(c: str) -> float:
+                    h = hist[c]
+                    return h[-1] / h[-1 - RANK_BARS] - 1 if len(h) > RANK_BARS else 0.0
+
+                for c in sorted(cands, key=mom, reverse=True)[:free]:
+                    alloc = min(equity / slots, cash)
+                    if alloc <= 1e-9:
+                        break
+                    qty[c] = alloc * (1 - cost) / last[c]
+                    cash -= alloc
+                    entries += 1
+        equity = cash + sum(q * last[c] for c, q in qty.items())
+        peak = max(peak, equity)
+        max_dd = max(max_dd, 100 * (1 - equity / peak))
+        invested += (equity - cash) / equity if equity > 0 else 0.0
+        steps += 1
+    equity = cash + sum(q * last[c] * (1 - cost) for c, q in qty.items())  # value after selling
+    return (100 * (equity - 1), max_dd, 100 * invested / steps if steps else 0.0, entries)
+
+
+STATIC_BTC_WEIGHTS = (0.2, 0.3, 0.5)
+REBALANCE_BARS = 180  # about 30 days of 4h bars
+
+
+def run_static(
+    btc: dict[int, float], timeline: list[int], weight: float, start_ms: int, end_ms: int
+) -> PfResult:
+    """Hold `weight` of equity in BTC and the rest in EUR, rebalanced about monthly."""
+    cost = SWITCH_COST_PCT / 100
+    qty, cash, px = 0.0, 1.0, None
+    peak, max_dd, invested, steps, trades = 1.0, 0.0, 0.0, 0, 0
+    since_rebalance = REBALANCE_BARS
+    for ts in timeline:
+        p = btc.get(ts)
+        if p is not None:
+            px = p
+        if ts < start_ms or ts > end_ms or px is None:
+            continue
+        equity = cash + qty * px
+        if since_rebalance >= REBALANCE_BARS:
+            diff = weight * equity - qty * px  # EUR to buy (+) or sell (-)
+            if abs(diff) > 1e-9:
+                if diff > 0:
+                    qty += diff * (1 - cost) / px
+                    cash -= diff
+                else:
+                    qty += diff / px
+                    cash += -diff * (1 - cost)
+                trades += 1
+            since_rebalance = 0
+        since_rebalance += 1
+        equity = cash + qty * px
+        peak = max(peak, equity)
+        max_dd = max(max_dd, 100 * (1 - equity / peak))
+        invested += qty * px / equity if equity > 0 else 0.0
+        steps += 1
+    final = cash + qty * (px or 0.0) * (1 - cost)
+    return (100 * (final - 1), max_dd, 100 * invested / steps if steps else 0.0, trades)
+
+
+def cagr(ret_pct: float, years: float) -> float:
+    return (
+        100 * ((1 + ret_pct / 100) ** (1 / years) - 1) if years > 0 and ret_pct > -100 else -100.0
+    )
+
+
+def portfolio_report(
+    data: dict[str, tuple[list[Bar], list[Bar]]], since_ms: int, split_ms: int, slots: int
+) -> None:
+    closes = {m: {b[0] + H4_MS: b[3] for b in h4} for m, (h4, _) in data.items()}
+    timeline = sorted({ts for c in closes.values() for ts in c})
+    end_ms = timeline[-1]
+    windows = {
+        "train": (since_ms, split_ms),
+        "test": (split_ms, end_ms),
+        "full": (since_ms, end_ms),
+    }
+    years = {k: (b - a) / (365.25 * D1_MS) for k, (a, b) in windows.items()}
+    base = {m: coin_filters(h4, d1) for m, (h4, d1) in data.items()}
+    btc = next((m for m in data if m.startswith("BTC-")), None)
+
+    def want_for(f: Filter, btc_filter: Filter | None = None) -> dict[str, dict[int, bool]]:
+        return {m: base[m][btc_filter if (btc_filter and m == btc) else f] for m in data}
+
+    Runner = Callable[[int, int], PfResult]
+
+    def filt(
+        want: dict[str, dict[int, bool]] | None,
+        n: int,
+        hold: str | None = None,
+        universe: dict[str, dict[int, float]] | None = None,
+    ) -> Runner:
+        cl = universe if universe is not None else closes
+
+        def run(a: int, b: int) -> PfResult:
+            return run_portfolio(cl, timeline, want, n, a, b, hold)
+
+        return run
+
+    def static(series: dict[int, float], weight: float) -> Runner:
+        def run(a: int, b: int) -> PfResult:
+            return run_static(series, timeline, weight, a, b)
+
+        return run
+
+    strategies: list[tuple[str, Runner]] = []
+    if btc:
+        strategies.append(("BTC buy & hold", filt(None, 1, btc)))
+        for w in STATIC_BTC_WEIGHTS:
+            strategies.append(
+                (f"static {w:.0%} BTC + cash, monthly rebalance", static(closes[btc], w))
+            )
+        btc_only = {btc: closes[btc]}
+        for f, name in (("up", "regime up"), ("c1", "C1"), ("ema200", "daily > EMA 200")):
+            want_btc = {btc: base[btc][f]}
+            strategies.append((f"BTC only, hold while {name}", filt(want_btc, 1, None, btc_only)))
+    strategies.append(("equal-weight buy & hold, all coins", filt(None, len(data))))
+    for f, name in (("up", "regime up"), ("c1", "C1"), ("ema200", "daily > EMA 200")):
+        strategies.append((f"hold while {name}, max {slots}", filt(want_for(f), slots)))
+        strategies.append((f"hold while {name}, all coins", filt(want_for(f), len(data))))
+    if btc:
+        mixed = want_for("up", "ema200")
+        strategies.append((f"regime up, BTC on daily > EMA 200, max {slots}", filt(mixed, slots)))
+        strategies.append(("regime up, BTC on daily > EMA 200, all coins", filt(mixed, len(data))))
+
+    print(
+        f"\nPortfolio test ({len(data)} coins, 4h closes, 0.3% per side, equal slots, no model; "
+        f"train {iso(since_ms)} to {iso(split_ms)}, test from {iso(split_ms)})"
+    )
+    print(
+        f"  {'strategy':46} {'train':>8} {'max DD':>6}   {'test':>8} {'max DD':>6}   "
+        f"{'full':>8} {'CAGR':>7} {'max DD':>6} {'CAGR/DD':>7} {'in mkt':>6} {'buys':>5}"
+    )
+    for name, runner in strategies:
+        res = {k: runner(a, b) for k, (a, b) in windows.items()}
+        tr, te, fu = res["train"], res["test"], res["full"]
+        cg = cagr(fu[0], years["full"])
+        ratio = cg / fu[1] if fu[1] > 0 else float("nan")
+        print(
+            f"  {name:46} {tr[0]:+7.0f}% {tr[1]:5.0f}%   {te[0]:+7.0f}% {te[1]:5.0f}%   "
+            f"{fu[0]:+7.0f}% {cg:+6.0f}% {fu[1]:5.0f}% {ratio:7.2f} "
+            f"{fu[2]:5.0f}% {fu[3]:5}"
+        )
+    print(
+        "  CAGR/DD: yearly growth per unit of the worst drawdown; compare strategies at similar "
+        "risk, not only on return."
+    )
+
+    print(
+        f"\n  Sensitivity: hold while regime up, max {slots} (test window: return / max DD; "
+        f"full window: CAGR / max DD)"
+    )
+    print(
+        f"  {'ADX':>5} {'confirm':>8}   {'test return':>11} {'max DD':>6}   "
+        f"{'full CAGR':>9} {'max DD':>6}"
+    )
+    for adx_t in SENS_ADX:
+        for conf in SENS_CONFIRM:
+            want = {m: coin_filters(h4, d1, adx_t, conf)["up"] for m, (h4, d1) in data.items()}
+            te = run_portfolio(closes, timeline, want, slots, split_ms, end_ms)
+            fu = run_portfolio(closes, timeline, want, slots, since_ms, end_ms)
+            mark = "  <- agent default" if (adx_t, conf) == (ADX_TREND, CONFIRM_BARS) else ""
+            print(
+                f"  {adx_t:5.0f} {conf:8}   {te[0]:+10.0f}% {te[1]:5.0f}%   "
+                f"{cagr(fu[0], years['full']):+8.0f}% {fu[1]:5.0f}%{mark}"
+            )
+    print(
+        "  A result only counts if it beats the benchmarks in the test window and the sensitivity "
+        "rows agree. Survivorship: these coins are today's survivors, which flatters every row."
+    )
+
+
 # ---------------------------------------------------------------- report
 
 
@@ -828,6 +1366,64 @@ def report_trend(
         )
 
 
+def report_lab(
+    trades: dict[str, list[LabTrade]],
+    expo: dict[str, dict[str, tuple[float, float, float, int]]],
+    since_ms: int,
+    split_ms: int,
+) -> None:
+    print(
+        f"  research lab (train {iso(since_ms)} to {iso(split_ms)}, test from {iso(split_ms)}; "
+        f"market costs; no model)"
+    )
+    print(
+        f"    {'trend variant':34} {'train trades':>12} {'avg':>7}   {'test trades':>11} {'avg':>7}"
+    )
+    for label, tr in trades.items():
+        n1, a1, n2, a2 = split_stats(tr, split_ms)
+        print(f"    {label:34} {n1:12} {a1:+6.2f}R   {n2:11} {a2:+6.2f}R")
+    print(
+        f"    {'exposure filter (4h, 0.3%/switch)':34} "
+        f"{'train return':>12} {'max DD':>7} {'in mkt':>6}   "
+        f"{'test return':>11} {'max DD':>7} {'in mkt':>6}"
+    )
+    for name in EXPOSURE_FILTERS:
+        r1, d1_, i1, _ = expo["train"][name]
+        r2, d2, i2, _ = expo["test"][name]
+        print(
+            f"    {name:34} {r1:+11.0f}% {d1_:6.0f}% {i1:5.0f}%   "
+            f"{r2:+10.0f}% {d2:6.0f}% {i2:5.0f}%"
+        )
+
+
+def report_lab_summary(lab_rows: list[dict[str, Any]], split_ms: int) -> None:
+    print("\nSummary of the research lab (all markets pooled; market costs; no model)")
+    print(
+        f"  {'trend variant':34} {'train trades':>12} {'avg':>7}   {'test trades':>11} {'avg':>7}"
+    )
+    for label, *_ in LAB_VARIANTS:
+        pooled: list[LabTrade] = [t for r in lab_rows for t in r["trades"][label]]
+        n1, a1, n2, a2 = split_stats(pooled, split_ms)
+        print(f"  {label:34} {n1:12} {a1:+6.2f}R   {n2:11} {a2:+6.2f}R")
+    print(
+        f"  {'exposure filter, median of markets':34} "
+        f"{'train return':>12} {'max DD':>7}   {'test return':>11} {'max DD':>7}"
+    )
+    for name in EXPOSURE_FILTERS:
+        tr = [r["expo"]["train"][name] for r in lab_rows]
+        te = [r["expo"]["test"][name] for r in lab_rows]
+        print(
+            f"  {name:34} {statistics.median(x[0] for x in tr):+11.0f}% "
+            f"{statistics.median(x[1] for x in tr):6.0f}%   "
+            f"{statistics.median(x[0] for x in te):+10.0f}% "
+            f"{statistics.median(x[1] for x in te):6.0f}%"
+        )
+    print(
+        "  Read the test columns: a variant only counts if it also holds up there. "
+        "Tune on train only."
+    )
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -836,6 +1432,16 @@ def main() -> None:
     ap.add_argument("--years", type=float, default=4.0, help="years to analyse (default 4)")
     ap.add_argument("--no-ranges", action="store_true", help="skip part 2 (sideways ranges)")
     ap.add_argument("--no-trend", action="store_true", help="skip part 3 (up-regime trend trades)")
+    ap.add_argument("--lab", action="store_true", help="also run part 4, the research lab")
+    ap.add_argument(
+        "--portfolio", action="store_true", help="also run part 5, the portfolio test (all coins)"
+    )
+    ap.add_argument("--slots", type=int, default=3, help="portfolio: max coins held (default 3)")
+    ap.add_argument(
+        "--split",
+        default="2025-01-01",
+        help="lab holdout: train before this UTC date, test from it (default 2025-01-01)",
+    )
     ap.add_argument("--csv", help="write every regime run to this CSV file")
     ap.add_argument("--trades-csv", help="write every backtest trade to this CSV file")
     ap.add_argument(
@@ -854,6 +1460,9 @@ def main() -> None:
     trade_rows: list[dict[str, object]] = []
     summary: list[dict[str, Any]] = []
     trend_summary: list[dict[str, Any]] = []
+    lab_rows: list[dict[str, Any]] = []
+    pf_data: dict[str, tuple[list[Bar], list[Bar]]] = {}
+    split_ms = int(datetime.strptime(args.split, "%Y-%m-%d").replace(tzinfo=UTC).timestamp() * 1000)
     print(
         f"Regime history, last {args.years:g} years. Rules: ADX >= {ADX_TREND:g}, "
         f"{CONFIRM_BARS}-bar confirmation. Durations in days (1 bar = 4h)."
@@ -862,11 +1471,13 @@ def main() -> None:
         try:
             d1 = fetch_candles(m, "1d", warm_d1, args.cache or None)
             h4 = fetch_candles(m, "4h", warm_h4, args.cache or None)
-            need_h1 = not (args.no_ranges and args.no_trend)
+            need_h1 = args.lab or not (args.no_ranges and args.no_trend)
             h1 = fetch_candles(m, "1h", warm_h1, args.cache or None) if need_h1 else []
         except Exception as e:
             print(f"\n{m}: could not fetch candles ({e})", file=sys.stderr)
             continue
+        if args.portfolio:
+            pf_data[m] = (h4, d1)
         labels = label_bars(h4, d1)
         runs = runs_of(labels)
         span = report_regimes(m, labels, runs, since_ms)
@@ -883,6 +1494,10 @@ def main() -> None:
                 )
         if not span or not h1:
             continue
+        if args.lab:
+            lab_trades, lab_expo = run_lab(h1, h4, d1, labels, since_ms, split_ms)
+            report_lab(lab_trades, lab_expo, since_ms, split_ms)
+            lab_rows.append({"name": m, "trades": lab_trades, "expo": lab_expo})
         if not args.no_trend:
             t_stats, t_setups, sell = analyse_trend(h1, h4, d1, labels, since_ms)
             t_results = {
@@ -995,6 +1610,10 @@ def main() -> None:
             "  all markets together, net R per year: "
             + ",  ".join(f"{m} -> {tg}: {v / span_t:+.1f}R" for (m, tg), v in ttot.items())
         )
+    if lab_rows:
+        report_lab_summary(lab_rows, split_ms)
+    if pf_data:
+        portfolio_report(pf_data, since_ms, split_ms, args.slots)
     if args.csv and run_rows:
         with open(args.csv, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=list(run_rows[0]))

@@ -28,6 +28,15 @@ describe("formatEur", () => {
 describe("formatPrice", () => {
   it("formats without a currency sign", () => {
     expect(formatPrice("61240.5")).toBe("61,240.50");
+    expect(formatPrice("1.2345")).toBe("1.23");
+    expect(formatPrice("0")).toBe("0.00");
+  });
+
+  it("keeps 4 significant digits below one euro", () => {
+    expect(formatPrice("0.98765")).toBe("0.9877");
+    expect(formatPrice("0.003832")).toBe("0.003832");
+    expect(formatPrice("0.000003991")).toBe("0.000003991");
+    expect(formatPrice("0.00000001")).toBe("0.00000001");
   });
 });
 

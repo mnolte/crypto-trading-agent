@@ -9,6 +9,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { useEffect, useRef } from "react";
+import { chartPriceFormat, formatPrice } from "../lib/format";
 import type { Candle } from "./Charts";
 import type { PriceMarker } from "./Charts";
 
@@ -29,6 +30,9 @@ export type IndicatorSeries = {
 };
 
 type Hover = { time: string; rows: [string, string][] };
+
+/** Hover rows that hold a price, not an indicator value. */
+const PRICE_ROWS = new Set(["EMA 20", "EMA 50", "EMA 200", "VWAP"]);
 
 /**
  * The Indicators screen's stacked panes on one shared time axis: price with
@@ -97,6 +101,7 @@ export function IndicatorChart({
       wickUpColor: css("--up"),
       wickDownColor: css("--down"),
       borderVisible: false,
+      priceFormat: chartPriceFormat(candles.at(-1)?.close ?? 1),
     });
     price.setData(candles);
     createSeriesMarkers(
@@ -264,15 +269,16 @@ export function IndicatorChart({
       const candle = candleByTime.get(time as UTCTimestamp);
       const rows: [string, string][] = candle
         ? [
-            ["O", candle.open.toFixed(4)],
-            ["H", candle.high.toFixed(4)],
-            ["L", candle.low.toFixed(4)],
-            ["C", candle.close.toFixed(4)],
+            ["O", formatPrice(candle.open)],
+            ["H", formatPrice(candle.high)],
+            ["L", formatPrice(candle.low)],
+            ["C", formatPrice(candle.close)],
           ]
         : [];
       for (const [name, pts] of lookups) {
         const value = pts.get(time as UTCTimestamp);
-        if (value !== undefined && value !== null) rows.push([name, value.toFixed(4)]);
+        if (value === undefined || value === null) continue;
+        rows.push([name, PRICE_ROWS.has(name) ? formatPrice(value) : value.toFixed(4)]);
       }
       cb({ time: String(time), rows });
     });
