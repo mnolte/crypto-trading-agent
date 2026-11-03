@@ -335,6 +335,7 @@ class ShadowRunner:
             context_candles=ctx_candles,
             entries_paused=pause is not None or not entries_allowed(session, pair),
         )
+        session.commit()
         # The shadow's own daily call cap — beyond it the Rules baseline
         # answers, like the live daily budget.
         used = repo.shadow_calls_today(session, shadow.account.id, shadow.row.id, now)

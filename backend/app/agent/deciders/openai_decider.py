@@ -774,6 +774,7 @@ class OpenAIDecider:
                     prefilter=True,
                 )
 
+            session.commit()
             client = self._client_factory(api_key)
             try:
                 result = await client.call(payload)

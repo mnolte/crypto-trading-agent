@@ -1301,6 +1301,19 @@ def latest_decision_cycle(session: Session, account_id: int) -> int | None:
     )
 
 
+def latest_persisted_cycle(session: Session, account_id: int) -> int:
+    """The highest cycle number ever recorded on this account, over both
+    tables that key on it — the engine resumes numbering from here so
+    cycles never repeat across restarts."""
+    decision_cycle = session.scalar(
+        select(func.max(DecisionRow.cycle)).where(DecisionRow.account_id == account_id)
+    )
+    snapshot_cycle = session.scalar(
+        select(func.max(EquitySnapshotRow.cycle)).where(EquitySnapshotRow.account_id == account_id)
+    )
+    return max(decision_cycle or 0, snapshot_cycle or 0)
+
+
 def decisions_in_cycle(session: Session, account_id: int, cycle: int) -> list[DecisionRow]:
     return list(
         session.scalars(

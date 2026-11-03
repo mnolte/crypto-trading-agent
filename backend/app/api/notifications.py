@@ -103,19 +103,21 @@ class NotificationDispatcher:
         now = utcnow()
         if settings.browser_enabled and channels.browser:
             key = (event, title, "browser")
-            rendered = self._render_or_suppress(key, body, now)
+            rendered, repeats = self._render_or_suppress(key, body, now)
             if rendered is not None and await self._deliver_browser(title, rendered):
                 self._last_sent[key] = now
-                self._record(key, now)
+                self._record(key, now, repeats)
         if settings.email_enabled and channels.email:
             key = (event, title, "email")
             if key in self._inflight:
                 self._repeats[key] = self._repeats.get(key, 0) + 1
                 return
-            rendered = self._render_or_suppress(key, body, now)
+            rendered, repeats = self._render_or_suppress(key, body, now)
             if rendered is not None:
                 self._inflight.add(key)
-                task = asyncio.create_task(self._deliver_email(key, settings, title, rendered))
+                task = asyncio.create_task(
+                    self._deliver_email(key, settings, title, rendered, repeats)
+                )
                 self.state.tasks.append(task)
                 task.add_done_callback(
                     lambda completed: (
@@ -127,28 +129,28 @@ class NotificationDispatcher:
 
     def _render_or_suppress(
         self, key: tuple[str, str, str], body: str, now: datetime
-    ) -> str | None:
+    ) -> tuple[str | None, int]:
+        """(rendered body, repeats folded in) — None suppresses the send."""
         last = self._last_sent.get(key)
         if last is None:
             # Cold start: the alerts table carries the last send across restarts.
+            # key is (event, title, channel); last_alert_at wants (event, channel, title).
             session = self.state.session_factory()
             try:
-                last = repo.last_alert_at(session, *key)
+                last = repo.last_alert_at(session, key[0], key[2], key[1])
             finally:
                 session.close()
         if last is not None and now - last < timedelta(minutes=30):
             self._repeats[key] = self._repeats.get(key, 0) + 1
-            return None
+            return None, 0
         repeats = self._repeats.pop(key, 0)
-        return f"{body} ({repeats} repeats)" if repeats else body
+        return (f"{body} ({repeats} repeats)" if repeats else body), repeats
 
-    def _record(self, key: tuple[str, str, str], now: datetime) -> None:
+    def _record(self, key: tuple[str, str, str], now: datetime, repeats: int) -> None:
         """Persist a sent alert so the 30-minute repeat rule survives restarts."""
         session = self.state.session_factory()
         try:
-            repo.add_alert(
-                session, key[0], key[2], key[1], repeats=self._repeats.get(key, 0), at=now
-            )
+            repo.add_alert(session, key[0], key[2], key[1], repeats=repeats, at=now)
             session.commit()
         finally:
             session.close()
@@ -173,11 +175,12 @@ class NotificationDispatcher:
         settings: NotificationSettings,
         title: str,
         body: str,
+        repeats: int,
     ) -> None:
         try:
             await asyncio.to_thread(_send_email, settings, title, body)
             self._last_sent[key] = utcnow()
-            self._record(key, self._last_sent[key])
+            self._record(key, self._last_sent[key], repeats)
             session = self.state.session_factory()
             try:
                 repo.resolve_matching_errors(

@@ -579,6 +579,7 @@ async def answer_question(
                         in_checks=[CheckOut(name="Question received", status="pass", detail="")],
                     )
                     call_row.feature = ASK_FEATURE
+                    session.commit()
                     result = await client.call(payload)
                     _record_result(call_row, result, prices, budget.usdc_eur_rate(session, now))
                     call_ids.append(call_row.id)
@@ -661,6 +662,7 @@ async def answer_question(
                             ],
                         )
                         call_row.feature = ASK_FEATURE
+                        session.commit()
                         result = await client.call(payload)
                         _record_result(call_row, result, prices, budget.usdc_eur_rate(session, now))
                         call_ids.append(call_row.id)

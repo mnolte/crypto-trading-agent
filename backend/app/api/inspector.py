@@ -443,6 +443,7 @@ async def replay_call(request: Request, call_id: str, body: LlmCallReplayIn) -> 
             settings=settings,
             market_info=market_info,
         )
+        session.commit()
         client = OpenAIResponsesClient(api_key)
         try:
             result = await client.call(payload)

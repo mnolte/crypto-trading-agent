@@ -8,13 +8,14 @@ from __future__ import annotations
 
 import fcntl
 import os
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import IO
 from zoneinfo import ZoneInfo
 
 from alembic.config import Config
-from sqlalchemy import UniqueConstraint, create_engine
+from sqlalchemy import UniqueConstraint, create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -108,6 +109,9 @@ class AccountRow(Base):
     # acknowledge (the readiness check needs the 30-day history). A new
     # account row starts without one.
     last_kill_at: Mapped[datetime | None] = mapped_column(default=None)
+    # The shock brake's expiry. Everything the agent knows survives a
+    # restart — without this column a restart silently lifted the brake.
+    shock_brake_until: Mapped[datetime | None] = mapped_column(default=None)
 
 
 class PositionRow(Base):
@@ -481,9 +485,27 @@ class MarketContextRow(Base):
     fetched_at: Mapped[datetime]
 
 
+BUSY_TIMEOUT_MS = 30000
+
+
 def make_engine(db_path: Path) -> Engine:
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    return create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
+    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
+    # The app has many concurrent writers (parallel pairs, the watcher,
+    # shadows, collectors). WAL lets reads and one write overlap; the busy
+    # timeout makes writers wait on each other instead of failing at once.
+    event.listen(
+        engine,
+        "connect",
+        lambda dbapi_conn, _record: _apply_sqlite_pragmas(dbapi_conn),
+    )
+    return engine
+
+
+def _apply_sqlite_pragmas(conn: sqlite3.Connection) -> None:
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
+    conn.execute("PRAGMA synchronous=NORMAL")
 
 
 def make_session_factory(engine: Engine) -> sessionmaker[Session]:

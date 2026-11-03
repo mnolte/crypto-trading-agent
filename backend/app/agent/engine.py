@@ -165,6 +165,14 @@ class Engine:
         """The restart-recovery half of ``start``: kill state, expired
         approvals and pre-restart limit orders."""
         account = self.broker.account
+        # Cycle numbering is monotonic across restarts — decisions, equity
+        # snapshots and llm calls key on it (the inspector's cycle column,
+        # the quiet line's latest cycle, What-if's pair-and-cycle lookup).
+        self.cycle = repo.latest_persisted_cycle(session, self.broker.account_id)
+        # The shock brake survives restarts like the kill state does.
+        if account.shock_brake_until is not None:
+            until = repo.aware_utc(account.shock_brake_until)
+            self.shock_brake_until = until if until > self.clock() else None
         if account.kill_at is not None:
             self.status = "killed"
             self.kill = KillInfo(
@@ -485,6 +493,7 @@ class Engine:
                     self.broker.cash,
                     at=now,
                 )
+                session.commit()
                 if self.shadows is not None:
                     await self.shadows.run_cycle(now, cycle_no)
                 self.broker.persist(session, now)
@@ -685,6 +694,7 @@ class Engine:
             if self.openai_decider is not None and settings.model.decider == "openai"
             else self.decider
         )
+        session.commit()
         draft = await decider.decide(
             DecideContext(
                 pair=pair,
@@ -1249,6 +1259,9 @@ class Engine:
         """One 30-second watcher pass: prices, exits, kill, shock brake."""
         async with self._execution_lock:
             await self._tick_locked()
+        # Fills, exits and kills land between cycles — the snapshot push
+        # keeps connected clients live instead of waiting for a cycle end.
+        await self._push()
 
     async def _tick_locked(self) -> None:
         now = self.clock()
@@ -1651,6 +1664,10 @@ class Engine:
             return
         until = now + timedelta(hours=float(settings.risk.shock_brake_hours))
         self.shock_brake_until = until
+        # Persist on the account row so a restart cannot silently lift the
+        # brake; staged here so the brake lands with this session's commit.
+        self.broker.account.shock_brake_until = until
+        session.merge(self.broker.account)
         message = f"{source}; entries paused until {until.isoformat()}"
         repo.add_activity(session, "alert", f"shock brake ON ({message})", at=now)
         await self._notify("risk_control", "Shock brake on", message)

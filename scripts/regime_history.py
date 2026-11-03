@@ -58,6 +58,15 @@ looser EMA 200 filter. Benchmarks: BTC buy and hold, static BTC + cash (20/30/50
 rebalanced about monthly), BTC only with each filter, and equal-weight buy and hold. Train,
 test and full windows, plus a sensitivity grid (ADX 20/25/30 x 1-3 confirmation bars).
 
+Part 6, strategy families (only with --families). Daily closes, all coins, 0.3% per side,
+against BTC buy and hold and static BTC + cash, with train/test windows and a sensitivity grid:
+  A  breakout trend following: buy a close above the highest high of the previous 55 days,
+     exit on a trailing stop 3 x ATR(20) below the highest close since entry
+  B  relative-strength rotation: every 7 days hold the top 3 coins by 60-day return, only
+     if that return is positive, otherwise EUR
+  C  dip buying in an uptrend: above the daily EMA 200, buy when RSI(2) < 10, sell when
+     the close is above its 5-day SMA or after 10 days
+
 Only reads public Bitvavo candles. No API key, no account, no orders, and it does
 not touch the agent or its database. Standard library only. Candles are cached in
 $TA_DATA_DIR/candle_cache (data/candle_cache by default) so a second run only
@@ -70,6 +79,7 @@ Usage:
   python3 regime_history.py --csv runs.csv --trades-csv trades.csv
   python3 regime_history.py --lab --no-ranges   # regimes, trend trades and the lab
   python3 regime_history.py --portfolio --no-ranges --no-trend   # regimes + portfolio test
+  python3 regime_history.py --families --no-ranges --no-trend    # regimes + strategy families
 """
 
 import argparse
@@ -1053,13 +1063,18 @@ REBALANCE_BARS = 180  # about 30 days of 4h bars
 
 
 def run_static(
-    btc: dict[int, float], timeline: list[int], weight: float, start_ms: int, end_ms: int
+    btc: dict[int, float],
+    timeline: list[int],
+    weight: float,
+    start_ms: int,
+    end_ms: int,
+    rebalance_bars: int = REBALANCE_BARS,
 ) -> PfResult:
     """Hold `weight` of equity in BTC and the rest in EUR, rebalanced about monthly."""
     cost = SWITCH_COST_PCT / 100
     qty, cash, px = 0.0, 1.0, None
     peak, max_dd, invested, steps, trades = 1.0, 0.0, 0.0, 0, 0
-    since_rebalance = REBALANCE_BARS
+    since_rebalance = rebalance_bars
     for ts in timeline:
         p = btc.get(ts)
         if p is not None:
@@ -1067,7 +1082,7 @@ def run_static(
         if ts < start_ms or ts > end_ms or px is None:
             continue
         equity = cash + qty * px
-        if since_rebalance >= REBALANCE_BARS:
+        if since_rebalance >= rebalance_bars:
             diff = weight * equity - qty * px  # EUR to buy (+) or sell (-)
             if abs(diff) > 1e-9:
                 if diff > 0:
@@ -1197,6 +1212,326 @@ def portfolio_report(
     print(
         "  A result only counts if it beats the benchmarks in the test window and the sensitivity "
         "rows agree. Survivorship: these coins are today's survivors, which flatters every row."
+    )
+
+
+# ---------------------------------------------------------------- strategy families (part 6)
+
+
+def sma(values: list[float], n: int) -> list[float | None]:
+    """Simple moving average; None until n values."""
+    res: list[float | None] = [None] * len(values)
+    s = 0.0
+    for i, v in enumerate(values):
+        s += v
+        if i >= n:
+            s -= values[i - n]
+        if i >= n - 1:
+            res[i] = s / n
+    return res
+
+
+class CoinDaily:
+    """Daily series and indicators for one coin, indexed by daily close time."""
+
+    def __init__(self, d1: list[Bar]) -> None:
+        self.ts = [b[0] + D1_MS for b in d1]
+        self.idx = {t: i for i, t in enumerate(self.ts)}
+        self.high = [b[1] for b in d1]
+        self.low = [b[2] for b in d1]
+        self.close = [b[3] for b in d1]
+        self.atr20 = atr(self.high, self.low, self.close, 20)
+        self.ema200 = ema(self.close, 200)
+        self.rsi2 = rsi(self.close, 2)
+        self.sma: dict[int, list[float | None]] = {n: sma(self.close, n) for n in (5, 10)}
+
+    def ret(self, i: int, days: int) -> float | None:
+        return self.close[i] / self.close[i - days] - 1 if i >= days else None
+
+
+class Position:
+    def __init__(self, qty: float, entry_i: int, entry_px: float) -> None:
+        self.qty = qty
+        self.entry_i = entry_i
+        self.best = entry_px
+
+
+class Family:
+    """A daily strategy: which held coins to sell and which coins to buy (best first)."""
+
+    slots = 3
+
+    def exits(self, coins: dict[str, CoinDaily], ts: int, held: dict[str, Position]) -> list[str]:
+        raise NotImplementedError
+
+    def entries(self, coins: dict[str, CoinDaily], ts: int, held: dict[str, Position]) -> list[str]:
+        raise NotImplementedError
+
+
+class Breakout(Family):
+    """Buy a close above the highest high of the previous n days; trailing stop k x ATR(20)."""
+
+    def __init__(self, n: int, k: float, slots: int) -> None:
+        self.n, self.k, self.slots = n, k, slots
+
+    def exits(self, coins: dict[str, CoinDaily], ts: int, held: dict[str, Position]) -> list[str]:
+        out = []
+        for c, p in held.items():
+            s = coins[c]
+            i = s.idx.get(ts)
+            a = s.atr20[i] if i is not None else None
+            if i is None or a is None:
+                continue
+            p.best = max(p.best, s.close[i])
+            if s.close[i] < p.best - self.k * a:
+                out.append(c)
+        return out
+
+    def entries(self, coins: dict[str, CoinDaily], ts: int, held: dict[str, Position]) -> list[str]:
+        cands: list[tuple[float, str]] = []
+        for c, s in coins.items():
+            i = s.idx.get(ts)
+            if c in held or i is None or i < self.n + 1 or s.atr20[i] is None:
+                continue
+            if s.close[i] > max(s.high[i - self.n : i]):
+                r = s.ret(i, 30)
+                cands.append((r if r is not None else 0.0, c))
+        return [c for _, c in sorted(cands, reverse=True)]
+
+
+class Rotation(Family):
+    """Every 7 days hold the top k coins by their n-day return, if that return is positive."""
+
+    def __init__(self, n: int, k: int, start_ms: int) -> None:
+        self.n, self.slots, self.start_ms = n, k, start_ms
+
+    def _rebalance_day(self, ts: int) -> bool:
+        return ((ts - self.start_ms) // D1_MS) % 7 == 0
+
+    def _target(self, coins: dict[str, CoinDaily], ts: int) -> list[str]:
+        scored: list[tuple[float, str]] = []
+        for c, s in coins.items():
+            i = s.idx.get(ts)
+            r = s.ret(i, self.n) if i is not None else None
+            if r is not None and r > 0:
+                scored.append((r, c))
+        return [c for _, c in sorted(scored, reverse=True)[: self.slots]]
+
+    def exits(self, coins: dict[str, CoinDaily], ts: int, held: dict[str, Position]) -> list[str]:
+        if not self._rebalance_day(ts):
+            return []
+        target = self._target(coins, ts)
+        return [c for c in held if c not in target]
+
+    def entries(self, coins: dict[str, CoinDaily], ts: int, held: dict[str, Position]) -> list[str]:
+        if not self._rebalance_day(ts):
+            return []
+        return [c for c in self._target(coins, ts) if c not in held]
+
+
+class DipBuy(Family):
+    """Above the daily EMA 200, buy when RSI(2) < threshold.
+
+    Sell when the close is above the n-day SMA, or after 10 days.
+    """
+
+    def __init__(self, threshold: float, exit_sma: int, slots: int) -> None:
+        self.threshold, self.exit_sma, self.slots = threshold, exit_sma, slots
+
+    def exits(self, coins: dict[str, CoinDaily], ts: int, held: dict[str, Position]) -> list[str]:
+        out = []
+        for c, p in held.items():
+            s = coins[c]
+            i = s.idx.get(ts)
+            if i is None:
+                continue
+            m = s.sma[self.exit_sma][i]
+            if (m is not None and s.close[i] > m) or i - p.entry_i >= 10:
+                out.append(c)
+        return out
+
+    def entries(self, coins: dict[str, CoinDaily], ts: int, held: dict[str, Position]) -> list[str]:
+        cands: list[tuple[float, str]] = []
+        for c, s in coins.items():
+            i = s.idx.get(ts)
+            if c in held or i is None:
+                continue
+            e, r = s.ema200[i], s.rsi2[i]
+            if e is not None and r is not None and s.close[i] > e and r < self.threshold:
+                cands.append((r, c))
+        return [c for _, c in sorted(cands)]
+
+
+def make_breakout(n: int, k: float, slots: int) -> Callable[[int], Family]:
+    def make(start_ms: int) -> Family:
+        return Breakout(n, k, slots)
+
+    return make
+
+
+def make_rotation(n: int, k: int) -> Callable[[int], Family]:
+    def make(start_ms: int) -> Family:
+        return Rotation(n, k, start_ms)
+
+    return make
+
+
+def make_dip(threshold: float, exit_sma: int, slots: int) -> Callable[[int], Family]:
+    def make(start_ms: int) -> Family:
+        return DipBuy(threshold, exit_sma, slots)
+
+    return make
+
+
+def run_family(
+    coins: dict[str, CoinDaily], timeline: list[int], fam: Family, start_ms: int, end_ms: int
+) -> PfResult:
+    """Daily closes, flat start with equity 1, equal slots, 0.3% per side."""
+    cost = SWITCH_COST_PCT / 100
+    cash = 1.0
+    held: dict[str, Position] = {}
+    last: dict[str, float] = {}
+    peak, max_dd, invested, steps, entries = 1.0, 0.0, 0.0, 0, 0
+    for ts in timeline:
+        for c, s in coins.items():
+            i = s.idx.get(ts)
+            if i is not None:
+                last[c] = s.close[i]
+        if ts < start_ms or ts > end_ms:
+            continue
+        for c in fam.exits(coins, ts, held):
+            cash += held.pop(c).qty * last[c] * (1 - cost)
+        equity = cash + sum(p.qty * last[c] for c, p in held.items())
+        for c in fam.entries(coins, ts, held):
+            if len(held) >= fam.slots:
+                break
+            alloc = min(equity / fam.slots, cash)
+            if alloc <= 1e-9:
+                break
+            i = coins[c].idx[ts]
+            held[c] = Position(alloc * (1 - cost) / last[c], i, last[c])
+            cash -= alloc
+            entries += 1
+        equity = cash + sum(p.qty * last[c] for c, p in held.items())
+        peak = max(peak, equity)
+        max_dd = max(max_dd, 100 * (1 - equity / peak))
+        invested += (equity - cash) / equity if equity > 0 else 0.0
+        steps += 1
+    final = cash + sum(p.qty * last[c] * (1 - cost) for c, p in held.items())
+    return (100 * (final - 1), max_dd, 100 * invested / steps if steps else 0.0, entries)
+
+
+def families_report(
+    data: dict[str, tuple[list[Bar], list[Bar]]], since_ms: int, split_ms: int, slots: int
+) -> None:
+    coins = {m: CoinDaily(d1) for m, (_, d1) in data.items()}
+    timeline = sorted({t for s in coins.values() for t in s.ts if t >= since_ms})
+    if not timeline:
+        return
+    end_ms = timeline[-1]
+    windows = {
+        "train": (since_ms, split_ms),
+        "test": (split_ms, end_ms),
+        "full": (since_ms, end_ms),
+    }
+    years = (end_ms - since_ms) / (365.25 * D1_MS)
+    n_all = len(coins)
+    btc = next((m for m in coins if m.startswith("BTC-")), None)
+    btc_closes = {t: coins[btc].close[i] for t, i in coins[btc].idx.items()} if btc else {}
+
+    def fam_runner(make: Callable[[int], Family]) -> Callable[[int, int], PfResult]:
+        def run(a: int, b: int) -> PfResult:
+            return run_family(coins, timeline, make(a), a, b)
+
+        return run
+
+    def static_runner(w: float) -> Callable[[int, int], PfResult]:
+        def run(a: int, b: int) -> PfResult:
+            return run_static(btc_closes, timeline, w, a, b, rebalance_bars=30)
+
+        return run
+
+    rows: list[tuple[str, Callable[[int, int], PfResult]]] = []
+    if btc:
+        rows.append(("BTC buy & hold", static_runner(1.0)))
+        for w in (0.3, 0.5):
+            rows.append((f"static {w:.0%} BTC + cash, monthly rebalance", static_runner(w)))
+    for n_slots in sorted({min(slots, n_all), n_all}):
+        tag = f"max {n_slots}" if n_slots != n_all else "all coins"
+        rows.append(
+            (
+                f"A breakout 55d, trail 3 ATR, {tag}",
+                fam_runner(make_breakout(55, 3.0, n_slots)),
+            )
+        )
+        rows.append(
+            (
+                f"C dip buy RSI2 < 10, exit > SMA5, {tag}",
+                fam_runner(make_dip(10.0, 5, n_slots)),
+            )
+        )
+    rows.append(("B rotation, top 3 by 60d return", fam_runner(make_rotation(60, 3))))
+
+    print(
+        f"\nStrategy families (daily closes, {n_all} coins, 0.3% per side, equal slots, no model; "
+        f"train {iso(since_ms)} to {iso(split_ms)}, test from {iso(split_ms)})"
+    )
+    print(
+        f"  {'strategy':46} {'train':>8} {'max DD':>6}   {'test':>8} {'max DD':>6}   "
+        f"{'full':>8} {'CAGR':>7} {'max DD':>6} {'CAGR/DD':>7} {'in mkt':>6} {'buys':>5}"
+    )
+    for name, runner in rows:
+        res = {k: runner(a, b) for k, (a, b) in windows.items()}
+        tr, te, fu = res["train"], res["test"], res["full"]
+        cg = cagr(fu[0], years)
+        ratio = cg / fu[1] if fu[1] > 0 else float("nan")
+        print(
+            f"  {name:46} {tr[0]:+7.0f}% {tr[1]:5.0f}%   {te[0]:+7.0f}% {te[1]:5.0f}%   "
+            f"{fu[0]:+7.0f}% {cg:+6.0f}% {fu[1]:5.0f}% {ratio:7.2f} {fu[2]:5.0f}% {fu[3]:5}"
+        )
+
+    grids: list[tuple[str, list[tuple[str, Callable[[int], Family]]]]] = [
+        (
+            f"A breakout, max {slots}: lookback x trailing ATR",
+            [
+                (f"{n}d, {k:g} ATR", make_breakout(n, k, slots))
+                for n in (20, 55, 100)
+                for k in (2.0, 3.0, 4.0)
+            ],
+        ),
+        (
+            "B rotation: return window x coins held",
+            [(f"{n}d, top {k}", make_rotation(n, k)) for n in (30, 60, 90) for k in (1, 2, 3)],
+        ),
+        (
+            f"C dip buy, max {slots}: RSI2 threshold x exit SMA",
+            [
+                (f"RSI2 < {t:g}, SMA{e}", make_dip(t, e, slots))
+                for t in (5.0, 10.0, 20.0)
+                for e in (5, 10)
+            ],
+        ),
+    ]
+    for title, cells in grids:
+        print(f"\n  Sensitivity, {title}")
+        print(
+            f"  {'setting':20} {'test return':>11} {'max DD':>6}   "
+            f"{'full CAGR':>9} {'max DD':>6} {'CAGR/DD':>7}"
+        )
+        for label, make in cells:
+            te = run_family(coins, timeline, make(split_ms), split_ms, end_ms)
+            fu = run_family(coins, timeline, make(since_ms), since_ms, end_ms)
+            cg = cagr(fu[0], years)
+            ratio = cg / fu[1] if fu[1] > 0 else float("nan")
+            print(
+                f"  {label:20} {te[0]:+10.0f}% {te[1]:5.0f}%   "
+                f"{cg:+8.0f}% {fu[1]:5.0f}% {ratio:7.2f}"
+            )
+    print(
+        "\n  Benchmark: the static BTC + cash rows. A family only counts if it beats the static "
+        "mix "
+        "with a similar max drawdown in train AND test, and its sensitivity grid agrees. Testing "
+        "three families with many settings makes a lucky winner likely: be strict."
     )
 
 
@@ -1436,6 +1771,9 @@ def main() -> None:
     ap.add_argument(
         "--portfolio", action="store_true", help="also run part 5, the portfolio test (all coins)"
     )
+    ap.add_argument(
+        "--families", action="store_true", help="also run part 6, three strategy families"
+    )
     ap.add_argument("--slots", type=int, default=3, help="portfolio: max coins held (default 3)")
     ap.add_argument(
         "--split",
@@ -1476,7 +1814,7 @@ def main() -> None:
         except Exception as e:
             print(f"\n{m}: could not fetch candles ({e})", file=sys.stderr)
             continue
-        if args.portfolio:
+        if args.portfolio or args.families:
             pf_data[m] = (h4, d1)
         labels = label_bars(h4, d1)
         runs = runs_of(labels)
@@ -1612,8 +1950,10 @@ def main() -> None:
         )
     if lab_rows:
         report_lab_summary(lab_rows, split_ms)
-    if pf_data:
+    if pf_data and args.portfolio:
         portfolio_report(pf_data, since_ms, split_ms, args.slots)
+    if pf_data and args.families:
+        families_report(pf_data, since_ms, split_ms, args.slots)
     if args.csv and run_rows:
         with open(args.csv, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=list(run_rows[0]))

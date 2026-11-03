@@ -226,6 +226,33 @@ async def test_filled_entry_is_not_stopped_same_tick(env: Path) -> None:
     assert "SOL-EUR" not in e.broker.positions
 
 
+async def test_watcher_fill_broadcasts_a_snapshot(env: Path) -> None:
+    """A fill lands between cycle pushes — the watcher pushes its own
+    snapshot or connected clients keep showing no position until the
+    next cycle ends."""
+    e = _uptrend_env(env)
+    last = e.market.series[("SOL-EUR", "1h")][-1].close
+    e.market.set_book("SOL-EUR", last * Decimal("0.90"), last * Decimal("1.20"))
+    await e.engine.run_cycle()
+    s = e.session()
+    try:
+        limit = Decimal(_orders(s)[0].limit_price)
+    finally:
+        s.close()
+
+    pushes = 0
+
+    async def spy() -> None:
+        nonlocal pushes
+        pushes += 1
+
+    e.engine._broadcast = spy
+    e.market.tickers["SOL-EUR"] = limit - Decimal("0.01")
+    await e.engine.tick()
+    assert "SOL-EUR" in e.broker.positions
+    assert pushes == 1
+
+
 # --------------------------------------------------------------- cancels ==
 
 
