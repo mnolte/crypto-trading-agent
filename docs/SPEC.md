@@ -420,7 +420,7 @@ The app has ten views (nine screens plus the Decision drawer; the design's 12 fi
 - Dark only in v0.1. Ground #0B0E13, panels #12161D, lines #232A35, text #E7EAEE, muted #98A2AF.
 - Accent amber #F2B94B for agent state. Up #3DD68C, down #FF6369; always paired with a sign or arrow, never colour alone.
 - IBM Plex Sans for UI, IBM Plex Mono for every number. Bundle both fonts; no network fonts.
-- Minimum hit target 44 px. Layout works from 1100 px wide; the browser tab title shows agent status and today's P&L.
+- Minimum hit target 44 px. Layout works from 1100 px wide, and from 390 px once PR 14 lands (see v0.3); the browser tab title shows agent status and today's P&L.
 
 **Dashboard**
 
@@ -964,6 +964,234 @@ v0.1 fills every order at market: the taker fee (0.25% per side) plus 0.05% slip
 
 Fear & Greed, BTC dominance and market cap trend (the next group, once v0.2 has a result), on-chain flows, news tone scores, social media sentiment, traditional markets, and hosting on a VPS, which gets its own section when the v0.1 measurement run ends.
 
+## v0.3: screens and tools from Stock Trading Agent
+
+v0.3 adds what Stock Trading Agent has and Trading Agent lacks: the aligned shell and Dashboard, a Logs screen, Positions & orders, a Markets screen, a Strategies screen, Backtest, and sign-in for the VPS. None of it changes how the agent decides, sizes or exits. Backtest and Strategies produce evidence; the rule for strategy changes in Decisions still decides what goes into this spec.
+
+### Shell and Dashboard
+
+The design of 3 November 2026 follows Stock Trading Agent. This is the behaviour behind it; `design/DESIGN.md` and `design/CHANGES.md` (entry "Aligned with Stock Trading Agent") give the look and the token rename.
+
+**Header**, on every screen except the Decision drawer:
+
+- the screen title with one line under it: the date and time on the Dashboard, what the screen covers elsewhere;
+- the PAPER badge, always (the disabled Paper/Live switch is removed; Readiness still shows that live trading is locked);
+- the status pill: Running, Paused or Killed, with the next cycle time and minutes left;
+- the Needs you chip (below);
+- Equity, Today (P&L since 00:00 Amsterdam, in € and %) and Regime (BTC's trend × volatility);
+- Ask (Ctrl/⌘+J), Pause or Resume, and Stop & flatten. Ask moves here from the sidebar.
+
+Screen controls (filters, periods, export, save) sit at the top of the page, not in the header. Run now moves to the cycle strip and the News flag to the risk budget card; both keep their behaviour.
+
+**Needs you.** A list, computed in code each cycle and on every change, of things only Marc can resolve, most urgent first, each with one action:
+
+| Item | Action |
+| --- | --- |
+| Kill switch fired, not acknowledged | Review and acknowledge |
+| Trades waiting for approval (supervised mode) | Approve or veto |
+| Errors not reviewed (from PR 15: ERROR and CRITICAL recurring problems; before it, open rows in `errors`) | Review |
+| An API key or data source failing (3 failures in a row) | Fix in Settings |
+| Email alerts not set up, or failing | Set up or fix in Settings |
+| An active market failing the eligibility check | Review in Markets |
+| Monthly cost cap at 80% or more | Raise the cap |
+
+The header chip shows the count and is hidden at 0; the Dashboard card is first on the page and, at 0, shrinks to its health line: Bitvavo candles (time of the last closed candle), price stream, clock offset, OpenAI key and the v0.2 collector. Items leave the list when their cause is gone. `GET /api/needs` returns the list; the snapshot carries it as `needs`.
+
+**Dashboard order:** Needs you; the cycle strip; two tiles (model calls today, return since start against holding BTC); open positions next to the risk budget; price chart next to the latest decision; today's decisions next to the morning briefing; Markets.
+
+- **Cycle strip:** the quiet line (unchanged), and a cycle counter with the next cycle's time (UTC in a tooltip), a countdown, this hour's four cycles (done, next, later), "Cycle n of 96 today · #id this run" and Run now.
+- **Open positions:** a row per position with a bar from stop to target, the entry tick and the last price; the distance to the stop in % and in ATR(1h), amber under 1.5 ATR; P&L in € and R, or "stop above entry" once the stop is past breakeven.
+- **Risk budget:** open risk, exposure, today's loss and drawdown as meters; room for more trades, correlated slots, risk per trade and throttle, shock brake, cooldown and the News flag with its button.
+- **Price chart:** 1h, 4h or 1d candles, EMA 20, EMA 50, VWAP (day, from 00:00 UTC), and entry, stop and target lines for a held pair. Buttons for held pairs and Find pair replace the pair tabs.
+- **Today's decisions** replaces the Activity card. Decisions since 00:00 grouped by cycle, newest first; within a cycle grouped by action and reason ("NO CALL · AVAX, ADA, LINK · pre-filter"). Changes (entries, exits, stop moves) always show; older cycles fold to their changes. The activity log stays in the API and in Ask; errors move to the Logs screen (PR 15).
+- **Markets card:** every active pair with price, 24h change, regime, the pre-filter result (passed, held, the failed condition, paused, warming up) and the last action. Filters All, Pass rules, Held, Paused, and search. Clicking a row charts it.
+
+**Phone width.** Every screen works from 390 px wide. Below 820 px a sticky top bar replaces the sidebar: app mark, screen title, Needs you count, Ask and a menu button that opens the sidebar as an overlay. Wide tables scroll inside their card; no screen scrolls sideways. This replaces "Layout works from 1100 px wide".
+
+**Interaction rules.** The interaction rules in `design/DESIGN.md` bind every screen: focus ring, hover classes, 44 px targets, card states (loading, empty, error; a page banner when the API doesn't answer, retrying every 15 s), toasts (one per notification event, at most 3, info and warning close after 10 s, critical stays), live regions, dialogs, numbers with a real minus sign and the page title.
+
+### Logging, errors and the Logs screen
+
+Every part of the app logs what it does, so a cycle, a fill or a failure can be traced afterwards; no error is swallowed; Ctrl+C stops the app without damaging the database. This replaces the Logs and Errors bullets under Operations. The PR starts with an audit: `docs/analysis/<date>-error-handling-audit.md` lists every `try`/`except`, background task and silent failure path (file, line, today, fix), each component's logging, and what Ctrl+C does today during a cycle, a fill and a backup. Fixes follow the report; anything that would change trading behaviour is listed as a question.
+
+**Log file.** One JSON object per line in `data/logs/trading-agent.log`:
+
+- `ts` (UTC, milliseconds), `level`, `logger` (component, e.g. `market.bitvavo`), `event` (a stable code such as `candles.stale`), `message`;
+- `context`: cycle id, pair, decision, order, shadow, backtest run or HTTP request id, whichever apply;
+- `process` (`app` or `backtest-<id>`), `pid`; for errors `error_id` and `exception` (type, message, traceback).
+
+All levels go to the file; the console shows INFO and up. Lines go through a queue to one writer thread, so logging never blocks a cycle. The file rotates at 50 MB (gzipped); files older than 30 days or beyond 20 are deleted. A filter on every handler replaces stored keys and anything that looks like a key or an Authorization header with `[redacted]`. Model prompts and responses are not logged; they live in `llm_calls`.
+
+| Level | Meaning | Examples |
+| --- | --- | --- |
+| DEBUG | Steps and values behind a decision | candles fetched per pair, each pre-filter condition with its value, gate inputs and results, sizing math, model call sent and returned (tokens, latency), API calls with status and duration |
+| INFO | One line per milestone | app start and stop with version and config hash, cycle start and end with a summary, each decision's final action, fill, stop moved, exit, settings saved, key tested, job run |
+| WARNING | Degraded but handled | pair stale, source retry, invalid model output, a cycle over 5 minutes, unclean previous shutdown |
+| ERROR | A unit of work given up | unhandled exception in a cycle step, model error, job failed, email failed, database rollback |
+| CRITICAL | Safety at risk or the app can't continue | kill switch fired, a position the watcher can't price, database not writable, startup refused |
+
+**Tracing.** Every cycle, watcher pass and job gets an id (`c-0728`) in a context variable, carried by every line it writes; lines about one pair carry the pair and, once known, the decision id. API requests get a request id, returned in `X-Request-Id`.
+
+**Error handling.**
+
+- Never swallowed: a caught exception is re-raised, turned into a defined outcome (a Rules stand-in, a failed gate, a cycle stored as error) and logged with its traceback, or logged at WARNING as an expected condition. Ruff rules E722, BLE001, S110, TRY400 and TRY203 fail `make lint`.
+- Global hooks: `sys.excepthook`, `threading.excepthook`, the asyncio exception handler, one `spawn()` helper for every background task (a bare `asyncio.create_task` fails a test), the scheduler's job-error listener and `logging.captureWarnings`. Library loggers go to the same handlers at WARNING and up.
+- An unhandled API error returns 500 with an `error_id` that is also on the log line. Frontend errors (`window.onerror`, `unhandledrejection`, the React error boundary) go to `POST /api/logs/client`, at most 10 a minute per tab; the boundary shows "Something went wrong" with the `error_id` and Reload.
+- The log is for diagnosis. Notifications and the Needs you list come from events, never from a log line.
+
+**Graceful shutdown.** Ctrl+C or SIGTERM: log "Shutdown requested", show a banner in every tab, stop the scheduler and the watcher's new passes; API writes return 503. Running work gets 60 s; a fill and its position update are one transaction and never cut off. Then shadows and a running backtest are cancelled, clients closed, every session committed or rolled back, a WAL checkpoint run, and the log flushed last ("Shutdown complete in n s"). A second Ctrl+C skips the wait. The lock file gains a heartbeat every 30 s; if it is still there at the next start, the app logs a WARNING, runs `PRAGMA quick_check`, marks running cycles `interrupted` and says "The previous run did not shut down cleanly". It still restarts paused.
+
+**Log index and API.** The writer thread also batches each line into `data/logs/logs.db` (never the trading database, not in the backup): a `log_lines` table with full-text search on the message, indexes on time, level, logger, cycle and pair, and a fingerprint (logger + event + the message with numbers, pairs and ids replaced) that groups recurring problems. If the index fails, the file keeps working; `make logs-reindex` rebuilds it.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/logs?levels=&from=&to=&q=&logger=&pair=&cycle=&cursor=` | Lines, newest first, keyset cursor, up to 200 |
+| `GET /api/logs/summary` | Counts per level, warnings and up per day, recurring problems |
+| `GET /api/logs/{id}/around?n=50` | Surrounding lines of the same process, all levels |
+| `GET /api/logs/export.jsonl` | The filtered lines |
+| `POST /api/logs/problems/{fingerprint}/review` | Expected or Fixed, with a required note |
+
+**Logs screen** (Control group):
+
+- level toggles with counts (Warning, Error and Critical on by default; "Show debug and info"), period (last hour, today, 7 days, 30 days, custom), search, component, pair, cycle, Clear filters and Download .jsonl;
+- warnings and errors per day as stacked bars;
+- recurring problems with level, count, first and last seen; ERROR and CRITICAL ones show unreviewed, expected or fixed, and Review;
+- the log grouped per day, each line with time (UTC on hover), level chip, message, component and context chips linking to the cycle, decision or trade; opening a line shows the traceback, the stored JSON and the surrounding lines;
+- Follow new lines, on by default, paused while scrolled away from the top.
+
+The Readiness criterion on errors changes to: no unreviewed ERROR or CRITICAL problem, and no CRITICAL line in the last 7 days. The `errors` table and the error badge are retired; their rows are migrated as reviewed problems.
+
+### Positions & orders
+
+A screen in the Monitor group that shows everything the paper broker holds and did, so a fill or an exit can be checked against its prices. It reads only stored records; it never changes a position.
+
+- **Totals line:** open positions, unrealised P&L in €, open risk in % of equity, exposure, cash, and fees paid today and since the start of the paper account.
+- **Per position:** the stop-to-target bar from the Dashboard; four facts (loss if the stop hits, in € and R; distance to the stop in % and ATR; distance to the target; time stop date and time); the stop's history (initial, breakeven, trailing moves with times); the latest decision on the pair with a link to its drawer; and the watcher's last check time. For shadows, a switch shows a shadow's positions instead of live's.
+- **Working orders** (from PR 12): limit entries waiting for a fill, with limit price, placed at, cancels at, and the last price.
+- **Today:** entries and exits since 00:00 Amsterdam, each with the reason (decision, stop, target, model exit, time stop, Stop & flatten, kill switch) and the result in € and R.
+- **Order history:** every paper fill, newest first: time, pair, side, quantity, reference price, fill price, slippage, fee (maker or taker), reason, and the decision or trade it belongs to. Filters: pair, side, reason, period; CSV export.
+- **Account:** paper account number and start date, starting balance, cash, coins value, equity, realised P&L, fees and slippage in total.
+
+API: `GET /api/positions` adds the distances and stop history; `GET /api/fills?pair=&side=&reason=&from=&to=&cursor=` and `GET /api/fills/export.csv`. The Dashboard's "Open positions" title links here.
+
+### Markets screen
+
+The eligibility check and the active set move from Settings to a Markets screen in the Control group, the counterpart of Stock Trading Agent's Universe. The rules do not change: the daily check at 01:00 UTC, the thresholds, the 3-day hysteresis, warming up, and "Marc decides": nothing is activated or deactivated automatically.
+
+- **Counts:** Bitvavo EUR markets, eligible, active, warming up, failing, excluded.
+- **Today's check as a funnel:** all EUR markets → not a stablecoin → trading on Bitvavo → 300 daily candles → €1M average daily volume → spread at most 0.15% → eligible, with the count and the markets dropped at each step. If the check itself fails (data error), the previous result is kept and a banner says so.
+- **Table of every EUR market:** pair, status (active, eligible, failing day n of 3, warming up with %, excluded with the failed rule), price, 30-day average daily volume, 24h spread, 30-day return against BTC, 30-day correlation with BTC, regime, and the last action for active pairs. Filters by status, search, sort by any column.
+- **Actions per row:** Activate (starts the backfill), Deactivate (confirm; an open position is still managed), and the per-coin pause. Activating shows the extra model calls a day next to the daily budget, as Settings does today.
+- The 30-day return against BTC is information only: it doesn't rank, add or remove markets.
+
+Settings keeps the thresholds and links to the screen. API: `GET /api/markets` (every EUR market with the fields above), `GET /api/markets/check` (today's funnel), `POST /api/markets/{pair}/activate` and `/deactivate`.
+
+### Strategies screen
+
+Shadow strategies (user feature 10) get their own screen in the Learn group, replacing Settings → Shadow strategies and the Compare view. How shadows run does not change: at most 2, each with its own paper account, call limit and pause rules.
+
+**Comparison table**, for the current paper account, one row each for live, every shadow, holding BTC, and a static BTC + cash mix with the same maximum drawdown as live (the research benchmark; the BTC share is shown, for example "34% BTC"):
+
+| Column | Definition |
+| --- | --- |
+| Return | Since the strategy's start, after fees and slippage |
+| vs BTC | Return minus holding BTC over the same period |
+| Max drawdown | Peak to trough of the strategy's equity |
+| Return / drawdown | Annualised return ÷ max drawdown |
+| Closed trades | Count, won and lost |
+| Average R | After fees |
+| Model cost | € since the start |
+| Same as live | Share of pair-cycles where the final action matched live, counted only when either side called the model, with its count ("41% of 212") |
+
+Each shadow's row covers the period since its start, measured against live from that same moment, with pause windows left out of both sides (as Compare does today). Under 30 closed trades a row shows "too few trades to compare" and its numbers in grey.
+
+- **Equity curves:** every strategy and both benchmarks, rebased to 100 at each shadow's start.
+- **Selected strategy:** what differs from live (model, prompt version, entry orders, settings overrides), its call use and cost this month, and Pause, Stop and Promote. Promote follows the existing rules (at least 30 closed trades; for Shadow A the v0.2 step 3 criteria) and opens a confirm that names what changes in live; it is logged in the settings history.
+- **Disagreements:** each pair-cycle where a shadow and live chose differently, newest first, with what happened after (the outcome label, or the trade's result in R).
+- **New shadow** opens the existing dialog (model, prompt version, entry orders, overrides); disabled at 2 of 2.
+
+The static mix is computed with the research script's method: daily closes, rebalanced monthly, 0.3% cost per switch. The weekly review's facts include the table. API: `GET /api/strategies/compare?from=&to=`, `GET /api/strategies/disagreements?shadow=&cursor=`; the shadow endpoints stay.
+
+### Backtest
+
+A backtest replays strategies over past periods with the same code that runs the paper agent, so its results are comparable with the paper run and with the research script. It is a screen in the Learn group. The research script stays the tool for fast Rules-only sensitivity grids; Backtest adds the model, the full risk gates and the decision drawer.
+
+**Engine.** The cycle, pre-filter, brief builder, deciders, risk gates, sizing, exits and outcome tracking are the live code, driven by an injected clock and the paper broker over a simulated market that serves stored candles. Each run has a folder `data/backtests/run-<id>/` with one live-schema database per strategy and a read-only `market.db`; the live database only gets the `backtests` summary row. Strategies advance in lockstep, cycle by cycle, so progress, Cancel and the cost cap stop them all at the same point.
+
+**Process.** A run is a child process started by the app, one at a time, at lower CPU priority. It reports progress, cost and status on its `backtests` row. Cancel sets a flag checked every simulated day; after 60 s the app stops it by its PID. While a live cycle or watcher pass runs, the child pauses before every download and model call. A run still marked running at startup becomes "interrupted" and keeps its results so far.
+
+**Data.** Candles come from a separate store, `data/backtests/candles.db` (1h, 4h and 1d, never pruned automatically): first copied from the live candle table, then the rest downloaded from Bitvavo's public candles endpoint at most 20 requests a minute, pausing during live cycles. Every brief is cut at the decision time with the live timing rules (only closed candles). Positioning data (v0.2) exists only from October 2026; earlier briefs carry it as null and the results say so. The news flag and macro events are not reproduced.
+
+**Fills.** Entries fill at the next 1h candle's open plus slippage, or by the PR 12 limit model when the strategy uses limit entries. Stops and targets are checked on every 1h candle's high and low: when both are touched in the same candle the stop counts, and a gap through the stop fills at the open. Breakeven, the trailing stop, the time stop and the cooldown work as live. Fees and slippage default to the live settings and can be changed per run. The live exit watcher checks every 30 seconds; the backtest only sees hourly highs and lows, so stop fills are slightly worse or better than live, and the results say so.
+
+**Model calls.**
+
+- A model strategy can only be backtested from the day after its model's knowledge cutoff (`models.<id>.cutoff` in config); an earlier start is refused before the run, because the model may know what happened.
+- Answers are cached by model, temperature, prompt version and hash, and brief hash, so a rerun costs nothing and gives the same result. Live and shadows write to the cache but never read from it; a backtest answer from the cache is marked `cached`.
+- Before a run the screen shows cycles, candles to download, estimated model calls (cycles × pairs × live's pre-filter pass rate in the current account, plus held-position calls), estimated cache hits and estimated cost.
+- Backtests have their own monthly cap (default €5), separate from the €10 cap that protects trading. Run is disabled when the estimate is above what is left; a run that reaches the cap stops cleanly and keeps its results.
+
+**A run** has a period (at most 4 years), the pairs (today's active set by default, flagged for survivorship bias because it is today's list), the strategies (Rules only, live settings, any shadow), starting equity, fees and slippage, and a split date (default: the middle of the period) that divides training and test.
+
+**Results**, per strategy, for the whole period, training and test:
+
+- return, annualised return, max drawdown, return / drawdown, closed trades, win rate, average R, profit factor, time in market, fees;
+- against holding BTC, and against the static BTC + cash mix with the same max drawdown, with a pass or fail per period: the rule for strategy changes, applied;
+- equity curves with both benchmarks, results by regime and by pair, the trade list, and every decision, opened in the same drawer as live;
+- "Read with care": every assumption the run relied on (hourly stop checks, missing positioning data, cache hits, survivorship, the period's market regime mix);
+- CSV export of trades and decisions.
+
+A backtest is evidence about the past, never a forecast, and it never changes settings. A result goes into this spec only through the rule for strategy changes in Decisions; for a Rules-only idea the sensitivity grid still comes from the research script.
+
+API: `POST /api/backtests` (validates the cutoff and the cap, returns the estimate with `dry_run=true`), `GET /api/backtests`, `GET /api/backtests/{id}` with results, `POST /api/backtests/{id}/cancel`, `DELETE /api/backtests/{id}` (removes its folder), and exports.
+
+### Sign-in, access and error pages
+
+The app gets a sign-in before it runs anywhere but on Marc's own computer. Built and tested locally first; the VPS section that follows the v0.1 measurement run depends on it.
+
+**When sign-in is required.** `TA_AUTH` is read once at startup as `off` or `required`. Locally it may stay `off` and the `X-Local-Token` rule stays as it is. When the API binds to anything other than 127.0.0.1, the app refuses to start unless `TA_AUTH=required`. With `required` it fails closed: startup is refused unless every route except `/healthz` and the sign-in endpoints carries the session check, and the open routes return no more than the version and whether sign-in is required.
+
+**Account.**
+
+- One user, created on the server with `make create-user`; no sign-up page.
+- Password of at least 14 characters, stored as an Argon2id hash.
+- A second step with a 6-digit TOTP code from an authenticator app; 10 single-use recovery codes shown once when created.
+
+**Sessions.**
+
+- A random token in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie (`__Host-ta_session` over HTTPS); the server keeps only its hash. Every sign-in issues a new token; changing the password signs out every other session.
+- Signed out after 12 hours without activity (`auth.idle_hours`), and after 30 days at most with "Keep me signed in".
+- Every API request, every HTTP method and the WebSocket need a valid session.
+
+**Limits.** After 5 failed attempts in 15 minutes an address waits 15 minutes; after 20 failures in an hour across all addresses, sign-in pauses for an hour and an alert is sent. Messages never say whether the password or the code was wrong. The ticket between the two steps is single-use, tied to the browser, and dropped after 3 wrong codes; a code already used in its 30-second step is refused.
+
+**Confirm it is you.** These ask for the password or a code again, valid 5 minutes on that device: loosening a risk limit, adding or replacing an API key, changing the SMTP server or recipient, promoting a shadow, Reset paper account, Delete all data, and changing the password, authenticator or recovery codes. Tightening a limit, Pause and Stop & flatten never ask. Wrong answers count as failed attempts; 5 in 15 minutes sign the session out.
+
+**GUI.**
+
+- A sign-in page with three states: password with "Keep me signed in", authenticator code with a recovery-code link, and locked out with the time left. No sidebar and no data before signing in.
+- Sign out in the sidebar, above the status.
+- Settings → Access: change password, authenticator and recovery codes, idle sign-out, and the signed-in devices (browser, masked address, last seen) with Sign out per device and Sign out everywhere.
+- Notifications: "New sign-in" (info, browser and email on) and "Failed sign-ins" (warning, email on) when a lockout starts.
+
+**Error pages.**
+
+- In the app, inside a simplified shell: not found for a record ("This decision doesn't exist" with a link back), not found for a page, something went wrong (with the `error_id` and Reload), and the API not answering on first load (retrying every 15 s).
+- Static pages served by the reverse proxy on the VPS, without sidebar or data: app down (502 and 504) and updating (503).
+- API errors return one JSON shape: `{"error": {"code", "message", "error_id"}}`; 401 sends the browser to sign-in, keeping the page it was on.
+
+### Build order (v0.3)
+
+v0.3 starts after PR 13 and the fix PR are merged; PR 10 and 11 stay paused. None of these PRs changes decisions, gates or exits, so they don't fall under the pause on strategy features. Each UI PR attaches Playwright screenshots at 1440 × 900 and 390 × 844 next to the reference PNGs, and waits until its screens are on the design canvas; the design for PR 14 is there now.
+
+- **PR 14, Shell and Dashboard:** the token rename, the header, Needs you (`GET /api/needs`), the phone top bar and 390 px layouts on every screen, the Dashboard in the new order, card states and toasts.
+- **PR 15, Logging and Logs screen:** the audit report first, then the log format, levels, tracing, error-handling rules and hooks, graceful shutdown, the log index, its endpoints and the Logs screen; the Readiness error criterion; the `errors` table migrated.
+- **PR 16, Positions & orders:** the screen, the fills endpoints and export.
+- **PR 17, Markets screen:** the screen, the markets endpoints; Settings keeps the thresholds.
+- **PR 18, Strategies screen:** the comparison with both BTC benchmarks, equity curves, disagreements; Settings → Shadow strategies replaced by a link.
+- **PR 19, Backtest:** the engine on an injected clock, the child process, the candle store, the model cache and cutoff check, the estimate and cap, results with training and test, the screen.
+- **PR 20, Sign-in and error pages:** `TA_AUTH`, the account, sessions, limits, confirm-it-is-you, Settings → Access, the sign-in page and the error pages. Required before the VPS.
+
 ## After v0.1: sentiment and external market context
 
 Once v0.1 runs and outcomes are being recorded, add these sources one at a time and keep each only if replays and outcomes show it improves decisions.
@@ -1030,3 +1258,6 @@ Funding, open interest, the long/short ratio and options data are the first grou
 - [x] A pending approval expires at the pair's next cycle or after a 0.5% move; R/R, size and gates are recomputed at the fill price.
 - [x] Strategy research (October 2026, see docs/RESEARCH.md): after costs, the Rules BUY on 1h or 4h, range trading and a regime allocator did not beat a static BTC + cash mix at the same drawdown. New strategy features are paused: PR 10 and 11 wait; PR 12 is finished only if nearly done. PR 13 (prompt v2) goes ahead (decided 24 October 2026) because it improves decision quality and measurement without changing the strategy. The paper agent, the v0.2 collector and the fix PR continue.
 - [x] Rule for strategy changes: an idea goes into this spec only when, in the research script (`tools/regime_history.py`), it beats the static BTC + cash mix at the same maximum drawdown in the training and the test period, and the sensitivity grid around its settings agrees.
+- [x] Strategy families (25 October 2026): daily breakout trend-following, relative-strength rotation and dip buying also failed the rule above. The search for price-based strategies stops; about 50 variations have been tested.
+- [ ] February 2027: test the v0.2 positioning data (funding, open interest, long/short ratio, DVOL, 25-delta skew) in the research script under the same rule, before PR 10 or Shadow A are reconsidered.
+- [x] Design and screens follow Stock Trading Agent (3 November 2026): the shell, Dashboard and interaction rules were aligned on the design canvas, and v0.3 adds its missing screens (Logs, Positions & orders, Markets, Strategies, Backtest, sign-in). No change to how the agent decides, sizes or exits.

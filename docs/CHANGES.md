@@ -2,6 +2,25 @@
 
 Newest first. Each entry names the sections it touches.
 
+## 2026-11-03 — v0.3: screens and tools from Stock Trading Agent
+
+- New section "v0.3: screens and tools from Stock Trading Agent":
+  - Shell and Dashboard: the behaviour behind the aligned design (header, Needs you with `GET /api/needs`, cycle strip, Today's decisions, Markets card, phone width, interaction rules);
+  - Logging, errors and the Logs screen (replaces the Logs and Errors bullets under Operations; new Readiness error criterion);
+  - Positions & orders, Markets screen, Strategies screen (with holding BTC and the static BTC + cash benchmark), Backtest (model cutoff rule, own €5 cap, training and test), Sign-in, access and error pages;
+  - Build order: PR 14 to PR 20.
+- GUI screens → Visual system: layout from 390 px once PR 14 lands.
+- Decisions: design and screens follow Stock Trading Agent.
+- Design: see `design/CHANGES.md`, entry "Aligned with Stock Trading Agent".
+- Workflow: spec and design changes now arrive as pull requests with the `spec-change` label (see `CLAUDE.md`); kickoffs go in `docs/kickoffs/pr-<n>.md`.
+
+## 2026-10-25 — Strategy families tested
+
+- Decisions: breakout, rotation and dip-buying families failed the rule; the search for
+  price-based strategies stops. Open item: test the positioning data in February 2027.
+- docs/RESEARCH.md: new section "Strategy families". tools/regime_history.py: part 6
+  (--families).
+
 ## 2026-10-24 — PR 13 resumed
 
 - Decisions: PR 13 (prompt v2, brief version 2) goes ahead; PR 10 and 11 stay paused.

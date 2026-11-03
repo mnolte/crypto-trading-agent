@@ -13,12 +13,21 @@
 <style>
 body{margin:0;background:#0B0E13}
 a{color:#F2B94B}a:hover{color:#FFD58A}
-button,select{font-family:inherit}
+button,input,select{font-family:inherit}
+table{border-collapse:collapse}
+:focus-visible{outline:2px solid #F2B94B;outline-offset:2px;border-radius:6px}.ta-row{cursor:pointer}.ta-row:hover{background:#1C222C}button:not([disabled]):hover{filter:brightness(1.15)}.ta-tile{text-decoration:none;color:inherit}.ta-tile:hover{border-color:#2E3643 !important;background:#171C24 !important}@keyframes ta-pulse{0%{opacity:.45}50%{opacity:.9}100%{opacity:.45}}.ta-skel{animation:ta-pulse 1.4s ease-in-out infinite}@media (prefers-reduced-motion: reduce){.ta-skel{animation:none}}@media (max-width: 820px){.ta-aside{display:none !important}.ta-phonebar{display:flex !important}.ta-needs-chip{display:none !important}.ta-hide-phone{display:none !important}}
 </style>
 </helmet>
 <div style="min-height: 1300px; background: #0B0E13; color: #E7EAEE; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: stretch">
 
-  <aside aria-label="Sidebar" style="{{nav.aside}}">
+  <div class="ta-phonebar" style="display: none; flex: 1 1 100%; position: sticky; top: 0; z-index: 5; align-items: center; gap: 10px; height: 56px; padding: 0 12px 0 16px; background: #0F131A; border-bottom: 1px solid #232A35; box-sizing: border-box">
+    <div style="width: 32px; height: 32px; flex: 0 0 32px; border-radius: 8px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 13px">TA</div>
+    <span style="flex: 1; min-width: 0; font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Insights</span>
+    <a href="Main.dc.html#needs" aria-label="2 items need you" style="display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 10px; border-radius: 999px; background: #3A2A0E; border: 1px solid #6B4E17; color: #FFD58A; font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-decoration: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M12 3l10 18H2z"></path><line x1="12" y1="10" x2="12" y2="14"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg>2</a>
+    <a href="Ask.dc.html" aria-label="Ask the agent" style="width: 44px; height: 44px; flex: 0 0 44px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #4A3A16; background: #211C10; color: #F2B94B"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 20px"><path d="M4 5h16v11H9l-5 4z"></path><line x1="8" y1="9" x2="16" y2="9"></line><line x1="8" y1="12" x2="13" y2="12"></line></svg></a>
+    <button type="button" aria-label="Open menu" aria-expanded="false" style="width: 44px; height: 44px; flex: 0 0 44px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 20px"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg></button>
+  </div>
+  <aside class="ta-aside" aria-label="Sidebar" style="{{nav.aside}}">
     <div style="{{nav.brandRow}}">
       <div style="width: 36px; height: 36px; flex: 0 0 36px; border-radius: 8px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px">TA</div>
       <sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}">
@@ -28,7 +37,6 @@ button,select{font-family:inherit}
         </div>
       </sc-if>
     </div>
-    <a href="Ask.dc.html" aria-current="{{nav.c.ask}}" aria-label="Ask the agent" title="Ask the agent" style="{{nav.ask}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Ask the agent</span></sc-if></a>
     <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
       <div style="{{nav.group}}">Monitor</div>
       <a href="Main.dc.html" aria-current="{{nav.c.dash}}" aria-label="Dashboard" title="Dashboard" style="{{nav.s.dash}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Dashboard</span></sc-if></a>
@@ -49,17 +57,42 @@ button,select{font-family:inherit}
   </aside>
 
   <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
-    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 24px; border-bottom: 1px solid #232A35; background: #0F131A; min-height: 76px; box-sizing: border-box">
-      <h1 style="margin: 0; font-size: 18px; font-weight: 600; flex: 1 1 auto">Insights</h1>
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 14px 24px; border-bottom: 1px solid #232A35; background: #0F131A">
+    <div style="display: flex; align-items: center; gap: 12px; flex: 1 1 300px; min-width: 0; flex-wrap: wrap">
+      <div style="display: flex; flex-direction: column; gap: 2px"><h1 style="margin: 0; font-size: 18px; font-weight: 600">Insights</h1><div style="font-size: 13px; color: #98A2AF">What the stored decisions say so far</div></div>
+      <span title="Orders are simulated against Bitvavo prices. Real-money trading is not built." style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 6px; background: #211C10; border: 1px solid #4A3A16; color: #F2B94B; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; letter-spacing: 0.08em">PAPER</span>
+      <div title="Cycles run every 15 minutes, day and night" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-radius: 999px; background: #171C24; border: 1px solid #232A35; font-size: 13px; white-space: nowrap">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #3DD68C"></span>
+        <span>Running</span>
+        <span style="color: #98A2AF">· next cycle 12:45 · in 11 min</span>
+      </div>
+      <a class="ta-needs-chip" href="Main.dc.html#needs" title="2 items need you: 2 errors not reviewed, email alerts not set up" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; background: #3A2A0E; border: 1px solid #6B4E17; color: #FFD58A; font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M12 3l10 18H2z"></path><line x1="12" y1="10" x2="12" y2="14"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg><span>Needs you · 2</span></a>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px">
+      <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Equity</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E7EAEE; white-space: nowrap">€10,412.80</span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Today</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #3DD68C; white-space: nowrap">+€86.20 <span style="color: #98A2AF; font-size: 12px">+0.83%</span></span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <span title="BTC regime: 4h trend × volatility. Each pair also has its own." style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em; text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; align-self: flex-start">Regime</span>
+        <span style="display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; white-space: nowrap; background: #123A27; color: #3DD68C; border: 1px solid #1E5A3E">BTC up · normal vol</span>
+      </div>
+      <a href="Ask.dc.html" title="Ask the agent about this page (Ctrl+J)" aria-keyshortcuts="Control+J Meta+J" style="height: 44px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border-radius: 8px; border: 1px solid #4A3A16; background: #211C10; color: #F2B94B; font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 16px"><path d="M4 5h16v11H9l-5 4z"></path><line x1="8" y1="9" x2="16" y2="9"></line><line x1="8" y1="12" x2="13" y2="12"></line></svg><span>Ask</span></a>
+      <a href="States.dc.html" title="Pause new entries. Stops, targets and the exit watcher keep working." style="height: 44px; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 16px"><line x1="8" y1="5" x2="8" y2="19"></line><line x1="16" y1="5" x2="16" y2="19"></line></svg><span>Pause</span></a>
+      <a href="States.dc.html" title="Close every position at market and pause" style="height: 44px; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-radius: 8px; border: 1px solid #7A2A2E; background: #3A1416; color: #FFB3B6; font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 16px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="7" x2="12" y2="13"></line><line x1="12" y1="17" x2="12" y2="17"></line></svg><span>Stop &amp; flatten</span></a>
+    </div>
+  </header>
+
+    <main style="max-width: 1440px; width: 100%; min-width: 0; margin: 0 auto; padding: 20px 24px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+    <section aria-label="Filters" style="display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 12px 16px; flex: 1 1 100%">
       <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #98A2AF">Period
         <select style="height: 40px; padding: 0 8px; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 13px"><option>Last 30 days</option><option>Last 7 days</option><option>Since start</option></select>
       </label>
       <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #98A2AF">Decider
         <select style="height: 40px; padding: 0 8px; border-radius: 8px; border: 1px solid #2E3643; background: #0F131A; color: #E7EAEE; font-size: 13px"><option>Live · gpt-4o-mini · v1</option><option>Rules baseline</option><option>Shadow A · v2-draft</option></select>
       </label>
-    </header>
+      <span style="flex: 1"></span>
+      <span style="font-size: 12px; color: #98A2AF">Findings need 30 decisions in a slice</span>
+    </section>
 
-    <main style="max-width: 1440px; width: 100%; margin: 0 auto; padding: 20px 24px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
 
       <section aria-label="Findings" style="display: flex; flex-wrap: wrap; gap: 12px">
         <div style="flex: 1 1 300px; padding: 16px; background: #12161D; border: 1px solid #232A35; border-radius: 10px; display: flex; flex-direction: column; gap: 8px">
@@ -87,7 +120,7 @@ button,select{font-family:inherit}
             </sc-for>
           </div>
           <div style="overflow-x: auto">
-            <table style="width: 100%; min-width: 620px; border-collapse: collapse; font-size: 13px">
+            <div style="overflow-x: auto; max-width: 100%; min-width: 0"><table style="width: 100%; min-width: 620px; border-collapse: collapse; font-size: 13px">
               <thead>
                 <tr style="color: #98A2AF; text-align: left">
                   <th style="padding: 8px 8px 8px 0; font-weight: 500">{{dimLabel}}</th>
@@ -117,7 +150,7 @@ button,select{font-family:inherit}
                   </tr>
                 </sc-for>
               </tbody>
-            </table>
+            </table></div>
           </div>
           <p style="margin: 0; font-size: 12px; color: #98A2AF">Rows with fewer than 30 decisions are greyed: too few to trust. Avoided: the hypothetical stop was hit first after a HOLD or SKIP. Missed: the target was hit first. Positioning slices start when the v0.2 collector has data. Sample data.</p>
         </section>
@@ -170,7 +203,7 @@ class Component extends DCLogic {
     var self = this;
     var PAGE = 'ins';
     var navCollapsed = !!this.state.navCollapsed;
-    var navBase = 'height:44px;display:flex;align-items:center;gap:12px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;box-sizing:border-box;' + (navCollapsed ? 'justify-content:center;padding:0;' : 'padding:0 12px;');
+    var navBase = 'height:44px;display:flex;align-items:center;gap:12px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;box-sizing:border-box;white-space:nowrap;' + (navCollapsed ? 'justify-content:center;padding:0;' : 'padding:0 12px;');
     var s = {}, c = {};
     ['dash', 'ind', 'perf', 'ins', 'what', 'rev', 'insp', 'ready', 'set', 'ask'].forEach(function (k) { s[k] = navBase + (k === PAGE ? 'background:#1C222C;color:#E7EAEE' : 'color:#98A2AF'); c[k] = k === PAGE ? 'page' : undefined; });
     var nav = {

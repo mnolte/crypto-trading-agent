@@ -7,8 +7,8 @@ The script is `tools/regime_history.py`. This describes a backtest, not investme
 
 After costs, on 9 Bitvavo EUR markets over the last 4 years, no active approach tested beat
 a fixed mix of BTC and EUR at the same drawdown. That covers trading the agent's Rules BUY on
-1h or 4h candles (several exit variants), trading sideways ranges, and allocating to coins by
-regime. The regime allocator does protect against altcoin crashes (similar return to an
+1h or 4h candles (several exit variants), trading sideways ranges, allocating to coins by regime, and (added 25
+October) daily breakout trend-following, relative-strength rotation and dip buying. The regime allocator does protect against altcoin crashes (similar return to an
 equal-weight basket at a third of the drawdown), but a static BTC + cash mix with the same
 drawdown did as well, with almost no trades.
 
@@ -78,6 +78,20 @@ The regime allocator's test result swings from -2% to -37% across ADX 20/25/30 a
 confirmation bars; the agent's default sits in the best spot. Every setting still beat the
 equal-weight basket in the test period (-52%).
 
+### Strategy families (added 25 October 2026)
+
+Daily closes, all 9 coins, equal slots, 0.3% per side, each with a sensitivity grid. The
+static BTC + cash mix scores a CAGR/DD of 0.67-0.72.
+
+| Family | Default result (full period) | Grid | Verdict |
+| --- | --- | --- | --- |
+| A, breakout (55-day high, trailing 3 x ATR) | CAGR/DD 0.40 (all coins), 0.18 (max 3) | Best cells 0.39-0.43; test negative in 8 of 9 cells | Fails: trends too short and choppy |
+| B, rotation (top 3 by 60-day return, weekly) | +199%, CAGR/DD 0.56, max DD 56% | Default is the best of 9 cells; others -0.18 to 0.29 | Fails: outlier, and depends on the rebalance weekday (train +21%, test -12%, full +199%) |
+| C, dip buying (RSI(2) < 10 above EMA 200) | -5% CAGR; test +21% at 15% DD | Strict settings positive in test only | Fails: loses in training (-43%) |
+
+About 50 variations of price-based strategies have now been tested without one that beats the
+static mix at the same risk. The search for price-based strategies stops here.
+
 ## Conclusions
 
 1. **Active trading has no edge here** (firm): every Rules BUY variant loses after costs, on
@@ -100,6 +114,7 @@ grid agrees.
 | PR 12, limit entries | Finish only if nearly done |
 | PR 13, prompt v2 | Resumed 24 October 2026 (decision quality, no strategy change) |
 | PR 10, 11 | Paused |
+| Positioning data test | February 2027, in the script, same rule |
 | v0.3 | Not started |
 
 ## How to reproduce
