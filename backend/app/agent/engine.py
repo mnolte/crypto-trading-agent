@@ -929,11 +929,7 @@ class Engine:
                 # the gates and sizing re-run on it, so a drifted entry
                 # fails or re-sizes instead of filling at a stale price.
                 entry_ref = draft.entry or price
-                if (
-                    limit_price is None
-                    and settings.execution_mode == "auto"
-                    and settings.paper.entry_orders != "limit"
-                ):
+                if limit_price is None and settings.execution_mode == "auto":
                     ticker = await self._price(pair)
                     if ticker > 0:
                         entry_ref = ticker

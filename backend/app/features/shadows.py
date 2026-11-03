@@ -906,16 +906,8 @@ class ShadowRunner:
                                 target_order = self._place_target_order(
                                     session, shadow, pair, pos, now
                                 )
-                        repo.save_position_row(
-                            session,
-                            pos.to_model(),
-                            shadow.broker.account_id,
-                            pos.invalidation_price,
-                            pos.highest_close,
-                            pos.r_unit,
-                            pos.original_stop,
-                            pos.entry_maker,
-                        )
+                        # One-shot invalidation: clear before the row save
+                        # so a crash can't re-fire it after a restart.
                         if pos.invalidation_price is not None and price <= pos.invalidation_price:
                             pos.invalidation_price = None
                             re_eval.append((shadow.row.id, pair))
@@ -927,6 +919,16 @@ class ShadowRunner:
                                 pair=pair,
                                 at=now,
                             )
+                        repo.save_position_row(
+                            session,
+                            pos.to_model(),
+                            shadow.broker.account_id,
+                            pos.invalidation_price,
+                            pos.highest_close,
+                            pos.r_unit,
+                            pos.original_stop,
+                            pos.entry_maker,
+                        )
                         if self._near_level(pos, price):
                             repo.add_exit_tick(
                                 session, shadow.broker.account_id, pair, price, "watch", at=now
@@ -955,10 +957,10 @@ class ShadowRunner:
                     continue
                 try:
                     await self._decide_pair(session, shadow, pair, now, self._cycle)
+                    session.commit()
                 except Exception:
                     session.rollback()
                     log.exception("shadow %s: %s re-eval failed", shadow_id, pair)
-            session.commit()
         finally:
             session.close()
 

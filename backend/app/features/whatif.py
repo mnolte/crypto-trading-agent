@@ -554,14 +554,24 @@ class _Sim:
                 return
             if real_trade is not None and row is not None:
                 # A decision that really filled keeps its stored entry and
-                # stop; sizing stays the scenario's — same as model rows.
+                # stop; the target comes from the stored plan when it
+                # exists (a 2R proxy only when the plan is missing) —
+                # sizing stays the scenario's — same as model rows.
                 r_unit = Decimal(real_trade.r_unit)
+                target: Decimal | None = None
+                if row.plan:
+                    try:
+                        target = Plan.model_validate_json(row.plan).target
+                    except Exception:
+                        target = None
+                if target is None and r_unit > 0:
+                    target = Decimal(real_trade.entry) + 2 * r_unit
                 self._open(
                     pair,
                     Decimal(real_trade.entry),
                     verdict.plan.qty,
                     Decimal(real_trade.initial_stop),
-                    Decimal(real_trade.entry) + 2 * r_unit if r_unit > 0 else None,
+                    target,
                     t,
                     row.id,
                 )
@@ -621,10 +631,12 @@ class _Sim:
         for tr in reversed(self.trades):
             if tr.realised_r is None:
                 continue
-            if Decimal(str(tr.realised_r)) < 0:
+            r = Decimal(str(tr.realised_r))
+            if r < 0:
                 streak += 1
-            else:
+            elif r > 0:
                 break
+            # 0R continues the streak — same as repo.losing_streak.
         dd = self.broker.drawdown_pct()
         if dd > self.settings.risk.throttle_drawdown_pct:
             self.throttle_dd = True
@@ -714,7 +726,9 @@ class _Sim:
             opened_at=at,
             decision_id=decision_id,
             last=fill,
-            highest_close=fill,
+            # Same rule as the live broker: the trail follows the highest
+            # 1h CLOSE since entry — a fill price is not a close.
+            highest_close=None,
             r_unit=fill - stop,
         )
         self._sample(at)
