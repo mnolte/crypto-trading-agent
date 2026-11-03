@@ -943,6 +943,16 @@ class OpenAIDecider:
             )
             corr = aligned_correlation(ctx.candles_1h, other_1h, CORR_BARS)
             held.append((other_pair, corr, (now - other_pos.opened_at).total_seconds() / 3600))
+        # Correlated slots count positions correlated with THIS pair — the
+        # same rule the gate applies — not just total open positions.
+        correlated_open = sum(
+            1
+            for _, corr, _ in held
+            if corr is not None and corr > float(settings.risk.correlated_threshold)
+        )
+        correlated_slots_left = max(
+            0, settings.risk.correlated_max_positions - correlated_open
+        )
         inp = BriefInputs(
             pair=ctx.pair,
             now=now,
@@ -963,7 +973,7 @@ class OpenAIDecider:
             previous_decision=prev,
             account=account,
             held_portfolio=held,
-            correlated_slots_left=rv.correlated_slots_left,
+            correlated_slots_left=correlated_slots_left,
             risk_throttle=rv.throttle_on,
             shock_brake=rv.shock_brake_on,
         )

@@ -6,6 +6,7 @@ the Rules fallback. The model never reaches the risk gates on a failure.
 from __future__ import annotations
 
 import json
+import shutil
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -32,7 +33,7 @@ from app.agent.deciders.openai_decider import (
 )
 from app.agent.market.base import Candle, MarketClient, MarketDataError, OrderBook
 from app.agent.openai_client import CallResult
-from app.db import ActivityRow, LlmCallRow, make_engine, make_session_factory, run_migrations
+from app.db import ActivityRow, LlmCallRow, make_engine, make_session_factory
 from app.models import Regime, Settings
 from tests.test_brief import _signals
 
@@ -584,9 +585,9 @@ def _ok_result(text: str) -> CallResult:
 
 
 @pytest.fixture
-def sessions(tmp_path: Path) -> Iterator[sessionmaker[Session]]:
+def sessions(tmp_path: Path, migrated_db: Path) -> Iterator[sessionmaker[Session]]:
     db = tmp_path / "agent.db"
-    run_migrations(db)
+    shutil.copyfile(migrated_db, db)
     yield make_session_factory(make_engine(db))
 
 

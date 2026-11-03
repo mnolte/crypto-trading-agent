@@ -85,13 +85,14 @@ def screens_client(
     sim = SimMarket(seed=11)
     monkeypatch.setattr("app.api.deps.make_market_client", lambda settings: sim)
 
-    async def _no_refresh(state: AppState) -> None:
+    async def _no_refresh(*_args: object) -> None:
         return None
 
     async def _no_price_refresh(engine: object) -> None:
         return None
 
     monkeypatch.setattr("app.main.refresh_market_data", _no_refresh)
+    monkeypatch.setattr("app.main.daily_market_loop", _no_refresh)
     monkeypatch.setattr("app.agent.engine.Engine.refresh_prices", _no_price_refresh)
     with TestClient(create_app(), base_url="http://127.0.0.1") as c:
         yield c, sim

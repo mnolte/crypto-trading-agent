@@ -21,7 +21,6 @@ from app.db import (
     TradeRow,
     make_engine,
     make_session_factory,
-    run_migrations,
 )
 from app.models import PaperSettings
 
@@ -49,7 +48,6 @@ def _account(
 
 @pytest.fixture
 def session(env_paths: Path) -> Iterator[Session]:
-    run_migrations(get_env().ta_db_path)
     engine = make_engine(get_env().ta_db_path)
     s = make_session_factory(engine)()
     try:

@@ -113,6 +113,13 @@ class ShadowRunner:
         self._notify = notify
         self._cache: dict[str, _Shadow] = {}
 
+    def set_client(self, client: MarketClient) -> None:
+        """Swap the market client (data-source change) — live's client is
+        rebuilt and closed, so every cached decider must see the new one."""
+        self.client = client
+        for shadow in self._cache.values():
+            shadow.decider.client = client
+
     # ------------------------------------------------------------- loading
 
     def _shadows(self, session: Session) -> list[_Shadow]:

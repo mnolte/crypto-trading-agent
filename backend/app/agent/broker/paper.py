@@ -91,7 +91,7 @@ class BrokerState:
     day_start_equity: Decimal
     day_start_date: date
     positions: dict[str, HeldPosition]
-    account_values: dict[str, str | datetime | None]
+    account_values: dict[str, str | bool | datetime | None]
 
 
 class PaperBroker:
@@ -127,6 +127,8 @@ class PaperBroker:
             "kill_peak",
             "kill_equity",
             "kill_closed",
+            "shock_brake_until",
+            "throttle_dd",
         )
         return BrokerState(
             cash=self.cash,

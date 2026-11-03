@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -28,7 +29,7 @@ from app.context.collector import (
     parse_okx_ratio,
 )
 from app.context.scheduler import context_loop, next_run
-from app.db import MarketContextRow, make_engine, make_session_factory, run_migrations
+from app.db import MarketContextRow, make_engine, make_session_factory
 from app.sources import SourceRegistry
 
 NOW = datetime(2026, 10, 14, 12, 30, tzinfo=UTC)
@@ -125,14 +126,14 @@ def test_missing_deltas_returns_no_row(caplog: pytest.LogCaptureFixture) -> None
     assert calculate_skew([], "BTC", int(NOW.timestamp() * 1000), NOW) is None
 
 
-def _sessions(path: Path) -> tuple[Engine, sessionmaker[Session]]:
-    run_migrations(path)
+def _sessions(path: Path, template: Path) -> tuple[Engine, sessionmaker[Session]]:
+    shutil.copyfile(template, path)
     engine = make_engine(path)
     return engine, make_session_factory(engine)
 
 
-def test_upsert_same_row_twice_is_one(tmp_path: Path) -> None:
-    engine, sessions = _sessions(tmp_path / "context.db")
+def test_upsert_same_row_twice_is_one(tmp_path: Path, migrated_db: Path) -> None:
+    engine, sessions = _sessions(tmp_path / "context.db", migrated_db)
     session = sessions()
     point = ContextPoint("okx", "open_interest_usd", "BTC", NOW, 123.0)
     try:
@@ -144,8 +145,8 @@ def test_upsert_same_row_twice_is_one(tmp_path: Path) -> None:
         engine.dispose()
 
 
-def test_percentile_90d_boundaries(tmp_path: Path) -> None:
-    engine, sessions = _sessions(tmp_path / "percentile.db")
+def test_percentile_90d_boundaries(tmp_path: Path, migrated_db: Path) -> None:
+    engine, sessions = _sessions(tmp_path / "percentile.db", migrated_db)
     session = sessions()
     try:
         short = [
@@ -163,8 +164,8 @@ def test_percentile_90d_boundaries(tmp_path: Path) -> None:
 
 
 @respx.mock
-async def test_disabled_source_makes_no_requests(tmp_path: Path) -> None:
-    engine, sessions = _sessions(tmp_path / "disabled.db")
+async def test_disabled_source_makes_no_requests(tmp_path: Path, migrated_db: Path) -> None:
+    engine, sessions = _sessions(tmp_path / "disabled.db", migrated_db)
     collector = ContextCollector(
         sessions,
         SourceRegistry(["okx", "deribit"]),
@@ -180,8 +181,8 @@ async def test_disabled_source_makes_no_requests(tmp_path: Path) -> None:
 
 
 @respx.mock
-async def test_collect_twice_is_idempotent(tmp_path: Path) -> None:
-    engine, sessions = _sessions(tmp_path / "idem.db")
+async def test_collect_twice_is_idempotent(tmp_path: Path, migrated_db: Path) -> None:
+    engine, sessions = _sessions(tmp_path / "idem.db", migrated_db)
     respx.get("https://www.okx.com/api/v5/public/funding-rate-history").mock(
         return_value=httpx.Response(
             200, json={"code": "0", "data": [{"fundingTime": "1000", "realizedRate": "0.01"}]}
@@ -226,8 +227,10 @@ async def test_collect_twice_is_idempotent(tmp_path: Path) -> None:
         engine.dispose()
 
 
-async def test_collector_timeout_does_not_block_other_task(tmp_path: Path) -> None:
-    engine, sessions = _sessions(tmp_path / "timeout.db")
+async def test_collector_timeout_does_not_block_other_task(
+    tmp_path: Path, migrated_db: Path
+) -> None:
+    engine, sessions = _sessions(tmp_path / "timeout.db", migrated_db)
     registry = SourceRegistry(["deribit"])
 
     async def handler(_request: httpx.Request) -> httpx.Response:

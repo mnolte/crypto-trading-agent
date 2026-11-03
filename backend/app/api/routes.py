@@ -178,6 +178,8 @@ async def write_settings(request: Request, settings: Settings) -> Settings:
             state.agent_engine.client = state.market_client
             if state.agent_engine.openai_decider is not None:
                 state.agent_engine.openai_decider.client = state.market_client  # type: ignore[attr-defined]
+            if state.agent_engine.shadows is not None:
+                state.agent_engine.shadows.set_client(state.market_client)
         await old_client.aclose()
     await broadcast_snapshot(state)
     return state.settings

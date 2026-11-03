@@ -46,9 +46,7 @@ def test_settings_put_and_reload(client: TestClient, env_paths: object) -> None:
 
 def test_settings_unknown_keys_dropped(env_paths: object) -> None:
     from app.config import get_env
-    from app.db import run_migrations
 
-    run_migrations(get_env().ta_db_path)
     engine = make_engine(get_env().ta_db_path)
     session = make_session_factory(engine)()
     try:

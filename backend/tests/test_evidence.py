@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -38,7 +39,6 @@ from app.db import (
     WhatifRow,
     make_engine,
     make_session_factory,
-    run_migrations,
 )
 from app.features import ask as ask_mod
 from app.features import insights, shadows, whatif
@@ -50,9 +50,9 @@ HOUR = timedelta(hours=1)
 
 
 @pytest.fixture
-def sessions(tmp_path: Path) -> Iterator[sessionmaker[Session]]:
+def sessions(tmp_path: Path, migrated_db: Path) -> Iterator[sessionmaker[Session]]:
     db = tmp_path / "agent.db"
-    run_migrations(db)
+    shutil.copyfile(migrated_db, db)
     yield make_session_factory(make_engine(db))
 
 

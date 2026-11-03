@@ -8,8 +8,10 @@ later PRs; exactly one engine instance may run per database.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+import logging
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from datetime import timedelta
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -48,6 +50,8 @@ from app.features.shadows import ShadowRunner
 from app.operations import backup_loop, configure_logging
 from app.sources import SourceRegistry
 
+log = logging.getLogger(__name__)
+
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 
 SOURCE_RECOVERY_RESOLVE_S = 3600
@@ -84,9 +88,13 @@ def _track_task(state: AppState, task: asyncio.Task[None]) -> None:
     )
 
 
-async def refresh_market_data(state: AppState) -> None:
-    """Startup market-data check: exchange rules, the eligibility check and
-    backfills for active markets still warming up.
+async def refresh_market_data(
+    state: AppState,
+    notify: Callable[[str, str, str], Awaitable[None]] | None = None,
+) -> None:
+    """Market-data check: exchange rules, the eligibility check and
+    backfills for active markets still warming up. Runs at startup and
+    daily at 01:00 UTC (``daily_market_loop``).
 
     Any failure marks the source in the registry; it never stops startup —
     a failing source must not fail cycles, and the app always starts paused.
@@ -98,7 +106,15 @@ async def refresh_market_data(state: AppState) -> None:
         # update it in place so they see the fetched rules too.
         state.market_rules.clear()
         state.market_rules.update({i.market: i for i in infos})
-        await run_eligibility_check(state.market_client, session, state.settings.market)
+        _rows, transitions = await run_eligibility_check(
+            state.market_client, session, state.settings.market
+        )
+        for market, change in transitions.items():
+            text = f"market {market} eligibility check: {change}"
+            repo.add_activity(session, "alert", text, at=utcnow(), pair=market)
+            if notify is not None:
+                await notify("risk_control", f"Market {change}: {market}", text)
+        session.commit()
         for market in state.settings.active_markets:
             row = session.get(MarketRow, market)
             if row is None:
@@ -109,10 +125,30 @@ async def refresh_market_data(state: AppState) -> None:
                 repo.upsert_market_row(session, row)
             if warming_up(session, market, state.settings.market):
                 await backfill_market(state.market_client, session, market, state.settings.market)
+        session.commit()
     except Exception as exc:
         state.sources.record("bitvavo", exc)
     finally:
         session.close()
+
+
+async def daily_market_loop(
+    state: AppState,
+    notify: Callable[[str, str, str], Awaitable[None]] | None = None,
+) -> None:
+    """The daily 01:00 UTC market-data job: refreshes exchange rules,
+    re-runs the eligibility check (drives the anti-flapping streaks) and
+    finishes any warming-up backfills."""
+    while True:
+        now = utcnow()
+        due = now.replace(hour=1, minute=0, second=0, microsecond=0)
+        if due <= now:
+            due += timedelta(days=1)
+        await asyncio.sleep(max(60.0, (due - now).total_seconds()))
+        try:
+            await refresh_market_data(state, notify)
+        except Exception:
+            log.exception("daily market-data refresh failed")
 
 
 @asynccontextmanager
@@ -239,7 +275,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         state.agent_engine = agent_engine
         await agent_engine.start()
         state.status = agent_engine.status
-        state.tasks.append(asyncio.create_task(refresh_market_data(state)))
+        state.tasks.append(
+            asyncio.create_task(refresh_market_data(state, notification_dispatcher.notify))
+        )
+        state.tasks.append(
+            asyncio.create_task(daily_market_loop(state, notification_dispatcher.notify))
+        )
         state.tasks.append(
             asyncio.create_task(context_loop(ContextCollector(session_factory, registry)))
         )

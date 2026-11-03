@@ -5,6 +5,7 @@ comparison report."""
 from __future__ import annotations
 
 import json
+import shutil
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -31,7 +32,7 @@ from app.agent.deciders.openai_decider import (
 )
 from app.agent.market.base import Candle, MarketInfo
 from app.agent.prompts import load_prompt
-from app.db import LlmCallRow, make_engine, make_session_factory, run_migrations
+from app.db import LlmCallRow, make_engine, make_session_factory
 from app.models import Regime, Settings
 from app.tools.compare_prompts import run_report
 from tests.test_brief import _inputs, _seed_decision
@@ -43,9 +44,9 @@ HOUR = timedelta(hours=1)
 
 
 @pytest.fixture
-def session(tmp_path: Path) -> Iterator[Session]:
+def session(tmp_path: Path, migrated_db: Path) -> Iterator[Session]:
     db = tmp_path / "agent.db"
-    run_migrations(db)
+    shutil.copyfile(migrated_db, db)
     s = make_session_factory(make_engine(db))()
     yield s
     s.close()

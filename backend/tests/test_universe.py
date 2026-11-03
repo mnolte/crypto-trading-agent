@@ -25,7 +25,7 @@ from app.agent.market.universe import (
     warming_up,
 )
 from app.config import get_env
-from app.db import MarketRow, make_engine, make_session_factory, run_migrations
+from app.db import MarketRow, make_engine, make_session_factory
 from app.models import MarketSettings
 from app.repo import candle_counts, get_market_row
 
@@ -125,7 +125,6 @@ def _metrics(**kw: object) -> MarketMetrics:
 
 @pytest.fixture
 def session(env_paths: Path) -> Iterator[Session]:
-    run_migrations(get_env().ta_db_path)
     engine = make_engine(get_env().ta_db_path)
     s = make_session_factory(engine)()
     try:

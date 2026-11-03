@@ -82,7 +82,9 @@ class _MarketWalk:
         low = min(open_, close) * math.exp(-span * float(rng.uniform(0.4, 1.0)))
         volume = self.base_vol * math.exp(float(rng.normal(0.0, 0.5)))
         self.candles.append(
-            Candle(
+            # model_construct: values are already typed; skipping validation
+            # matters when a walk generates ~16k bars at once.
+            Candle.model_construct(
                 open_time=open_time,
                 open=Decimal(f"{open_:.10g}"),
                 high=Decimal(f"{high:.10g}"),
@@ -134,7 +136,7 @@ def _aggregate(candles: list[Candle], tf: Tf) -> list[Candle]:
         start = bucket(c)
         if out and out[-1].open_time == start:
             last = out[-1]
-            out[-1] = Candle(
+            out[-1] = Candle.model_construct(
                 open_time=start,
                 open=last.open,
                 high=max(last.high, c.high),
@@ -144,7 +146,7 @@ def _aggregate(candles: list[Candle], tf: Tf) -> list[Candle]:
             )
         else:
             out.append(
-                Candle(
+                Candle.model_construct(
                     open_time=start,
                     open=c.open,
                     high=c.high,
@@ -225,8 +227,13 @@ class SimMarket:
         if interval != "1h":
             # The template can hold bars beyond `needed`; a fresh walk would
             # stop there, so aggregate only what it would have generated to
-            # keep the trailing (forming) bucket identical.
-            bars = _aggregate([c for c in bars if c.open_time <= needed], interval)
+            # keep the trailing (forming) bucket identical. Only the newest
+            # `limit` buckets survive the trailing cut, so hours that cannot
+            # contribute to them are skipped (+1 bucket for a partial first
+            # bucket at the cut boundary).
+            per_bucket = 4 if interval == "4h" else 24
+            hourly = [c for c in bars if c.open_time <= needed]
+            bars = _aggregate(hourly[-(limit + 1) * per_bucket :], interval)
         if start is not None:
             bars = [c for c in bars if c.open_time >= start]
         if end is not None:

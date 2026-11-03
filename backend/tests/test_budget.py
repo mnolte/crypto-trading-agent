@@ -7,6 +7,7 @@ prices report an unknown cost — never a guess.
 
 from __future__ import annotations
 
+import shutil
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -17,15 +18,15 @@ from sqlalchemy.orm import Session, sessionmaker
 from app import repo
 from app.agent import budget
 from app.agent.market.base import Candle
-from app.db import LlmCallRow, make_engine, make_session_factory, run_migrations
+from app.db import LlmCallRow, make_engine, make_session_factory
 
 NOW = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)  # a Sunday, Amsterdam CEST
 
 
 @pytest.fixture
-def sessions(tmp_path: Path) -> sessionmaker[Session]:
+def sessions(tmp_path: Path, migrated_db: Path) -> sessionmaker[Session]:
     db = tmp_path / "agent.db"
-    run_migrations(db)
+    shutil.copyfile(migrated_db, db)
     return make_session_factory(make_engine(db))
 
 

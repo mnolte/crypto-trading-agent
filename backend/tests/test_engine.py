@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import shutil
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -319,8 +320,10 @@ class EngineEnv:
 
 
 @pytest.fixture
-def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
+def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, migrated_db: Path) -> Iterator[Path]:
     data = tmp_path / "data"
+    data.mkdir()
+    shutil.copyfile(migrated_db, data / "agent.db")
     monkeypatch.setenv("TA_DB_PATH", str(data / "agent.db"))
     monkeypatch.setenv("TA_DATA_DIR", str(data))
     get_env.cache_clear()
@@ -1290,3 +1293,40 @@ async def test_held_position_on_deactivated_market_still_gets_decided(env: Path)
     s.close()
     assert rows and rows[0].pair == "SOL-EUR" and rows[0].action == "HOLD"
     assert "SOL-EUR" in e.broker.positions
+
+
+# ------------------------------------------------- invalidation re-eval ---
+
+
+class _SellDecider:
+    """Always answers SELL — the draft that deadlocked the watcher when an
+    invalidation re-evaluation ran inside the execution lock."""
+
+    name = "rules"
+
+    async def decide(self, ctx: DecideContext) -> Draft:
+        return Draft(
+            action="SELL",
+            confidence=0.9,
+            reasoning="test sell",
+            signals=[],
+            decider="rules",
+        )
+
+
+async def test_invalidation_reeval_sell_does_not_deadlock(env: Path) -> None:
+    """Crossing a position's invalidation price queues a re-evaluation that
+    runs AFTER the execution lock is released. When it ran inside the tick,
+    a SELL draft re-acquired the lock and froze the whole engine."""
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e.market.add_zigzag("SOL-EUR")
+    e.engine.decider = _SellDecider()
+    ticker = e.market.tickers["SOL-EUR"]
+    pos = e.held("SOL-EUR", qty="1", entry="100", stop="1", target="100000")
+    pos.invalidation_price = ticker + Decimal("1")
+    await asyncio.wait_for(e.engine.tick(), timeout=15)
+    assert "SOL-EUR" not in e.broker.positions
+    s = e.session()
+    rows = _decisions(s)
+    s.close()
+    assert rows and rows[0].action == "SELL" and rows[0].status == "executed"
