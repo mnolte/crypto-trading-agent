@@ -3,9 +3,9 @@ import type { components } from "../api/schema";
 type Gate = components["schemas"]["Gate"];
 
 const STATUS_COLOR: Record<Gate["status"], string> = {
-  pass: "var(--up)",
-  warn: "var(--accent)",
-  fail: "var(--down-text)",
+  pass: "var(--ta-positive)",
+  warn: "var(--ta-accent)",
+  fail: "var(--ta-negative-text)",
 };
 
 /** One row of the Safety gates list: rule name left, mono "value · status" right. */

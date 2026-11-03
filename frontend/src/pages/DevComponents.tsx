@@ -196,7 +196,7 @@ export function DevComponents() {
 
       <Section label="KpiTile">
         <div className="dev-row" style={{ alignItems: "stretch" }}>
-          <Card style={{ flex: "1 1 200px", padding: "var(--space-4)" }}>
+          <Card style={{ flex: "1 1 200px", padding: "var(--ta-space-4)" }}>
             <KpiTile
               label="Equity"
               value={formatEur("10412.80")}
@@ -204,7 +204,7 @@ export function DevComponents() {
               subTone="up"
             />
           </Card>
-          <Card style={{ flex: "1 1 200px", padding: "var(--space-4)" }}>
+          <Card style={{ flex: "1 1 200px", padding: "var(--ta-space-4)" }}>
             <KpiTile
               label="Today"
               value={formatSignedEur("86.20")}
@@ -212,7 +212,7 @@ export function DevComponents() {
               subTone="up"
             />
           </Card>
-          <Card style={{ flex: "1 1 200px", padding: "var(--space-4)" }}>
+          <Card style={{ flex: "1 1 200px", padding: "var(--ta-space-4)" }}>
             <KpiTile
               label="Drawdown"
               value="−2.3%"
@@ -222,14 +222,14 @@ export function DevComponents() {
               glossaryTerm="drawdown"
             />
           </Card>
-          <Card style={{ flex: "1 1 200px", padding: "var(--space-4)" }}>
+          <Card style={{ flex: "1 1 200px", padding: "var(--ta-space-4)" }}>
             <KpiTile label="Next cycle" value="11:41" sub="every 15 min · cycle #728" />
           </Card>
         </div>
       </Section>
 
       <Section label="Meter">
-        <Card style={{ padding: "var(--space-4)" }}>
+        <Card style={{ padding: "var(--ta-space-4)" }}>
           <div className="dev-section">
             <Meter pct={48} />
             <Meter pct={30} color="up" />
@@ -281,7 +281,7 @@ export function DevComponents() {
       </Section>
 
       <Section label="GateList">
-        <Card title="Safety gates" style={{ padding: "var(--space-4)" }}>
+        <Card title="Safety gates" style={{ padding: "var(--ta-space-4)" }}>
           <GateList
             gates={[
               { name: "Risk / reward ≥ 2.0", status: "pass", value: "2.1" },
@@ -308,7 +308,7 @@ export function DevComponents() {
               <td className="text text--strong">BTC-EUR</td>
               <td className="num">0.0807</td>
               <td className="num">€61,240.50</td>
-              <td className="num" style={{ color: "var(--up)" }}>
+              <td className="num" style={{ color: "var(--ta-positive)" }}>
                 {formatSignedEur("86.20")}
               </td>
             </tr>
@@ -316,7 +316,7 @@ export function DevComponents() {
               <td className="text text--strong">SOL-EUR</td>
               <td className="num">12.4</td>
               <td className="num">€141.02</td>
-              <td className="num" style={{ color: "var(--down)" }}>
+              <td className="num" style={{ color: "var(--ta-negative)" }}>
                 {formatSignedEur("-12.40")}
               </td>
             </tr>
@@ -375,7 +375,7 @@ export function DevComponents() {
       </Section>
 
       <Section label="GlossaryTerm">
-        <Card style={{ padding: "var(--space-4)", fontSize: "var(--fs-small)" }}>
+        <Card style={{ padding: "var(--ta-space-4)", fontSize: "var(--ta-text-md)" }}>
           <GlossaryTerm tip="What you would lose if every open position hit its stop at the same time.">
             Open risk
           </GlossaryTerm>{" "}
@@ -388,7 +388,7 @@ export function DevComponents() {
       </Section>
 
       <Section label="EmptyState">
-        <Card style={{ padding: "var(--space-4)" }}>
+        <Card style={{ padding: "var(--ta-space-4)" }}>
           <EmptyState
             title="No insights yet"
             footer="Insights appear after about 30 closed trades, so the stats mean something."
@@ -397,10 +397,10 @@ export function DevComponents() {
       </Section>
 
       <Section label="Charts — CandleChart (lightweight-charts) · Sparkline (SVG)">
-        <Card title="BTC-EUR · 1h" style={{ padding: "var(--space-4)" }}>
+        <Card title="BTC-EUR · 1h" style={{ padding: "var(--ta-space-4)" }}>
           <CandleChart candles={candles()} height={280} />
         </Card>
-        <Card title="Sparkline" style={{ padding: "var(--space-4)" }}>
+        <Card title="Sparkline" style={{ padding: "var(--ta-space-4)" }}>
           <Sparkline points={[42, 45, 44, 50, 49, 55, 58, 54, 60, 62, 59, 64]} height={120} />
         </Card>
       </Section>

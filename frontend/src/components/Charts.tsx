@@ -45,20 +45,20 @@ export function CandleChart({
       height,
       layout: {
         background: { color: "transparent" },
-        textColor: css("--text-muted"),
-        fontFamily: css("--font-num"),
+        textColor: css("--ta-text-muted"),
+        fontFamily: css("--ta-font-mono"),
         fontSize: 11,
         attributionLogo: false,
       },
       grid: {
-        vertLines: { color: css("--series-grid") },
-        horzLines: { color: css("--series-grid") },
+        vertLines: { color: css("--ta-chart-grid") },
+        horzLines: { color: css("--ta-chart-grid") },
       },
-      rightPriceScale: { borderColor: css("--line") },
-      timeScale: { borderColor: css("--line"), timeVisible: true },
+      rightPriceScale: { borderColor: css("--ta-border") },
+      timeScale: { borderColor: css("--ta-border"), timeVisible: true },
       crosshair: {
-        vertLine: { color: css("--line-strong") },
-        horzLine: { color: css("--line-strong") },
+        vertLine: { color: css("--ta-border-strong") },
+        horzLine: { color: css("--ta-border-strong") },
       },
     });
 
@@ -66,17 +66,17 @@ export function CandleChart({
     let series: ISeriesApi<"Candlestick"> | ISeriesApi<"Line">;
     if (mode === "candles") {
       series = chart.addSeries(CandlestickSeries, {
-        upColor: css("--up"),
-        downColor: css("--down"),
-        wickUpColor: css("--up"),
-        wickDownColor: css("--down"),
+        upColor: css("--ta-positive"),
+        downColor: css("--ta-negative"),
+        wickUpColor: css("--ta-positive"),
+        wickDownColor: css("--ta-negative"),
         borderVisible: false,
         priceFormat,
       });
       series.setData(candles);
     } else {
       const line = chart.addSeries(LineSeries, {
-        color: css("--accent"),
+        color: css("--ta-accent"),
         lineWidth: 2,
         priceFormat,
       });
@@ -140,28 +140,28 @@ export function PriceChart({
       height,
       layout: {
         background: { color: "transparent" },
-        textColor: css("--text-muted"),
-        fontFamily: css("--font-num"),
+        textColor: css("--ta-text-muted"),
+        fontFamily: css("--ta-font-mono"),
         fontSize: 11,
         attributionLogo: false,
       },
       grid: {
-        vertLines: { color: css("--series-grid") },
-        horzLines: { color: css("--series-grid") },
+        vertLines: { color: css("--ta-chart-grid") },
+        horzLines: { color: css("--ta-chart-grid") },
       },
-      rightPriceScale: { borderColor: css("--line") },
-      timeScale: { borderColor: css("--line"), timeVisible: true },
+      rightPriceScale: { borderColor: css("--ta-border") },
+      timeScale: { borderColor: css("--ta-border"), timeVisible: true },
       crosshair: {
-        vertLine: { color: css("--line-strong") },
-        horzLine: { color: css("--line-strong") },
+        vertLine: { color: css("--ta-border-strong") },
+        horzLine: { color: css("--ta-border-strong") },
       },
     });
 
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: css("--up"),
-      downColor: css("--down"),
-      wickUpColor: css("--up"),
-      wickDownColor: css("--down"),
+      upColor: css("--ta-positive"),
+      downColor: css("--ta-negative"),
+      wickUpColor: css("--ta-positive"),
+      wickDownColor: css("--ta-negative"),
       borderVisible: false,
       priceFormat: chartPriceFormat(candles.at(-1)?.close ?? 1),
     });
@@ -174,10 +174,10 @@ export function PriceChart({
         position: m.kind === "buy" ? "belowBar" : "aboveBar",
         color:
           m.kind === "buy"
-            ? css("--up")
+            ? css("--ta-positive")
             : m.kind === "sell"
-              ? css("--down")
-              : css("--accent"),
+              ? css("--ta-negative")
+              : css("--ta-accent"),
         shape: "circle",
         text: m.text,
         size: 1,
@@ -185,10 +185,10 @@ export function PriceChart({
     );
 
     const LINE_COLOR: Record<PriceLine["color"], string> = {
-      up: css("--up"),
-      down: css("--down-text"),
-      accent: css("--accent"),
-      muted: css("--text-muted"),
+      up: css("--ta-positive"),
+      down: css("--ta-negative-text"),
+      accent: css("--ta-accent"),
+      muted: css("--ta-text-muted"),
     };
     for (const line of lines) {
       series.createPriceLine({
@@ -249,28 +249,28 @@ export function PerfChart({
       height,
       layout: {
         background: { color: "transparent" },
-        textColor: css("--text-muted"),
-        fontFamily: css("--font-num"),
+        textColor: css("--ta-text-muted"),
+        fontFamily: css("--ta-font-mono"),
         fontSize: 11,
         attributionLogo: false,
-        panes: { separatorColor: css("--line"), enableResize: false },
+        panes: { separatorColor: css("--ta-border"), enableResize: false },
       },
       grid: {
-        vertLines: { color: css("--series-grid") },
-        horzLines: { color: css("--series-grid") },
+        vertLines: { color: css("--ta-chart-grid") },
+        horzLines: { color: css("--ta-chart-grid") },
       },
-      rightPriceScale: { borderColor: css("--line") },
-      timeScale: { borderColor: css("--line"), timeVisible: true },
+      rightPriceScale: { borderColor: css("--ta-border") },
+      timeScale: { borderColor: css("--ta-border"), timeVisible: true },
       crosshair: {
-        vertLine: { color: css("--line-strong") },
-        horzLine: { color: css("--line-strong") },
+        vertLine: { color: css("--ta-border-strong") },
+        horzLine: { color: css("--ta-border-strong") },
       },
     });
 
     const eq = chart.addSeries(
       AreaSeries,
       {
-        lineColor: css("--accent"),
+        lineColor: css("--ta-accent"),
         lineWidth: 2,
         topColor: "rgba(242, 185, 75, 0.08)",
         bottomColor: "rgba(242, 185, 75, 0.01)",
@@ -283,7 +283,7 @@ export function PerfChart({
       .addSeries(
         LineSeries,
         {
-          color: css("--text-muted"),
+          color: css("--ta-text-muted"),
           lineWidth: 1,
           lineStyle: LineStyle.Dashed,
           priceLineVisible: false,
@@ -296,7 +296,7 @@ export function PerfChart({
     const dd = chart.addSeries(
       AreaSeries,
       {
-        lineColor: css("--down-text"),
+        lineColor: css("--ta-negative-text"),
         lineWidth: 1,
         topColor: "rgba(255, 99, 105, 0.05)",
         bottomColor: "rgba(255, 99, 105, 0.25)",
@@ -307,7 +307,7 @@ export function PerfChart({
     dd.setData(drawdown);
     dd.createPriceLine({
       price: -killPct,
-      color: css("--down"),
+      color: css("--ta-negative"),
       lineStyle: LineStyle.Dashed,
       lineWidth: 1,
       title: `−${killPct}% kill`,
@@ -367,19 +367,19 @@ export function Sparkline({
             y1={height * f}
             x2={width}
             y2={height * f}
-            stroke="var(--series-grid)"
+            stroke="var(--ta-chart-grid)"
             strokeWidth="1"
           />
         ))}
         <polygon
           points={`0,${height} ${coords} ${width},${height}`}
-          fill="var(--accent)"
+          fill="var(--ta-accent)"
           fillOpacity="0.08"
         />
         <polyline
           points={coords}
           fill="none"
-          stroke="var(--accent)"
+          stroke="var(--ta-accent)"
           strokeWidth="2"
           vectorEffect="non-scaling-stroke"
         />

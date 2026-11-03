@@ -45,14 +45,14 @@ const SERIES_KEYS = [
 ] as const;
 
 const READ_COLOR: Record<string, string> = {
-  bullish: "var(--up)",
-  trending: "var(--up)",
-  bearish: "var(--down-text)",
-  high: "var(--accent)",
-  neutral: "var(--text-soft)",
-  ranging: "var(--text-soft)",
-  low: "var(--text-soft)",
-  normal: "var(--text-soft)",
+  bullish: "var(--ta-positive)",
+  trending: "var(--ta-positive)",
+  bearish: "var(--ta-negative-text)",
+  high: "var(--ta-accent)",
+  neutral: "var(--ta-text-2)",
+  ranging: "var(--ta-text-2)",
+  low: "var(--ta-text-2)",
+  normal: "var(--ta-text-2)",
 };
 
 export function Indicators() {
@@ -235,7 +235,7 @@ export function Indicators() {
               {data?.health.stale ? " · stale" : ""}
             </div>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text-muted)" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, fontSize: 12, color: "var(--ta-text-muted)" }}>
             <span>Regime</span>
             <RegimeChip
               regime={data?.regime ?? null}
@@ -263,10 +263,10 @@ export function Indicators() {
             />
           )}
           <div className="chart-legend">
-            <span style={{ color: "var(--series-ema20)" }}>EMA 20</span>
-            <span style={{ color: "var(--series-ema50)" }}>EMA 50</span>
-            <span style={{ color: "var(--series-ema200)" }}>EMA 200</span>
-            <span style={{ color: "var(--series-vwap)" }}>VWAP</span>
+            <span style={{ color: "var(--ta-chart-ema20)" }}>EMA 20</span>
+            <span style={{ color: "var(--ta-chart-ema50)" }}>EMA 50</span>
+            <span style={{ color: "var(--ta-chart-ema200)" }}>EMA 200</span>
+            <span style={{ color: "var(--ta-chart-vwap)" }}>VWAP</span>
             <span>dashed: levels · dotted: prev. day H/L</span>
           </div>
           {hover && (
@@ -320,7 +320,7 @@ export function Indicators() {
                         display: "flex",
                         gap: 8,
                         padding: "7px 0",
-                        borderTop: "1px solid var(--line)",
+                        borderTop: "1px solid var(--ta-border)",
                       }}
                     >
                       <Chip
@@ -341,7 +341,7 @@ export function Indicators() {
                       <span className="num" style={{ flex: 1 }}>
                         {formatPrice(l.price)}
                       </span>
-                      <span className="num" style={{ color: "var(--text-muted)" }}>
+                      <span className="num" style={{ color: "var(--ta-text-muted)" }}>
                         {l.dist_pct !== null ? formatChange(l.dist_pct, 1) : "—"}
                       </span>
                     </li>
@@ -411,7 +411,7 @@ export function Indicators() {
                   <span
                     className="num"
                     style={{
-                      color: data.health.stale ? "var(--accent)" : "var(--up)",
+                      color: data.health.stale ? "var(--ta-accent)" : "var(--ta-positive)",
                     }}
                   >
                     {data.health.newest_closed_age_s !== null
@@ -426,8 +426,8 @@ export function Indicators() {
                     style={{
                       color:
                         data.health.missing_bars > 0
-                          ? "var(--accent)"
-                          : "var(--up)",
+                          ? "var(--ta-accent)"
+                          : "var(--ta-positive)",
                     }}
                   >
                     {data.health.missing_bars}
@@ -465,9 +465,9 @@ function OverlayToggle({
       style={
         on
           ? {
-              borderColor: "var(--accent)",
-              background: "var(--accent-bg)",
-              color: "var(--text)",
+              borderColor: "var(--ta-accent)",
+              background: "var(--ta-accent-bg)",
+              color: "var(--ta-text)",
             }
           : undefined
       }

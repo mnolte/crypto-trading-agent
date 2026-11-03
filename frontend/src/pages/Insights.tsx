@@ -167,7 +167,7 @@ export function Insights() {
                   {data.largest_slice_decisions > 0 && (
                     <div
                       className="meter meter--muted"
-                      style={{ marginTop: "var(--space-2)" }}
+                      style={{ marginTop: "var(--ta-space-2)" }}
                       role="progressbar"
                       aria-valuemin={0}
                       aria-valuemax={data.min_decisions}
@@ -268,7 +268,7 @@ function SliceRow({
             <i className="rbar__zero" />
             {r != null && (
               <i
-                className={`rbar__fill ${r >= 0 ? "rbar__fill--up" : "rbar__fill--down"}`}
+                className={`rbar__fill ${r >= 0 ? "rbar__fill--ta-positive" : "rbar__fill--ta-negative"}`}
                 style={{
                   left: r >= 0 ? "50%" : `${50 - half}%`,
                   width: `${half}%`,
@@ -321,12 +321,12 @@ function Calibration({ data }: { data: InsightsOut }) {
               y1={y(p)}
               x2={PLOT.right}
               y2={y(p)}
-              stroke={p === 0 ? "var(--line-strong)" : "var(--series-grid)"}
+              stroke={p === 0 ? "var(--ta-border-strong)" : "var(--ta-chart-grid)"}
             />
             <text
               x={PLOT.left - 6}
               y={y(p) + 4}
-              fill="var(--text-muted)"
+              fill="var(--ta-text-muted)"
               fontSize="11"
               textAnchor="end"
               fontFamily="IBM Plex Mono, monospace"
@@ -340,7 +340,7 @@ function Calibration({ data }: { data: InsightsOut }) {
           if (actual == null) return null;
           const off = (b.stated_pct ?? 0) - actual;
           const offColor =
-            off > 10 ? "var(--down-text)" : "var(--series-ema50)";
+            off > 10 ? "var(--ta-negative-text)" : "var(--ta-chart-ema50)";
           const top = y(actual);
           return (
             <rect
@@ -359,7 +359,7 @@ function Calibration({ data }: { data: InsightsOut }) {
           <polyline
             points={statedPts}
             fill="none"
-            stroke="var(--accent)"
+            stroke="var(--ta-accent)"
             strokeWidth="2"
             strokeDasharray="5 4"
           />
@@ -371,7 +371,7 @@ function Calibration({ data }: { data: InsightsOut }) {
               cx={cx(i)}
               cy={y(b.stated_pct)}
               r="3"
-              fill="var(--accent)"
+              fill="var(--ta-accent)"
             />
           ) : null,
         )}
@@ -380,7 +380,7 @@ function Calibration({ data }: { data: InsightsOut }) {
             <text
               x={cx(i)}
               y={PLOT.bottom + 18}
-              fill="var(--text-muted)"
+              fill="var(--ta-text-muted)"
               fontSize="11"
               textAnchor="middle"
               fontFamily="IBM Plex Mono, monospace"
@@ -390,7 +390,7 @@ function Calibration({ data }: { data: InsightsOut }) {
             <text
               x={cx(i)}
               y={PLOT.bottom + 34}
-              fill="var(--text-muted)"
+              fill="var(--ta-text-muted)"
               fontSize="10"
               textAnchor="middle"
               fontFamily="IBM Plex Mono, monospace"

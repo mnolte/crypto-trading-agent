@@ -307,7 +307,7 @@ function KpiStrip({ snapshot, now }: { snapshot?: Snapshot; now: number }) {
       <KpiTile
         label="Today P&L"
         value={
-          <span style={{ color: pnl >= 0 ? "var(--up)" : "var(--down-text)" }}>
+          <span style={{ color: pnl >= 0 ? "var(--ta-positive)" : "var(--ta-negative-text)" }}>
             {snapshot ? formatSignedEur(snapshot.today_pnl) : "—"}
           </span>
         }
@@ -327,7 +327,7 @@ function KpiStrip({ snapshot, now }: { snapshot?: Snapshot; now: number }) {
       <KpiTile
         label="Drawdown"
         value={
-          <span style={{ color: drawdown > 0 ? "var(--down-text)" : undefined }}>
+          <span style={{ color: drawdown > 0 ? "var(--ta-negative-text)" : undefined }}>
             {snapshot ? `−${drawdown.toFixed(1)}%` : "—"}
           </span>
         }
@@ -484,7 +484,7 @@ function LatestDecision({
       label="Latest decision"
       actions={
         decision && (
-          <span className="num" style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          <span className="num" style={{ fontSize: 12, color: "var(--ta-text-muted)" }}>
             {formatTime(decision.at)} · {decision.model ?? decision.decider}
           </span>
         )
@@ -496,9 +496,9 @@ function LatestDecision({
             <ActionBadge action={decision.action} />
             <div>
               <div style={{ fontWeight: 600, fontSize: 16 }}>{decision.pair}</div>
-              <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+              <div style={{ fontSize: 13, color: "var(--ta-text-muted)" }}>
                 confidence{" "}
-                <span className="num" style={{ color: "var(--text)" }}>
+                <span className="num" style={{ color: "var(--ta-text)" }}>
                   {decision.confidence.toFixed(2)}
                 </span>
               </div>
@@ -590,7 +590,7 @@ function PendingApprovals({
               <span className="card__title">
                 Waiting for you{decisions.length > 1 ? ` · ${index + 1} of ${decisions.length}` : ""}
               </span>
-              <span className="num" style={{ color: "var(--accent)" }}>
+              <span className="num" style={{ color: "var(--ta-accent)" }}>
                 {mode === "supervised" && seconds !== null
                   ? `executes in ${formatCountdown(seconds)}`
                   : "manual approval"}
@@ -651,7 +651,7 @@ function PositionsCard({ positions }: { positions: Position[] }) {
             return (
               <tr key={p.pair}>
                 <td className="text--strong">{p.pair}</td>
-                <td style={{ color: "var(--up)" }}>Long</td>
+                <td style={{ color: "var(--ta-positive)" }}>Long</td>
                 <td className="num">{formatQty(p.qty)}</td>
                 <td className="num">{formatPrice(p.entry)}</td>
                 <td className="num">{formatPrice(p.stop)}</td>
@@ -660,7 +660,7 @@ function PositionsCard({ positions }: { positions: Position[] }) {
                 </td>
                 <td
                   className="num"
-                  style={{ color: pnl >= 0 ? "var(--up)" : "var(--down-text)" }}
+                  style={{ color: pnl >= 0 ? "var(--ta-positive)" : "var(--ta-negative-text)" }}
                 >
                   {formatSignedEur(p.unrealised)}
                 </td>

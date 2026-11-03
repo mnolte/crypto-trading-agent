@@ -79,7 +79,7 @@ export function CheckField({
         {sub && (
           <>
             <br />
-            <span style={{ fontSize: "var(--fs-caption)", color: "var(--text-muted)" }}>
+            <span style={{ fontSize: "var(--ta-text-sm)", color: "var(--ta-text-muted)" }}>
               {sub}
             </span>
           </>

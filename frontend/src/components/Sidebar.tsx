@@ -118,9 +118,9 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
             <line x1="4" y1="6" x2="20" y2="6" />
             <line x1="4" y1="12" x2="20" y2="12" />
             <line x1="4" y1="18" x2="20" y2="18" />
-            <circle cx="9" cy="6" r="2" fill="var(--panel)" />
-            <circle cx="15" cy="12" r="2" fill="var(--panel)" />
-            <circle cx="7" cy="18" r="2" fill="var(--panel)" />
+            <circle cx="9" cy="6" r="2" fill="var(--ta-panel)" />
+            <circle cx="15" cy="12" r="2" fill="var(--ta-panel)" />
+            <circle cx="7" cy="18" r="2" fill="var(--ta-panel)" />
           </svg>
         ),
       },

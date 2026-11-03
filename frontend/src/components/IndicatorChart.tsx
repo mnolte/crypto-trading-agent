@@ -73,21 +73,21 @@ export function IndicatorChart({
       height,
       layout: {
         background: { color: "transparent" },
-        textColor: css("--text-muted"),
-        fontFamily: css("--font-num"),
+        textColor: css("--ta-text-muted"),
+        fontFamily: css("--ta-font-mono"),
         fontSize: 11,
         attributionLogo: false,
-        panes: { separatorColor: css("--line"), enableResize: false },
+        panes: { separatorColor: css("--ta-border"), enableResize: false },
       },
       grid: {
-        vertLines: { color: css("--series-grid") },
-        horzLines: { color: css("--series-grid") },
+        vertLines: { color: css("--ta-chart-grid") },
+        horzLines: { color: css("--ta-chart-grid") },
       },
-      rightPriceScale: { borderColor: css("--line") },
-      timeScale: { borderColor: css("--line"), timeVisible: true },
+      rightPriceScale: { borderColor: css("--ta-border") },
+      timeScale: { borderColor: css("--ta-border"), timeVisible: true },
       crosshair: {
-        vertLine: { color: css("--line-strong") },
-        horzLine: { color: css("--line-strong") },
+        vertLine: { color: css("--ta-border-strong") },
+        horzLine: { color: css("--ta-border-strong") },
       },
     });
 
@@ -96,10 +96,10 @@ export function IndicatorChart({
 
     // Pane 0: price
     const price = chart.addSeries(CandlestickSeries, {
-      upColor: css("--up"),
-      downColor: css("--down"),
-      wickUpColor: css("--up"),
-      wickDownColor: css("--down"),
+      upColor: css("--ta-positive"),
+      downColor: css("--ta-negative"),
+      wickUpColor: css("--ta-positive"),
+      wickDownColor: css("--ta-negative"),
       borderVisible: false,
       priceFormat: chartPriceFormat(candles.at(-1)?.close ?? 1),
     });
@@ -110,7 +110,7 @@ export function IndicatorChart({
         time: m.time,
         position: m.kind === "buy" ? "belowBar" : "aboveBar",
         color:
-          m.kind === "buy" ? css("--up") : m.kind === "sell" ? css("--down") : css("--accent"),
+          m.kind === "buy" ? css("--ta-positive") : m.kind === "sell" ? css("--ta-negative") : css("--ta-accent"),
         shape: "circle",
         text: m.text,
         size: 1,
@@ -119,9 +119,9 @@ export function IndicatorChart({
 
     if (overlays.ema) {
       for (const [key, color, width] of [
-        ["ema20", css("--series-ema20"), 1],
-        ["ema50", css("--series-ema50"), 1],
-        ["ema200", css("--series-ema200"), 1],
+        ["ema20", css("--ta-chart-ema20"), 1],
+        ["ema50", css("--ta-chart-ema50"), 1],
+        ["ema200", css("--ta-chart-ema200"), 1],
       ] as const) {
         chart
           .addSeries(
@@ -136,7 +136,7 @@ export function IndicatorChart({
       chart
         .addSeries(
           LineSeries,
-          { color: css("--series-vwap"), lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false },
+          { color: css("--ta-chart-vwap"), lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false },
           0,
         )
         .setData(toLine(series.vwap));
@@ -147,10 +147,10 @@ export function IndicatorChart({
           price: lvl.price,
           color:
             lvl.kind === "support"
-              ? css("--up")
+              ? css("--ta-positive")
               : lvl.kind === "resistance"
-                ? css("--down-text")
-                : css("--text-muted"),
+                ? css("--ta-negative-text")
+                : css("--ta-text-muted"),
           lineStyle: lvl.kind === "prev_day" ? LineStyle.SparseDotted : LineStyle.Dashed,
           lineWidth: 1,
         });
@@ -164,29 +164,29 @@ export function IndicatorChart({
       1,
     );
     const REGIME_COLOR: Record<string, string> = {
-      up: css("--up"),
-      down: css("--down-text"),
-      sideways: css("--side"),
+      up: css("--ta-positive"),
+      down: css("--ta-negative-text"),
+      sideways: css("--ta-neutral-chip"),
     };
     band.setData(
       regimeBand.map((b) => ({
         time: b.time,
         value: 1,
-        color: REGIME_COLOR[b.value] ?? css("--text-muted"),
+        color: REGIME_COLOR[b.value] ?? css("--ta-text-muted"),
       })),
     );
 
     // Panes 2..6: RSI, ADX, OBV, ATR%, volume.
     const rsi = chart.addSeries(
       LineSeries,
-      { color: css("--accent"), lineWidth: 2, priceLineVisible: false, lastValueVisible: false },
+      { color: css("--ta-accent"), lineWidth: 2, priceLineVisible: false, lastValueVisible: false },
       2,
     );
     rsi.setData(toLine(series.rsi14));
     for (const p of [45, 55]) {
       rsi.createPriceLine({
         price: p,
-        color: css("--line-strong"),
+        color: css("--ta-border-strong"),
         lineStyle: LineStyle.Dashed,
         lineWidth: 1,
       });
@@ -200,7 +200,7 @@ export function IndicatorChart({
     adxS.setData(toLine(series.adx14));
     adxS.createPriceLine({
       price: adxThreshold,
-      color: css("--line-strong"),
+      color: css("--ta-border-strong"),
       lineStyle: LineStyle.Dashed,
       lineWidth: 1,
     });
@@ -216,7 +216,7 @@ export function IndicatorChart({
     chart
       .addSeries(
         LineSeries,
-        { color: css("--text-soft"), lineWidth: 2, priceLineVisible: false, lastValueVisible: false },
+        { color: css("--ta-text-2"), lineWidth: 2, priceLineVisible: false, lastValueVisible: false },
         5,
       )
       .setData(toLine(series.atr_pct));
@@ -236,7 +236,7 @@ export function IndicatorChart({
     chart
       .addSeries(
         LineSeries,
-        { color: css("--text"), lineWidth: 1, priceLineVisible: false, lastValueVisible: false },
+        { color: css("--ta-text"), lineWidth: 1, priceLineVisible: false, lastValueVisible: false },
         6,
       )
       .setData(toLine(series.vol_avg));

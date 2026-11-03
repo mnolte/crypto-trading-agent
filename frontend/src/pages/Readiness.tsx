@@ -107,13 +107,13 @@ function ProgressRing({ met, total }: { met: number; total: number }) {
       aria-label={`${met} of ${total} criteria met`}
       className="readiness-ring"
     >
-      <circle cx="56" cy="56" r={r} fill="none" stroke="var(--line)" strokeWidth="10" />
+      <circle cx="56" cy="56" r={r} fill="none" stroke="var(--ta-border)" strokeWidth="10" />
       <circle
         cx="56"
         cy="56"
         r={r}
         fill="none"
-        stroke="var(--accent)"
+        stroke="var(--ta-accent)"
         strokeWidth="10"
         strokeLinecap="round"
         strokeDasharray={`${(circ * met) / total} ${circ}`}
