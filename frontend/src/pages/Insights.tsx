@@ -46,38 +46,37 @@ export function Insights() {
   return (
     <AppShell
       title="Insights"
-      actions={
-        <>
-          <label className="topbar-field">
-            <span className="topbar-field__label">Period</span>
-            <Select
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-            >
-              {PERIODS.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <label className="topbar-field">
-            <span className="topbar-field__label">Decider</span>
-            <Select
-              value={decider}
-              onChange={(e) => setDecider(e.target.value)}
-            >
-              <option value="all">All deciders</option>
-              {(data?.decider_options ?? []).map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-          </label>
-        </>
-      }
+      sub="What the stored decisions say so far"
     >
+      <Card label="Filters" className="page-controls">
+        <label className="topbar-field">
+          <span className="topbar-field__label">Period</span>
+          <Select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+          >
+            {PERIODS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <label className="topbar-field">
+          <span className="topbar-field__label">Decider</span>
+          <Select
+            value={decider}
+            onChange={(e) => setDecider(e.target.value)}
+          >
+            <option value="all">All deciders</option>
+            {(data?.decider_options ?? []).map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </Card>
       {data && data.findings.length > 0 && (
         <section aria-label="Findings" className="insights-findings">
           {data.findings.map((f) => (

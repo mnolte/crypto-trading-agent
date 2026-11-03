@@ -10,7 +10,6 @@ import { Chip, RegimeChip } from "../components/Chip";
 import { DataTable } from "../components/DataTable";
 import { Dialog } from "../components/Dialog";
 import { EmptyState } from "../components/EmptyState";
-import { ErrorBadge } from "../components/ErrorBadge";
 import { CheckField, FormField, Input, Select } from "../components/FormField";
 import { GateList } from "../components/GateList";
 import { GlossaryTerm } from "../components/GlossaryTerm";
@@ -73,7 +72,7 @@ export function DevComponents() {
   const [panelOpen, setPanelOpen] = useState(false);
 
   return (
-    <AppShell title="Components" controls={false}>
+    <AppShell title="Components" sub="Every shared component and its states" controls={false}>
       <Section label="Button">
         <div className="dev-row">
           <Button variant="primary">Run now</Button>
@@ -107,7 +106,7 @@ export function DevComponents() {
         </div>
       </Section>
 
-      <Section label="StatusPill · ErrorBadge">
+      <Section label="StatusPill">
         <div className="dev-row">
           <StatusPill status="running" />
           <StatusPill status="paused" />
@@ -117,8 +116,6 @@ export function DevComponents() {
             status="disconnected"
             lastKnown={{ status: "running", at: Date.UTC(2024, 9, 9, 10, 32, 0) }}
           />
-          <ErrorBadge count={2} />
-          <ErrorBadge count={1} />
         </div>
       </Section>
 

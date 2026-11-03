@@ -170,8 +170,18 @@ export function Settings() {
     [snapshot],
   );
 
-  const actions = (
-    <>
+  const unsavedCount =
+    draft && original
+      ? JSON.stringify(draft) === JSON.stringify(original)
+        ? 0
+        : 1
+      : 0;
+
+  const unsavedBar = dirty && (
+    <div role="region" aria-label="Unsaved changes" className="unsaved-bar">
+      <span className="unsaved-bar__text">
+        {unsavedCount} unsaved change{unsavedCount === 1 ? "" : "s"}
+      </span>
       <Button variant="secondary" disabled={!dirty} onClick={discard}>
         Discard
       </Button>
@@ -193,11 +203,15 @@ export function Settings() {
       >
         {save.isPending ? "Saving…" : "Save · applies next cycle"}
       </Button>
-    </>
+    </div>
   );
 
   return (
-    <AppShell title="Settings" actions={actions} controls={false}>
+    <AppShell
+      title="Settings"
+      sub="Changes apply at the next cycle · every save is logged in History"
+      controls={false}
+    >
       <div className="settings-grid">
         {saveError && (
           <p className="settings-error" role="alert">
@@ -865,6 +879,7 @@ export function Settings() {
             logged.
           </p>
         </Card>
+        {unsavedBar}
       </div>
 
       {resetOpen && (

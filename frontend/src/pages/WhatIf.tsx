@@ -103,11 +103,7 @@ export function WhatIf() {
   return (
     <AppShell
       title="What-if"
-      actions={
-        <span className="card__meta">
-          Re-runs stored history with different settings
-        </span>
-      }
+      sub="Re-runs stored history with different settings · never trades"
     >
       <div className="whatif-layout">
         <Card title="Scenario" heading="section" className="whatif-form">

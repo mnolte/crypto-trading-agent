@@ -75,6 +75,41 @@ export function formatTime(iso: string): string {
   });
 }
 
+/** "Tuesday 13 October" in Europe/Amsterdam — the Dashboard sub line. */
+export function formatDayLong(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: DISPLAY_TZ,
+  });
+}
+
+/** "Fri 4 Sep" in Europe/Amsterdam — compact day labels. */
+export function formatDayShort(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: DISPLAY_TZ,
+  });
+}
+
+/** "10:45 UTC" — the UTC companion shown next to Amsterdam times. */
+export function formatTimeUtc(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  });
+}
+
 /** "09 Oct 2024, 12:30 CEST" in Europe/Amsterdam. */
 export function formatDateTime(iso: string): string {
   const d = new Date(iso);

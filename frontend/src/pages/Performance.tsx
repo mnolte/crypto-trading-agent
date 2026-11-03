@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { UTCTimestamp } from "lightweight-charts";
 import type { TradeOut } from "../api/client";
-import { usePerformance, useTrades } from "../api/hooks";
+import { usePerformance, useSnapshot, useTrades } from "../api/hooks";
 import { AppShell } from "../components/AppShell";
 import { Card } from "../components/Card";
 import { PerfChart, type LinePoint } from "../components/Charts";
@@ -13,6 +13,7 @@ import { KpiTile } from "../components/KpiTile";
 import { SegmentedControl } from "../components/SegmentedControl";
 import {
   formatDateTime,
+  formatDayLong,
   formatEur,
   formatPct,
   formatPrice,
@@ -53,6 +54,19 @@ export function Performance() {
 
   const { data: perf } = usePerformance(from, end);
   const { data: trades } = useTrades(from, end);
+  const { data: snapshot } = useSnapshot();
+  const accountDays = snapshot?.account_started_at
+    ? Math.max(
+        1,
+        Math.ceil(
+          (Date.now() - new Date(snapshot.account_started_at).getTime()) /
+            86_400_000,
+        ),
+      )
+    : null;
+  const sub = snapshot?.account_started_at
+    ? `Paper account #${snapshot.account_id} since ${formatDayLong(snapshot.account_started_at)} · ${accountDays} days`
+    : `Paper account #${snapshot?.account_id ?? 1}`;
 
   // Deep link: /performance?trade=<id> scrolls to and highlights the row.
   const focusTrade = useSearchParams()[0].get("trade");
@@ -80,9 +94,8 @@ export function Performance() {
   const t = perf?.totals;
 
   return (
-    <AppShell title="Performance">
-      <div className="chart-head">
-        <span className="card__meta">paper account</span>
+    <AppShell title="Performance" sub={sub}>
+      <div className="page-controls">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <SegmentedControl
             label="Period"

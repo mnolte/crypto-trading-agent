@@ -160,7 +160,10 @@ export function Inspector() {
   };
 
   return (
-    <AppShell title="LLM inspector">
+    <AppShell
+      title="LLM inspector"
+      sub="Every model call since the start, with prompt and response"
+    >
       <Card title="Outcome scorecard" label="Outcome scorecard">
         {(scorecard?.items.length ?? 0) > 0 ? (
           <div className="scorecard-grid">

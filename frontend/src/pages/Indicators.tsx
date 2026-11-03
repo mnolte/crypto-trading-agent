@@ -128,8 +128,20 @@ export function Indicators() {
 
   const last = data?.candles.at(-1)?.close;
 
+  const lastComputed = useMemo(() => {
+    const ats = Object.values(snapshot?.latest ?? {}).map((d) => d.at);
+    return ats.length ? ats.reduce((a, b) => (a > b ? a : b)) : null;
+  }, [snapshot]);
+
   return (
-    <AppShell title="Indicators">
+    <AppShell
+      title="Indicators"
+      sub={
+        snapshot
+          ? `What the agent computed at ${lastComputed ? formatTime(lastComputed) : "—"} · cycle #${snapshot.cycle}`
+          : "What the agent computed"
+      }
+    >
       <div className="chart-head">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
           <PairTabs pairs={pairTabs} value={selected ?? ""} onChange={setPair} />
