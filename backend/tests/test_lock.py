@@ -28,7 +28,13 @@ def test_lock_reacquired_after_release(tmp_path: Path) -> None:
     EngineLock(tmp_path / "agent.db").acquire()
 
 
-def test_second_app_instance_refused(env_paths: Path) -> None:
+def test_second_app_instance_refused(env_paths: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _no_refresh(*args: object) -> None:
+        return None
+
+    monkeypatch.setattr("app.agent.engine.Engine.refresh_prices", _no_refresh)
+    monkeypatch.setattr("app.main.refresh_market_data", _no_refresh)
+    monkeypatch.setattr("app.main.daily_market_loop", _no_refresh)
     with TestClient(create_app()):
         with pytest.raises(EngineAlreadyRunningError):
             with TestClient(create_app()):

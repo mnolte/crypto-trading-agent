@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -25,7 +26,7 @@ from app.agent.broker.paper import HeldPosition
 from app.agent.deciders.openai_decider import ModelDecision, check_output
 from app.agent.market.base import Candle, MarketInfo
 from app.agent.signals import Levels, MarketContext, PairSignals, TfValues
-from app.db import DecisionRow, make_engine, make_session_factory, run_migrations
+from app.db import DecisionRow, make_engine, make_session_factory
 from app.models import Regime, Settings
 
 NOW = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
@@ -97,9 +98,9 @@ def _signals(pair: str = "SOL-EUR") -> PairSignals:
 
 
 @pytest.fixture
-def session(tmp_path: Path) -> Iterator[Session]:
+def session(tmp_path: Path, migrated_db: Path) -> Iterator[Session]:
     db = tmp_path / "agent.db"
-    run_migrations(db)
+    shutil.copyfile(migrated_db, db)
     factory = make_session_factory(make_engine(db))
     s = factory()
     yield s

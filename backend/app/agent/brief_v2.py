@@ -40,7 +40,7 @@ from app.models import Regime
 
 BRIEF_VERSION = 2
 
-OUTCOMES = ("executed", "skipped", "held", "vetoed", "expired", "unfilled", "none")
+OUTCOMES = ("executed", "skipped", "held", "vetoed", "expired", "unfilled", "approved", "none")
 
 # The level search reads this many closed bars per timeframe — deeper than
 # the 3 supports/resistances the structure block lists.
@@ -97,7 +97,9 @@ def _outcome(action: str, status: str) -> str:
     """The decision's outcome as the brief reports it."""
     if action == "SKIP":
         return "skipped"
-    if status in ("executed", "vetoed", "expired", "unfilled"):
+    if status in ("executed", "approved"):
+        return "executed"  # an approved pending filled
+    if status in ("vetoed", "expired", "unfilled"):
         return status
     if action == "HOLD":
         return "held"

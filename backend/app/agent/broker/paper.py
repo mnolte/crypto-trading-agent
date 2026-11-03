@@ -91,7 +91,7 @@ class BrokerState:
     day_start_equity: Decimal
     day_start_date: date
     positions: dict[str, HeldPosition]
-    account_values: dict[str, str | datetime | None]
+    account_values: dict[str, str | bool | datetime | None]
 
 
 class PaperBroker:
@@ -127,6 +127,8 @@ class PaperBroker:
             "kill_peak",
             "kill_equity",
             "kill_closed",
+            "shock_brake_until",
+            "throttle_dd",
         )
         return BrokerState(
             cash=self.cash,
@@ -288,7 +290,10 @@ class PaperBroker:
             decision_id=decision_id,
             last=mark,
             invalidation_price=invalidation_price,
-            highest_close=mark,
+            # Spec: the trailing stop follows the highest 1h CLOSE since
+            # entry — a fill price is not a close, so start empty and let
+            # the first closed bar after entry seed it.
+            highest_close=None,
             r_unit=fill - stop,
             entry_maker=order_type == "limit",
         )

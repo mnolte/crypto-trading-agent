@@ -112,6 +112,9 @@ class AccountRow(Base):
     # The shock brake's expiry. Everything the agent knows survives a
     # restart — without this column a restart silently lifted the brake.
     shock_brake_until: Mapped[datetime | None] = mapped_column(default=None)
+    # The drawdown leg of the risk throttle's hysteresis (>4% arms it,
+    # <=2% releases it) — same restart-survival rule as the shock brake.
+    throttle_dd: Mapped[bool] = mapped_column(default=False)
 
 
 class PositionRow(Base):

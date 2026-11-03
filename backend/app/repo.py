@@ -108,11 +108,13 @@ def upsert_candles(session: Session, market: str, tf: Tf, candles: list[Candle])
             CandleRow.market == market, CandleRow.tf == tf
         )
     )
+    # Epoch ms is computed once per candle and carried alongside.
+    timed = [(c, _epoch_ms(c.open_time)) for c in candles]
     if newest is not None:
-        head = [c for c in candles if _epoch_ms(c.open_time) <= newest]
-        tail = [c for c in candles if _epoch_ms(c.open_time) > newest]
+        head = [t for t in timed if t[1] <= newest]
+        tail = [t for t in timed if t[1] > newest]
         if head:
-            head_min = min(_epoch_ms(c.open_time) for c in head)
+            head_min = min(ms for _, ms in head)
             stored = session.scalar(
                 select(func.count())
                 .select_from(CandleRow)
@@ -125,24 +127,28 @@ def upsert_candles(session: Session, market: str, tf: Tf, candles: list[Candle])
             )
             if stored == len(head):
                 head = []
-        candles = head + tail
-    if not candles:
+        timed = head + tail
+    if not timed:
         return
-    rows = [
-        {
-            "market": market,
-            "tf": tf,
-            "open_time_ms": _epoch_ms(c.open_time),
-            "open": str(c.open),
-            "high": str(c.high),
-            "low": str(c.low),
-            "close": str(c.close),
-            "volume": str(c.volume),
-        }
-        for c in candles
-    ]
-    session.execute(
-        sqlite_insert(cast(Table, CandleRow.__table__)).values(rows).on_conflict_do_nothing()
+    # Raw executemany: cycles upsert hundreds of bars per pair and timeframe,
+    # so the ORM insert's per-value bindparam work dominates the call.
+    session.connection().exec_driver_sql(
+        "INSERT OR IGNORE INTO candles "
+        "(market, tf, open_time_ms, open, high, low, close, volume) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            (
+                market,
+                tf,
+                ms,
+                str(c.open),
+                str(c.high),
+                str(c.low),
+                str(c.close),
+                str(c.volume),
+            )
+            for c, ms in timed
+        ],
     )
     session.commit()
 
@@ -311,6 +317,16 @@ def reset_account(session: Session, start_balance: Decimal, day_start_date: str)
     old.active = False
     old.kill_at = None
     session.execute(delete(PositionRow).where(PositionRow.account_id == old.id))
+    # Resolve the retired account's open orders and pending decisions —
+    # the watcher and approval endpoints only ever see the active account,
+    # so these rows would otherwise stay "open"/"pending" forever.
+    now = utcnow()
+    for order in open_paper_orders(session, old.id):
+        order.status = "cancelled"
+        order.cancelled_at = _utc_naive(now)
+        order.cancel_reason = "paper reset"
+    for row in pending_decisions(session, old.id):
+        row.status = "expired"
     fresh = AccountRow(
         started_at=utcnow(),
         start_balance=str(start_balance),
@@ -456,10 +472,13 @@ def losing_streak(session: Session, account_id: int) -> int:
     """Consecutive most-recent losing trades (realised_r < 0)."""
     streak = 0
     for trade in list_trades(session, account_id, limit=50):
-        if Decimal(trade.realised_r) < 0:
+        r = Decimal(trade.realised_r)
+        if r < 0:
             streak += 1
-        else:
+        elif r > 0:
             break
+        # realised_r == 0 is neither a loss nor a win — the streak
+        # continues past a scratch trade rather than resetting on it.
     return streak
 
 
@@ -856,6 +875,19 @@ def llm_cost_between(
         if cost is not None:
             total += Decimal(cost)
     return total
+
+
+def llm_unknown_eur_cost(session: Session, start: datetime, end: datetime | None = None) -> bool:
+    """Any successful call in the window whose EUR cost couldn't be
+    estimated — the monthly cap must not treat unknown spend as free."""
+    conds = [
+        LlmCallRow.at >= _utc_naive(start),
+        LlmCallRow.status == "ok",
+        LlmCallRow.cost_eur.is_(None),
+    ]
+    if end is not None:
+        conds.append(LlmCallRow.at < _utc_naive(end))
+    return bool(session.scalar(select(func.count()).select_from(LlmCallRow).where(*conds)))
 
 
 def llm_costs_by_feature_all(

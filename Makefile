@@ -17,7 +17,7 @@ run: ## build the UI, serve everything on 127.0.0.1:8000
 test: test-backend test-frontend test-e2e openapi-check ## pytest + Vitest (+ Playwright where present)
 
 test-backend:
-	$(UV) run pytest backend/tests -m "not slow" -n 4 --dist load
+	$(UV) run pytest backend/tests -m "not slow" -n auto --dist load
 
 soak: ## the 2000-cycle engine soak (slow marker, excluded from the suite)
 	$(UV) run pytest backend/tests -m slow -v
@@ -48,7 +48,7 @@ ci-backend:
 	$(UV) run ruff check .
 	$(UV) run ruff format --check .
 	$(UV) run mypy .
-	$(UV) run pytest -m "not slow" -n 4 --dist load
+	$(UV) run pytest -m "not slow" -n auto --dist load
 
 ci-frontend:
 	$(FE) install --frozen-lockfile

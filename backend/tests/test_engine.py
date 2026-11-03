@@ -11,10 +11,12 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import shutil
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import pytest
 from sqlalchemy import select
@@ -118,12 +120,26 @@ class ScriptMarket:
     """A canned ``MarketClient``: precomputed candles per (market, tf) and
     settable ticker prices. Counts 1h fetches for the stale-retry test."""
 
-    def __init__(self, now: datetime) -> None:
+    def __init__(self, now: datetime, sessions: sessionmaker[Session] | None = None) -> None:
         self.series: dict[tuple[str, str], list[Candle]] = {}
         self.tickers: dict[str, Decimal] = {}
         self.calls_1h: dict[str, int] = {}
         self.books: dict[str, OrderBook] = {}
         self.now = now
+        self._sessions = sessions
+
+    def _store(self, market: str) -> None:
+        """Simulate the startup backfill: eligibility rows plus the candle
+        history the check/backfill would have stored before a first cycle."
+        """
+        if self._sessions is None:
+            return
+        session = self._sessions()
+        try:
+            for tf in ("1h", "4h", "1d"):
+                repo.upsert_candles(session, market, tf, self.series.get((market, tf), []))
+        finally:
+            session.close()
 
     def add_uptrend(self, market: str, base: float = 100.0) -> None:
         self.series[(market, "1h")] = _series(
@@ -151,12 +167,14 @@ class ScriptMarket:
             wick=0.003,
         )
         self.tickers[market] = self.series[(market, "1h")][-1].close
+        self._store(market)
 
     def add_zigzag(self, market: str) -> None:
         self.series[(market, "1h")] = _zigzag(800, HOUR, self.now)
         self.series[(market, "4h")] = _zigzag(300, 4 * HOUR, self.now)
         self.series[(market, "1d")] = _zigzag(300, DAY, self.now)
         self.tickers[market] = self.series[(market, "1h")][-1].close
+        self._store(market)
 
     def add_downtrend(self, market: str) -> None:
         self.series[(market, "1h")] = _series(
@@ -184,6 +202,7 @@ class ScriptMarket:
             wick=0.002,
         )
         self.tickers[market] = self.series[(market, "1h")][-1].close
+        self._store(market)
 
     async def candles(self, market: str, interval: str, limit: int, **kw: object) -> list[Candle]:
         if interval == "1h":
@@ -201,7 +220,7 @@ class ScriptMarket:
     async def order_book(self, market: str, depth: int = 50) -> OrderBook:
         return self.books.get(market) or OrderBook(market=market, bids=[], asks=[])
 
-    async def ticker_price(self, market: str) -> Decimal:
+    async def ticker_price(self, market: str, **_kw: Any) -> Decimal:
         return self.tickers.get(market, Decimal("0"))
 
     async def ticker_24h(self, market: str | None = None) -> list[Ticker24h]:
@@ -255,10 +274,17 @@ class EngineEnv:
         self.sessions: sessionmaker[Session] = make_session_factory(self.db_engine)
         session = self.sessions()
         account = repo.current_account(session, Decimal("10000"), "2026-10-11")
+        # Markets in the env stand in for ones that passed the startup
+        # eligibility check — entries_allowed requires an eligible row.
+        for m in markets:
+            row = session.get(MarketRow, m)
+            if row is None:
+                session.add(MarketRow(market=m, active=True, eligible=True))
+        session.commit()
         self.broker = PaperBroker(account, PaperSettings())
         self.broker.load_positions(session)
         session.close()
-        self.market = ScriptMarket(NOW)
+        self.market = ScriptMarket(NOW, self.sessions)
         self.clock = clock or FakeClock()
         self.settings = settings or Settings(
             active_markets=markets, data_source="sim", execution_mode="auto"
@@ -319,8 +345,10 @@ class EngineEnv:
 
 
 @pytest.fixture
-def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
+def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, migrated_db: Path) -> Iterator[Path]:
     data = tmp_path / "data"
+    data.mkdir()
+    shutil.copyfile(migrated_db, data / "agent.db")
     monkeypatch.setenv("TA_DB_PATH", str(data / "agent.db"))
     monkeypatch.setenv("TA_DATA_DIR", str(data))
     get_env.cache_clear()
@@ -515,6 +543,7 @@ async def test_stale_pair_holds_and_marks(env: Path) -> None:
         rate=1.001,
         wick=0.003,
     )
+    e.market._store("SOL-EUR")
     e.market.add_zigzag("BTC-EUR")
     e.market.add_zigzag("USDC-EUR")
     await e.engine.run_cycle()
@@ -809,7 +838,9 @@ async def test_shock_brake_btc_move_triggers(env: Path) -> None:
     first_until = e.engine.shock_brake_until
     e.clock.advance(seconds=30)
     await e.engine.tick()
-    assert e.engine.shock_brake_until == first_until
+    # A new trigger inside the window extends the brake 2h from the last
+    # trigger rather than expiring on the original clock.
+    assert e.engine.shock_brake_until > first_until
 
 
 async def test_shock_brake_survives_restart(env: Path) -> None:
@@ -973,6 +1004,8 @@ async def test_n_cycles_no_nan(env: Path, cycles: int) -> None:
         rate=1.0003,
         wick=0.002,
     )
+    e.market._store("SOL-EUR")
+    e.market._store("BTC-EUR")
     e.market.add_zigzag("USDC-EUR")
 
     def finite() -> bool:
@@ -1230,7 +1263,10 @@ async def test_failing_market_takes_no_entries(env: Path) -> None:
     e.market.add_uptrend("BTC-EUR", base=60_000.0)
     e.market.add_uptrend("USDC-EUR", base=0.92)
     s = e.session()
-    s.add(MarketRow(market="SOL-EUR", active=True, eligible=False, failed_rule="volume"))
+    row = s.get(MarketRow, "SOL-EUR")
+    assert row is not None
+    row.eligible = False
+    row.failed_rule = "volume"
     # Full history so warming_up doesn't hide the eligibility gate.
     repo.upsert_candles(s, "SOL-EUR", "1h", _zigzag(800, HOUR, NOW))
     repo.upsert_candles(s, "SOL-EUR", "4h", _zigzag(300, 4 * HOUR, NOW))
@@ -1260,7 +1296,10 @@ async def test_held_position_on_failing_market_still_gets_decided(env: Path) -> 
     e.market.add_uptrend("BTC-EUR", base=60_000.0)
     e.market.add_uptrend("USDC-EUR", base=0.92)
     s = e.session()
-    s.add(MarketRow(market="SOL-EUR", active=True, eligible=False, failed_rule="volume"))
+    row = s.get(MarketRow, "SOL-EUR")
+    assert row is not None
+    row.eligible = False
+    row.failed_rule = "volume"
     s.commit()
     s.close()
     await e.engine.run_cycle()
@@ -1280,7 +1319,9 @@ async def test_held_position_on_deactivated_market_still_gets_decided(env: Path)
     e.market.add_uptrend("BTC-EUR", base=60_000.0)
     e.market.add_uptrend("USDC-EUR", base=0.92)
     s = e.session()
-    s.add(MarketRow(market="SOL-EUR", active=False, eligible=True))
+    row = s.get(MarketRow, "SOL-EUR")
+    assert row is not None
+    row.active = False
     s.commit()
     s.close()
     e.settings.active_markets = []
@@ -1290,3 +1331,40 @@ async def test_held_position_on_deactivated_market_still_gets_decided(env: Path)
     s.close()
     assert rows and rows[0].pair == "SOL-EUR" and rows[0].action == "HOLD"
     assert "SOL-EUR" in e.broker.positions
+
+
+# ------------------------------------------------- invalidation re-eval ---
+
+
+class _SellDecider:
+    """Always answers SELL — the draft that deadlocked the watcher when an
+    invalidation re-evaluation ran inside the execution lock."""
+
+    name = "rules"
+
+    async def decide(self, ctx: DecideContext) -> Draft:
+        return Draft(
+            action="SELL",
+            confidence=0.9,
+            reasoning="test sell",
+            signals=[],
+            decider="rules",
+        )
+
+
+async def test_invalidation_reeval_sell_does_not_deadlock(env: Path) -> None:
+    """Crossing a position's invalidation price queues a re-evaluation that
+    runs AFTER the execution lock is released. When it ran inside the tick,
+    a SELL draft re-acquired the lock and froze the whole engine."""
+    e = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e.market.add_zigzag("SOL-EUR")
+    e.engine.decider = _SellDecider()
+    ticker = e.market.tickers["SOL-EUR"]
+    pos = e.held("SOL-EUR", qty="1", entry="100", stop="1", target="100000")
+    pos.invalidation_price = ticker + Decimal("1")
+    await asyncio.wait_for(e.engine.tick(), timeout=15)
+    assert "SOL-EUR" not in e.broker.positions
+    s = e.session()
+    rows = _decisions(s)
+    s.close()
+    assert rows and rows[0].action == "SELL" and rows[0].status == "executed"

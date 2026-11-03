@@ -10,6 +10,7 @@ network, no real orders.
 from __future__ import annotations
 
 import json
+import shutil
 from collections.abc import Iterator
 from datetime import timedelta
 from decimal import Decimal
@@ -79,8 +80,10 @@ def _decision(session: Session, decision_id: str) -> DecisionRow:
 
 
 @pytest.fixture
-def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
+def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, migrated_db: Path) -> Iterator[Path]:
     data = tmp_path / "data"
+    data.mkdir()
+    shutil.copyfile(migrated_db, data / "agent.db")
     monkeypatch.setenv("TA_DB_PATH", str(data / "agent.db"))
     monkeypatch.setenv("TA_DATA_DIR", str(data))
     get_env.cache_clear()

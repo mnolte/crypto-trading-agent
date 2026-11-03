@@ -35,8 +35,8 @@ from app.agent.deciders.base import DecideContext, Draft, RiskView
 from app.agent.deciders.openai_decider import OpenAIDecider
 from app.agent.engine import CYCLE_S
 from app.agent.limit import buy_fills, post_only_limit, sell_fills
-from app.agent.market.base import Candle, MarketClient, MarketInfo, drop_forming
-from app.agent.market.universe import entries_allowed
+from app.agent.market.base import TF_SECONDS, Candle, MarketClient, MarketInfo, drop_forming
+from app.agent.market.universe import entries_allowed, warming_up
 from app.agent.risk import BuyContext, check_buy, check_exit, update_trail
 from app.agent.signals import (
     aligned_correlation,
@@ -103,6 +103,7 @@ class ShadowRunner:
         clock: Callable[[], datetime],
         price_fn: Callable[[str], Awaitable[Decimal]],
         notify: Callable[[str, str, str], Awaitable[None]] | None = None,
+        shock_brake_until: Callable[[], datetime | None] | None = None,
     ) -> None:
         self._sessions = session_factory
         self.client = market_client
@@ -111,7 +112,16 @@ class ShadowRunner:
         self.clock = clock
         self._price_fn = price_fn
         self._notify = notify
+        self._shock_brake_until = shock_brake_until or (lambda: None)
         self._cache: dict[str, _Shadow] = {}
+        self._cycle = 0
+
+    def set_client(self, client: MarketClient) -> None:
+        """Swap the market client (data-source change) — live's client is
+        rebuilt and closed, so every cached decider must see the new one."""
+        self.client = client
+        for shadow in self._cache.values():
+            shadow.decider.client = client
 
     # ------------------------------------------------------------- loading
 
@@ -164,13 +174,14 @@ class ShadowRunner:
             live = self._live_settings()
             streak = repo.losing_streak(s, brk.account_id)
             throttled = streak >= live.risk.throttle_consecutive_losses
+            until = self._shock_brake_until()
             return RiskView(
                 throttle_on=throttled,
                 correlated_slots_left=max(
                     0,
                     settings.risk.correlated_max_positions - len(brk.positions),
                 ),
-                shock_brake_on=False,
+                shock_brake_on=until is not None and until > self.clock(),
             )
 
         decider = OpenAIDecider(
@@ -194,6 +205,7 @@ class ShadowRunner:
         Runs on its own session — a shadow failure can never roll back the
         live cycle's staged work."""
         live = self._live_settings()
+        self._cycle = cycle
         session = self._sessions()
         try:
             for shadow in self._shadows(session):
@@ -201,12 +213,14 @@ class ShadowRunner:
                     # The cap is re-read per shadow: an earlier shadow's
                     # calls this cycle may have pushed spend past 80%.
                     cap = budget.cap_state(
-                        budget.month_spend_all(session, now),
+                        budget.month_spend_strict(session, now),
                         live.model.monthly_cost_cap_eur,
                     )
                     self._tick_pause(session, shadow, now, cap)
                     if not shadow.paused:
                         for pair in shadow.settings.active_markets:
+                            if warming_up(session, pair, shadow.settings.market):
+                                continue
                             try:
                                 await self._decide_pair(session, shadow, pair, now, cycle)
                             except Exception:
@@ -272,6 +286,35 @@ class ShadowRunner:
                     signals=[],
                 ),
                 error="stale data",
+            )
+            return
+        # Same freshness gate as live: never decide on stale candles.
+        grace = settings.market.stale_grace_s
+        stale_tf = next(
+            (
+                tf
+                for tf in TF_KEYS
+                if (
+                    now - (candles[tf][-1].open_time + timedelta(seconds=TF_SECONDS[tf]))
+                ).total_seconds()
+                > TF_SECONDS[tf] + grace
+            ),
+            None,
+        )
+        if stale_tf is not None:
+            self._record(
+                session,
+                shadow,
+                pair,
+                now,
+                cycle,
+                Draft(
+                    action="HOLD",
+                    confidence=0.0,
+                    reasoning=f"{stale_tf} data stale; holding",
+                    signals=[],
+                ),
+                error=f"{stale_tf} stale",
             )
             return
         price = candles["1h"][-1].close
@@ -387,11 +430,19 @@ class ShadowRunner:
                 correlated = self._correlated(session, shadow, pair, candles["1h"], now)
                 pause = repo.active_entry_pause(session, pair, now)
                 atr = Decimal(str(signals.tf["1h"].atr14)) if signals.tf["1h"].atr14 else None
+                # Same fill basis as live: market entries gate and fill at
+                # the last ticker price, not the closed candle's close.
+                entry_ref = draft.entry or price
+                if limit_price is None:
+                    ticker = await self._price_fn(pair)
+                    if ticker > 0:
+                        entry_ref = ticker
                 verdict = check_buy(
                     BuyContext(
                         pair=pair,
                         now=now,
-                        entry=(limit_price if limit_price is not None else (draft.entry or price)),
+                        entry=(limit_price if limit_price is not None else entry_ref),
+                        shock_brake_until=self._shock_brake_until(),
                         stop=draft.stop or ZERO,
                         target=draft.target or ZERO,
                         atr_1h=atr,
@@ -429,7 +480,7 @@ class ShadowRunner:
                         broker.buy(
                             session,
                             pair,
-                            price,
+                            plan.entry,
                             plan.qty,
                             plan.stop,
                             plan.target,
@@ -449,7 +500,10 @@ class ShadowRunner:
                         filled_buy = True
         elif draft.action == "SELL":
             if pair in broker.positions:
-                await self._close_shadow_position(session, shadow, pair, price, now, "model_sell")
+                fill_px = await self._price_fn(pair)
+                await self._close_shadow_position(
+                    session, shadow, pair, fill_px if fill_px > 0 else price, now, "model_sell"
+                )
                 filled_sell = pair not in broker.positions
         pos = broker.positions.get(pair)
         if draft.action != "BUY" and pos is not None and draft.invalidation_price is not None:
@@ -635,8 +689,11 @@ class ShadowRunner:
     def _entry_block_reason(
         self, session: Session, shadow: _Shadow, pair: str, now: datetime
     ) -> str | None:
-        """The entry-blocking gates a shadow honours: entry pause and the
-        daily loss limit (the shock brake is a live-engine concept)."""
+        """The entry-blocking gates a shadow honours: entry pause, the
+        daily loss limit and the shared market shock brake."""
+        until = self._shock_brake_until()
+        if until is not None and until > now:
+            return "shock brake"
         if repo.active_entry_pause(session, pair, now) is not None:
             return "entry pause"
         if shadow.broker.today_loss_pct(now) >= shadow.settings.risk.daily_loss_limit_pct:
@@ -779,13 +836,16 @@ class ShadowRunner:
 
     # -------------------------------------------------------------- watcher
 
-    async def tick(self, now: datetime) -> None:
+    async def tick(self, now: datetime) -> list[tuple[str, str]]:
         """The 30-second watcher pass: resting limit entries fill or
         cancel; stops, targets, breakeven, trailing and the time stop keep
         working during a pause.
 
         Runs on its own session with per-shadow commits — a shadow failure
-        can never roll back the live watcher's staged work."""
+        can never roll back the live watcher's staged work. Returns
+        ``(shadow_id, pair)`` pairs whose invalidation price crossed for
+        ``re_evaluate`` to run after the live lock is released."""
+        re_eval: list[tuple[str, str]] = []
         session = self._sessions()
         try:
             for shadow in self._shadows(session):
@@ -800,7 +860,7 @@ class ShadowRunner:
                             continue
                         shadow.broker.mark(pair, price, now)
                         last_1h = drop_forming(repo.load_candles(session, pair, "1h", 2), "1h", now)
-                        if last_1h:
+                        if last_1h and last_1h[-1].close_time("1h") > pos.opened_at:
                             update_trail(pos, last_1h[-1].close)
                         atr = self._atr_1h(session, pair, now)
                         # Target style follows the position's entry leg,
@@ -846,6 +906,19 @@ class ShadowRunner:
                                 target_order = self._place_target_order(
                                     session, shadow, pair, pos, now
                                 )
+                        # One-shot invalidation: clear before the row save
+                        # so a crash can't re-fire it after a restart.
+                        if pos.invalidation_price is not None and price <= pos.invalidation_price:
+                            pos.invalidation_price = None
+                            re_eval.append((shadow.row.id, pair))
+                            repo.add_activity(
+                                session,
+                                "decision",
+                                f"[{shadow.row.name}] invalidation price crossed on "
+                                f"{pair}; re-evaluating",
+                                pair=pair,
+                                at=now,
+                            )
                         repo.save_position_row(
                             session,
                             pos.to_model(),
@@ -868,6 +941,26 @@ class ShadowRunner:
         except Exception:
             session.rollback()
             log.exception("shadow watcher pass failed")
+        finally:
+            session.close()
+        return re_eval
+
+    async def re_evaluate(self, now: datetime, items: list[tuple[str, str]]) -> None:
+        """Run the invalidation re-evaluations collected by ``tick`` —
+        outside the live execution lock, on fresh session-bound rows."""
+        session = self._sessions()
+        try:
+            live = {s.row.id: s for s in self._shadows(session)}
+            for shadow_id, pair in items:
+                shadow = live.get(shadow_id)
+                if shadow is None:
+                    continue
+                try:
+                    await self._decide_pair(session, shadow, pair, now, self._cycle)
+                    session.commit()
+                except Exception:
+                    session.rollback()
+                    log.exception("shadow %s: %s re-eval failed", shadow_id, pair)
         finally:
             session.close()
 

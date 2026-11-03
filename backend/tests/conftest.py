@@ -93,10 +93,15 @@ def sim_market(monkeypatch: pytest.MonkeyPatch) -> SimMarket:
 
 @pytest.fixture
 def client(env_paths: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    async def _no_refresh(_state: object) -> None:
+    async def _no_refresh(*_args: object) -> None:
         return None
 
     monkeypatch.setattr("app.main.refresh_market_data", _no_refresh)
+    monkeypatch.setattr("app.main.daily_market_loop", _no_refresh)
+    # Startup price refresh walks every active market and upserts ~800
+    # candles each — seconds per app startup. No client test reads
+    # engine.prices or stored candles it didn't seed itself.
+    monkeypatch.setattr("app.agent.engine.Engine.refresh_prices", _no_refresh)
     with TestClient(create_app(), base_url="http://127.0.0.1") as c:
         yield c
 
@@ -105,9 +110,11 @@ def client(env_paths: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestCli
 def sim_client(
     env_paths: Path, sim_market: SimMarket, monkeypatch: pytest.MonkeyPatch
 ) -> Iterator[TestClient]:
-    async def _no_refresh(_state: object) -> None:
+    async def _no_refresh(*_args: object) -> None:
         return None
 
     monkeypatch.setattr("app.main.refresh_market_data", _no_refresh)
+    monkeypatch.setattr("app.main.daily_market_loop", _no_refresh)
+    monkeypatch.setattr("app.agent.engine.Engine.refresh_prices", _no_refresh)
     with TestClient(create_app(), base_url="http://127.0.0.1") as c:
         yield c

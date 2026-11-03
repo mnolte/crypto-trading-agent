@@ -630,6 +630,7 @@ def input_checks(brief: dict[str, Any], meta: BriefMeta) -> list[CheckOut]:
     # 5. No cross-pair leak: every price quoted stays within 50% of the
     # pair's own price; anything further could only be another pair's data.
     leaks: list[str] = []
+    pos_leaks: list[str] = []
     if meta.price is not None and math.isfinite(meta.price) and meta.price > 0:
 
         def _far(p: float | None) -> bool:
@@ -649,17 +650,27 @@ def input_checks(brief: dict[str, Any], meta: BriefMeta) -> list[CheckOut]:
             lvl = brief["structure"].get(k)
             if lvl and _far(lvl.get("price")):
                 leaks.append(k)
+        # Position levels are this pair's own prices — a real >50% move
+        # since entry is not a leak. Failing here would lock the model out
+        # of exactly the position that most needs re-evaluating, so these
+        # warn rather than block the call.
         if pos is not None:
             for k in ("entry", "stop", "target"):
                 if _far(pos.get(k)):
-                    leaks.append(f"position.{k}")
+                    pos_leaks.append(f"position.{k}")
+    status = "fail" if leaks else ("warn" if pos_leaks else "pass")
+    detail_bits = []
+    if leaks:
+        detail_bits.append("Out-of-range: " + ", ".join(sorted(set(leaks))))
+    if pos_leaks:
+        detail_bits.append(
+            "position levels >50% from price: " + ", ".join(sorted(set(pos_leaks)))
+        )
     checks.append(
         CheckOut(
             name="No cross-pair leak",
-            status="fail" if leaks else "pass",
-            detail="Out-of-range: " + ", ".join(sorted(set(leaks)))
-            if leaks
-            else "every level within 50% of price",
+            status=status,
+            detail="; ".join(detail_bits) or "every level within 50% of price",
         )
     )
 

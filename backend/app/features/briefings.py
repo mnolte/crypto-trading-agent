@@ -619,7 +619,7 @@ async def generate_briefing(
     if key is None:
         reason = "no OpenAI key"
     else:
-        spent = budget.month_spend_all(session, now)
+        spent = budget.month_spend_strict(session, now)
         if budget.cap_state(spent, settings.model.monthly_cost_cap_eur) == "cap":
             reason = "monthly cost cap reached"
 

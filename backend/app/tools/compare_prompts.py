@@ -210,7 +210,7 @@ async def run_report(
             ):
                 stopped = f"stopped: daily call budget ({settings.model.daily_call_budget})"
                 break
-            spent = budget.month_spend_all(session, now)
+            spent = budget.month_spend_strict(session, now)
             if budget.cap_state(spent, settings.model.monthly_cost_cap_eur) != "ok":
                 stopped = "stopped: monthly cost cap at 80% (replays pause)"
                 break

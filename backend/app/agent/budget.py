@@ -17,7 +17,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import yaml
 from sqlalchemy.orm import Session
@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from app import repo
 from app.config import BACKEND_DIR
 from app.db import AMSTERDAM
+from app.models import Tf
 
 MODEL_PRICES_PATH = BACKEND_DIR / "config" / "models.yaml"
 
@@ -86,9 +87,21 @@ def month_spend_all(session: Session, now: datetime) -> Decimal:
     return sum(repo.llm_costs_by_feature_all(session, start, end).values(), Decimal("0"))
 
 
-def cap_state(spent_eur: Decimal, cap_eur: Decimal) -> Literal["ok", "warn", "cap"]:
-    """warn from 80% of the monthly cap; cap at 100% — decisions go to Rules."""
-    if cap_eur <= 0:
+def month_spend_strict(session: Session, now: datetime) -> Decimal | None:
+    """Monthly spend for cap enforcement — ``None`` when any successful
+    call's EUR cost is unknown, so the cap fails closed instead of
+    treating unpriced spend as free."""
+    start, end = amsterdam_month_bounds(now)
+    if repo.llm_unknown_eur_cost(session, start, end):
+        return None
+    return sum(repo.llm_costs_by_feature_all(session, start, end).values(), Decimal("0"))
+
+
+def cap_state(spent_eur: Decimal | None, cap_eur: Decimal) -> Literal["ok", "warn", "cap"]:
+    """warn from 80% of the monthly cap; cap at 100% — decisions go to
+    Rules. Unknown spend (None) counts as cap: if the cost can't be
+    priced, we can't prove it's under the limit."""
+    if spent_eur is None or cap_eur <= 0:
         return "cap"
     if spent_eur >= cap_eur:
         return "cap"
@@ -98,11 +111,20 @@ def cap_state(spent_eur: Decimal, cap_eur: Decimal) -> Literal["ok", "warn", "ca
 
 
 def usdc_eur_rate(session: Session, now: datetime) -> Decimal | None:
-    """USD→EUR via the latest stored USDC-EUR daily close (None if unknown)."""
-    candles = repo.load_candles(session, "USDC-EUR", "1d", 7, end=now)
-    if not candles:
-        candles = repo.load_candles(session, "USDC-EUR", "1d", 7)
-    return candles[-1].close if candles else None
+    """USD→EUR via the latest stored USDC-EUR close (None if unknown).
+
+    The engine stores USDC-EUR 1h candles every cycle but USDC-EUR is a
+    stablecoin — ineligible, never activated, never backfilled — so ``1d``
+    rows usually don't exist. Fall back to the newest stored 1h close or
+    every EUR cost stays NULL and the monthly cap can never fire."""
+    for tf, limit in (("1d", 7), ("1h", 2)):
+        tf = cast(Tf, tf)
+        candles = repo.load_candles(session, "USDC-EUR", tf, limit, end=now)
+        if not candles:
+            candles = repo.load_candles(session, "USDC-EUR", tf, limit)
+        if candles:
+            return candles[-1].close
+    return None
 
 
 def cost_estimates(
