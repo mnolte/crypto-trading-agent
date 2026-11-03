@@ -663,9 +663,7 @@ def input_checks(brief: dict[str, Any], meta: BriefMeta) -> list[CheckOut]:
     if leaks:
         detail_bits.append("Out-of-range: " + ", ".join(sorted(set(leaks))))
     if pos_leaks:
-        detail_bits.append(
-            "position levels >50% from price: " + ", ".join(sorted(set(pos_leaks)))
-        )
+        detail_bits.append("position levels >50% from price: " + ", ".join(sorted(set(pos_leaks))))
     checks.append(
         CheckOut(
             name="No cross-pair leak",

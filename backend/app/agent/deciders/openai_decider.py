@@ -962,9 +962,7 @@ class OpenAIDecider:
             for _, corr, _ in held
             if corr is not None and corr > float(settings.risk.correlated_threshold)
         )
-        correlated_slots_left = max(
-            0, settings.risk.correlated_max_positions - correlated_open
-        )
+        correlated_slots_left = max(0, settings.risk.correlated_max_positions - correlated_open)
         inp = BriefInputs(
             pair=ctx.pair,
             now=now,
