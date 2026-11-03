@@ -512,7 +512,7 @@ async def answer_question(
     limit = settings.learning.ask_daily_limit
     if asked >= limit:
         raise AskRefusal(f"the daily Ask limit is {limit} questions")
-    spent = budget.month_spend_all(session, now)
+    spent = budget.month_spend_strict(session, now)
     if budget.cap_state(spent, settings.model.monthly_cost_cap_eur) != "ok":
         raise AskRefusal("the monthly model-cost cap has Ask paused")
 

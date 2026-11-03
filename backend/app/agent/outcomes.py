@@ -3,16 +3,25 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Callable
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import repo
 from app.agent.signals import compute_tf_values
-from app.db import DecisionRow, OutcomeFailureRow, OutcomeRow, PositionRow, TradeRow, utcnow
+from app.db import (
+    DecisionRow,
+    LlmCallRow,
+    OutcomeFailureRow,
+    OutcomeRow,
+    PositionRow,
+    TradeRow,
+    utcnow,
+)
 from app.models import Plan
 
 HORIZONS = (4, 24, 72)
@@ -96,6 +105,13 @@ def _levels(
             None,
             repo.aware_utc(decision.at),
         )
+    # A gate-skipped or check-rejected BUY carries no plan: the levels the
+    # model actually proposed live on its stored call — not a synthetic
+    # 1.5xATR hypothetical — so "missed vs avoided" is measured correctly.
+    proposed = _model_levels(session, decision)
+    if proposed is not None:
+        entry, stop, target = proposed
+        return entry, stop, target, entry - stop, None, repo.aware_utc(decision.at)
     history = repo.load_candles(session, decision.pair, "1h", 60, end=repo.aware_utc(decision.at))
     if not history:
         raise ValueError("no reference candle")
@@ -112,6 +128,36 @@ def _levels(
         None,
         repo.aware_utc(decision.at),
     )
+
+
+def _model_levels(
+    session: Session, decision: DecisionRow
+) -> tuple[Decimal, Decimal, Decimal] | None:
+    """The model's proposed (entry, stop, target) for a BUY that never got
+    a plan, read from the parsed output stored on its call."""
+    row = session.scalar(
+        select(LlmCallRow)
+        .where(LlmCallRow.decision_id == decision.id)
+        .order_by(LlmCallRow.at.desc())
+        .limit(1)
+    )
+    if row is None or not row.parsed:
+        return None
+    try:
+        parsed = json.loads(row.parsed)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(parsed, dict) or parsed.get("action") != "BUY":
+        return None
+    try:
+        entry = Decimal(str(parsed["entry"])) if parsed.get("entry") is not None else None
+        stop = Decimal(str(parsed["stop"])) if parsed.get("stop") is not None else None
+        target = Decimal(str(parsed["target"])) if parsed.get("target") is not None else None
+    except (InvalidOperation, ValueError):
+        return None
+    if entry is None or stop is None or target is None or not (stop < entry < target):
+        return None
+    return entry, stop, target
 
 
 def _label(
@@ -133,7 +179,7 @@ def _label(
     if action == "SELL" and horizon >= 24 and risk is not None:
         if reference > entry + risk:
             return "early exit"
-        if reference < entry - risk:
+        if reference < entry:
             return "good exit"
     return "neutral"
 

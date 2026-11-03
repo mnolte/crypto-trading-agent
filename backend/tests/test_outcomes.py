@@ -181,11 +181,19 @@ def test_sell_outcome_horizon_is_anchored_to_exit_fill(tmp_path: Path, migrated_
     assert outcome.reference_at == NOW + timedelta(hours=25, minutes=1)
 
 
-@pytest.mark.parametrize("reference", [Decimal("120"), Decimal("100")])
-def test_sell_exact_one_r_boundaries_are_neutral(reference: Decimal) -> None:
+@pytest.mark.parametrize(
+    "reference,expected",
+    [
+        (Decimal("120"), "neutral"),  # exactly 1R higher — not MORE than 1R
+        (Decimal("110"), "neutral"),  # flat
+        (Decimal("105"), "good exit"),  # lower after 24h is a good exit
+        (Decimal("100"), "good exit"),
+    ],
+)
+def test_sell_exit_labels(reference: Decimal, expected: str) -> None:
     assert (
         _label("SELL", "executed", "neither", reference, Decimal("110"), Decimal("10"), 24)
-        == "neutral"
+        == expected
     )
 
 

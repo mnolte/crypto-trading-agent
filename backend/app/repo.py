@@ -472,10 +472,13 @@ def losing_streak(session: Session, account_id: int) -> int:
     """Consecutive most-recent losing trades (realised_r < 0)."""
     streak = 0
     for trade in list_trades(session, account_id, limit=50):
-        if Decimal(trade.realised_r) < 0:
+        r = Decimal(trade.realised_r)
+        if r < 0:
             streak += 1
-        else:
+        elif r > 0:
             break
+        # realised_r == 0 is neither a loss nor a win — the streak
+        # continues past a scratch trade rather than resetting on it.
     return streak
 
 
@@ -872,6 +875,19 @@ def llm_cost_between(
         if cost is not None:
             total += Decimal(cost)
     return total
+
+
+def llm_unknown_eur_cost(session: Session, start: datetime, end: datetime | None = None) -> bool:
+    """Any successful call in the window whose EUR cost couldn't be
+    estimated — the monthly cap must not treat unknown spend as free."""
+    conds = [
+        LlmCallRow.at >= _utc_naive(start),
+        LlmCallRow.status == "ok",
+        LlmCallRow.cost_eur.is_(None),
+    ]
+    if end is not None:
+        conds.append(LlmCallRow.at < _utc_naive(end))
+    return bool(session.scalar(select(func.count()).select_from(LlmCallRow).where(*conds)))
 
 
 def llm_costs_by_feature_all(

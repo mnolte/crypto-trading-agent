@@ -126,7 +126,13 @@ class BitvavoClient:
 
     # ------------------------------------------------------------------ http
 
-    async def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+    async def _get(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        *,
+        max_429_wait_s: float | None = None,
+    ) -> Any:
         attempts = 0
         while True:
             try:
@@ -141,7 +147,7 @@ class BitvavoClient:
                     self._event(error)
                     raise error
                 attempts += 1
-                await self._sleep(self._seconds_until_reset())
+                await self._sleep(self._seconds_until_reset(max_429_wait_s))
                 continue
             if response.status_code != 200:
                 upstream = UpstreamError(
@@ -164,11 +170,12 @@ class BitvavoClient:
         if reset_at is not None:
             self.rate_limit_reset_at = datetime.fromtimestamp(int(reset_at) / 1000, UTC)
 
-    def _seconds_until_reset(self) -> float:
+    def _seconds_until_reset(self, cap: float | None = None) -> float:
         if self.rate_limit_reset_at is None:
-            return 5.0
+            return min(5.0, cap) if cap is not None else 5.0
         delay = (self.rate_limit_reset_at - datetime.now(UTC)).total_seconds()
-        return max(0.5, delay + 0.25)
+        wait = max(0.5, delay + 0.25)
+        return min(wait, cap) if cap is not None else wait
 
     def _event(self, error: BaseException | None) -> None:
         if self.on_event is not None:
@@ -232,8 +239,12 @@ class BitvavoClient:
             asks=[BookLevel(price=p, size=s) for p, s in book.asks],
         )
 
-    async def ticker_price(self, market: str) -> Decimal:
-        raw = await self._get("/ticker/price", {"market": market})
+    async def ticker_price(
+        self, market: str, *, max_429_wait_s: float | None = None
+    ) -> Decimal:
+        raw = await self._get(
+            "/ticker/price", {"market": market}, max_429_wait_s=max_429_wait_s
+        )
         try:
             return _TickerPriceResponse.model_validate(raw).price
         except ValidationError as exc:

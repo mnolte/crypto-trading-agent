@@ -17,6 +17,7 @@ import hashlib
 import math
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Any
 
 import numpy as np
 
@@ -260,7 +261,9 @@ class SimMarket:
         ]
         return OrderBook(market=market, bids=bids, asks=asks)
 
-    async def ticker_price(self, market: str) -> Decimal:
+    async def ticker_price(
+        self, market: str, *, max_429_wait_s: float | None = None, **_kwargs: Any
+    ) -> Decimal:
         closed = drop_forming(await self.candles(market, "1h", 2), "1h", self.now)
         if not closed:
             return Decimal("0")

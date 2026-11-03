@@ -7,6 +7,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import pytest
 from sqlalchemy.orm import Session
@@ -77,7 +78,7 @@ class FakeMarket:
     async def order_book(self, market: str, depth: int = 50) -> OrderBook:
         return OrderBook(market=market, bids=[], asks=[])
 
-    async def ticker_price(self, market: str) -> Decimal:
+    async def ticker_price(self, market: str, **_kw: Any) -> Decimal:
         return Decimal("1")
 
 
@@ -360,9 +361,8 @@ async def test_deactivate(session: Session) -> None:
 
 def test_entries_allowed(session: Session) -> None:
     """New entries need an active, eligible market. A missing row means
-    the check never ran and stays tradeable; a failing or inactive row
-    takes no new entries."""
-    assert entries_allowed(session, "X-EUR")
+    the check never ran — an unchecked market takes no entries either."""
+    assert not entries_allowed(session, "X-EUR")
     session.add(MarketRow(market="OK-EUR", active=True, eligible=True))
     session.add(MarketRow(market="FAIL-EUR", active=True, eligible=False, failed_rule="volume"))
     session.add(MarketRow(market="OFF-EUR", active=False, eligible=True))

@@ -290,7 +290,10 @@ class PaperBroker:
             decision_id=decision_id,
             last=mark,
             invalidation_price=invalidation_price,
-            highest_close=mark,
+            # Spec: the trailing stop follows the highest 1h CLOSE since
+            # entry — a fill price is not a close, so start empty and let
+            # the first closed bar after entry seed it.
+            highest_close=None,
             r_unit=fill - stop,
             entry_maker=order_type == "limit",
         )

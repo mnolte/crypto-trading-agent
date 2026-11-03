@@ -125,6 +125,7 @@ class Engine:
 
         self.status: Literal["running", "paused", "killed", "error"] = "paused"
         self.cycle = 0
+        self.last_cycle_at: datetime | None = None
         self.next_run_at: datetime | None = None
         self.cycle_in_progress = False
         self.kill: KillInfo | None = None
@@ -217,6 +218,15 @@ class Engine:
                 "system",
                 f"{cancelled} open limit order(s) cancelled on restart",
             )
+        # Seed the BTC shock window from stored closed 1h bars so a move
+        # that started before a restart still counts toward the 60-minute
+        # window instead of starting the observation from scratch.
+        for candle in drop_forming(
+            repo.load_candles(session, "BTC-EUR", "1h", 2), "1h", self.clock()
+        ):
+            close_at = candle.open_time + timedelta(seconds=TF_SECONDS["1h"])
+            if self.clock() - close_at <= timedelta(seconds=SHOCK_WINDOW_S):
+                self._btc_window.append((close_at, candle.close))
 
     async def refresh_prices(self) -> None:
         """One price pass over the active markets and held pairs.
@@ -505,6 +515,7 @@ class Engine:
             self.cycle += 1
             cycle_no = self.cycle
             now = self.clock()
+            self.last_cycle_at = now
             session = self._sessions()
             try:
                 settings = self._settings()
@@ -658,6 +669,8 @@ class Engine:
         pair: str,
         context: dict[str, list[Candle] | Regime | None],
         now: datetime,
+        *,
+        allow_stale_retry: bool = True,
     ) -> Decision:
         """One pair's cycle: data, signals, decide, gates, execute, record."""
         settings = self._settings()
@@ -673,7 +686,9 @@ class Engine:
 
         candles: dict[str, list[Candle]] = {}
         try:
-            candles["1h"] = await self._fresh_1h(session, pair, now)
+            candles["1h"] = await self._fresh_1h(
+                session, pair, now, retries=STALE_RETRIES if allow_stale_retry else 0
+            )
             candles["4h"] = await self._fetch_closed(session, pair, "4h", now)
             candles["1d"] = await self._fetch_closed(session, pair, "1d", now)
         except MarketDataError:
@@ -769,7 +784,7 @@ class Engine:
                 candles_1d=candles["1d"],
                 prev_4h_ema20=prev_4h.ema20 if prev_4h else None,
                 prev_4h_ema50=prev_4h.ema50 if prev_4h else None,
-                btc_regime=context.get("btc_regime"),  # type: ignore[arg-type]
+                btc_regime=btc_regime,
                 settings=settings,
                 cycle=self.cycle,
                 position=pos,
@@ -788,12 +803,16 @@ class Engine:
             btc_regime=btc_regime,
         )
 
-    async def _fresh_1h(self, session: Session, pair: str, now: datetime) -> list[Candle]:
-        """1h candles with the stale retry: up to 3 retries 10 s apart when
-        the newest expected closed bar is missing (not yet published), then
-        whatever we have — the freshness gate decides below."""
+    async def _fresh_1h(
+        self, session: Session, pair: str, now: datetime, *, retries: int = STALE_RETRIES
+    ) -> list[Candle]:
+        """1h candles with the stale retry: up to ``retries`` retries 10 s
+        apart when the newest expected closed bar is missing (not yet
+        published), then whatever we have — the freshness gate decides
+        below. Re-evaluations pass ``retries=0`` so the watcher is never
+        held up by its own retry loop."""
         candles: list[Candle] = []
-        for attempt in range(STALE_RETRIES + 1):
+        for attempt in range(retries + 1):
             candles = await self._fetch_closed(session, pair, "1h", self.clock())
             if candles:
                 # The newest bar that should be closed opened one interval
@@ -801,7 +820,7 @@ class Engine:
                 boundary = self.clock().replace(minute=0, second=0, microsecond=0)
                 if candles[-1].open_time >= boundary - timedelta(seconds=TF_SECONDS["1h"]):
                     return candles
-            if attempt < STALE_RETRIES:
+            if attempt < retries:
                 await self._sleep(STALE_RETRY_S)
         return candles
 
@@ -819,8 +838,14 @@ class Engine:
         *,
         btc_regime: Regime | None = None,
     ) -> Decision:
-        if draft.action == "SELL" or (
-            draft.action == "BUY" and self._settings().execution_mode == "auto"
+        if (
+            draft.action == "SELL"
+            or (draft.action == "BUY" and self._settings().execution_mode == "auto")
+            or (
+                draft.action != "BUY"
+                and draft.invalidation_price is not None
+                and pair in self.broker.positions
+            )
         ):
             # Snapshot inside the lock: a concurrent fill committed while we
             # waited must survive our rollback.
@@ -899,11 +924,24 @@ class Engine:
                         at=now,
                     )
             if action != "SKIP":
+                # Market fills happen at the last ticker price, not the
+                # (up to an hour old) candle close the signals ran on —
+                # the gates and sizing re-run on it, so a drifted entry
+                # fails or re-sizes instead of filling at a stale price.
+                entry_ref = draft.entry or price
+                if (
+                    limit_price is None
+                    and settings.execution_mode == "auto"
+                    and settings.paper.entry_orders != "limit"
+                ):
+                    ticker = await self._price(pair)
+                    if ticker > 0:
+                        entry_ref = ticker
                 ctx = await self._buy_ctx(
                     session,
                     pair,
                     now,
-                    entry=limit_price if limit_price is not None else (draft.entry or price),
+                    entry=limit_price if limit_price is not None else entry_ref,
                     stop=draft.stop or Decimal("0"),
                     target=draft.target or Decimal("0"),
                     atr_1h=(
@@ -939,7 +977,12 @@ class Engine:
                         status = "pending"
         elif draft.action == "SELL":
             if pair in self.broker.positions:
-                await self._close_position(session, pair, price, now, "model_sell")
+                # Market exits fill at the last ticker, not the closed
+                # candle's close.
+                fill_px = await self._price(pair)
+                await self._close_position(
+                    session, pair, fill_px if fill_px > 0 else price, now, "model_sell"
+                )
                 status = "executed"
         # A non-BUY decision on a held pair arms the invalidation re-eval
         # at the price the decider set (crossing it triggers one model call).
@@ -1321,7 +1364,7 @@ class Engine:
     async def tick(self) -> None:
         """One 30-second watcher pass: prices, exits, kill, shock brake."""
         async with self._execution_lock:
-            re_eval = await self._tick_locked()
+            re_eval, shadow_re_eval = await self._tick_locked()
         # Invalidation re-evaluations run AFTER the lock is released:
         # _decide_pair -> _execute_draft re-acquires it for SELL/auto BUY
         # and asyncio.Lock is not reentrant, so running them inside the
@@ -1329,27 +1372,34 @@ class Engine:
         for pair in re_eval:
             session = self._sessions()
             try:
-                await self._decide_pair(session, pair, {}, self.clock())
+                await self._decide_pair(
+                    session, pair, {}, self.clock(), allow_stale_retry=False
+                )
             except Exception as exc:
                 await self._record_pair_failure(session, pair, exc)
             finally:
                 session.close()
+        # The same for shadow positions whose invalidation price crossed:
+        # their re-evaluations also run outside the lock.
+        if self.shadows is not None and shadow_re_eval:
+            await self.shadows.re_evaluate(self.clock(), shadow_re_eval)
         # Fills, exits and kills land between cycles — the snapshot push
         # keeps connected clients live instead of waiting for a cycle end.
         await self._push()
 
-    async def _tick_locked(self) -> list[str]:
+    async def _tick_locked(self) -> tuple[list[str], Any]:
         now = self.clock()
         session = self._sessions()
         state = self._capture_execution_state()
         re_eval: list[str] = []
+        shadow_re_eval: Any = []
         try:
             settings = self._settings()
             await self._tick_shock_btc(session, now, settings)
             filled = await self._tick_entry_orders(session, now, settings)
             await self._tick_positions(session, now, settings, filled, re_eval)
             if self.shadows is not None:
-                await self.shadows.tick(now)
+                shadow_re_eval = await self.shadows.tick(now)
             await self._tick_pending(session, now)
             await self._tick_kill(session, now, settings)
             await self._tick_risk_notifications(session, now, settings)
@@ -1361,7 +1411,7 @@ class Engine:
             raise
         finally:
             session.close()
-        return re_eval
+        return re_eval, shadow_re_eval
 
     async def _priced(self, pair: str) -> tuple[Decimal, bool]:
         """(price, fresh) — the ticker price, or the last cached price when
@@ -1371,7 +1421,9 @@ class Engine:
         bound a pair reports 0 so no exit, kill or fill ever fires on data
         old enough to be wrong."""
         try:
-            price = await self.client.ticker_price(pair)
+            # Bound the 429 back-off: a full rate-limit wait under the
+            # execution lock would stall every pair's exits for a minute+.
+            price = await self.client.ticker_price(pair, max_429_wait_s=2.0)
         except MarketDataError:
             price = Decimal("0")
         if price > 0:
@@ -1414,7 +1466,7 @@ class Engine:
             # Trailing needs the newest stored closed 1h close.
             last_1h = repo.load_candles(session, pair, "1h", 2)
             last_1h = drop_forming(last_1h, "1h", now)
-            if last_1h:
+            if last_1h and last_1h[-1].close_time("1h") > pos.opened_at:
                 update_trail(pos, last_1h[-1].close)
             atr = self._atr_1h(session, pair, now)
             # The target's style belongs to the position: a maker-filled
@@ -1777,14 +1829,18 @@ class Engine:
     async def _trigger_shock(
         self, session: Session, now: datetime, settings: Settings, source: str
     ) -> None:
-        if self.shock_brake_until is not None and self.shock_brake_until > now:
-            return
+        active = self.shock_brake_until is not None and self.shock_brake_until > now
+        # Entries stay blocked for the full window from the LAST trigger —
+        # a new shock while the brake is on extends it, without re-alerting.
         until = now + timedelta(hours=float(settings.risk.shock_brake_hours))
         self.shock_brake_until = until
         # Persist on the account row so a restart cannot silently lift the
         # brake; staged here so the brake lands with this session's commit.
         self.broker.account.shock_brake_until = until
         session.merge(self.broker.account)
+        if active:
+            repo.add_activity(session, "alert", f"shock brake extended ({source})", at=now)
+            return
         message = f"{source}; entries paused until {until.isoformat()}"
         repo.add_activity(session, "alert", f"shock brake ON ({message})", at=now)
         await self._notify("risk_control", "Shock brake on", message)

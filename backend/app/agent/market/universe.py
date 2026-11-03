@@ -279,10 +279,10 @@ def entries_allowed(session: Session, market: str) -> bool:
     """A market takes new entries only while it is active and passing the
     daily eligibility check — a market that is failing stays active for
     display but takes no new entries, and a deactivated one takes none.
-    A missing row means the check never ran; the freshness and input
-    checks still guard the pair."""
+    A missing row means the check never ran — an unchecked market takes
+    no entries either."""
     row = session.get(MarketRow, market)
-    return row is None or (row.active and row.eligible)
+    return row is not None and row.active and row.eligible
 
 
 async def backfill_market(

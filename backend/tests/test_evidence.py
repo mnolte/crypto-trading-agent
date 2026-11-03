@@ -32,6 +32,7 @@ from app.db import (
     DecisionRow,
     EquitySnapshotRow,
     LlmCallRow,
+    MarketRow,
     PaperOrderRow,
     PositionRow,
     ShadowRow,
@@ -89,6 +90,9 @@ def _seed_candles(
     for tf in ("1h", "4h", "1d"):
         candles = asyncio.run(sim.candles(market, cast(Any, tf), limit, end=through))
         repo.upsert_candles(session, market, cast(Any, tf), candles)
+    # Stand in for the startup eligibility check: a checked, eligible row.
+    if session.get(MarketRow, market) is None:
+        session.add(MarketRow(market=market, active=True, eligible=True))
 
 
 def _decision(

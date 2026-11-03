@@ -79,10 +79,11 @@ def health(state: Annotated[AppState, Depends(get_state)]) -> HealthOut:
         }
     finally:
         session.close()
+    engine = state.agent_engine
     return HealthOut(
-        status=state.status,
-        cycle=state.cycle,
-        last_cycle_at=None,
+        status=engine.status if engine is not None else state.status,
+        cycle=engine.cycle if engine is not None else state.cycle,
+        last_cycle_at=engine.last_cycle_at if engine is not None else None,
         sources=sources,
         source_age_s=source_age_s,
         errors_24h=errors_24h,
@@ -300,6 +301,7 @@ async def paper_reset(state: Annotated[AppState, Depends(get_state)]) -> Snapsho
             state.agent_engine.broker = broker
             state.agent_engine.kill = None
             state.agent_engine.status = "paused"
+            state.agent_engine.pending.clear()
         repo.add_activity(session, "system", f"paper account reset to #{account.id}")
         session.commit()
     finally:

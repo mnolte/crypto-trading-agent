@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.engine import Engine as DbEngine
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 from starlette.types import Scope
 
 from app import repo
@@ -271,6 +271,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             clock=agent_engine.clock,
             price_fn=agent_engine._price,
             notify=notification_dispatcher.notify,
+            shock_brake_until=lambda: agent_engine.shock_brake_until,
         )
         state.agent_engine = agent_engine
         await agent_engine.start()
@@ -331,6 +332,9 @@ class SpaStaticFiles(StaticFiles):
     """Serve the built Vite app; unknown paths fall back to index.html."""
 
     async def get_response(self, path: str, scope: Scope) -> Response:
+        # Unknown API paths must answer 404 JSON, not the SPA's index.html.
+        if path.startswith("api/"):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
         try:
             return await super().get_response(path, scope)
         except StarletteHTTPException as exc:

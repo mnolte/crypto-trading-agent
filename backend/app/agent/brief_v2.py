@@ -97,7 +97,9 @@ def _outcome(action: str, status: str) -> str:
     """The decision's outcome as the brief reports it."""
     if action == "SKIP":
         return "skipped"
-    if status in ("executed", "vetoed", "expired", "unfilled", "approved"):
+    if status in ("executed", "approved"):
+        return "executed"  # an approved pending filled
+    if status in ("vetoed", "expired", "unfilled"):
         return status
     if action == "HOLD":
         return "held"

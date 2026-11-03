@@ -421,7 +421,7 @@ async def replay_call(request: Request, call_id: str, body: LlmCallReplayIn) -> 
         used = budget.calls_today(session, account_id, now)
         if used >= settings.model.daily_call_budget:
             raise HTTPException(status_code=409, detail="daily call budget used")
-        spent = budget.month_spend_all(session, now)
+        spent = budget.month_spend_strict(session, now)
         if budget.cap_state(spent, settings.model.monthly_cost_cap_eur) != "ok":
             raise HTTPException(
                 status_code=409,

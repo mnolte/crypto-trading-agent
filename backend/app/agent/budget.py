@@ -87,9 +87,21 @@ def month_spend_all(session: Session, now: datetime) -> Decimal:
     return sum(repo.llm_costs_by_feature_all(session, start, end).values(), Decimal("0"))
 
 
-def cap_state(spent_eur: Decimal, cap_eur: Decimal) -> Literal["ok", "warn", "cap"]:
-    """warn from 80% of the monthly cap; cap at 100% — decisions go to Rules."""
-    if cap_eur <= 0:
+def month_spend_strict(session: Session, now: datetime) -> Decimal | None:
+    """Monthly spend for cap enforcement — ``None`` when any successful
+    call's EUR cost is unknown, so the cap fails closed instead of
+    treating unpriced spend as free."""
+    start, end = amsterdam_month_bounds(now)
+    if repo.llm_unknown_eur_cost(session, start, end):
+        return None
+    return sum(repo.llm_costs_by_feature_all(session, start, end).values(), Decimal("0"))
+
+
+def cap_state(spent_eur: Decimal | None, cap_eur: Decimal) -> Literal["ok", "warn", "cap"]:
+    """warn from 80% of the monthly cap; cap at 100% — decisions go to
+    Rules. Unknown spend (None) counts as cap: if the cost can't be
+    priced, we can't prove it's under the limit."""
+    if spent_eur is None or cap_eur <= 0:
         return "cap"
     if spent_eur >= cap_eur:
         return "cap"

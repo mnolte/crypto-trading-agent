@@ -688,16 +688,22 @@ class OpenAIDecider:
                     "baseline decides until midnight.",
                 )
                 return rules_draft
-            spent = budget.month_spend_all(session, now)
+            spent = budget.month_spend_strict(session, now)
             cap = budget.cap_state(spent, settings.model.monthly_cost_cap_eur)
             if cap == "cap":
                 await self._alert_once(
                     session,
                     now,
                     "cap",
-                    f"Model cost cap reached: EUR {spent} of "
-                    f"{settings.model.monthly_cost_cap_eur} this month. Decisions "
-                    "use the Rules baseline until the 1st.",
+                    (
+                        "Model spend is unknown this month (an unpriced model or "
+                        "missing EUR rate); decisions use the Rules baseline until "
+                        "the cost can be priced."
+                        if spent is None
+                        else f"Model cost cap reached: EUR {spent} of "
+                        f"{settings.model.monthly_cost_cap_eur} this month. Decisions "
+                        "use the Rules baseline until the 1st."
+                    ),
                 )
                 return rules_draft
             if cap == "warn":
@@ -760,6 +766,12 @@ class OpenAIDecider:
                 repo.add_llm_call(session, row)
                 session.commit()
                 first = input_fails[0]
+                if self._notify is not None:
+                    await self._notify(
+                        "model_failing",
+                        f"Model call blocked · {ctx.pair}",
+                        f"Input check failed — {first.name}: {first.detail}",
+                    )
                 return Draft(
                     action="HOLD",
                     confidence=0.0,
