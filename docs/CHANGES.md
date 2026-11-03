@@ -18,7 +18,7 @@ Newest first. Each entry names the sections it touches.
 
 - Decisions: breakout, rotation and dip-buying families failed the rule; the search for
   price-based strategies stops. Open item: test the positioning data in February 2027.
-- docs/RESEARCH.md: new section "Strategy families". tools/regime_history.py: part 6
+- docs/RESEARCH.md: new section "Strategy families". scripts/regime_history.py: part 6
   (--families).
 
 ## 2026-10-24 — PR 13 resumed
@@ -30,7 +30,7 @@ Newest first. Each entry names the sections it touches.
 - Decisions: strategy research result (no active approach beat a static BTC + cash mix
   at the same drawdown after costs) and the rule for future strategy changes. PR 10, 11
   and 13 paused; PR 12 only if nearly done; paper agent, v0.2 collector and fix PR continue.
-- New: docs/RESEARCH.md (the findings) and tools/regime_history.py (the research script).
+- New: docs/RESEARCH.md (the findings) and scripts/regime_history.py (the research script).
 
 ## 2026-10-22 — v0.2: prompt v2 (decision quality)
 

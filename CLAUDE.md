@@ -4,7 +4,7 @@ Read `AGENTS.md` first: its rules apply to Claude Code in full. This file only a
 
 ## Context
 
-- Trading Agent is a paper-only crypto trading agent on Bitvavo EUR markets. Behaviour is in `docs/SPEC.md`, look and wording in `design/`, strategy research in `docs/RESEARCH.md` and `tools/regime_history.py`.
+- Trading Agent is a paper-only crypto trading agent on Bitvavo EUR markets. Behaviour is in `docs/SPEC.md`, look and wording in `design/`, strategy research in `docs/RESEARCH.md` and `scripts/regime_history.py`.
 - Its sibling, Stock Trading Agent (`mnolte/stock-trading-agent`), leads on design and on shared screens. When a screen or rule exists in both, start from the stock version and adapt it to crypto (24/7 cycles, Bitvavo, euros, paper broker).
 - Marc builds with Devin for implementation and Claude for architecture, reviews, research and spec work. Expect to be asked to review PRs, check code against the spec, and update docs.
 - Build steps are numbered in the spec ("PR 14"); GitHub pull request numbers are different. Always name the build step.

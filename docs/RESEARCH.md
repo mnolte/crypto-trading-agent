@@ -1,7 +1,7 @@
 # Strategy research, October 2026
 
 Repository copy of the Claude Doc "Strategy research, October 2026" (23 October 2026).
-The script is `tools/regime_history.py`. This describes a backtest, not investment advice.
+The script is `scripts/regime_history.py`. This describes a backtest, not investment advice.
 
 ## Summary
 
@@ -120,9 +120,9 @@ grid agrees.
 ## How to reproduce
 
 ```bash
-python3 tools/regime_history.py                                     # regimes, ranges, trend trades
-python3 tools/regime_history.py --lab --no-ranges --no-trend        # trend variants, train/test
-python3 tools/regime_history.py --portfolio --no-ranges --no-trend  # allocators vs benchmarks
+python3 scripts/regime_history.py                                     # regimes, ranges, trend trades
+python3 scripts/regime_history.py --lab --no-ranges --no-trend        # trend variants, train/test
+python3 scripts/regime_history.py --portfolio --no-ranges --no-trend  # allocators vs benchmarks
 ```
 
 Standard library only; candles are cached in `$TA_DATA_DIR/candle_cache`. A later run covers a
