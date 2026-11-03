@@ -2,6 +2,12 @@
 
 Newest first. Each entry names the sections it touches.
 
+## 2026-11-04 — v0.3: cycles for a 24/7 market
+
+- v0.3 → Shell and Dashboard: the cycle strip becomes the Cycles card with a rolling 24-hour timeline (slot states and precedence, missed and paused slots, scheduled jobs, summary); nothing counts per Amsterdam day. The scheduler stores skipped slots with their reason. New endpoint `GET /api/cycles/recent?hours=24`.
+- "Today's decisions" becomes "Decisions · last 24 hours" (rolling, not since midnight).
+- docs/kickoffs/pr-14.md updated to match.
+
 ## 2026-11-03 — v0.3: screens and tools from Stock Trading Agent
 
 - New section "v0.3: screens and tools from Stock Trading Agent":

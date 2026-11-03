@@ -981,7 +981,7 @@ The design of 3 November 2026 follows Stock Trading Agent. This is the behaviour
 - Equity, Today (P&L since 00:00 Amsterdam, in € and %) and Regime (BTC's trend × volatility);
 - Ask (Ctrl/⌘+J), Pause or Resume, and Stop & flatten. Ask moves here from the sidebar.
 
-Screen controls (filters, periods, export, save) sit at the top of the page, not in the header. Run now moves to the cycle strip and the News flag to the risk budget card; both keep their behaviour.
+Screen controls (filters, periods, export, save) sit at the top of the page, not in the header. Run now moves to the cycles card and the News flag to the risk budget card; both keep their behaviour.
 
 **Needs you.** A list, computed in code each cycle and on every change, of things only Marc can resolve, most urgent first, each with one action:
 
@@ -997,13 +997,18 @@ Screen controls (filters, periods, export, save) sit at the top of the page, not
 
 The header chip shows the count and is hidden at 0; the Dashboard card is first on the page and, at 0, shrinks to its health line: Bitvavo candles (time of the last closed candle), price stream, clock offset, OpenAI key and the v0.2 collector. Items leave the list when their cause is gone. `GET /api/needs` returns the list; the snapshot carries it as `needs`.
 
-**Dashboard order:** Needs you; the cycle strip; two tiles (model calls today, return since start against holding BTC); open positions next to the risk budget; price chart next to the latest decision; today's decisions next to the morning briefing; Markets.
+**Dashboard order:** Needs you; the cycles card; two tiles (model calls today, return since start against holding BTC); open positions next to the risk budget; price chart next to the latest decision; decisions of the last 24 hours next to the morning briefing; Markets.
 
-- **Cycle strip:** the quiet line (unchanged), and a cycle counter with the next cycle's time (UTC in a tooltip), a countdown, this hour's four cycles (done, next, later), "Cycle n of 96 today · #id this run" and Run now.
+- **Cycles card:** built for a market that never closes, so nothing counts per day. The top shows the quiet line (unchanged), the next cycle's time (UTC in a tooltip), a countdown with a bar through the current 15-minute interval, "every 15 min, day and night" and Run now. Below it a rolling timeline: one slot per scheduled quarter hour for the last 24 hours (96 slots) and the next 3 hours (12), with the date at midnight and time labels every 3 hours.
+    - Each past slot has one state, the most important when several apply: error answered by Rules (amber, "!") › exit (green for a gain, red for a loss, "S") › entry (green, "B") › stop moved (blue, "↑") › no change (grey). Slots without a cycle are missed (outline: the computer was asleep or the app was stopped; skipped, never replayed, as the sleep rule says) or paused (hatched). The next slot has an amber outline; later slots an empty outline. A Run now cycle counts in the slot of its quarter hour. The tooltip lists everything in the slot with its Amsterdam and UTC time.
+    - Scheduled jobs are marked under their slot: the eligibility check, the daily backup, the morning briefing and the weekly review.
+    - A summary line: cycles that ran out of those scheduled in the last 24 hours, missed slots with their times and reason, errors, the current cycle id, and how long the agent has run since its last start.
+    - At phone width the timeline shows the last 6 hours and the next 3.
+    - The scheduler stores every slot it skips, with the reason (asleep, stopped, paused), so missed slots come from records, not from guessing at gaps. `GET /api/cycles/recent?hours=24` returns the slots, the jobs, the summary and the grouped decisions for this card and the decisions card.
 - **Open positions:** a row per position with a bar from stop to target, the entry tick and the last price; the distance to the stop in % and in ATR(1h), amber under 1.5 ATR; P&L in € and R, or "stop above entry" once the stop is past breakeven.
 - **Risk budget:** open risk, exposure, today's loss and drawdown as meters; room for more trades, correlated slots, risk per trade and throttle, shock brake, cooldown and the News flag with its button.
 - **Price chart:** 1h, 4h or 1d candles, EMA 20, EMA 50, VWAP (day, from 00:00 UTC), and entry, stop and target lines for a held pair. Buttons for held pairs and Find pair replace the pair tabs.
-- **Today's decisions** replaces the Activity card. Decisions since 00:00 grouped by cycle, newest first; within a cycle grouped by action and reason ("NO CALL · AVAX, ADA, LINK · pre-filter"). Changes (entries, exits, stop moves) always show; older cycles fold to their changes. The activity log stays in the API and in Ask; errors move to the Logs screen (PR 15).
+- **Decisions · last 24 hours** replaces the Activity card. A rolling 24 hours (not since midnight), grouped by cycle, newest first; within a cycle grouped by action and reason ("NO CALL · AVAX, ADA, LINK · pre-filter"). Changes (entries, exits, stop moves) always show; older cycles fold to their changes. The activity log stays in the API and in Ask; errors move to the Logs screen (PR 15).
 - **Markets card:** every active pair with price, 24h change, regime, the pre-filter result (passed, held, the failed condition, paused, warming up) and the last action. Filters All, Pass rules, Held, Paused, and search. Clicking a row charts it.
 
 **Phone width.** Every screen works from 390 px wide. Below 820 px a sticky top bar replaces the sidebar: app mark, screen title, Needs you count, Ask and a menu button that opens the sidebar as an overlay. Wide tables scroll inside their card; no screen scrolls sideways. This replaces "Layout works from 1100 px wide".
