@@ -16,14 +16,38 @@ export function formatEur(value: string | number, decimals = 2): string {
   return `${n < 0 ? "−" : ""}€${fmt.format(Math.abs(n))}`;
 }
 
+/**
+ * Decimals for a price display: 2 at or above €1, enough below €1 to keep
+ * 4 significant digits (0.003832, 0.000003991 — never scientific notation).
+ */
+function priceDecimals(n: number): number {
+  const a = Math.abs(n);
+  if (a === 0 || a >= 1) return 2;
+  return Math.max(0, 3 - Math.floor(Math.log10(a)));
+}
+
 /** "61240.5" -> "61,240.50" — a price without the currency sign. */
-export function formatPrice(value: string | number, decimals = 2): string {
+export function formatPrice(value: string | number, decimals?: number): string {
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
+  const max = decimals ?? priceDecimals(n);
   return new Intl.NumberFormat("en-GB", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
+    minimumFractionDigits: decimals ?? 2,
+    maximumFractionDigits: max,
   }).format(n);
+}
+
+/**
+ * Lightweight Charts price format with the same precision as
+ * {@link formatPrice}; `sample` is any price from the series shown.
+ */
+export function chartPriceFormat(sample: number): {
+  type: "price";
+  precision: number;
+  minMove: number;
+} {
+  const d = priceDecimals(sample);
+  return { type: "price", precision: d, minMove: 10 ** -d };
 }
 
 /** Always signed percent for money/price changes: 1.42 -> "+1.42%". */

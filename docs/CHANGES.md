@@ -2,6 +2,40 @@
 
 Newest first. Each entry names the sections it touches.
 
+## 2026-10-24 — PR 13 resumed
+
+- Decisions: PR 13 (prompt v2, brief version 2) goes ahead; PR 10 and 11 stay paused.
+
+## 2026-10-23 — Strategy research and pause
+
+- Decisions: strategy research result (no active approach beat a static BTC + cash mix
+  at the same drawdown after costs) and the rule for future strategy changes. PR 10, 11
+  and 13 paused; PR 12 only if nearly done; paper agent, v0.2 collector and fix PR continue.
+- New: docs/RESEARCH.md (the findings) and tools/regime_history.py (the research script).
+
+## 2026-10-22 — v0.2: prompt v2 (decision quality)
+
+- New subsection "Prompt v2: decision quality": brief versions declared in the prompt
+  header; version 2 brief fields (`previous_decision` outcome, failed gates and repeats;
+  `trade_math` with stop zone, stop and target candidates, workable pairs with R/R,
+  `buy_feasible` and the 1h conditions); output schema v2 (`stop_basis`, `target_basis`,
+  enum signal names, levels null unless BUY); v2 post-checks; upgrade of stored v1
+  briefs for replays; validation by replay and the switch criteria.
+- New prompt file `backend/prompts/decision.v2.md` (written by Marc).
+- The sentiment prompt of step 2 is now `decision.v3` (v2 plus the sentiment block);
+  Shadow A compares v3 with live on v2. Shadow B uses the live prompt version.
+- Build order: PR 13, before PR 10.
+
+## 2026-10-21 — v0.2: limit entries (Shadow B)
+
+- New subsection "Limit entries, tested as Shadow B": Entry orders setting (Market /
+  Limit post-only), maker fee (default 0.15%), stops and forced exits always at market,
+  fee gate with limit entries (0.45% costs → stop ≥ 1.5%), post-only placement, fill only
+  when price trades through the limit, cancel at the next cycle or when a gate blocks,
+  new `unfilled` status with tracked outcome, `paper_orders` table, What-if stays on
+  market orders, Shadow B (decision.v1 + limit entries), decision rule.
+- Build order: PR 12.
+
 ## 2026-10-14 — v0.2: positioning data
 
 - New section "v0.2: positioning data" before "After v0.1": step 1 collector (OKX

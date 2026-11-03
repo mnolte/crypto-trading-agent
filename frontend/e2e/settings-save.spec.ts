@@ -24,7 +24,8 @@ test("settings save button persists changes across reload", async ({ page }) => 
   await page.waitForResponse(
     (r) => r.url().includes("/api/settings") && r.request().method() === "PUT",
   );
-  expect(putBody?.notifications?.browser_enabled).toBe(!wasChecked);
+  const body = putBody as { notifications?: { browser_enabled?: boolean } } | null;
+  expect(body?.notifications?.browser_enabled).toBe(!wasChecked);
 
   await page.reload();
   await expect(page.getByLabel("kill_switch browser")).toBeChecked();

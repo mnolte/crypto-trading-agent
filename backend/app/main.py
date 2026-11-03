@@ -223,6 +223,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             risk_view=agent_engine.risk_view,
             clock=agent_engine.clock,
             notify=notification_dispatcher.notify,
+            market_rules=state.market_rules,
         )
         # Shadows run on the same cycle snapshot and watcher tick, on their
         # own paper books (PR 8).

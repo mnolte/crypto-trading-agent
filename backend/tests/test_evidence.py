@@ -31,6 +31,7 @@ from app.db import (
     DecisionRow,
     EquitySnapshotRow,
     LlmCallRow,
+    PaperOrderRow,
     PositionRow,
     ShadowRow,
     TradeRow,
@@ -945,3 +946,72 @@ def test_weekly_review_fallback_and_persist(sessions: sessionmaker[Session]) -> 
         assert row2 is None
     finally:
         session.close()
+
+
+def test_shadow_b_limit_entries_leave_live_untouched(
+    sessions: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Shadow B = decision.v1 + limit entries: the override rests the
+    shadow's entry as a post-only order while live stays on market and
+    the live book is never touched."""
+    sim = SimMarket(seed=7, markets=["BTC-EUR", "USDC-EUR"], now=NOW)
+    live_settings = Settings(active_markets=["BTC-EUR"])
+    session = sessions()
+    try:
+        account = _live_account(session)
+        _seed_candles(session, "BTC-EUR", sim, NOW)
+        _seed_candles(session, "USDC-EUR", sim, NOW)
+        row = shadows.create_shadow(
+            session,
+            live_account=account,
+            live_equity=Decimal("10000"),
+            name=None,
+            model="gpt-4o-mini",
+            prompt_version="decision.v1",
+            overrides={"paper.entry_orders": "limit"},
+            daily_call_limit=300,
+            now=NOW - HOUR,
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    last = asyncio.run(sim.ticker_price("BTC-EUR"))
+    draft = Draft(
+        action="BUY",
+        confidence=0.8,
+        reasoning="b",
+        signals=[],
+        decider="openai",
+        model="gpt-4o-mini",
+        prompt_version="decision.v1",
+        entry=last,
+        stop=last * Decimal("0.97"),
+        target=last * Decimal("1.10"),
+    )
+    runner = _runner(sessions, sim, live_settings, draft, monkeypatch)
+    asyncio.run(runner.run_cycle(NOW, 1))
+
+    session = sessions()
+    try:
+        order = session.scalar(
+            select(PaperOrderRow).where(PaperOrderRow.account_id == row.account_id)
+        )
+        assert order is not None
+        assert order.leg == "entry" and order.status == "open"
+        assert Decimal(order.limit_price) <= last  # post-only: never above the ask
+        # The shadow's book waits; live holds nothing and placed nothing.
+        assert session.get(PositionRow, ("BTC-EUR", row.account_id)) is None
+        assert (
+            session.scalar(
+                select(func.count()).select_from(PaperOrderRow).where(PaperOrderRow.account_id == 1)
+            )
+            == 0
+        )
+        out = shadows.shadow_out(session, row, 1, NOW)
+        assert out.entry_orders == "limit"
+        assert out.orders_placed == 1 and out.orders_filled == 0
+    finally:
+        session.close()
+    # The override never leaks into the live settings.
+    assert live_settings.paper.entry_orders == "market"

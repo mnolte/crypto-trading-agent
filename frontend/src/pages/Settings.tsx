@@ -39,6 +39,7 @@ import { Dialog } from "../components/Dialog";
 import { FormField, Input, Select } from "../components/FormField";
 import { Meter } from "../components/Meter";
 import { PauseSelect } from "../components/PauseSelect";
+import { SegmentedControl } from "../components/SegmentedControl";
 import {
   formatDateTime,
   formatEur,
@@ -101,6 +102,7 @@ export function Settings() {
   const [shadowForm, setShadowForm] = useState(false);
   const [shadowModel, setShadowModel] = useState("");
   const [shadowPrompt, setShadowPrompt] = useState("decision.v1");
+  const [shadowEntryOrders, setShadowEntryOrders] = useState("market");
   const [promoteShadow, setPromoteShadow] = useState<string | null>(null);
   const [shadowError, setShadowError] = useState<string | null>(null);
 
@@ -487,9 +489,29 @@ export function Settings() {
           </FormField>
           <div className="settings-fields">
             <NumField label="Starting balance (€)" value={draft?.paper.start_balance_eur} onChange={(v) => setPaper("start_balance_eur", v)} />
-            <NumField label="Fee per side (%)" value={draft?.paper.fee_pct} onChange={(v) => setPaper("fee_pct", v)} />
-            <NumField label="Slippage (%)" value={draft?.paper.slippage_pct} onChange={(v) => setPaper("slippage_pct", v)} />
+            <NumField label="Slippage on market orders (%)" value={draft?.paper.slippage_pct} onChange={(v) => setPaper("slippage_pct", v)} />
+            <NumField label="Taker fee per side (%)" value={draft?.paper.taker_fee_pct} onChange={(v) => setPaper("taker_fee_pct", v)} />
+            <NumField label="Maker fee per side (%)" value={draft?.paper.maker_fee_pct} onChange={(v) => setPaper("maker_fee_pct", v)} />
           </div>
+          <FormField label="Entry orders">
+            <SegmentedControl
+              label="Entry orders"
+              value={draft?.paper.entry_orders ?? "market"}
+              onChange={(v) =>
+                setPaper("entry_orders", v as SettingsType["paper"]["entry_orders"])
+              }
+              options={[
+                { value: "market", label: "Market" },
+                { value: "limit", label: "Limit (post-only)" },
+              ]}
+            />
+          </FormField>
+          <p className="card__meta" style={{ margin: 0 }}>
+            Limit: entries and targets pay the maker fee and may not fill; an
+            unfilled entry is cancelled at the next cycle. Stops and forced
+            exits always use market orders. Min. stop: 2.0% with market, 1.5%
+            with limit entries. Test it as Shadow B first.
+          </p>
           <div className="settings-row">
             <a className="btn btn--secondary" href="/api/export/trades.csv" download>
               Export trades (CSV)
@@ -714,6 +736,7 @@ export function Settings() {
               onClick={() => {
                 setShadowModel(draft?.model.model_id ?? "");
                 setShadowPrompt(draft?.model.prompt_version ?? "decision.v1");
+                setShadowEntryOrders("market");
                 setShadowError(null);
                 setShadowForm(true);
               }}
@@ -733,21 +756,43 @@ export function Settings() {
           {(shadows?.items ?? []).map((s) => (
             <div key={s.id} className="shadow-row">
               <div className="shadow-row__main">
-                <span className="shadow-row__name">{s.name}</span>
+                <span className="shadow-row__name">
+                  {s.name}
+                  {s.entry_orders === "limit" && (
+                    <Chip variant="side">v0.2</Chip>
+                  )}
+                </span>
                 <span className="card__meta">
-                  {s.model} · {s.prompt_version} · since{" "}
+                  {s.model} · {s.prompt_version}
+                  {s.entry_orders === "limit" ? " · limit entries" : ""} · since{" "}
                   {formatDateTime(s.created_at)}
                   {s.paused ? " · paused (cost cap)" : ""}
                 </span>
               </div>
-              <div className="card__meta shadow-row__stat">
+              <div
+                className="card__meta shadow-row__stat"
+                title={
+                  s.entry_orders === "limit" && s.orders_placed > 0
+                    ? `Entries filled of placed.${
+                        s.orders_placed - s.orders_filled > 0
+                          ? ` The ${s.orders_placed - s.orders_filled} unfilled entries` +
+                            (s.missed_fill_avg_r != null
+                              ? ` would have averaged ${formatSigned(Number(s.missed_fill_avg_r))}R (missed fills).`
+                              : " have no outcome data yet.")
+                          : ""
+                      }`
+                    : undefined
+                }
+              >
                 {s.return_pct != null ? `${formatSigned(s.return_pct)}%` : "—"}
                 {" vs main "}
                 {s.live_return_pct != null
                   ? `${formatSigned(s.live_return_pct)}%`
                   : "—"}
                 {" · "}
-                {s.decisions} decisions
+                {s.decisions} trades
+                {s.entry_orders === "limit" &&
+                  ` · ${s.orders_filled}/${s.orders_placed} filled`}
               </div>
               <div className="shadow-row__actions">
                 <Link to="/inspector" className="btn btn--secondary btn--sm">
@@ -771,8 +816,8 @@ export function Settings() {
             </div>
           ))}
           <p className="card__meta" style={{ margin: 0 }}>
-            Promote replaces the main prompt or model after a confirmation.
-            The old version stays in the inspector history.
+            Promote replaces the main prompt, model or entry order type after
+            a confirmation. The old version stays in the inspector history.
           </p>
         </Card>
 
@@ -863,7 +908,10 @@ export function Settings() {
                   {
                     model: shadowModel.trim(),
                     prompt_version: shadowPrompt,
-                    overrides: {},
+                    overrides:
+                      shadowEntryOrders === "limit"
+                        ? { "paper.entry_orders": "limit" }
+                        : {},
                     daily_call_limit: 300,
                   },
                   {
@@ -898,6 +946,17 @@ export function Settings() {
                   </option>
                 ))}
               </Select>
+            </FormField>
+            <FormField label="Entry orders">
+              <SegmentedControl
+                label="Entry orders"
+                value={shadowEntryOrders}
+                onChange={setShadowEntryOrders}
+                options={[
+                  { value: "market", label: "Market" },
+                  { value: "limit", label: "Limit (post-only)" },
+                ]}
+              />
             </FormField>
           </div>
           <p className="card__meta" style={{ margin: 0 }}>

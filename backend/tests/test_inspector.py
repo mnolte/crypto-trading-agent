@@ -248,7 +248,7 @@ def test_export_returns_only_verdicted_calls(client: TestClient) -> None:
 def test_costs_reports_month_spend(client: TestClient) -> None:
     _call_row(client, call_id="c1", cost_eur="0.0100")
     _call_row(client, call_id="c2", cost_eur="0.0200", feature="replay")
-    costs = client.get("/api/costs").json()
+    costs = client.get("/api/costs?month=2026-10").json()
     assert costs["cap_eur"] == "10"
     assert float(costs["spent_eur"]) == pytest.approx(0.03)
     assert float(costs["spent_usd"]) == pytest.approx(0.022)
@@ -258,7 +258,7 @@ def test_costs_reports_month_spend(client: TestClient) -> None:
 
 def test_costs_usd_none_when_a_priced_call_is_unknown(client: TestClient) -> None:
     _call_row(client, call_id="c1", cost_usd=None)
-    costs = client.get("/api/costs").json()
+    costs = client.get("/api/costs?month=2026-10").json()
     assert costs["spent_usd"] is None  # a successful call's price was unknown
 
 
@@ -266,7 +266,7 @@ def test_costs_usd_ignores_failed_and_blocked_calls(client: TestClient) -> None:
     _call_row(client, call_id="c1", cost_usd="0.0110")
     _call_row(client, call_id="c2", status="api_error", cost_usd=None)
     _call_row(client, call_id="c3", status="input_blocked", cost_usd=None)
-    costs = client.get("/api/costs").json()
+    costs = client.get("/api/costs?month=2026-10").json()
     assert float(costs["spent_usd"]) == pytest.approx(0.011)
 
 

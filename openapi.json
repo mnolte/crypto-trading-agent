@@ -1051,6 +1051,7 @@
               "approved",
               "vetoed",
               "expired",
+              "unfilled",
               "none"
             ],
             "title": "Status",
@@ -1082,6 +1083,16 @@
         "properties": {
           "decision": {
             "$ref": "#/components/schemas/Decision"
+          },
+          "entry_order": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaperOrderOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "execution_mode": {
             "enum": [
@@ -1401,6 +1412,17 @@
       },
       "Gate": {
         "properties": {
+          "limit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -2226,6 +2248,17 @@
               }
             ],
             "title": "Brief"
+          },
+          "brief_upgraded": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brief Upgraded"
           },
           "cost_eur": {
             "anyOf": [
@@ -3594,9 +3627,166 @@
         "title": "OutcomeStatsRow",
         "type": "object"
       },
+      "PaperOrderOut": {
+        "description": "One simulated limit order (entry or target leg).",
+        "properties": {
+          "cancel_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Reason"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "decision_id": {
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "fill_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fill Price"
+          },
+          "filled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filled At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Price"
+          },
+          "leg": {
+            "enum": [
+              "entry",
+              "target"
+            ],
+            "title": "Leg",
+            "type": "string"
+          },
+          "limit_price": {
+            "title": "Limit Price",
+            "type": "string"
+          },
+          "min_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Price"
+          },
+          "pair": {
+            "title": "Pair",
+            "type": "string"
+          },
+          "placed_at": {
+            "format": "date-time",
+            "title": "Placed At",
+            "type": "string"
+          },
+          "qty": {
+            "title": "Qty",
+            "type": "string"
+          },
+          "side": {
+            "enum": [
+              "buy",
+              "sell"
+            ],
+            "title": "Side",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "filled",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "decision_id",
+          "pair",
+          "side",
+          "leg",
+          "limit_price",
+          "qty",
+          "placed_at",
+          "status"
+        ],
+        "title": "PaperOrderOut",
+        "type": "object"
+      },
       "PaperSettings-Input": {
         "properties": {
-          "fee_pct": {
+          "entry_orders": {
+            "default": "market",
+            "enum": [
+              "market",
+              "limit"
+            ],
+            "title": "Entry Orders",
+            "type": "string"
+          },
+          "maker_fee_pct": {
             "anyOf": [
               {
                 "type": "number"
@@ -3605,8 +3795,8 @@
                 "type": "string"
               }
             ],
-            "default": "0.25",
-            "title": "Fee Pct"
+            "default": "0.15",
+            "title": "Maker Fee Pct"
           },
           "slippage_pct": {
             "anyOf": [
@@ -3631,6 +3821,18 @@
             ],
             "default": "10000",
             "title": "Start Balance Eur"
+          },
+          "taker_fee_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0.25",
+            "title": "Taker Fee Pct"
           }
         },
         "title": "PaperSettings",
@@ -3638,9 +3840,18 @@
       },
       "PaperSettings-Output": {
         "properties": {
-          "fee_pct": {
-            "default": "0.25",
-            "title": "Fee Pct",
+          "entry_orders": {
+            "default": "market",
+            "enum": [
+              "market",
+              "limit"
+            ],
+            "title": "Entry Orders",
+            "type": "string"
+          },
+          "maker_fee_pct": {
+            "default": "0.15",
+            "title": "Maker Fee Pct",
             "type": "string"
           },
           "slippage_pct": {
@@ -3651,6 +3862,11 @@
           "start_balance_eur": {
             "default": "10000",
             "title": "Start Balance Eur",
+            "type": "string"
+          },
+          "taker_fee_pct": {
+            "default": "0.25",
+            "title": "Taker Fee Pct",
             "type": "string"
           }
         },
@@ -4611,6 +4827,18 @@
             "default": "2",
             "title": "Shock Brake Hours"
           },
+          "stop_buffer_atr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0.1",
+            "title": "Stop Buffer Atr"
+          },
           "stop_max_atr": {
             "anyOf": [
               {
@@ -4775,6 +5003,11 @@
           "shock_brake_hours": {
             "default": "2",
             "title": "Shock Brake Hours",
+            "type": "string"
+          },
+          "stop_buffer_atr": {
+            "default": "0.1",
+            "title": "Stop Buffer Atr",
             "type": "string"
           },
           "stop_max_atr": {
@@ -5188,9 +5421,11 @@
           "paper": {
             "$ref": "#/components/schemas/PaperSettings-Input",
             "default": {
-              "fee_pct": "0.25",
+              "entry_orders": "market",
+              "maker_fee_pct": "0.15",
               "slippage_pct": "0.05",
-              "start_balance_eur": "10000"
+              "start_balance_eur": "10000",
+              "taker_fee_pct": "0.25"
             }
           },
           "readiness": {
@@ -5218,6 +5453,7 @@
               "risk_per_trade_pct": "1.0",
               "shock_brake_btc_move_pct": "4",
               "shock_brake_hours": "2",
+              "stop_buffer_atr": "0.1",
               "stop_max_atr": "5",
               "stop_min_atr": "0.5",
               "throttle_consecutive_losses": 3,
@@ -5412,9 +5648,11 @@
           "paper": {
             "$ref": "#/components/schemas/PaperSettings-Output",
             "default": {
-              "fee_pct": "0.25",
+              "entry_orders": "market",
+              "maker_fee_pct": "0.15",
               "slippage_pct": "0.05",
-              "start_balance_eur": "10000"
+              "start_balance_eur": "10000",
+              "taker_fee_pct": "0.25"
             }
           },
           "readiness": {
@@ -5442,6 +5680,7 @@
               "risk_per_trade_pct": "1.0",
               "shock_brake_btc_move_pct": "4",
               "shock_brake_hours": "2",
+              "stop_buffer_atr": "0.1",
               "stop_max_atr": "5",
               "stop_min_atr": "0.5",
               "throttle_consecutive_losses": 3,
@@ -5602,6 +5841,15 @@
             "title": "Decisions",
             "type": "integer"
           },
+          "entry_orders": {
+            "default": "market",
+            "enum": [
+              "market",
+              "limit"
+            ],
+            "title": "Entry Orders",
+            "type": "string"
+          },
           "equity": {
             "anyOf": [
               {
@@ -5628,6 +5876,17 @@
             ],
             "title": "Live Return Pct"
           },
+          "missed_fill_avg_r": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missed Fill Avg R"
+          },
           "model": {
             "title": "Model",
             "type": "string"
@@ -5635,6 +5894,16 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "orders_filled": {
+            "default": 0,
+            "title": "Orders Filled",
+            "type": "integer"
+          },
+          "orders_placed": {
+            "default": 0,
+            "title": "Orders Placed",
+            "type": "integer"
           },
           "overrides": {
             "additionalProperties": true,
@@ -8865,7 +9134,7 @@
     },
     "/api/llm-calls/{call_id}/replay": {
       "post": {
-        "description": "Re-send the stored request, optionally on another model or prompt\nversion. Replays count against the daily budget and pause at 80% of the\nmonthly cap.",
+        "description": "Re-send the stored request, optionally on another model or prompt\nversion. Replays count against the daily budget and pause at 80% of the\nmonthly cap. A target prompt with a newer brief version gets the stored\nbrief upgraded first \u2014 from candles closed by the call's own time.",
         "operationId": "replay_call_api_llm_calls__call_id__replay_post",
         "parameters": [
           {

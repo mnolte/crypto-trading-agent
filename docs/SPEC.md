@@ -873,30 +873,92 @@ An hourly collector stores six metrics for BTC and ETH from public, read-only en
 - Helper for step 2: `percentile_90d(metric, symbol, at)` returns the value's percentile among that metric's values in the 90 days before it, or null with fewer than 30 days of data.
 - Sources are confirmed reachable from the Netherlands before the build starts. Binance and Bybit no longer serve the Netherlands; OKX does. If OKX turns out to be unusable, the build stops and asks; it does not switch exchanges on its own.
 
+### Prompt v2: decision quality (built before step 2)
+
+The first 67 stored decision calls (all BTC-EUR, 21–22 October) showed that the model often cannot use the brief well. Every BUY was skipped by a gate (4 on costs vs risk with a 0.43% stop, 4 on R/R), and the same rejected BUY was proposed every 15 minutes for two hours because the brief never says what code did with it. Confidence was always 0.5 on HOLD and 0.8 on BUY. Invalidation was never filled in, so the early re-ask never fired. Signal names did not match the brief's keys, and one HOLD claimed stale data while every timeframe was fresh. `decision.v2` fixes how the model follows the existing rules. It does not change the strategy, the gates or the Rules pre-filter.
+
+**Brief versions.** The prompt file's header declares `brief_version`. The brief builder adds the version 2 fields below only for prompts with `brief_version: 2` or higher, so calls with `decision.v1` keep exactly the v1 brief. A replay of a stored v1 brief with a v2 prompt first upgrades it: the v2 fields are computed from the stored brief, the decisions table and the stored candles at that time.
+
+**New brief fields (version 2)**
+
+| Field | Content |
+| --- | --- |
+| `previous_decision` | As in v1 plus: `at`, `outcome` (executed, skipped, held, vetoed, expired, unfilled or none), `failed_gates` (each with name, value and limit, for a skipped BUY) and `repeats` (how many decisions in a row ended the same way on near-identical levels) |
+| `trade_math.stop_zone` | `highest`: the highest stop price that meets both the fee gate (`min_stop_pct`) and `min_stop_atr`; `lowest`: price − `max_stop_atr` × ATR(1h) |
+| `trade_math.stop_candidates` | Up to 5 support levels whose stop price falls inside the stop zone, searched down to the zone's lowest price (deeper than the 3 levels in `structure`). Each: `id` (S1–S5), `level` (the support), `price` (level − `stop_buffer_atr` × ATR(1h); default buffer 0.1, a config value), `dist_pct` and `source` (1h swing, 4h swing or previous day low) |
+| `trade_math.target_candidates` | Up to 5 resistance levels above price, including the previous day high when above price. Each: `id` (R1–R5), `price`, `dist_pct`, `source`. In a sideways regime only the nearest resistance is listed |
+| `trade_math.pairs` | Every stop and target pair whose R/R, computed by code at the current price, is at least `min_rr`: `stop_id`, `target_id`, `rr`. Best R/R first, at most 10 |
+| `trade_math.buy_feasible`, `infeasible_reason` | false when the regime is down (except BTC-EUR), when in a sideways regime price is more than 1 × ATR(1h) above the nearest support, when no support lies inside the stop zone, or when `pairs` is empty. The reason names which, with the numbers, e.g. "no support inside the stop zone (2.0% to 2.5% below price)" |
+| `trade_math.conditions_1h` | The five 1h BUY conditions as true or false: `ema20_above_50`, `above_vwap`, `obv_bullish`, `rsi_bullish`, `adx_trending`; plus `conditions_1h_met` and `conditions_1h_required` (3, or 4 when the pair's regime is younger than 6 bars) |
+
+`data_age_s` and `limits.max_age_s` stay in the brief for the inspector, but the v2 prompt has no staleness rule: stale data never reaches the model.
+
+**Output schema (version 2)**: v1 plus two fields; signal names become an enum.
+
+- `stop_basis`, `target_basis`: one of S1–S5 / R1–R5, or null. Required on BUY, null otherwise.
+- `signals[].name`: one of `rsi`, `ema20_vs_50`, `vwap_dist`, `obv_trend`, `adx`, `atr_pct`, `atr_rank`, `vol_x_avg`, `ema200_dist`.
+- On HOLD and SELL, `entry`, `stop`, `target`, `stop_basis` and `target_basis` are null.
+
+**Post-checks added for v2 outputs**
+
+- BUY while `trade_math.buy_feasible` is false → HOLD (failure).
+- BUY whose `stop_basis` and `target_basis` are not a listed pair, or whose stop or target differs from that candidate's price by more than one price tick → HOLD (failure).
+- BUY, SELL, or HOLD while holding, without `invalidation` or `invalidation_price` → warn.
+- BUY with the same `stop_basis`, `target_basis` and failed gate as the previous skipped BUY on this pair, when `failed_gates` is unchanged → warn "repeated rejected BUY" (the gates skip it anyway).
+- Levels set on HOLD or SELL → warn and ignore (as in v1).
+
+**Validation before live uses it** (replays, not P&L: there are too few trades to compare results)
+
+1. Replay `decision.v2` on every stored live decision call, each brief upgraded to version 2.
+2. Compare v1 and v2 per call: invalid outputs, post-check failures, Signal-claims warnings, invalidation present on BUY, repeated rejected BUYs, BUYs that would pass every gate, agreement with the Rules baseline, the spread of confidence values, tokens and cost.
+3. Switch live to `decision.v2` (Settings → Decision model → Prompt version, logged in the settings history) when v2 has no more invalid outputs than v1, Signal-claims warnings on under 10% of calls, invalidation on at least 95% of BUYs, no repeated rejected BUYs and no regime violations. Otherwise revise as `decision.v2.1` and replay again.
+4. The switch is logged and starts a new comparison window; Performance, Insights and the scorecard already group results by prompt version.
+
+The sentiment block of step 2 moves to `decision.v3` (v2 plus the sentiment block), so Shadow A still differs from live in one thing only.
+
 ### Step 2: sentiment block, tested as a shadow
 
 Starts when every metric has at least 30 days of data and the v0.1 measurement run has lasted at least 4 weeks.
 
 - Brief: a new `sentiment` block with, for BTC and ETH, the current funding rate, open interest and its 24h change in %, the long/short ratio, DVOL and the 25-delta skew. Every value comes with its 90-day percentile and a read: extreme high at the 90th percentile or above, extreme low at the 10th or below, otherwise normal. Briefs for other coins carry the BTC and ETH values labelled market-wide. Freshness limit: 2 hours (9 hours for settled funding). A stale or missing value is sent as null with the reason, and never blocks a decision.
-- Prompt: a new file, `decision.v2.md`, explains the block. Positioning extremes are contrarian warnings: they can lower confidence or turn a BUY into a HOLD, and are never a reason to buy on their own. The output schema stays the same. The signal-claims check also covers the sentiment reads.
-- Test: Shadow A runs the live model with `decision.v2` against live on `decision.v1`. The sentiment block is the only difference, so the comparison measures what it adds.
+- Prompt: a new file, `decision.v3.md` (`decision.v2` plus the sentiment block, `brief_version: 3`), explains the block. Positioning extremes are contrarian warnings: they can lower confidence or turn a BUY into a HOLD, and are never a reason to buy on their own. The output schema stays the same as v2. The signal-claims check also covers the sentiment reads.
+- Test: Shadow A runs the live model with `decision.v3` against live on `decision.v2`. The sentiment block is the only difference, so the comparison measures what it adds.
 - No gates use sentiment data in v0.2.
 - GUI: the Decision drawer shows the sentiment block (value, 90-day percentile and read per data point) below the signal stack, and two new rows in its safety gates: News flag and Macro event. Insights gets a positioning slice: BUY outcomes grouped by the funding and skew reads at entry.
 
 ### Step 3: decide
 
-After Shadow A has at least 30 closed trades, compare it with live over the same window, leaving out any shadow pause windows: average R after fees, max drawdown, profit factor, and missed vs avoided for HOLD and SKIP. Promote `decision.v2` when its average R is at least 0.05R higher and its max drawdown is no worse; otherwise keep `decision.v1`, keep collecting and look again after 30 more trades. Either way the result is logged in the decisions below.
+After Shadow A has at least 30 closed trades, compare it with live over the same window, leaving out any shadow pause windows: average R after fees, max drawdown, profit factor, and missed vs avoided for HOLD and SKIP. Promote `decision.v3` when its average R is at least 0.05R higher and its max drawdown is no worse; otherwise keep `decision.v2`, keep collecting and look again after 30 more trades. Either way the result is logged in the decisions below.
 
 ### Risk flags
 
 - **News flag:** a switch in Settings and on the Dashboard that blocks new entries on all pairs until cleared, for events such as an exchange hack or a major regulatory decision. Exits keep working; it appears in the quiet line and is logged. Ships with step 2 and applies to live and shadows.
 - **Macro calendar:** `config/macro_events.yaml` lists FOMC decisions, US CPI releases and US jobs reports (date, time UTC, type), kept up to date by Marc. A "Macro event" gate blocks new entries from 6 hours before to 1 hour after an event. Because the dates are known in advance, it is tested in What-if over the v0.1 period first, and switched on only if it does not lower average R.
 
+### Limit entries, tested as Shadow B
+
+v0.1 fills every order at market: the taker fee (0.25% per side) plus 0.05% slippage, so the fee gate needs stops at least 2% away and targets at least 4%. Limit entries pay the lower maker fee but do not always fill, and the trades that leave without you are often the best ones. This feature adds limit entries with an honest paper fill model and measures both effects as a shadow before live uses it.
+
+- **Setting:** Entry orders: Market (default) or Limit (post-only). Settings get a maker fee per side (default 0.15%; check Bitvavo's current fee schedule for the account's tier) next to the existing fee, which is renamed taker fee.
+- **Order types per leg:** with Limit selected, entries and targets are limit orders at the maker fee without slippage. Stops, time stops, the kill switch, Stop & flatten and manual closes always fill at market: taker fee plus slippage.
+- **Fee gate:** costs are the entry fee plus the costs of exiting at the stop, because risk is measured to the stop. Market entries: 2 × 0.25% + 2 × 0.05% = 0.6%, so a stop at least 2% away. Limit entries: 0.15% + 0.25% + 0.05% = 0.45%, so a stop at least 1.5% away and a 2.0R target at least 3% away. `limits.min_stop_pct` in the brief follows the order type.
+- **Placing a limit entry:** the limit price is the decision's entry price. Post-only cannot cross the spread: if the entry is at or above the best ask when the order is placed, the limit moves to the best bid. Size, R/R and every gate are computed at the limit price when the order is placed and checked again at fill.
+- **Fill rule:** the 30-second watcher fills the order only when the last traded price is at least one price tick below the limit. A touch is not a fill, because queue position is not modelled; this is the conservative proxy. Fill price = the limit price.
+- **Expiry:** an unfilled entry is cancelled at the pair's next cycle (15 minutes), or at once when a gate starts blocking entries (shock brake, news flag, entry pause, daily loss limit, kill switch). The decision gets the new status `unfilled`, and its outcome is tracked like a BUY that was not taken (from the decision's entry, stop and target), so missed winners and avoided losers are counted.
+- **Targets:** with Limit selected, the target rests as a limit order and fills by the same through-the-price rule. The stop is checked by the watcher as today.
+- **Data:** a `paper_orders` table (decision_id, account_id, pair, side, leg, limit_price, qty, placed_at, expires_at, status, filled_at, fill_price). `Decision.status` gains `unfilled`.
+- **What-if** keeps market orders: stored 1h candles and exit ticks cannot tell whether a limit would have filled within 15 minutes. Limit entries are measured only as a shadow.
+- **Shadow B:** the live model and prompt version with the override Entry orders = Limit. Prompt and model match live, so the order type is the only difference. When live switches prompt version, Shadow B follows and its comparison window restarts, so it is best started once live runs `decision.v2`. It does not wait for step 2.
+- **GUI:** Settings → Market data & paper account: Entry orders (Market / Limit) and the maker fee. The shadow row shows fills and missed fills. The Decision drawer shows a limit entry's state: placed, filled or unfilled, with times and prices. Compare for Shadow B adds fill rate and the average R that missed fills would have made.
+- **Decide:** after Shadow B has at least 30 closed trades, compare it with live over the same window, as in step 3. Switch live to limit entries only when Shadow B's average R after fees is at least 0.05R higher and its max drawdown is no worse. If missed fills would have averaged clearly more R than filled ones, that is adverse selection: keep market entries.
+
 ### Build order (v0.2)
 
 9. **Market context collector:** step 1.
-10. **Sentiment block:** the `sentiment` brief block, `decision.v2.md`, signal-claims check, Decision drawer and Insights additions, the news flag.
+10. **Sentiment block:** the `sentiment` brief block (`brief_version: 3`), `decision.v3.md`, signal-claims check, Decision drawer and Insights additions, the news flag. Built after PR 13.
 11. **Macro calendar:** the events file, the gate (off by default) and its What-if support.
+12. **Limit entries:** the Entry orders setting, maker fee, paper fill model, `paper_orders` table, `unfilled` status and outcomes, the fee-gate change, Shadow B support and the GUI parts above.
+13. **Decision quality (prompt v2):** brief versions, the version 2 brief fields (`previous_decision` outcome, `trade_math`), the version 2 output schema, the v2 post-checks, upgrading stored v1 briefs for replays, and a replay comparison report. `decision.v2.md` is written by Marc; build this before PR 10.
 
 ### Not in v0.2
 
@@ -966,3 +1028,5 @@ Funding, open interest, the long/short ratio and options data are the first grou
 - [x] Exposure cap 100% (spot, no leverage): cash and the 2.5% open-risk cap are the real limits.
 - [x] Cycles are fixed at 15 minutes in v0.1.
 - [x] A pending approval expires at the pair's next cycle or after a 0.5% move; R/R, size and gates are recomputed at the fill price.
+- [x] Strategy research (October 2026, see docs/RESEARCH.md): after costs, the Rules BUY on 1h or 4h, range trading and a regime allocator did not beat a static BTC + cash mix at the same drawdown. New strategy features are paused: PR 10 and 11 wait; PR 12 is finished only if nearly done. PR 13 (prompt v2) goes ahead (decided 24 October 2026) because it improves decision quality and measurement without changing the strategy. The paper agent, the v0.2 collector and the fix PR continue.
+- [x] Rule for strategy changes: an idea goes into this spec only when, in the research script (`tools/regime_history.py`), it beats the static BTC + cash mix at the same maximum drawdown in the training and the test period, and the sensitivity grid around its settings agrees.

@@ -70,10 +70,15 @@ OVERRIDABLE_PREFIXES = ("risk.", "rules.")
 OVERRIDABLE_KEYS = {
     "active_markets",
     "market.adx_threshold",
-    "paper.fee_pct",
+    "paper.taker_fee_pct",
+    "paper.maker_fee_pct",
     "paper.slippage_pct",
     "no_weekend_entries",  # scenario-only switch (the design's checkbox)
 }
+# Shadow strategies may additionally override the entry order type —
+# Shadow B = decision.v1 + limit entries. What-if itself always replays a
+# market-order world, so "paper.entry_orders" stays off its list.
+SHADOW_EXTRA_KEYS = {"paper.entry_orders"}
 
 _pause_re = re.compile(r"entries paused on (.+?) (until resumed|until (\S+))$")
 _resume_re = re.compile(r"entries resumed on (.+)$")
@@ -83,16 +88,20 @@ class WhatIfSpecError(ValueError):
     """An override path isn't a real overridable setting."""
 
 
-def apply_overrides(base: Settings, overrides: dict[str, object]) -> Settings:
+def apply_overrides(
+    base: Settings, overrides: dict[str, object], extra_keys: set[str] | None = None
+) -> Settings:
     """Return ``base`` with each dotted-path override applied.
 
     ``no_weekend_entries`` is not a live setting — the simulator reads it
-    straight from the spec — so it's skipped here."""
+    straight from the spec — so it's skipped here. ``extra_keys`` widens
+    the whitelist for callers with their own scope (shadow strategies)."""
+    allowed = OVERRIDABLE_KEYS | (extra_keys or set())
     doc = base.model_dump(mode="json")
     for path, value in overrides.items():
         if path == "no_weekend_entries":
             continue
-        if not (path in OVERRIDABLE_KEYS or path.startswith(OVERRIDABLE_PREFIXES)):
+        if not (path in allowed or path.startswith(OVERRIDABLE_PREFIXES)):
             raise WhatIfSpecError(f"setting {path} cannot be changed in What-if")
         node: dict[str, Any] = doc
         parts = path.split(".")
@@ -692,7 +701,7 @@ class _Sim:
         slipped), so matched trades reproduce the stored fill exactly."""
         stop = stop or ZERO
         target = target or ZERO
-        fee = qty * fill * self.broker.fee_pct / HUNDRED
+        fee = qty * fill * self.broker.taker_fee_pct / HUNDRED
         self.broker.cash -= qty * fill + fee
         self.fees += fee
         self.broker.positions[pair] = HeldPosition(
@@ -748,8 +757,8 @@ class _Sim:
         exit_reason: str | None,
         decision_id: str | None,
     ) -> None:
-        buy_fee = pos.qty * pos.entry * self.broker.fee_pct / HUNDRED
-        sell_fee = pos.qty * fill * self.broker.fee_pct / HUNDRED
+        buy_fee = pos.qty * pos.entry * self.broker.taker_fee_pct / HUNDRED
+        sell_fee = pos.qty * fill * self.broker.taker_fee_pct / HUNDRED
         self.broker.cash += pos.qty * fill - sell_fee
         self.fees += sell_fee
         realised = pos.qty * (fill - pos.entry) - buy_fee - sell_fee
@@ -1036,6 +1045,10 @@ async def run_whatif(session: Session, row: WhatifRow, market_rules: dict[str, M
     try:
         settings = repo.load_settings(session)
         scenario = apply_overrides(settings, spec.overrides)
+        # What-if replays a market-order world: stored candles can't tell
+        # whether a resting limit would have filled, whatever the base
+        # account's entry-order setting is.
+        scenario.paper.entry_orders = "market"
         account = repo.current_account(session)
 
         def progress(f: float) -> None:

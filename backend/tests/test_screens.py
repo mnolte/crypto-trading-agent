@@ -11,7 +11,7 @@ import csv
 import io
 import json
 from collections.abc import Iterator
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
@@ -28,6 +28,7 @@ from app.agent.market.base import Candle
 from app.agent.market.sim import SimMarket
 from app.api.deps import AppState
 from app.db import (
+    AMSTERDAM,
     AccountRow,
     ActivityRow,
     DecisionRow,
@@ -1014,14 +1015,28 @@ def test_snapshot_today_counters(screens_client: tuple[TestClient, SimMarket]) -
     client, _ = screens_client
     account_id = _account_id(client)
     session = _db(client)
+    # Clamp closes to the Amsterdam midnight (as a UTC instant): between 00:00
+    # and 01:00 CEST a "1 hour ago" close falls on yesterday, and trades_today
+    # would miss it.
+    midnight_utc = (
+        utcnow()
+        .astimezone(AMSTERDAM)
+        .replace(hour=0, minute=0, second=0, microsecond=0)
+        .astimezone(UTC)
+    )
     try:
-        _add_trade(session, account_id=account_id, opened=utcnow() - 2 * HOUR, closed=utcnow())
+        _add_trade(
+            session,
+            account_id=account_id,
+            opened=utcnow() - 2 * HOUR,
+            closed=max(midnight_utc, utcnow() - HOUR / 2),
+        )
         _add_trade(
             session,
             account_id=account_id,
             pair="ETH-EUR",
             opened=utcnow() - 3 * HOUR,
-            closed=utcnow() - HOUR,
+            closed=max(midnight_utc, utcnow() - HOUR),
             realised="-3",
             realised_r="-0.6",
         )

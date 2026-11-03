@@ -25,7 +25,14 @@ from app.agent.broker.paper import HeldPosition, PaperBroker
 from app.agent.deciders.base import DecideContext, Draft
 from app.agent.deciders.rules import RulesDecider
 from app.agent.engine import Engine, KilledRefusal
-from app.agent.market.base import Candle, MarketDataError, MarketInfo, OrderBook, Ticker24h
+from app.agent.market.base import (
+    BookLevel,
+    Candle,
+    MarketDataError,
+    MarketInfo,
+    OrderBook,
+    Ticker24h,
+)
 from app.config import get_env
 from app.db import (
     AccountRow,
@@ -115,6 +122,7 @@ class ScriptMarket:
         self.series: dict[tuple[str, str], list[Candle]] = {}
         self.tickers: dict[str, Decimal] = {}
         self.calls_1h: dict[str, int] = {}
+        self.books: dict[str, OrderBook] = {}
         self.now = now
 
     def add_uptrend(self, market: str, base: float = 100.0) -> None:
@@ -183,8 +191,15 @@ class ScriptMarket:
         bars = [c for c in self.series.get((market, interval), []) if c.open_time <= self.now]
         return bars[-limit:]
 
+    def set_book(self, market: str, bid: Decimal, ask: Decimal) -> None:
+        self.books[market] = OrderBook(
+            market=market,
+            bids=[BookLevel(price=bid, size=Decimal("5"))],
+            asks=[BookLevel(price=ask, size=Decimal("5"))],
+        )
+
     async def order_book(self, market: str, depth: int = 50) -> OrderBook:
-        return OrderBook(market=market, bids=[], asks=[])
+        return self.books.get(market) or OrderBook(market=market, bids=[], asks=[])
 
     async def ticker_price(self, market: str) -> Decimal:
         return self.tickers.get(market, Decimal("0"))
@@ -795,6 +810,61 @@ async def test_shock_brake_btc_move_triggers(env: Path) -> None:
     e.clock.advance(seconds=30)
     await e.engine.tick()
     assert e.engine.shock_brake_until == first_until
+
+
+async def test_shock_brake_survives_restart(env: Path) -> None:
+    """The brake is persisted on the account row: a restart restores it
+    instead of silently lifting it and re-alerting."""
+    e1 = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e1.market.tickers["BTC-EUR"] = Decimal("100")
+    await e1.engine.tick()
+    e1.clock.advance(minutes=30)
+    e1.market.tickers["BTC-EUR"] = Decimal("105")
+    await e1.engine.tick()
+    until = e1.engine.shock_brake_until
+    assert until is not None
+    e1.db_engine.dispose()
+
+    e2 = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    session = e2.session()
+    try:
+        e2.engine._recover_startup(session)
+        session.commit()
+    finally:
+        session.close()
+    assert e2.engine.shock_brake_until == until
+
+
+async def test_cycle_number_survives_restart(env: Path) -> None:
+    """Cycle numbering is monotonic across restarts — decisions, snapshots
+    and llm calls key on it."""
+    e1 = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e1.market.add_zigzag("SOL-EUR")
+    e1.market.add_zigzag("BTC-EUR")
+    e1.market.add_zigzag("USDC-EUR")
+    await e1.engine.run_cycle()
+    await e1.engine.run_cycle()
+    assert e1.engine.cycle == 2
+    e1.db_engine.dispose()
+
+    e2 = EngineEnv(env / "agent.db", markets=["SOL-EUR"])
+    e2.market.add_zigzag("SOL-EUR")
+    e2.market.add_zigzag("BTC-EUR")
+    e2.market.add_zigzag("USDC-EUR")
+    session = e2.session()
+    try:
+        e2.engine._recover_startup(session)
+        session.commit()
+    finally:
+        session.close()
+    assert e2.engine.cycle == 2
+    await e2.engine.run_cycle()
+    assert e2.engine.cycle == 3
+    s = e2.session()
+    try:
+        assert 3 in {row.cycle for row in _decisions(s)}
+    finally:
+        s.close()
 
 
 async def test_throttle_halves_risk_after_three_losses(env: Path) -> None:

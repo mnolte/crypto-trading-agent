@@ -69,7 +69,9 @@ def _session(path: Path) -> Session:
 def test_sell_outcome_keeps_original_r_when_stop_moves(tmp_path: Path, moved_stop: Decimal) -> None:
     session = _session(tmp_path / "agent.db")
     account = repo.current_account(session, Decimal("10000"), "2026-10-11")
-    broker = PaperBroker(account, PaperSettings(fee_pct=Decimal("0"), slippage_pct=Decimal("0")))
+    broker = PaperBroker(
+        account, PaperSettings(taker_fee_pct=Decimal("0"), slippage_pct=Decimal("0"))
+    )
     broker.positions["BTC-EUR"] = HeldPosition(
         pair="BTC-EUR",
         qty=Decimal("1"),
@@ -177,7 +179,10 @@ def test_sell_outcome_horizon_is_anchored_to_exit_fill(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("reference", [Decimal("120"), Decimal("100")])
 def test_sell_exact_one_r_boundaries_are_neutral(reference: Decimal) -> None:
-    assert _label("SELL", "neither", reference, Decimal("110"), Decimal("10"), 24) == "neutral"
+    assert (
+        _label("SELL", "executed", "neither", reference, Decimal("110"), Decimal("10"), 24)
+        == "neutral"
+    )
 
 
 def test_permanently_unavailable_outcome_stops_retrying(tmp_path: Path) -> None:

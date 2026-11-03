@@ -1,10 +1,11 @@
 """The paper account: cash, positions, realised and unrealised P&L, equity,
 peak equity and day-start equity.
 
-Every fill is a market fill at the last price plus slippage against the
-taker, with the configured taker fee per side. Money is ``Decimal``
-everywhere. The broker mirrors the ``positions``/``trades``/``accounts``
-tables; the engine passes it a session and controls commit batching.
+Market fills pay the taker fee and slip against the last price; limit fills
+(entries and resting targets) pay the maker fee at the exact limit price.
+Money is ``Decimal`` everywhere. The broker mirrors the
+``positions``/``trades``/``accounts`` tables; the engine passes it a
+session and controls commit batching.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from sqlalchemy.orm import Session
 
@@ -45,6 +47,7 @@ class HeldPosition:
     highest_close: Decimal | None = None  # highest 1h close since entry
     r_unit: Decimal = Decimal("0")  # entry - stop at fill (the R for exits)
     initial_stop: Decimal | None = None
+    entry_maker: bool = False  # filled via a limit order (maker fee)
 
     def __post_init__(self) -> None:
         if self.initial_stop is None:
@@ -101,7 +104,8 @@ class PaperBroker:
     ) -> None:
         self.account_id = account.id
         self.account = account
-        self.fee_pct = paper.fee_pct
+        self.taker_fee_pct = paper.taker_fee_pct
+        self.maker_fee_pct = paper.maker_fee_pct
         self.slippage_pct = paper.slippage_pct
         self.cash = Decimal(account.cash)
         self.peak_equity = Decimal(account.peak_equity)
@@ -169,6 +173,7 @@ class PaperBroker:
                     Decimal(row.highest_close) if row.highest_close is not None else None
                 ),
                 r_unit=Decimal(row.r_unit),
+                entry_maker=row.entry_maker,
             )
 
     # ---------------------------------------------------------------- derived
@@ -254,10 +259,23 @@ class PaperBroker:
         decision_id: str,
         now: datetime,
         invalidation_price: Decimal | None = None,
+        order_type: Literal["market", "limit"] = "market",
+        last_price: Decimal | None = None,
     ) -> HeldPosition:
-        """Open a long position at the slipped price, fee included in cost."""
-        fill = self.buy_fill_price(price)
-        fee = qty * fill * self.fee_pct / HUNDRED
+        """Open a long position; a market fill slips, a limit fill is exact.
+
+        For a limit fill ``price`` is the placed limit (fill price = limit)
+        and ``last_price`` marks where the market traded through it; the
+        position's mark stays the last traded price.
+        """
+        if order_type == "limit":
+            fill = price
+            fee = qty * fill * self.maker_fee_pct / HUNDRED
+            mark = last_price if last_price is not None else price
+        else:
+            fill = self.buy_fill_price(price)
+            fee = qty * fill * self.taker_fee_pct / HUNDRED
+            mark = price
         self.cash -= qty * fill + fee
         pos = HeldPosition(
             pair=pair,
@@ -268,10 +286,11 @@ class PaperBroker:
             target=target,
             opened_at=now,
             decision_id=decision_id,
-            last=price,
+            last=mark,
             invalidation_price=invalidation_price,
-            highest_close=price,
+            highest_close=mark,
             r_unit=fill - stop,
+            entry_maker=order_type == "limit",
         )
         self.positions[pair] = pos
         save_position_row(
@@ -282,6 +301,7 @@ class PaperBroker:
             pos.highest_close,
             pos.r_unit,
             pos.original_stop,
+            pos.entry_maker,
         )
         return pos
 
@@ -292,16 +312,26 @@ class PaperBroker:
         price: Decimal,
         now: datetime,
         reason: str,
+        order_type: Literal["market", "limit"] = "market",
     ) -> TradeRow | None:
-        """Close a position at the slipped price; returns the trade."""
+        """Close a position; a limit fill is exact at the limit price."""
         if price <= 0:
             return None
         pos = self.positions.pop(pair, None)
         if pos is None:
             return None
-        fill = self.sell_fill_price(price)
-        buy_fee = pos.qty * pos.entry * self.fee_pct / HUNDRED
-        sell_fee = pos.qty * fill * self.fee_pct / HUNDRED
+        if order_type == "limit":
+            fill = price
+            sell_fee = pos.qty * fill * self.maker_fee_pct / HUNDRED
+        else:
+            fill = self.sell_fill_price(price)
+            sell_fee = pos.qty * fill * self.taker_fee_pct / HUNDRED
+        buy_fee = (
+            pos.qty
+            * pos.entry
+            * (self.maker_fee_pct if pos.entry_maker else self.taker_fee_pct)
+            / HUNDRED
+        )
         self.cash += pos.qty * fill - sell_fee
         realised = pos.qty * (fill - pos.entry) - buy_fee - sell_fee
         risk = pos.qty * pos.r_unit

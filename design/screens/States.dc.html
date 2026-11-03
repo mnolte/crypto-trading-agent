@@ -228,7 +228,28 @@ button,input{font-family:inherit}
         <span style="color: #C9CFD6; flex: 1 1 200px">Funding, open interest, long/short ratio</span>
         <span><span style="color: #FFD58A">Stale</span> <span style="color: #98A2AF; font-family: 'IBM Plex Mono', monospace">last 09:05 · 3 failures · timeout</span></span>
       </div>
-      <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.5">A failing collector never affects trading cycles. In decision.v2 briefs the stale values are sent as null with the reason, and the drawer shows "stale" in the Read column.</p>
+      <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.5">A failing collector never affects trading cycles. In decision.v3 briefs the stale values are sent as null with the reason, and the drawer shows "stale" in the Read column.</p>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="font-size: 12px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Decision drawer footer · limit entry: waiting, filled, unfilled<span style="display: inline-flex; align-items: center; height: 18px; padding: 0 6px; margin-left: 6px; border-radius: 4px; background: #13202F; border: 1px solid #24405F; color: #7FB8FF; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0; text-transform: none; vertical-align: middle">v0.2</span></div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+      <div style="background: #12161D; border: 1px solid #232A35; border-radius: 12px; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+        <div style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 600">BTC-EUR · Shadow B · BUY · limit entry</span></div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #98A2AF">Limit 75,170.00 placed 18:45:12 · post-only · maker 0.15%</div>
+        <div style="display: flex; align-items: center; gap: 8px"><span style="padding: 3px 8px; border-radius: 6px; background: #211C10; border: 1px solid #4A3A16; color: #F2B94B; font-size: 12px; white-space: nowrap; flex: 0 0 auto">Waiting for fill</span><span style="color: #C9CFD6">Last 75,231 · fills when price trades below 75,170 · cancels 19:00</span></div>
+      </div>
+      <div style="background: #12161D; border: 1px solid #232A35; border-radius: 12px; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+        <div style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 600">BTC-EUR · Shadow B · BUY · limit entry</span></div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #98A2AF">Limit 75,170.00 placed 18:45:12 · filled 18:51:30 at 75,170.00 · 0.0885 BTC · fee €9.98</div>
+        <div style="display: flex; align-items: center; gap: 8px"><span style="padding: 3px 8px; border-radius: 6px; background: #123A27; border: 1px solid #1E5A3E; color: #3DD68C; font-size: 12px; white-space: nowrap; flex: 0 0 auto">Filled</span><span style="color: #C9CFD6">Target 77,430 rests as a limit order; stop 74,040 exits at market</span></div>
+      </div>
+      <div style="background: #12161D; border: 1px solid #232A35; border-radius: 12px; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+        <div style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 600">BTC-EUR · Shadow B · BUY · limit entry</span></div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #98A2AF">Limit 75,170.00 placed 18:45:12 · cancelled 19:00:45 · low since placing 75,176</div>
+        <div style="display: flex; align-items: center; gap: 8px"><span style="padding: 3px 8px; border-radius: 6px; background: #1C222C; color: #C9CFD6; font-size: 12px; white-space: nowrap; flex: 0 0 auto">Unfilled</span><span style="color: #C9CFD6">Price never traded below the limit. Outcome tracked as a missed fill: first result 23:00.</span></div>
+      </div>
     </div>
   </div>
 

@@ -10,6 +10,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { useEffect, useRef } from "react";
+import { chartPriceFormat } from "../lib/format";
 
 export type Candle = {
   time: UTCTimestamp;
@@ -61,6 +62,7 @@ export function CandleChart({
       },
     });
 
+    const priceFormat = chartPriceFormat(candles.at(-1)?.close ?? 1);
     let series: ISeriesApi<"Candlestick"> | ISeriesApi<"Line">;
     if (mode === "candles") {
       series = chart.addSeries(CandlestickSeries, {
@@ -69,12 +71,14 @@ export function CandleChart({
         wickUpColor: css("--up"),
         wickDownColor: css("--down"),
         borderVisible: false,
+        priceFormat,
       });
       series.setData(candles);
     } else {
       const line = chart.addSeries(LineSeries, {
         color: css("--accent"),
         lineWidth: 2,
+        priceFormat,
       });
       line.setData(candles.map((c) => ({ time: c.time, value: c.close })));
       series = line;
@@ -159,6 +163,7 @@ export function PriceChart({
       wickUpColor: css("--up"),
       wickDownColor: css("--down"),
       borderVisible: false,
+      priceFormat: chartPriceFormat(candles.at(-1)?.close ?? 1),
     });
     series.setData(candles);
 

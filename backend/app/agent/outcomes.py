@@ -116,18 +116,20 @@ def _levels(
 
 def _label(
     action: str,
+    status: str,
     first_touch: str,
     reference: Decimal,
     entry: Decimal,
     risk: Decimal | None,
     horizon: int,
 ) -> str:
-    if action == "BUY":
-        return "win" if first_touch == "target" else "loss" if first_touch == "stop" else "open"
-    if action in ("HOLD", "SKIP"):
+    # An unfilled limit entry is tracked like a BUY that was not taken.
+    if status == "unfilled" or action in ("HOLD", "SKIP"):
         return (
             "missed" if first_touch == "target" else "avoided" if first_touch == "stop" else "flat"
         )
+    if action == "BUY":
+        return "win" if first_touch == "target" else "loss" if first_touch == "stop" else "open"
     if action == "SELL" and horizon >= 24 and risk is not None:
         if reference > entry + risk:
             return "early exit"
@@ -189,7 +191,9 @@ def compute_outcome(
         first_touch=first_touch,
         invalidated=crossed_at is not None,
         invalidation_followup_pct=str(followup) if followup is not None else None,
-        label=_label(decision.action, first_touch, reference, entry, risk, horizon),
+        label=_label(
+            decision.action, decision.status, first_touch, reference, entry, risk, horizon
+        ),
         realised_r=str(realised) if realised is not None else None,
         computed_at=computed_at,
         method_version=METHOD_VERSION,

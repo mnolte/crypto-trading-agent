@@ -24,6 +24,7 @@ class LoadedPrompt:
     body: str
     temperature: float
     max_output_tokens: int
+    brief_version: int = 1
 
 
 class PromptNotFoundError(Exception):
@@ -55,6 +56,7 @@ def load_prompt(version: str, *, prompts_dir: Path = PROMPTS_DIR) -> LoadedPromp
         raise PromptNotFoundError(f"prompt {version} not found in {name}")
     temp = re.search(r"temperature:\s*(\S+)", head)
     tokens = re.search(r"max_output_tokens:\s*(\d+)", head)
+    brief_v = re.search(r"brief_version:\s*(\d+)", head)
     # The system prompt is the body after the header comment.
     body = text.split("-->", 1)[1].strip() if "-->" in text else text.strip()
     return LoadedPrompt(
@@ -62,4 +64,5 @@ def load_prompt(version: str, *, prompts_dir: Path = PROMPTS_DIR) -> LoadedPromp
         body=body,
         temperature=float(temp.group(1)) if temp else 0.0,
         max_output_tokens=int(tokens.group(1)) if tokens else 600,
+        brief_version=int(brief_v.group(1)) if brief_v else 1,
     )

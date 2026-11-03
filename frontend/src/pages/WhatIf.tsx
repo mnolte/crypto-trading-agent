@@ -195,6 +195,8 @@ export function WhatIf() {
             decided at the time and only recomputes the rules, risk gates,
             sizing and fills. It cannot know what the model would have said
             with different inputs.
+            {settings?.paper.entry_orders === "limit" &&
+              " The account uses limit entries; What-if always replays market orders — stored candles cannot tell whether a resting limit would have filled."}
           </Banner>
           {error && <Banner variant="danger">{error}</Banner>}
           {running && job && (

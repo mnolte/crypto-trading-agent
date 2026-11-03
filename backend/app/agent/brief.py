@@ -18,17 +18,20 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
-from decimal import Decimal
-from typing import Any
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, cast
 
 import numpy as np
 from sqlalchemy.orm import Session
 
 from app import repo
+from app.agent.brief_v2 import PrevDecision, previous_decision_v2, trade_math_block
 from app.agent.broker.paper import HeldPosition
-from app.agent.market.base import TF_SECONDS, Candle
+from app.agent.limit import entry_round_trip_cost_pct
+from app.agent.market.base import TF_SECONDS, Candle, MarketInfo
 from app.agent.signals import (
     PairSignals,
     TfValues,
@@ -86,6 +89,7 @@ class BriefInputs:
     settings: Settings
     session: Session
     source: str
+    market_info: MarketInfo | None = None  # tick size for price rounding
     candles: dict[str, list[Candle]] = field(default_factory=dict)
     context_candles: dict[str, list[Candle]] = field(default_factory=dict)
     btc_regime: Regime | None = None
@@ -93,7 +97,7 @@ class BriefInputs:
     liquidity: dict[str, float | None] = field(default_factory=dict)
     pair_trades: list[tuple[datetime, Decimal]] = field(default_factory=list)
     hours_since_exit: float | None = None
-    previous_decision: tuple[str, str | None] | None = None
+    previous_decision: PrevDecision | None = None
     account: dict[str, float] = field(default_factory=dict)
     held_portfolio: list[tuple[str, float | None, float]] = field(default_factory=list)
     correlated_slots_left: int = 0
@@ -117,6 +121,8 @@ class BriefMeta:
     stale_tfs: list[str]
     support: list[float]
     resistance: list[float]
+    tick: float | None = None  # the market's price grid (one-tick checks)
+    prev: PrevDecision | None = None  # what code did with the previous decision
 
 
 def _clean(value: float | None, digits: int = 4) -> float | None:
@@ -124,6 +130,31 @@ def _clean(value: float | None, digits: int = 4) -> float | None:
     if value is None or not math.isfinite(value):
         return None
     return round(value, digits)
+
+
+def _sig(value: float, digits: int = 5) -> float:
+    """Round to ``digits`` significant digits."""
+    if value == 0:
+        return 0.0
+    return round(value, digits - 1 - math.floor(math.log10(abs(value))))
+
+
+def _price(value: float | Decimal | None, market: MarketInfo | None) -> float | None:
+    """A price quoted in the brief, on the market's own price grid.
+
+    Rounds to the market's tick size — the same rule fills use — so a level
+    the model copies is exchange-valid and passes the within-one-tick
+    checks. With no loaded rule the fallback is 5 significant digits."""
+    if value is None:
+        return None
+    v = float(value)
+    if not math.isfinite(v):
+        return None
+    tick = market.tick_size if market is not None else None
+    if tick is None or tick <= 0:
+        return _sig(v)
+    steps = (Decimal(str(v)) / tick).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+    return float(steps * tick)
 
 
 def _item(value: float | None, read: str | None, digits: int = 4) -> dict[str, Any]:
@@ -224,7 +255,7 @@ def _structure_block(inp: BriefInputs) -> dict[str, Any]:
     atr = inp.signals.tf["1h"].atr14
 
     def lvl(p: float) -> dict[str, Any]:
-        out: dict[str, Any] = {"price": _clean(p)}
+        out: dict[str, Any] = {"price": _price(p, inp.market_info)}
         if price:
             out["dist_pct"] = _clean((p / price - 1.0) * 100, digits=2)
         if price and atr:
@@ -248,9 +279,9 @@ def _position_block(inp: BriefInputs) -> dict[str, Any] | None:
     entry = float(pos.entry)
     out: dict[str, Any] = {
         "qty": float(pos.qty),
-        "entry": float(pos.entry),
-        "stop": float(pos.stop),
-        "target": float(pos.target),
+        "entry": _price(pos.entry, inp.market_info),
+        "stop": _price(pos.stop, inp.market_info),
+        "target": _price(pos.target, inp.market_info),
         "hours_held": round((inp.now - pos.opened_at).total_seconds() / 3600, 1),
         "unrealised_pct": _clean((price / entry - 1.0) * 100, digits=2) if entry else None,
     }
@@ -266,8 +297,13 @@ def _position_block(inp: BriefInputs) -> dict[str, Any] | None:
     return out
 
 
-def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
-    """Assemble the brief JSON for one pair and the meta the checks need."""
+def build_brief(inp: BriefInputs, brief_version: int = 1) -> tuple[dict[str, Any], BriefMeta]:
+    """Assemble the brief JSON for one pair and the meta the checks need.
+
+    ``brief_version`` comes from the prompt file's header: version 1 keeps
+    the brief byte-identical to the original shape; version 2 extends
+    ``previous_decision`` and adds ``trade_math``.
+    """
     s = inp.settings
     adx_threshold = float(s.market.adx_threshold)
     candles = inp.candles
@@ -357,10 +393,11 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
         regime["btc"] = inp.btc_regime.model_dump()
 
     ams = inp.now.astimezone(AMSTERDAM)
+    price = _price(float(inp.price), inp.market_info)
     brief: dict[str, Any] = {
         "pair": inp.pair,
         "now": inp.now.isoformat(),
-        "price": float(inp.price),
+        "price": price,
         "tf": tf_block,
         "structure": _structure_block(inp),
         "market_context": mctx,
@@ -377,9 +414,7 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
             "hours_since_exit": _clean(inp.hours_since_exit, digits=1),
         },
         "previous_decision": (
-            {"action": inp.previous_decision[0], "invalidation": inp.previous_decision[1]}
-            if inp.previous_decision
-            else None
+            inp.previous_decision.to_brief(brief_version) if inp.previous_decision else None
         ),
         "account": {
             "exposure_pct": _clean(inp.account.get("exposure_pct"), digits=2),
@@ -401,10 +436,12 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
             "min_stop_atr": float(s.risk.stop_min_atr),
             "max_stop_atr": float(s.risk.stop_max_atr),
             # The smallest stop distance that passes the "Costs vs risk"
-            # gate: round-trip costs must stay under max_cost_pct_of_risk
-            # of the stop, so the floor is cost_pct / (max_cost / 100).
+            # gate: entry + stop-exit costs must stay under
+            # max_cost_pct_of_risk of the stop, so the floor is
+            # cost_pct / (max_cost / 100). It follows the order type of
+            # the account this brief is for — ~1.5% limit, ~2.0% market.
             "min_stop_pct": float(
-                (s.paper.fee_pct * 2 + s.paper.slippage_pct * 2) * 100 / s.risk.max_cost_pct_of_risk
+                entry_round_trip_cost_pct(s.paper) * 100 / s.risk.max_cost_pct_of_risk
             )
             if s.risk.max_cost_pct_of_risk > 0
             else None,
@@ -413,11 +450,31 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
         "time": {"hour": ams.hour, "weekday": ams.strftime("%A")},
         "data_age_s": data_age,
     }
+    if brief_version >= 2:
+        brief["trade_math"] = trade_math_block(
+            pair=inp.pair,
+            now=inp.now,
+            price=float(inp.price),
+            atr_1h=inp.signals.tf["1h"].atr14,
+            tf1h=tf_block["1h"],
+            candles_1h=candles.get("1h", []),
+            candles_4h=candles.get("4h", []),
+            regime=inp.signals.regime,
+            holding=inp.holding,
+            limits=brief["limits"],
+            stop_buffer_atr=float(s.risk.stop_buffer_atr),
+            round_price=lambda v: _price(v, inp.market_info),
+        )
+
+    # The checks compare the model's prices against the levels it was
+    # shown — meta keeps the tick-rounded values, never the raw floats.
+    def _levels(levels: list[float]) -> list[float]:
+        return [p for p in (_price(lv, inp.market_info) for lv in levels) if p is not None]
 
     meta = BriefMeta(
         pair=inp.pair,
         now=inp.now,
-        price=float(inp.price),
+        price=price if price is not None else float(inp.price),
         atr_1h=inp.signals.tf["1h"].atr14,
         holding=inp.holding,
         regime=inp.signals.regime,
@@ -425,15 +482,59 @@ def build_brief(inp: BriefInputs) -> tuple[dict[str, Any], BriefMeta]:
         bars=bars,
         data_age_s=data_age,
         stale_tfs=stale,
-        support=[float(p) for p in inp.signals.levels.support],
-        resistance=[float(p) for p in inp.signals.levels.resistance],
+        support=_levels(list(inp.signals.levels.support)),
+        resistance=_levels(list(inp.signals.levels.resistance)),
+        tick=(
+            float(inp.market_info.tick_size)
+            if inp.market_info is not None and inp.market_info.tick_size
+            else None
+        ),
+        prev=inp.previous_decision,
     )
     return brief, meta
 
 
+def _floatstr(value: float, allow_nan: bool) -> str:
+    """The stdlib's float rendering, without scientific notation: a
+    3.991e-06 price stays readable as 0.000003991 in the request JSON."""
+    if value != value or value in (math.inf, -math.inf):
+        if not allow_nan:
+            raise ValueError("Out of range float values are not JSON compliant")
+        return "NaN" if value != value else ("Infinity" if value > 0 else "-Infinity")
+    s = repr(value)
+    if "e" in s or "E" in s:
+        s = format(Decimal(s), "f")
+    return s
+
+
+class _BriefEncoder(json.JSONEncoder):
+    """The default encoder with ``_floatstr`` swapped in for floats."""
+
+    def iterencode(self, o: Any, _one_shot: bool = True) -> Iterator[str]:
+        markers: dict[int, Any] | None = {} if self.check_circular else None
+        encoder = (
+            json.encoder.encode_basestring_ascii
+            if self.ensure_ascii
+            else json.encoder.encode_basestring
+        )
+        _iterencode = json.encoder._make_iterencode(  # type: ignore[attr-defined]
+            markers,
+            self.default,
+            encoder,
+            self.indent,
+            lambda v: _floatstr(v, self.allow_nan),
+            self.key_separator,
+            self.item_separator,
+            self.sort_keys,
+            self.skipkeys,
+            _one_shot,
+        )
+        return cast("Iterator[str]", _iterencode(o, 0))
+
+
 def brief_json(brief: dict[str, Any]) -> str:
     """The brief serialized exactly as it goes into the request."""
-    return json.dumps(brief, separators=(",", ":"), ensure_ascii=False)
+    return json.dumps(brief, separators=(",", ":"), ensure_ascii=False, cls=_BriefEncoder)
 
 
 # ------------------------------------------------------------------ checks --
@@ -595,10 +696,8 @@ def pair_history(
 
 
 def previous_decision(
-    session: Session, account_id: int, pair: str
-) -> tuple[str, str | None] | None:
-    """The pair's previous decision — action and invalidation only."""
-    rows = repo.list_decision_rows(session, account_id=account_id, pair=pair, limit=1)
-    if not rows:
-        return None
-    return rows[0].action, rows[0].invalidation
+    session: Session, account_id: int, pair: str, *, tick: float | None = None
+) -> PrevDecision | None:
+    """The pair's previous decision with what code did with it — the v1
+    brief reads only action and invalidation from it."""
+    return previous_decision_v2(session, account_id, pair, tick=tick)

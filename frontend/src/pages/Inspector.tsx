@@ -54,6 +54,52 @@ function prettyJson(text: string | null): string {
   }
 }
 
+function parseJson<T>(text: string | null): T | null {
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
+
+interface BriefV2 {
+  previous_decision?: { outcome?: string } | null;
+  trade_math?: {
+    buy_feasible?: boolean;
+    infeasible_reason?: string | null;
+    conditions_1h_met?: number;
+    conditions_1h_required?: number;
+  } | null;
+}
+
+function BriefChips({ brief }: { brief: string | null }) {
+  const parsed = parseJson<BriefV2>(brief);
+  if (!parsed) return null;
+  const tm = parsed.trade_math;
+  const prev = parsed.previous_decision;
+  if (!tm && !prev?.outcome) return null;
+  return (
+    <div className="dev-row">
+      {prev?.outcome && (
+        <span className="chip chip--neutral" title="previous_decision.outcome">
+          previous: {prev.outcome}
+        </span>
+      )}
+      {tm && (
+        <span
+          className={`chip chip--${tm.buy_feasible ? "up" : "amber"}`}
+          title={tm.infeasible_reason ?? "trade_math"}
+        >
+          {tm.buy_feasible
+            ? `buy feasible · ${tm.conditions_1h_met}/${tm.conditions_1h_required} 1h conditions`
+            : `infeasible: ${tm.infeasible_reason ?? "—"}`}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function actionLine(item: LlmCallListItem): string {
   const action = item.action ?? "—";
   if (item.final_action && item.final_action !== item.action) {
@@ -514,6 +560,14 @@ function CallDetail({
               )}
             </pre>
           </details>
+          {detail.brief_upgraded && (
+            <div className="dev-row">
+              <span className="chip chip--amber">
+                brief upgraded {detail.brief_upgraded}
+              </span>
+            </div>
+          )}
+          <BriefChips brief={detail.brief} />
           <details className="json-details" open>
             <summary>Market brief</summary>
             <pre className="json-block">{prettyJson(detail.brief)}</pre>
@@ -569,6 +623,13 @@ function CallDetail({
           </details>
           <div className="call-detail__final num">
             Final: {detail.decision_action ?? parsedAction ?? "—"}
+            {detail.parsed &&
+            (detail.parsed.stop_basis || detail.parsed.target_basis) ? (
+              <span className="chip chip--neutral" style={{ marginLeft: 8 }}>
+                {String(detail.parsed.stop_basis ?? "—")} →{" "}
+                {String(detail.parsed.target_basis ?? "—")}
+              </span>
+            ) : null}
           </div>
           {detail.replays.length > 0 && (
             <div className="call-detail__replays">

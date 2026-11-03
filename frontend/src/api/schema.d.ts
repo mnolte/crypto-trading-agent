@@ -648,7 +648,8 @@ export interface paths {
          * Replay Call
          * @description Re-send the stored request, optionally on another model or prompt
          *     version. Replays count against the daily budget and pause at 80% of the
-         *     monthly cap.
+         *     monthly cap. A target prompt with a newer brief version gets the stored
+         *     brief upgraded first — from candles closed by the call's own time.
          */
         post: operations["replay_call_api_llm_calls__call_id__replay_post"];
         delete?: never;
@@ -1619,11 +1620,12 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "executed" | "pending" | "approved" | "vetoed" | "expired" | "none";
+            status: "executed" | "pending" | "approved" | "vetoed" | "expired" | "unfilled" | "none";
         };
         /** DecisionDetail */
         DecisionDetail: {
             decision: components["schemas"]["Decision"];
+            entry_order?: components["schemas"]["PaperOrderOut"] | null;
             /**
              * Execution Mode
              * @enum {string}
@@ -1738,6 +1740,8 @@ export interface components {
         };
         /** Gate */
         Gate: {
+            /** Limit */
+            limit?: string | null;
             /** Name */
             name: string;
             /**
@@ -2030,6 +2034,8 @@ export interface components {
             attempts: components["schemas"]["LlmCallAttemptOut"][];
             /** Brief */
             brief: string | null;
+            /** Brief Upgraded */
+            brief_upgraded?: string | null;
             /** Cost Eur */
             cost_eur: string | null;
             /** Cost Usd */
@@ -2592,13 +2598,69 @@ export interface components {
             /** Shadow */
             shadow?: string | null;
         };
+        /**
+         * PaperOrderOut
+         * @description One simulated limit order (entry or target leg).
+         */
+        PaperOrderOut: {
+            /** Cancel Reason */
+            cancel_reason?: string | null;
+            /** Cancelled At */
+            cancelled_at?: string | null;
+            /** Decision Id */
+            decision_id: string;
+            /** Expires At */
+            expires_at?: string | null;
+            /** Fill Price */
+            fill_price?: string | null;
+            /** Filled At */
+            filled_at?: string | null;
+            /** Id */
+            id: number;
+            /** Last Price */
+            last_price?: string | null;
+            /**
+             * Leg
+             * @enum {string}
+             */
+            leg: "entry" | "target";
+            /** Limit Price */
+            limit_price: string;
+            /** Min Price */
+            min_price?: string | null;
+            /** Pair */
+            pair: string;
+            /**
+             * Placed At
+             * Format: date-time
+             */
+            placed_at: string;
+            /** Qty */
+            qty: string;
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "buy" | "sell";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "filled" | "cancelled";
+        };
         /** PaperSettings */
         "PaperSettings-Input": {
             /**
-             * Fee Pct
-             * @default 0.25
+             * Entry Orders
+             * @default market
+             * @enum {string}
              */
-            fee_pct: number | string;
+            entry_orders: "market" | "limit";
+            /**
+             * Maker Fee Pct
+             * @default 0.15
+             */
+            maker_fee_pct: number | string;
             /**
              * Slippage Pct
              * @default 0.05
@@ -2609,14 +2671,25 @@ export interface components {
              * @default 10000
              */
             start_balance_eur: number | string;
+            /**
+             * Taker Fee Pct
+             * @default 0.25
+             */
+            taker_fee_pct: number | string;
         };
         /** PaperSettings */
         "PaperSettings-Output": {
             /**
-             * Fee Pct
-             * @default 0.25
+             * Entry Orders
+             * @default market
+             * @enum {string}
              */
-            fee_pct: string;
+            entry_orders: "market" | "limit";
+            /**
+             * Maker Fee Pct
+             * @default 0.15
+             */
+            maker_fee_pct: string;
             /**
              * Slippage Pct
              * @default 0.05
@@ -2627,6 +2700,11 @@ export interface components {
              * @default 10000
              */
             start_balance_eur: string;
+            /**
+             * Taker Fee Pct
+             * @default 0.25
+             */
+            taker_fee_pct: string;
         };
         /** PerPairPerf */
         PerPairPerf: {
@@ -3012,6 +3090,11 @@ export interface components {
              */
             shock_brake_hours: number | string;
             /**
+             * Stop Buffer Atr
+             * @default 0.1
+             */
+            stop_buffer_atr: number | string;
+            /**
              * Stop Max Atr
              * @default 5
              */
@@ -3127,6 +3210,11 @@ export interface components {
              * @default 2
              */
             shock_brake_hours: string;
+            /**
+             * Stop Buffer Atr
+             * @default 0.1
+             */
+            stop_buffer_atr: string;
             /**
              * Stop Max Atr
              * @default 5
@@ -3446,9 +3534,11 @@ export interface components {
             notifications: components["schemas"]["NotificationSettings"];
             /**
              * @default {
-             *       "fee_pct": "0.25",
+             *       "entry_orders": "market",
+             *       "maker_fee_pct": "0.15",
              *       "slippage_pct": "0.05",
-             *       "start_balance_eur": "10000"
+             *       "start_balance_eur": "10000",
+             *       "taker_fee_pct": "0.25"
              *     }
              */
             paper: components["schemas"]["PaperSettings-Input"];
@@ -3476,6 +3566,7 @@ export interface components {
              *       "risk_per_trade_pct": "1.0",
              *       "shock_brake_btc_move_pct": "4",
              *       "shock_brake_hours": "2",
+             *       "stop_buffer_atr": "0.1",
              *       "stop_max_atr": "5",
              *       "stop_min_atr": "0.5",
              *       "throttle_consecutive_losses": 3,
@@ -3658,9 +3749,11 @@ export interface components {
             notifications: components["schemas"]["NotificationSettings"];
             /**
              * @default {
-             *       "fee_pct": "0.25",
+             *       "entry_orders": "market",
+             *       "maker_fee_pct": "0.15",
              *       "slippage_pct": "0.05",
-             *       "start_balance_eur": "10000"
+             *       "start_balance_eur": "10000",
+             *       "taker_fee_pct": "0.25"
              *     }
              */
             paper: components["schemas"]["PaperSettings-Output"];
@@ -3688,6 +3781,7 @@ export interface components {
              *       "risk_per_trade_pct": "1.0",
              *       "shock_brake_btc_move_pct": "4",
              *       "shock_brake_hours": "2",
+             *       "stop_buffer_atr": "0.1",
              *       "stop_max_atr": "5",
              *       "stop_min_atr": "0.5",
              *       "throttle_consecutive_losses": 3,
@@ -3779,16 +3873,34 @@ export interface components {
             daily_call_limit: number;
             /** Decisions */
             decisions: number;
+            /**
+             * Entry Orders
+             * @default market
+             * @enum {string}
+             */
+            entry_orders: "market" | "limit";
             /** Equity */
             equity: string | null;
             /** Id */
             id: string;
             /** Live Return Pct */
             live_return_pct: number | null;
+            /** Missed Fill Avg R */
+            missed_fill_avg_r?: string | null;
             /** Model */
             model: string;
             /** Name */
             name: string;
+            /**
+             * Orders Filled
+             * @default 0
+             */
+            orders_filled: number;
+            /**
+             * Orders Placed
+             * @default 0
+             */
+            orders_placed: number;
             /** Overrides */
             overrides: {
                 [key: string]: unknown;
