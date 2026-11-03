@@ -2,6 +2,31 @@
 
 Newest first. Each entry names the sections it touches.
 
+## 2026-11-04 — v0.3: cycles for a 24/7 market
+
+- v0.3 → Shell and Dashboard: the cycle strip becomes the Cycles card with a rolling 24-hour timeline (slot states and precedence, missed and paused slots, scheduled jobs, summary); nothing counts per Amsterdam day. The scheduler stores skipped slots with their reason. New endpoint `GET /api/cycles/recent?hours=24`.
+- "Today's decisions" becomes "Decisions · last 24 hours" (rolling, not since midnight).
+- docs/kickoffs/pr-14.md updated to match.
+
+## 2026-11-03 — v0.3: screens and tools from Stock Trading Agent
+
+- New section "v0.3: screens and tools from Stock Trading Agent":
+  - Shell and Dashboard: the behaviour behind the aligned design (header, Needs you with `GET /api/needs`, cycle strip, Today's decisions, Markets card, phone width, interaction rules);
+  - Logging, errors and the Logs screen (replaces the Logs and Errors bullets under Operations; new Readiness error criterion);
+  - Positions & orders, Markets screen, Strategies screen (with holding BTC and the static BTC + cash benchmark), Backtest (model cutoff rule, own €5 cap, training and test), Sign-in, access and error pages;
+  - Build order: PR 14 to PR 20.
+- GUI screens → Visual system: layout from 390 px once PR 14 lands.
+- Decisions: design and screens follow Stock Trading Agent.
+- Design: see `design/CHANGES.md`, entry "Aligned with Stock Trading Agent".
+- Workflow: spec and design changes now arrive as pull requests with the `spec-change` label (see `CLAUDE.md`); kickoffs go in `docs/kickoffs/pr-<n>.md`.
+
+## 2026-10-25 — Strategy families tested
+
+- Decisions: breakout, rotation and dip-buying families failed the rule; the search for
+  price-based strategies stops. Open item: test the positioning data in February 2027.
+- docs/RESEARCH.md: new section "Strategy families". scripts/regime_history.py: part 6
+  (--families).
+
 ## 2026-10-24 — PR 13 resumed
 
 - Decisions: PR 13 (prompt v2, brief version 2) goes ahead; PR 10 and 11 stay paused.
@@ -11,7 +36,7 @@ Newest first. Each entry names the sections it touches.
 - Decisions: strategy research result (no active approach beat a static BTC + cash mix
   at the same drawdown after costs) and the rule for future strategy changes. PR 10, 11
   and 13 paused; PR 12 only if nearly done; paper agent, v0.2 collector and fix PR continue.
-- New: docs/RESEARCH.md (the findings) and tools/regime_history.py (the research script).
+- New: docs/RESEARCH.md (the findings) and scripts/regime_history.py (the research script).
 
 ## 2026-10-22 — v0.2: prompt v2 (decision quality)
 

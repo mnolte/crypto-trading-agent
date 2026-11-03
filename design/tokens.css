@@ -1,112 +1,110 @@
-/*
- * Trading Agent v0.1 design tokens.
- * Taken from the design screens in design/screens. Use these variables in
- * every component; do not hard-code hex values in components.
- * Dark only in v0.1.
- */
-
-/* Fonts are bundled, never loaded from the network:
-   pnpm add @fontsource/ibm-plex-sans @fontsource/ibm-plex-mono
-   and import weights 400, 500, 600, 700 in main.tsx. */
-
+/* Trading Agent design tokens. Same structure and palette as Stock Trading Agent (--sa-*),
+   with the --ta- prefix. Use these variables for every colour, size and font; never hard-code a value.
+   Fonts are bundled, never loaded from the network:
+   pnpm add @fontsource/ibm-plex-sans @fontsource/ibm-plex-mono, weights 400, 500, 600, 700. */
 :root {
-  /* Surfaces */
-  --bg: #0B0E13;            /* page ground */
-  --bg-sunken: #0F131A;     /* top bar, sidebar, inputs, inner boxes */
-  --panel: #12161D;         /* cards and panels */
-  --panel-raised: #171C24;  /* secondary buttons, segmented controls, chips */
-  --panel-hover: #1C222C;   /* active nav item, neutral chip, hover */
+  /* surfaces, text, status */
+  --ta-bg: #0B0E13;
+  --ta-chrome: #0F131A;            /* header, sidebar, phone bar, inputs, inner boxes */
+  --ta-panel: #12161D;             /* cards */
+  --ta-raised: #171C24;            /* secondary buttons, segmented controls */
+  --ta-subtle: #1C222C;            /* active nav item, neutral chip, row hover */
+  --ta-border: #232A35;
+  --ta-border-strong: #2E3643;
+  --ta-text: #E7EAEE;
+  --ta-text-2: #C9CFD6;            /* body copy inside cards, reasoning text */
+  --ta-text-muted: #98A2AF;        /* labels, captions, table headers */
+  --ta-text-faint: #8A94A1;        /* sidebar group labels */
+  --ta-text-disabled: #6B7480;
+  --ta-accent: #F2B94B;            /* agent state, primary actions, focus */
+  --ta-accent-ink: #0B0E13;        /* text on amber */
+  --ta-accent-hover: #FFD58A;
+  --ta-accent-bg: #211C10;
+  --ta-accent-border: #4A3A16;
+  --ta-positive: #3DD68C;
+  --ta-positive-bg: #123A27;
+  --ta-positive-border: #1E5A3E;
+  --ta-negative: #FF6369;          /* bars, candles, solid danger */
+  --ta-negative-text: #FF8A8F;     /* negative numbers on dark */
+  --ta-negative-soft: #FFB3B6;     /* text on danger buttons and banners */
+  --ta-negative-bg: #3A1416;
+  --ta-negative-border: #7A2A2E;
+  --ta-warning-text: #FFD58A;
+  --ta-warning-bg: #3A2A0E;
+  --ta-warning-border: #6B4E17;
+  --ta-info: #7FB8FF;
+  --ta-info-text: #CFE3FF;         /* text in info banners (Trading Agent only) */
+  --ta-info-bg: #13202F;
+  --ta-info-border: #24405F;
+  --ta-neutral-chip: #9FB4CC;      /* sideways regime, neutral meters */
+  --ta-neutral-chip-bg: #1A2230;
+  --ta-neutral-chip-border: #2E3B4E;
+  --ta-chart-ema20: #7FB8FF;
+  --ta-chart-ema50: #C792EA;
+  --ta-chart-ema200: #C9CFD6;      /* Trading Agent only */
+  --ta-chart-vwap: #F2B94B;        /* dashed */
+  --ta-chart-grid: #1C222C;
+  /* chart: candles use --ta-positive / --ta-negative; entry --ta-text-2 dashed; stop --ta-negative; target --ta-positive */
 
-  /* Lines */
-  --line: #232A35;          /* card borders, table rows, dividers */
-  --line-strong: #2E3643;   /* inputs, buttons, dialogs */
+  /* type */
+  --ta-font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --ta-font-mono: 'IBM Plex Mono', ui-monospace, monospace;  /* all numbers, prices, times, codes */
+  --ta-text-xs: 11px;   /* axis labels, group labels */
+  --ta-text-sm: 12px;   /* captions, chips, table headers */
+  --ta-text-md: 13px;   /* table cells, secondary text, card headings */
+  --ta-text-base: 14px; /* body, buttons */
+  --ta-text-lg: 16px;
+  --ta-text-xl: 18px;   /* page titles */
+  --ta-text-stat: 22px; /* stat card values */
+  --ta-text-price: 24px;
+  --ta-weight-regular: 400;
+  --ta-weight-medium: 500;
+  --ta-weight-semibold: 600;
+  --ta-label-tracking: 0.06em; /* uppercase section labels */
 
-  /* Text */
-  --text: #E7EAEE;
-  --text-soft: #C9CFD6;     /* body copy inside cards, reasoning text */
-  --text-muted: #98A2AF;    /* labels, captions, table headers */
-  --text-faint: #6B7480;    /* disabled, footnotes */
-  --text-group: #8A94A1;    /* sidebar group labels */
+  /* spacing and shape */
+  --ta-space-1: 4px;
+  --ta-space-2: 8px;
+  --ta-space-3: 12px;
+  --ta-space-4: 16px;
+  --ta-space-5: 20px;
+  --ta-space-6: 24px;
+  --ta-radius-sm: 6px;   /* chips */
+  --ta-radius-md: 8px;   /* buttons, inputs */
+  --ta-radius-lg: 10px;  /* cards */
+  --ta-radius-xl: 12px;  /* dialogs */
+  --ta-control-height: 44px;   /* buttons, nav items, clickable rows */
+  --ta-input-height: 40px;
+  --ta-sidebar-width: 232px;
+  --ta-sidebar-collapsed: 72px;
+  --ta-phonebar-height: 56px;  /* below 820 px */
+  --ta-page-max: 1440px;
+  --ta-drawer-width: 560px;    /* Decision detail */
+  --ta-ask-panel: 520px;       /* Ask the agent */
 
-  /* Agent accent (amber): agent state, primary actions, focus */
-  --accent: #F2B94B;
-  --accent-ink: #0B0E13;    /* text on amber */
-  --accent-soft: #FFD58A;   /* links hover, warning text */
-  --accent-bg: #211C10;     /* Ask button, "not yet" pills */
-  --accent-line: #4A3A16;
-
-  /* Up / good */
-  --up: #3DD68C;
-  --up-bg: #123A27;
-  --up-line: #1E5A3E;
-
-  /* Down / bad / destructive */
-  --down: #FF6369;          /* bars, candles, solid danger */
-  --down-text: #FF8A8F;     /* negative numbers on dark */
-  --down-soft: #FFB3B6;     /* text on danger buttons and banners */
-  --down-bg: #3A1416;
-  --down-line: #7A2A2E;
-
-  /* Warning banner (stale data, shock brake, cost cap) */
-  --warn-bg: #3A2A0E;
-  --warn-line: #6B4E17;
-  --warn-text: #FFD58A;
-
-  /* Info banner (first run, What-if notice) */
-  --info-bg: #13202F;
-  --info-line: #24405F;
-  --info-text: #CFE3FF;
-  --info-icon: #7FB8FF;
-
-  /* Neutral / sideways regime */
-  --side: #9FB4CC;
-  --side-bg: #1A2230;
-  --side-line: #2E3B4E;
-
-  /* Chart series */
-  --series-ema20: #F2B94B;
-  --series-ema50: #5AA9FF;
-  --series-ema200: #C9CFD6;
-  --series-vwap: #B48CFF;
-  --series-grid: #1C222C;
-
-  /* Type */
-  --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
-  --font-num: 'IBM Plex Mono', ui-monospace, monospace; /* every number */
-  --fs-caption: 12px;
-  --fs-small: 13px;
-  --fs-body: 14px;
-  --fs-title: 16px;
-  --fs-page: 18px;
-  --fs-kpi: 24px;
-  --fs-price: 22px;
-  --label-tracking: 0.06em; /* uppercase card headings */
-
-  /* Shape and spacing */
-  --radius-sm: 6px;   /* chips, small badges */
-  --radius: 8px;      /* buttons, inputs, inner boxes */
-  --radius-card: 10px;
-  --radius-dialog: 12px;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-
-  /* Sizes */
-  --hit: 44px;            /* minimum height of anything clickable */
-  --sidebar: 232px;
-  --sidebar-collapsed: 72px;
-  --topbar: 76px;
-  --drawer: 560px;        /* Decision detail */
-  --ask-panel: 520px;
+  /* interaction */
+  --ta-focus-ring: 2px solid var(--ta-accent);   /* :focus-visible on every interactive element, offset 2px */
+  --ta-focus-offset: 2px;
+  --ta-hover-row: var(--ta-subtle);               /* clickable rows and list items */
+  --ta-hover-card: var(--ta-raised);              /* linked tiles and cards */
+  --ta-skeleton: var(--ta-subtle);                /* loading placeholders, pulse 1.4 s, none with reduced motion */
+  --ta-toast-auto-close: 10s;                     /* info and warning toasts; critical toasts never auto-close */
 }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-ui);
-  font-size: var(--fs-body);
+  background: var(--ta-bg);
+  color: var(--ta-text);
+  font-family: var(--ta-font-sans);
+  font-size: var(--ta-text-base);
 }
+
+/* Shared interaction styles: put these in global.css once, so inline styles never have to express hover or focus. */
+:focus-visible { outline: var(--ta-focus-ring); outline-offset: var(--ta-focus-offset); }
+.ta-row { cursor: pointer; }
+.ta-row:hover { background: var(--ta-hover-row); }
+.ta-tile:hover { background: var(--ta-hover-card); border-color: var(--ta-border-strong); }
+@keyframes ta-pulse { 0% { opacity: .45 } 50% { opacity: .9 } 100% { opacity: .45 } }
+.ta-skel { background: var(--ta-skeleton); animation: ta-pulse 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .ta-skel { animation: none; } }
+@media (max-width: 820px) { .ta-aside { display: none; } .ta-phonebar { display: flex; } .ta-needs-chip { display: none; } }

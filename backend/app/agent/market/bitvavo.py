@@ -239,12 +239,8 @@ class BitvavoClient:
             asks=[BookLevel(price=p, size=s) for p, s in book.asks],
         )
 
-    async def ticker_price(
-        self, market: str, *, max_429_wait_s: float | None = None
-    ) -> Decimal:
-        raw = await self._get(
-            "/ticker/price", {"market": market}, max_429_wait_s=max_429_wait_s
-        )
+    async def ticker_price(self, market: str, *, max_429_wait_s: float | None = None) -> Decimal:
+        raw = await self._get("/ticker/price", {"market": market}, max_429_wait_s=max_429_wait_s)
         try:
             return _TickerPriceResponse.model_validate(raw).price
         except ValidationError as exc:

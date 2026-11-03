@@ -2,6 +2,57 @@
 
 Newest first. Each entry names the screens it touches.
 
+## 2026-11-04 — Cycles for a 24/7 market
+
+- `Main.dc.html`: the cycle strip becomes the **Cycles** card. Nothing counts per day any more ("Cycle n of 96 today" and "this hour's four cycles" are gone):
+  - top: the quiet line; next cycle with countdown, a bar through the current 15-minute interval, "every 15 min, day and night" and Run now;
+  - a rolling timeline of the last 24 hours and the next 3: one slot per quarter hour, coloured by what happened (no change, entry B, exit S green or red, stop moved ↑, error answered by Rules !), missed slots as an outline, the next slot in amber, scheduled jobs as purple diamonds under their slot, time labels every 3 hours and the date at midnight;
+  - a summary: 93 of 96 cycles ran in 24 h, 3 missed 23:15–23:45 (computer asleep), 2 errors, cycle #728, running 7 d 14 h;
+  - at 390 px the timeline shows the last 6 hours and the next 3.
+- "Today's decisions" becomes **Decisions · last 24 hours**: the oldest group reads "Mon 12:45–11:45 · 90 cycles · 2 changes · 3 missed".
+- Model calls today tile: 153 calls (held positions are reviewed every cycle), €0.06.
+- Screenshots `Main.png` and `Main-390.png` re-rendered.
+
+## 2026-11-03 — Aligned with Stock Trading Agent
+
+Stock Trading Agent's design now leads; this entry brings Trading Agent in line with it. Behaviour does not change, except where noted. Build it as one UI PR after the current work, in this order.
+
+1. **Tokens** (`tokens.css`): the same structure and names as Stock Trading Agent, with the `--ta-` prefix, plus the interaction classes (`.ta-row`, `.ta-tile`, `.ta-skel`, focus ring, phone breakpoint). Colours are unchanged except the chart series. Rename map:
+
+   | Old | New |
+   | --- | --- |
+   | `--bg`, `--bg-sunken`, `--panel`, `--panel-raised`, `--panel-hover` | `--ta-bg`, `--ta-chrome`, `--ta-panel`, `--ta-raised`, `--ta-subtle` |
+   | `--line`, `--line-strong` | `--ta-border`, `--ta-border-strong` |
+   | `--text`, `--text-soft`, `--text-muted` | `--ta-text`, `--ta-text-2`, `--ta-text-muted` |
+   | `--text-group` (#8A94A1), `--text-faint` (#6B7480) | `--ta-text-faint`, `--ta-text-disabled` |
+   | `--accent`, `--accent-ink`, `--accent-soft`, `--accent-bg`, `--accent-line` | `--ta-accent`, `--ta-accent-ink`, `--ta-accent-hover`, `--ta-accent-bg`, `--ta-accent-border` |
+   | `--up*`, `--down*` | `--ta-positive*`, `--ta-negative*` (`--down-text` → `--ta-negative-text`, `--down-soft` → `--ta-negative-soft`) |
+   | `--warn-*`, `--info-*`, `--side*` | `--ta-warning-*`, `--ta-info*` (`--info-icon` → `--ta-info`), `--ta-neutral-chip*` |
+   | `--series-*` | `--ta-chart-*` |
+   | `--font-ui`, `--font-num` | `--ta-font-sans`, `--ta-font-mono` |
+   | `--fs-caption` … `--fs-page` | `--ta-text-sm` … `--ta-text-xl` (new `--ta-text-xs` 11 px) |
+   | `--fs-kpi` 24 px, `--fs-price` 22 px | `--ta-text-stat` 22 px, `--ta-text-price` 24 px (swapped, as in Stock Trading Agent) |
+   | `--radius-sm`, `--radius`, `--radius-card`, `--radius-dialog` | `--ta-radius-sm`, `--ta-radius-md`, `--ta-radius-lg`, `--ta-radius-xl` |
+   | `--hit`, `--sidebar`, `--sidebar-collapsed`, `--drawer`, `--ask-panel` | `--ta-control-height`, `--ta-sidebar-width`, `--ta-sidebar-collapsed`, `--ta-drawer-width`, `--ta-ask-panel` |
+   | `--topbar` (76 px) | removed: the header grows with its content |
+
+2. **Chart series**: EMA 20 blue (#7FB8FF), EMA 50 purple (#C792EA), VWAP amber dashed (#F2B94B), as in Stock Trading Agent. Dashboard and Indicators.
+3. **Shell, every screen** (`DESIGN.md` → The shell):
+   - the header carries the sub line, PAPER badge, status pill with the next cycle, Needs you chip, Equity, Today, Regime (BTC), Ask, Pause and Stop & flatten;
+   - Ask the agent moves from the sidebar to the header;
+   - the Paper/Live switch becomes the PAPER badge (paper only); Run now moves to the cycle strip; News flag moves to the risk budget; the "2 errors · 24h" chip becomes a Needs you item;
+   - screen controls move into the page: Performance period and export, Insights filters (a filter card), Settings Save and Discard (a sticky unsaved-changes bar).
+4. **Phone width**: below 820 px a sticky top bar replaces the sidebar. Every screen with the shell works at 390 px; wide tables scroll inside their card. `-390.png` screenshots added.
+5. **Dashboard** (`Main.dc.html`) in the Stock Trading Agent order:
+   - Needs you card with the health line (Bitvavo, price stream, clock, OpenAI key, email, collector); which items it lists is in the spec, v0.3 → Shell and Dashboard;
+   - this-cycle strip with the cycle counter and Run now (made 24/7 the next day, see the entry above);
+   - two tiles: model calls today, since start against holding BTC. Equity and Today moved to the header; Exposure and Drawdown to the risk budget; Next cycle to the strip;
+   - open positions as rows with a stop-to-target bar and the distance to the stop in % and ATR (amber under 1.5 ATR), next to the risk budget;
+   - price chart with 1h candles, EMA 20/50, VWAP, entry, stop and target lines, held-pair buttons and Find pair (pair tabs and More removed), next to the latest decision ("Open full decision");
+   - today's decisions grouped by cycle (changes always visible) next to the morning briefing with its footer;
+   - Markets: every pair with price, 24h, regime, rules result and last action; filters All, Pass rules, Held, Paused. Click a row to chart it.
+6. **States**: card states (loading, empty, error, backend unreachable) and toasts (critical, info and warning).
+
 ## 2026-10-22 — Prompt versions in captions
 
 - The sentiment prompt is now decision.v3 (spec: "Prompt v2: decision quality").

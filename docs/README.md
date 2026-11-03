@@ -4,8 +4,10 @@
 docs/
   README.md           this file: how to use the spec
   SPEC.md             the build spec, the single source of truth for behaviour
-  DEVIN_KICKOFF.md    the message to start each PR with
+  DEVIN_KICKOFF.md    kickoff messages up to PR 13 (archive)
   CHANGES.md          what changed in the spec, newest first
+  RESEARCH.md         the strategy research findings
+  kickoffs/           the kickoff message for each PR from PR 14 (pr-<n>.md)
 backend/prompts/
   decision.v1.md      the system prompt from the spec, ready to use
 design/               the visual reference (see design/DESIGN.md)
@@ -48,6 +50,13 @@ design/               the visual reference (see design/DESIGN.md)
 | 11 Macro calendar | v0.2 → Risk flags (macro calendar); Risk gates; User features → What-if simulator |
 | 12 Limit entries | v0.2 → Limit entries, tested as Shadow B; Risk gates (fee gate); Market data and paper broker (paper broker); Outcome tracking; User features → Shadow strategies |
 | 13 Decision quality (prompt v2) | v0.2 → Prompt v2: decision quality; OpenAI decision layer (brief, output schema, post-checks, logging); GUI screens → LLM inspector (Re-run); backend/prompts/decision.v2.md |
+| 14 Shell and Dashboard | v0.3 → Shell and Dashboard; GUI screens → Dashboard; design/DESIGN.md (The shell, Interaction rules, Phone width) and design/CHANGES.md entry "Aligned with Stock Trading Agent" |
+| 15 Logging and Logs screen | v0.3 → Logging, errors and the Logs screen; Settings, secrets and persistence (Operations); User features → Live-readiness checklist |
+| 16 Positions & orders | v0.3 → Positions & orders; Market data and paper broker (paper broker); Risk gates (exits) |
+| 17 Markets screen | v0.3 → Markets screen; Market data and paper broker (supported markets) |
+| 18 Strategies screen | v0.3 → Strategies screen; User features → Shadow strategies; v0.2 → Step 3 (promotion); docs/RESEARCH.md (static BTC + cash benchmark) |
+| 19 Backtest | v0.3 → Backtest; The agent cycle; Risk gates; Outcome tracking; docs/RESEARCH.md (method) |
+| 20 Sign-in and error pages | v0.3 → Sign-in, access and error pages; Data model and API (security rules) |
 
 Every PR also checks the "Testing and acceptance criteria" items that belong to it.
 
@@ -64,7 +73,7 @@ Every PR also checks the "Testing and acceptance criteria" items that belong to 
 <what was added; all passing>
 
 ## Screenshots (UI PRs)
-<1440 px and 1100 px, next to the matching design/screenshots/*.png>
+<1440 × 900 and 390 × 844, next to the matching design/screenshots/*.png>
 
 ## Design differences
 <none, or each difference and why>
@@ -75,5 +84,6 @@ Every PR also checks the "Testing and acceptance criteria" items that belong to 
 
 ## When the spec changes
 
-Marc updates SPEC.md and adds an entry to CHANGES.md. Treat each entry as a task:
-update the code and tests it affects, and mention the entry in the PR.
+Spec and design changes arrive as pull requests with the `spec-change` label, each with
+an entry in `docs/CHANGES.md` or `design/CHANGES.md`. Marc reviews and merges them. Treat
+each entry as a task: update the code and tests it affects, and mention the entry in the PR.

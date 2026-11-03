@@ -183,9 +183,7 @@ class Engine:
         self._throttle_dd = bool(account.throttle_dd)
         # The latest decision per pair also survives: rebuilt from the
         # stored rows so the dashboard isn't blank until the next cycle.
-        latest_pairs = dict.fromkeys(
-            [*self._settings().active_markets, *self.broker.positions]
-        )
+        latest_pairs = dict.fromkeys([*self._settings().active_markets, *self.broker.positions])
         for pair, row in repo.latest_decisions(
             session, self.broker.account_id, list(latest_pairs)
         ).items():
@@ -209,9 +207,7 @@ class Engine:
         # Open limit entries from before a restart are cancelled as
         # unfilled — the same rule as pending approvals. Resting target
         # orders stay on the book; they belong to open positions.
-        cancelled = self._cancel_entry_orders(
-            session, self.clock(), "restart", all_accounts=True
-        )
+        cancelled = self._cancel_entry_orders(session, self.clock(), "restart", all_accounts=True)
         if cancelled:
             repo.add_activity(
                 session,
@@ -965,9 +961,7 @@ class Engine:
                             self._place_entry_order(session, pair, decision_id, verdict.plan, now)
                             status = "none"
                         else:
-                            await self._fill_buy(
-                                session, pair, plan, draft, now, decision_id
-                            )
+                            await self._fill_buy(session, pair, plan, draft, now, decision_id)
                             status = "executed"
                     else:
                         status = "pending"
@@ -1368,9 +1362,7 @@ class Engine:
         for pair in re_eval:
             session = self._sessions()
             try:
-                await self._decide_pair(
-                    session, pair, {}, self.clock(), allow_stale_retry=False
-                )
+                await self._decide_pair(session, pair, {}, self.clock(), allow_stale_retry=False)
             except Exception as exc:
                 await self._record_pair_failure(session, pair, exc)
             finally:
@@ -1429,10 +1421,7 @@ class Engine:
         if info is None or info.last <= 0:
             return Decimal("0"), False
         fresh_at = self._price_fresh_at.get(pair)
-        if (
-            fresh_at is not None
-            and (self.clock() - fresh_at).total_seconds() <= PRICE_FALLBACK_S
-        ):
+        if fresh_at is not None and (self.clock() - fresh_at).total_seconds() <= PRICE_FALLBACK_S:
             return info.last, False
         return Decimal("0"), False
 

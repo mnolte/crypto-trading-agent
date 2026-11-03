@@ -34,7 +34,8 @@ follow the spec and list the difference in the PR under "Design differences".
    Rules conditions, regime labels and outcome labels each have a test. Acceptance items
    in the spec that belong to your step must pass.
 4. **Use the PR template** in `docs/README.md`. UI PRs attach Playwright screenshots at
-   1440 and 1100 px wide next to the matching `design/screenshots/*.png`.
+   1440 × 900 and 390 × 844 next to the matching `design/screenshots/*.png`. Save them in
+   `docs/screenshots/pr-<n>/`, never in `design/`.
 
 ## Commands
 
@@ -100,4 +101,5 @@ Never break these, even if a task seems to ask for it:
   chart library, another HTTP client, TA-Lib).
 - Change a default number from the spec without saying so in the PR.
 - Reformat or rewrite files unrelated to your step.
-- Edit `docs/SPEC.md`, `design/` or prompt files; ask Marc to change them.
+- Edit `docs/SPEC.md`, `design/` or prompt files; ask Marc to change them. Spec and design
+  changes come as their own pull requests with the `spec-change` label.
