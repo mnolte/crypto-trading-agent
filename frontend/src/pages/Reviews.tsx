@@ -148,8 +148,8 @@ export function Reviews() {
                 type="button"
                 className={
                   it.id === selected
-                    ? "reviews-item reviews-item--on"
-                    : "reviews-item"
+                    ? "reviews-item ta-row reviews-item--on"
+                    : "reviews-item ta-row"
                 }
                 onClick={() => setOpenId(it.id)}
               >

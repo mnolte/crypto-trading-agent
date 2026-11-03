@@ -18,6 +18,18 @@ body,
 a {
   color: var(--ta-accent);
 }
+button:not([disabled]):hover {
+  filter: brightness(1.15);
+}
+
+/* Phone-width helpers: .ta-hide-phone hides at <=820px, .ta-only-phone
+   shows only there (design/tokens.css carries the shell classes). */
+.ta-only-phone { display: none; }
+@media (max-width: 820px) {
+  .ta-hide-phone { display: none !important; }
+  .ta-only-phone { display: inline !important; }
+}
+
 a:hover {
   color: var(--ta-accent-hover);
 }
@@ -1460,10 +1472,7 @@ input[type="checkbox"].check {
   text-align: left;
 }
 .activity li:first-child > .activity__row { border-top: 0; }
-.activity__row--link { cursor: pointer; }
-.activity__row--link:hover, .activity__row--link:focus-visible {
-  background: var(--ta-subtle);
-}
+.activity__row.ta-row:focus-visible { outline-offset: -2px; }
 .activity__time {
   color: var(--ta-text-muted);
   flex: 0 0 56px;
@@ -1481,7 +1490,7 @@ input[type="checkbox"].check {
   min-width: 0;
 }
 .activity__open { color: var(--ta-text-disabled); }
-.activity__row--link:hover .activity__open { color: var(--ta-accent-hover); }
+.activity__row.ta-row:hover .activity__open { color: var(--ta-accent-hover); }
 .activity__foot {
   display: flex;
   justify-content: center;

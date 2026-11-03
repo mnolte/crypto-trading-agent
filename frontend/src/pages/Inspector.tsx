@@ -275,7 +275,7 @@ export function Inspector() {
                   <li key={item.id}>
                     <button
                       type="button"
-                      className="call-item call-item--skipped"
+                      className="call-item ta-row call-item--skipped"
                       onClick={() => select(item)}
                     >
                       <span>{item.pair} · no call, Rules pre-filter held</span>
@@ -286,7 +286,7 @@ export function Inspector() {
                   <li key={item.id}>
                     <button
                       type="button"
-                      className={`call-item${
+                      className={`call-item ta-row${
                         item.id === selectedId ? " call-item--selected" : ""
                       }`}
                       aria-current={item.id === selectedId}

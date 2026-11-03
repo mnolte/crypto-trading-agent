@@ -735,7 +735,7 @@ function ActivityCard({
                 {item.decision_id ? (
                   <button
                     type="button"
-                    className="activity__row activity__row--link"
+                    className="activity__row ta-row"
                     title={`Open decision · ${formatDateTime(item.at)}`}
                     onClick={() => item.decision_id && onOpen(item.decision_id)}
                   >
