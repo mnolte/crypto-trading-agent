@@ -43,7 +43,7 @@ class StoreHandler(logging.Handler):
             logevents.check(getattr(record, "event", None))
             line = build_line(record, process=self.store.process, version=self.store.version)
             self.store.submit(line)
-        except Exception:
+        except Exception:  # noqa: BLE001 - a broken emit must never raise
             self.handleError(record)
 
 

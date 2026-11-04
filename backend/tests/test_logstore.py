@@ -19,7 +19,7 @@ from app.logstore.writer import LogStore
 
 
 def make_line(**kw: Any) -> dict[str, Any]:
-    line: dict[str, Any] = {c: None for c in COLUMNS}
+    line: dict[str, Any] = dict.fromkeys(COLUMNS)
     line.update(
         {
             "ts": datetime.now(UTC).isoformat(timespec="milliseconds"),
@@ -170,14 +170,19 @@ def test_unwritable_db_uses_fallback_then_imports(store: LogStore) -> None:
         if path.exists():
             path.chmod(0o644)
     wait_for(lambda: not store._broken, timeout=5.0)
-    wait_for(lambda: len(rows(store, "message LIKE '%outage%' OR message LIKE '%broken%'")) == 2, timeout=5.0)
+    wait_for(
+        lambda: len(rows(store, "message LIKE '%outage%' OR message LIKE '%broken%'")) == 2,
+        timeout=5.0,
+    )
     assert not list(store.log_dir.glob("fallback-*.jsonl"))
     assert list(store.log_dir.glob("fallback-*.imported"))
 
 
 def test_retention_by_level_and_age(store: LogStore) -> None:
     now = datetime.now(UTC)
-    for level, days in (("DEBUG", 40), ("INFO", 40), ("WARNING", 400), ("WARNING", 100), ("ERROR", 300)):
+    for level, days in (
+        ("DEBUG", 40), ("INFO", 40), ("WARNING", 400), ("WARNING", 100), ("ERROR", 300)
+    ):
         store.submit(
             make_line(
                 ts=(now - timedelta(days=days)).isoformat(),
@@ -265,11 +270,11 @@ def test_problem_grouping_and_review(store: LogStore) -> None:
             fingerprint=fingerprint("agent.scheduler", "candles.stale", msg),
         )
     )
-    wait_for(
-        lambda: dict(rows(store)[0])["fingerprint"] is not None
-    )
+    wait_for(lambda: dict(rows(store)[0])["fingerprint"] is not None)
     with store.connect_readonly() as conn:
-        prob = dict(conn.execute("SELECT * FROM log_problems WHERE fingerprint = ?", (fp,)).fetchone())
+        prob = dict(
+            conn.execute("SELECT * FROM log_problems WHERE fingerprint = ?", (fp,)).fetchone()
+        )
         assert prob["state"] == "unreviewed"
         assert "came back" in prob["note"]
         assert prob["count"] == 3
@@ -283,7 +288,9 @@ def test_scrubbing_covers_stored_keys_and_headers(tmp_path: Path) -> None:
         scrub.register_secret("smtp-passw0rd!")
         secret_msg = "key sk-livekey-abcdef123456 and pass smtp-passw0rd!"
         store.submit(
-            make_line(level="ERROR", levelno=40, message=secret_msg, exc_message="smtp-passw0rd!")
+            make_line(
+                level="ERROR", levelno=40, message=secret_msg, exc_message="smtp-passw0rd!"
+            )
         )
         store.submit(
             make_line(

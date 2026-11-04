@@ -188,7 +188,7 @@ class NotificationDispatcher:
             try:
                 await websocket.send_text(payload)
                 delivered = True
-            except Exception:
+            except Exception:  # noqa: BLE001 - a closed socket shows as any error
                 self.state.ws_clients.discard(websocket)
         return delivered
 
@@ -214,7 +214,7 @@ class NotificationDispatcher:
                 session.commit()
             finally:
                 session.close()
-        except Exception:
+        except Exception:  # noqa: BLE001 - boundary: one notification channel
             session = self.state.session_factory()
             try:
                 repo.add_activity(session, "error", "notification delivery failed")
@@ -240,7 +240,7 @@ async def test_notifications(
             try:
                 await websocket.send_text(payload)
                 browser_sent = True
-            except Exception:
+            except Exception:  # noqa: BLE001 - a closed socket shows as any error
                 state.ws_clients.discard(websocket)
     email_sent = False
     if settings.email_enabled:

@@ -181,9 +181,11 @@ class Engine:
             session.close()
         await self.refresh_prices()
         self._stop.clear()
+        from app import tasks as tasks_mod
+
         self.tasks = [
-            asyncio.create_task(self._scheduler_loop()),
-            asyncio.create_task(self._watcher_loop()),
+            tasks_mod.spawn(self._scheduler_loop, name="agent-scheduler"),
+            tasks_mod.spawn(self._watcher_loop, name="agent-watcher"),
         ]
 
     def _recover_startup(self, session: Session) -> None:
@@ -519,7 +521,7 @@ class Engine:
                 continue
             try:
                 await self.run_cycle()
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - boundary: one cycle
                 # A crashed cycle must never kill the scheduler.
                 await self._note_cycle_error(exc)
 
@@ -527,7 +529,12 @@ class Engine:
         """Best-effort error record for a crashed cycle; never raises.
         Repeated cycle crashes move the agent into the Error state — the
         pill shows it and cycles stop until Resume."""
-        log.exception("cycle %d failed", self.cycle)
+        log.error(
+            "cycle %d failed",
+            self.cycle,
+            exc_info=exc,
+            extra={"event": "cycle.step_failed"},
+        )
         self._cycle_errors += 1
         if self._cycle_errors >= 3 and self.status != "killed":
             self.status = "error"
@@ -641,7 +648,7 @@ class Engine:
                     pair_session = self._sessions()
                     try:
                         await self._decide_pair(pair_session, pair, context, now)
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 - boundary: one pair
                         await self._record_pair_failure(pair_session, pair, exc)
                     finally:
                         pair_session.close()
@@ -718,13 +725,30 @@ class Engine:
             server_time = await self.client.time()  # type: ignore[attr-defined]
             self.clock_offset_s = (server_time - self.clock()).total_seconds()
             self.clock_offset_at = self.clock()
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - clock is information-only, never raises
+            log.warning(
+                "clock offset unreadable: %s",
+                exc,
+                extra={"event": "clock.offset_failed"},
+            )
+            return
+        if abs(self.clock_offset_s) > 2:
+            log.warning(
+                "clock offset %+.1f s against the exchange",
+                self.clock_offset_s,
+                extra={"event": "clock.offset_high"},
+            )
 
     async def _record_pair_failure(self, session: Session, pair: str, exc: Exception) -> None:
         """A crashed pair still ends as a recorded HOLD — never a trade,
         never silent — and the other pairs' work is untouched."""
-        log.exception("cycle %d: deciding %s failed", self.cycle, pair)
+        log.error(
+            "cycle %d: deciding %s failed",
+            self.cycle,
+            pair,
+            exc_info=exc,
+            extra={"event": "cycle.pair_failed", "pair": pair},
+        )
         try:
             session.rollback()
             now = self.clock()
@@ -752,7 +776,7 @@ class Engine:
                 error=f"cycle error: {exc}",
                 decision_id=decision_id,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - the error record may fail too
             session.rollback()
 
     async def _load_context(
@@ -789,14 +813,22 @@ class Engine:
                 now=now,
             )
             ctx["btc_regime"] = btc_sig.regime
-        except MarketDataError:
-            pass
+        except MarketDataError as exc:
+            log.warning(
+                "BTC-EUR market context fetch failed: %s",
+                exc,
+                extra={"event": "candles.fetch_failed", "pair": "BTC-EUR"},
+            )
         try:
             usdc = drop_forming(await self.client.candles("USDC-EUR", "1h", 48), "1h", now)
             repo.upsert_candles(session, "USDC-EUR", "1h", usdc)
             ctx["usdc_1h"] = usdc
-        except MarketDataError:
-            pass
+        except MarketDataError as exc:
+            log.warning(
+                "USDC-EUR market context fetch failed: %s",
+                exc,
+                extra={"event": "candles.fetch_failed", "pair": "USDC-EUR"},
+            )
         return ctx
 
     # ------------------------------------------------------------- per pair ==
@@ -839,11 +871,22 @@ class Engine:
             )
             candles["4h"] = await self._fetch_closed(session, pair, "4h", now)
             candles["1d"] = await self._fetch_closed(session, pair, "1d", now)
-        except MarketDataError:
+        except MarketDataError as exc:
             candles = {}
+            log.warning(
+                "%s: candles fetch failed: %s; pair held and marked stale",
+                pair,
+                exc,
+                extra={"event": "candles.fetch_failed", "pair": pair},
+            )
 
         if not candles.get("1h") or not candles.get("4h") or not candles.get("1d"):
             await self._note_stale_pair(pair)
+            log.warning(
+                "%s: newest candles missing or stale; pair held and marked stale",
+                pair,
+                extra={"event": "candles.stale", "pair": pair},
+            )
             return self._record_decision(
                 session,
                 pair,
@@ -1197,7 +1240,13 @@ class Engine:
         book can't be read: any failure means no order is placed."""
         try:
             book = await self.client.order_book(pair, 1)
-        except Exception:
+        except MarketDataError as exc:
+            log.warning(
+                "%s: order book unreadable (%s); no limit order placed",
+                pair,
+                exc,
+                extra={"event": "book.unavailable", "pair": pair},
+            )
             return None
         if book.best_bid is None or book.best_ask is None:
             return None
@@ -1515,7 +1564,7 @@ class Engine:
             session = self._sessions()
             try:
                 await self._decide_pair(session, pair, {}, self.clock(), allow_stale_retry=False)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - boundary: one pair
                 await self._record_pair_failure(session, pair, exc)
             finally:
                 session.close()
@@ -2266,8 +2315,13 @@ class Engine:
             return
         try:
             await self._notify_event(event, title, body)
-        except Exception:
-            return
+        except Exception as exc:  # noqa: BLE001 - boundary
+            log.warning(
+                "notification dispatch failed for %s: %s",
+                event,
+                exc,
+                extra={"event": "notify.email_failed"},
+            )
 
     async def _push(self) -> None:
         if self._broadcast is not None:

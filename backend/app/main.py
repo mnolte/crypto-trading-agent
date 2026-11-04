@@ -21,6 +21,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.types import Scope
 
 from app import logstore, repo
+from app import tasks as tasks_mod
 from app.agent.broker.paper import PaperBroker
 from app.agent.deciders.openai_decider import OpenAIDecider
 from app.agent.deciders.rules import RulesDecider
@@ -82,6 +83,14 @@ async def _resolve_source_error_after_recovery(
         session.close()
 
 
+def _loop_of(coro: Awaitable[None]) -> Callable[[], Awaitable[None]]:
+    """spawn() takes a coroutine function; job loops are built per
+    restart so a crashed loop starts fresh."""
+    async def run() -> None:
+        await coro
+    return run
+
+
 def _track_task(state: AppState, task: asyncio.Task[None]) -> None:
     state.tasks.append(task)
     task.add_done_callback(
@@ -127,7 +136,7 @@ async def refresh_market_data(
             if warming_up(session, market, state.settings.market):
                 await backfill_market(state.market_client, session, market, state.settings.market)
         session.commit()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - boundary: the market-data job
         state.sources.record("bitvavo", exc)
     finally:
         session.close()
@@ -237,16 +246,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         def source_recovered(source_id: str) -> None:
             generation = source_recovery_generations.get(source_id, 0) + 1
             source_recovery_generations[source_id] = generation
-            _track_task(
+            tasks_mod.spawn(
+                _resolve_source_error_after_recovery,
                 state,
-                asyncio.create_task(
-                    _resolve_source_error_after_recovery(
-                        state,
-                        source_id,
-                        generation,
-                        source_recovery_generations,
-                    )
-                ),
+                source_id,
+                generation,
+                source_recovery_generations,
+                name=f"source-recovery-{source_id}",
+                restart=False,
+                track=lambda t: _track_task(state, t),
             )
 
         state.sources.on_failure_threshold = source_failed
@@ -289,24 +297,32 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         state.agent_engine = agent_engine
         await agent_engine.start()
         state.status = agent_engine.status
-        state.tasks.append(
-            asyncio.create_task(refresh_market_data(state, notification_dispatcher.notify))
+        tasks_mod.spawn(
+            refresh_market_data,
+            state,
+            notification_dispatcher.notify,
+            name="job-market-refresh",
+            restart=False,
+            track=lambda t: _track_task(state, t),
         )
-        state.tasks.append(
-            asyncio.create_task(daily_market_loop(state, notification_dispatcher.notify))
-        )
-        state.tasks.append(
-            asyncio.create_task(context_loop(ContextCollector(session_factory, registry)))
-        )
-        state.tasks.append(asyncio.create_task(outcome_loop(session_factory, asyncio.Event())))
-        state.tasks.append(asyncio.create_task(backup_loop(env.ta_db_path, env.ta_data_dir)))
-        state.tasks.append(
-            asyncio.create_task(
+        for coro, job in (
+            (daily_market_loop(state, notification_dispatcher.notify), "job-market-daily"),
+            (context_loop(ContextCollector(session_factory, registry)), "job-collector"),
+            (outcome_loop(session_factory, asyncio.Event()), "job-outcomes"),
+            (backup_loop(env.ta_db_path, env.ta_data_dir), "job-backup"),
+            (
                 briefings_mod.briefing_loop(
                     state, session_factory, notify=notification_dispatcher.notify
-                )
+                ),
+                "job-briefings",
+            ),
+        ):
+            tasks_mod.spawn(
+                _loop_of(coro),
+                name=job,
+                track=lambda t: _track_task(state, t),
             )
-        )
+        tasks_mod.install_global_hooks()
         yield
     finally:
         if state is not None:

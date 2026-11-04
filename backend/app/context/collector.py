@@ -277,7 +277,7 @@ class ContextCollector:
     ) -> object | None:
         try:
             return await self._get(source, path, params)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - boundary: one collector source
             errors.append(exc)
             log.warning("market context request failed %s %s: %s", source, path, exc)
             return None

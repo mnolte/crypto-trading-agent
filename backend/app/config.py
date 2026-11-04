@@ -9,8 +9,8 @@ environment or ``.env``. Secrets never land in the database or in logs.
 
 from __future__ import annotations
 
+import logging
 import os
-import warnings
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -74,7 +74,12 @@ def get_secret(source: str) -> str | None:
     try:
         stored = keyring.get_password(KEYRING_SERVICE, source)
     except Exception as exc:
-        warnings.warn(f"keyring read failed for {source}: {exc}", stacklevel=2)
+        logging.getLogger("app.config").exception(
+            "keyring read failed for %s: %s; the key counts as not set",
+            source,
+            exc,
+            extra={"event": "secrets.unavailable"},
+        )
         stored = None
     if stored:
         return stored

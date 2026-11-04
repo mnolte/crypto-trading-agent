@@ -318,5 +318,5 @@ async def broadcast_snapshot(state: AppState) -> None:
     for ws in list(state.ws_clients):
         try:
             await ws.send_text(payload)
-        except Exception:
+        except Exception:  # noqa: BLE001 - a closed socket shows as any error
             state.ws_clients.discard(ws)

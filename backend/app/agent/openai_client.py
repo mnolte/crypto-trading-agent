@@ -177,7 +177,7 @@ def _output_text(response: Any) -> str | None:
     """The model's text output from a Responses API result."""
     try:
         text = response.output_text
-    except Exception:
+    except (AttributeError, TypeError):
         text = None
     if text:
         return str(text)

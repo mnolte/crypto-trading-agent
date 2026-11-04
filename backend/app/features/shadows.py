@@ -35,7 +35,14 @@ from app.agent.deciders.base import DecideContext, Draft, RiskView
 from app.agent.deciders.openai_decider import OpenAIDecider
 from app.agent.engine import CYCLE_S
 from app.agent.limit import buy_fills, post_only_limit, sell_fills
-from app.agent.market.base import TF_SECONDS, Candle, MarketClient, MarketInfo, drop_forming
+from app.agent.market.base import (
+    TF_SECONDS,
+    Candle,
+    MarketClient,
+    MarketDataError,
+    MarketInfo,
+    drop_forming,
+)
 from app.agent.market.universe import entries_allowed, warming_up
 from app.agent.risk import BuyContext, check_buy, check_exit, update_trail
 from app.agent.signals import (
@@ -352,8 +359,12 @@ class ShadowRunner:
                 settings=settings.market,
                 now=now,
             ).regime
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - missing BTC context is not fatal
+            log.debug(
+                "shadow: BTC regime unavailable: %s",
+                exc,
+                extra={"event": "candles.fetch_failed"},
+            )
         prev_4h = compute_tf_values(candles["4h"][:-1], "4h") if len(candles["4h"]) > 1 else None
         pos = shadow.broker.positions.get(pair)
         pause = repo.active_entry_pause(session, pair, now)
@@ -592,7 +603,13 @@ class ShadowRunner:
         be read: any failure means no order is placed."""
         try:
             book = await self.client.order_book(pair, 1)
-        except Exception:
+        except MarketDataError as exc:
+            log.warning(
+                "%s: order book unreadable (%s); no limit order placed",
+                pair,
+                exc,
+                extra={"event": "book.unavailable", "pair": pair},
+            )
             return None
         if book.best_bid is None or book.best_ask is None:
             return None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import cast
@@ -82,8 +83,10 @@ def save_settings(session: Session, settings: Settings) -> int:
     if row.doc:
         try:
             record_settings_history(session, Settings.model_validate_json(row.doc), settings)
-        except Exception:
-            pass  # history must never block a settings save
+        except Exception as exc:  # noqa: BLE001 - history must never block a save
+            logging.getLogger(__name__).warning(
+                "settings history could not be written: %s", exc, extra={"event": "job.failed"}
+            )
     row.version += 1
     row.doc = settings.model_dump_json()
     row.updated_at = utcnow()
