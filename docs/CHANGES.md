@@ -2,6 +2,16 @@
 
 Newest first. Each entry names the sections it touches.
 
+## 2026-11-04 — [021] Naming convention for work items
+
+- Every feature, fix, analysis or ops change with a kickoff is a **work item** `NNN-type-slug`, for example `099-fix-stop-retry`.
+  - One three-digit sequence for all types, continuing the build plan: 001–020 are build plan items 1–20 ("PR 14" in the spec is item 014).
+  - Types: `feat`, `fix`, `analysis`, `ops`, `spec`.
+- The name is used for kickoff files, `spec/NNN-slug` and `type/NNN-slug` branches, `[NNN] type: Title` PR titles, commits, `docs/screenshots/NNN/` (from item 021) and changelog headings.
+- **Register:** `docs/work-items.md` defines the format and lists every item with its kickoff, spec PRs, build PRs and status, plus the merged work from before the convention. It is not a protected path, so Devin can update the build columns.
+- `docs/README.md` rules 5 and 8, the PR description template and "When the spec changes", `AGENTS.md` → How to work, and `CLAUDE.md` follow it. Existing kickoffs (`pr-14.md`, `pr-15.md`) keep their names.
+- The convention itself is item 021 (`spec`).
+
 ## 2026-11-04 — v0.3: error handling and logs in SQLite
 
 - v0.3 → Logging, errors and the Logs screen, rewritten:

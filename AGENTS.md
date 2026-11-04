@@ -24,8 +24,9 @@ follow the spec and list the difference in the PR under "Design differences".
 
 ## How to work
 
-1. **One build step per PR**, in the order of the spec's "Build order". Read only the
-   sections `docs/README.md` lists for that step. Do not start the next step.
+1. **One work item per PR.** Build plan items go in the order of the spec's "Build
+   order"; read only the sections `docs/README.md` lists for that item, or that its
+   kickoff names. Do not start the next item.
 2. **Ask instead of guessing** when the spec is silent or ambiguous about anything that
    changes behaviour: a threshold, an order of checks, a default, a state transition.
    Put the question in the PR or session. Naming, file structure inside a module and
@@ -35,7 +36,16 @@ follow the spec and list the difference in the PR under "Design differences".
    in the spec that belong to your step must pass.
 4. **Use the PR template** in `docs/README.md`. UI PRs attach Playwright screenshots at
    1440 × 900 and 390 × 844 next to the matching `design/screenshots/*.png`. Save them in
-   `docs/screenshots/pr-<n>/`, never in `design/`.
+   `docs/screenshots/NNN/` (`docs/screenshots/pr-<n>/` for items up to 020), never in
+   `design/`.
+5. **Names** (`docs/work-items.md`):
+   - branch `type/NNN-slug` (for example `fix/099-stop-retry`);
+   - PR title `[NNN] type: Title`;
+   - commits start with `[NNN]`;
+   - screenshots in `docs/screenshots/NNN/`.
+   Take the number and name from the kickoff's file name (for `pr-<n>.md`, from the
+   item's row in the register). When you open or merge the PR, update the item's row in
+   `docs/work-items.md` (build PR and status).
 
 ## Commands
 
