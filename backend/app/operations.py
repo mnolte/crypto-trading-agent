@@ -1,47 +1,14 @@
-"""Operational logging and daily SQLite backups."""
+"""Daily SQLite backups."""
 
 from __future__ import annotations
 
 import asyncio
-import json
-import logging
-import logging.handlers
 import sqlite3
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from app.db import utcnow
-
-
-class JsonFormatter(logging.Formatter):
-    def format(self, record: logging.LogRecord) -> str:
-        return json.dumps(
-            {
-                "at": datetime.fromtimestamp(record.created).astimezone().isoformat(),
-                "level": record.levelname,
-                "logger": record.name,
-                "message": record.getMessage(),
-            },
-            separators=(",", ":"),
-        )
-
-
-def configure_logging(data_dir: Path) -> None:
-    log_dir = data_dir / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    target = (log_dir / "app.log").resolve()
-    root = logging.getLogger()
-    if any(
-        isinstance(existing, logging.FileHandler)
-        and Path(existing.baseFilename).resolve() == target
-        for existing in root.handlers
-    ):
-        return
-    handler = logging.handlers.RotatingFileHandler(target, maxBytes=10 * 1024 * 1024, backupCount=5)
-    handler.setFormatter(JsonFormatter())
-    root.setLevel(logging.INFO)
-    root.addHandler(handler)
 
 
 def backup_due(data_dir: Path, now: datetime) -> bool:

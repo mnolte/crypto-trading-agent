@@ -42,14 +42,15 @@ from app.api.deps import (
     build_market_client,
     generate_local_token,
 )
-from app.config import REPO_ROOT, get_env
+from app import logstore
+from app.config import REPO_ROOT, get_env, get_secret
 from app.context.collector import ContextCollector
 from app.context.scheduler import context_loop
 from app.db import EngineLock, MarketRow, make_engine, make_session_factory, run_migrations, utcnow
 from app.features import briefings as briefings_mod
 from app.features.shadows import ShadowRunner
-from app.operations import backup_loop, configure_logging
-from app.sources import SourceRegistry
+from app.operations import backup_loop
+from app.sources import SOURCES, SourceRegistry
 
 log = logging.getLogger(__name__)
 
@@ -155,7 +156,13 @@ async def daily_market_loop(
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     env = get_env()
-    configure_logging(env.ta_data_dir)
+    # The log writer starts before anything else and stops last.
+    logstore.install(env.ta_data_dir)
+    # Every configured secret is registered for scrubbing before any line
+    # can mention one; the frontend only ever sees "set" and the last 4.
+    for source in SOURCES:
+        logstore.register_secret(get_secret(source.id))
+    logstore.register_secret(get_secret("smtp"))
     lock = EngineLock(env.ta_db_path)
     lock.acquire()  # raises EngineAlreadyRunningError if another instance holds it
     db_engine: DbEngine | None = None
@@ -174,6 +181,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings_version = repo.settings_version(session)
         finally:
             session.close()
+        logstore.configure(
+            console_level=settings.logging.console_level,
+            queue_size=settings.logging.queue_size,
+            library_debug=settings.logging.library_debug,
+            backtest_debug=settings.logging.backtest_debug,
+        )
         registry = SourceRegistry(settings.disabled_sources)
         market_client = build_market_client(settings, registry)
         state = AppState(
@@ -310,6 +323,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if db_engine is not None:
             db_engine.dispose()
         lock.release()
+        # The log writer is flushed and closed last.
+        logstore.shutdown()
 
 
 def create_app() -> FastAPI:
