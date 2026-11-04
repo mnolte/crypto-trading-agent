@@ -2,6 +2,15 @@
 
 Newest first. Each entry names the sections it touches.
 
+## 2026-11-04 — [022] CI hardening
+
+- No behaviour change. CI and tooling only; built by Claude without a kickoff. `docs/README.md` → When the spec changes points to the path list.
+- `make fix` and a pre-commit hook (`make hooks`) run ruff before each commit. `AGENTS.md` → Commands: run `make fix` before every commit.
+- The spec label check moves to `.github/workflows/spec-label.yml` (check `spec-label`): it re-runs when a label is added or removed, reads its paths from `.github/spec-paths.txt` (now also `AGENTS.md`, `CLAUDE.md`, `docs/README.md`, `docs/RESEARCH.md`, the kickoffs and `.env.example`), and needs a `docs/CHANGES.md` entry when `docs/SPEC.md`, `AGENTS.md`, a prompt or `.env.example` changes, a `design/CHANGES.md` entry for design screens, `DESIGN.md` or tokens. `docs/work-items.md`, `docs/analysis/` and `docs/screenshots/` stay unprotected.
+- A `names` check warns when a PR title or branch doesn't follow `docs/work-items.md`. It never fails.
+- CI pins Python 3.12 (`.python-version`) and Node 22, runs pytest on all cores, starts e2e in parallel, caches the Playwright browser, and runs the slow tests on main, weekly and by hand (`backend-slow`). Runs on `main` are no longer cancelled by the next push.
+- New: dependency audits (`audit.yml`; runtime findings fail, dev findings warn) and Dependabot (uv, npm, actions; weekly, releases at least 7 days old). certifi 2026.7.22 → 2026.10.23 for PYSEC-2026-4320. Dev-only findings left to Dependabot: pytest 8.4.2 (fix in 9.0.3), vitest, tinypool, vite and minimatch.
+
 ## 2026-11-04 — [021] Naming convention for work items
 
 - Every feature, fix, analysis or ops change with a kickoff is a **work item** `NNN-type-slug`, for example `099-fix-stop-retry`.

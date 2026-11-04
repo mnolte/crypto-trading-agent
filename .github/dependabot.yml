@@ -1,0 +1,51 @@
+# Dependabot version updates: one PR per week per ecosystem for minor and patch
+# bumps, separate PRs for major bumps. Security updates (from Dependabot alerts)
+# are a separate GitHub feature and are not held back by anything here.
+#
+# cooldown: a release is proposed only once it is at least 7 days old.
+# Dependabot PRs keep their own names and get no work-item number
+# (docs/work-items.md).
+
+version: 2
+updates:
+  # Python: the uv project is the repository root (pyproject.toml, uv.lock).
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Amsterdam"
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+
+  # Frontend: pnpm in /frontend (Dependabot handles pnpm under "npm").
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Amsterdam"
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+
+  # Action pins in .github/workflows and .github/actions.
+  - package-ecosystem: "github-actions"
+    directories: ["/", "/.github/actions/setup-frontend"]
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Amsterdam"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5

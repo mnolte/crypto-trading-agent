@@ -1,0 +1,66 @@
+name: Audit
+
+# Known vulnerabilities in the locked dependencies.
+#   Runtime dependencies (what runs the app): a finding fails the job.
+#   Dev dependencies (tests, lint, build tools): findings are listed as
+#   warnings and never fail the job; Dependabot proposes the upgrades.
+# Runs when a dependency file changes, on main, weekly and by hand, so a new
+# advisory for an unchanged dependency doesn't block unrelated PRs.
+
+on:
+  pull_request:
+    paths: [uv.lock, pyproject.toml, frontend/pnpm-lock.yaml, frontend/package.json, .github/workflows/audit.yml]
+  push:
+    branches: [main]
+    paths: [uv.lock, pyproject.toml, frontend/pnpm-lock.yaml, frontend/package.json, .github/workflows/audit.yml]
+  schedule:
+    # Monday 05:23 UTC.
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: audit-python
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
+        with:
+          enable-cache: true
+      # Exact versions from uv.lock; pip-audit checks them without resolving.
+      - name: Runtime dependencies
+        run: |
+          uv export --frozen --no-dev --no-hashes --no-emit-project -o /tmp/runtime.txt -q
+          uvx pip-audit==2.9.0 -r /tmp/runtime.txt --no-deps --disable-pip --progress-spinner off
+      - name: Dev dependencies (warnings only)
+        run: |
+          uv export --frozen --only-dev --no-hashes --no-emit-project -o /tmp/dev.txt -q
+          if ! uvx pip-audit==2.9.0 -r /tmp/dev.txt --no-deps --disable-pip --progress-spinner off; then
+            echo "::warning::Known vulnerabilities in Python dev dependencies (see the log)."
+          fi
+
+  frontend:
+    name: audit-frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: ./.github/actions/setup-frontend
+      - name: Runtime dependencies
+        run: corepack pnpm audit --prod
+      - name: Dev dependencies (warnings only)
+        run: |
+          if ! corepack pnpm audit --dev; then
+            echo "::warning::Known vulnerabilities in frontend dev dependencies (see the log)."
+          fi

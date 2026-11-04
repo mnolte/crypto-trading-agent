@@ -1,4 +1,4 @@
-.PHONY: dev run test test-backend test-frontend test-e2e soak openapi openapi-check ci ci-backend ci-frontend ci-api-types ci-e2e
+.PHONY: dev run test test-backend test-frontend test-e2e soak openapi openapi-check ci ci-backend ci-frontend ci-api-types ci-e2e fix hooks
 
 UV := uv
 # corepack must run inside frontend/ so it honours the pinned packageManager.
@@ -67,3 +67,11 @@ ci-e2e:
 	$(FE) exec playwright install chromium
 	$(FE) build
 	$(FE) e2e
+
+fix: ## fix lint and formatting in place (what the backend CI job checks)
+	$(UV) run ruff check --fix .
+	$(UV) run ruff format .
+	$(FE) lint --fix
+
+hooks: ## install the pre-commit hook (ruff check --fix and ruff format on each commit)
+	uvx pre-commit install

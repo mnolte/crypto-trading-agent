@@ -1,0 +1,32 @@
+# Spec-owned paths: a PR that changes any of them needs the "spec-change" label.
+#
+# Read by .github/scripts/check-spec-label.sh (workflow: spec-label.yml).
+# One bash glob per line; '*' also crosses '/', so 'design/*' covers
+# design/screens/x.html. Blank lines and lines starting with '#' are skipped.
+#
+# Not here on purpose: docs/work-items.md (Devin updates the build columns),
+# docs/analysis/ (Devin writes audit reports), docs/screenshots/ (PR evidence).
+
+# Behaviour spec, its changelog and the map
+docs/SPEC.md
+docs/CHANGES.md
+docs/README.md
+docs/RESEARCH.md
+docs/DEVIN_KICKOFF.md
+docs/kickoffs/*
+
+# Agent rules
+AGENTS.md
+CLAUDE.md
+
+# Prompts (a version in use is never edited) and the env contract
+backend/prompts/*
+.env.example
+
+# Look and wording
+design/*
+
+# The gate itself
+.github/spec-paths.txt
+.github/scripts/check-spec-label.sh
+.github/workflows/spec-label.yml

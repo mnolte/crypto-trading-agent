@@ -95,7 +95,8 @@ Work item: NNN-type-slug (kickoff docs/kickoffs/…)
 
 ## When the spec changes
 
-Spec and design changes arrive as pull requests with the `spec-change` label, each with
+Spec and design changes arrive as pull requests with the `spec-change` label (CI check
+`spec-label`; the spec-owned paths are listed in `.github/spec-paths.txt`), each with
 an entry in `docs/CHANGES.md` or `design/CHANGES.md`. Claude makes them on a
 `spec/NNN-slug` branch; Marc reviews and merges them. Each item's kickoff is a file in
 `docs/kickoffs/`, so Devin is started with one line: "Build

@@ -1,0 +1,28 @@
+name: Set up the frontend
+description: >
+  Node 22, pnpm through corepack (the version pinned in frontend/package.json),
+  the pnpm store cache and a frozen install in frontend/. Used by every job
+  that needs the frontend, so the setup is written once.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version: 22
+    - shell: bash
+      run: corepack enable
+    - name: Locate pnpm store
+      id: pnpm-store
+      shell: bash
+      working-directory: frontend
+      run: echo "dir=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ steps.pnpm-store.outputs.dir }}
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
+    - shell: bash
+      working-directory: frontend
+      run: corepack pnpm install --frozen-lockfile
