@@ -15,14 +15,14 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
 from app import repo
 from app.agent import budget
 from app.agent.engine import PRICE_FALLBACK_S, WATCH_S
-from app.db import AMSTERDAM, DecisionRow, ErrorRow, MarketRow
+from app.db import AMSTERDAM, DecisionRow, MarketRow
 from app.models import HealthItem, KillInfo, Needs, NeedsItem, NotificationSettings
 from app.sources import SourceStatus
 
@@ -43,7 +43,8 @@ class NeedsInputs:
     engine_status: str | None = None
     kill: KillInfo | None = None
     pending: list[DecisionRow] = field(default_factory=list)
-    errors: list[ErrorRow] = field(default_factory=list)
+    errors: list[dict[str, Any]] = field(default_factory=list)
+    degraded: list[str] = field(default_factory=list)
     sources: list[SourceStatus] = field(default_factory=list)
     notifications: NotificationSettings = field(default_factory=NotificationSettings)
     failing_markets: list[MarketRow] = field(default_factory=list)
@@ -61,8 +62,23 @@ def _email_needed(notifications: NotificationSettings) -> bool:
     return any(event.email for event in notifications.events.values())
 
 
-def _email_failing(errors: list[ErrorRow]) -> ErrorRow | None:
-    return next((e for e in errors if e.text == "notification delivery failed"), None)
+def _iso(ts: str) -> datetime | None:
+    try:
+        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return None
+
+
+def _email_failing(errors: list[dict[str, Any]]) -> dict[str, Any] | None:
+    return next(
+        (
+            e
+            for e in errors
+            if e.get("event") == "notify.email_failed"
+            or e.get("example") == "notification delivery failed"
+        ),
+        None,
+    )
 
 
 def compute_needs(inputs: NeedsInputs) -> Needs:
@@ -112,18 +128,33 @@ def compute_needs(inputs: NeedsInputs) -> Needs:
             )
         )
 
-    # 3. Errors not reviewed.
+    # 3. Errors not reviewed — now the unreviewed problems in logs.db.
     if inputs.errors:
-        texts = " · ".join(row.text for row in inputs.errors[:2])
+        texts = " · ".join(row["example"] for row in inputs.errors[:2])
         n = len(inputs.errors)
+        first_seen = inputs.errors[-1].get("first_seen")
         items.append(
             NeedsItem(
                 kind="errors",
                 title=f"{n} error{'s' if n != 1 else ''} not reviewed",
                 detail=f"{texts} · Readiness waits for these.",
                 action_label="Review",
-                action_target="/inspector",
-                since=repo.aware_utc(inputs.errors[0].first_at),
+                action_target="/logs",
+                since=_iso(first_seen) if isinstance(first_seen, str) else None,
+            )
+        )
+
+    # 3b. The app is degraded: a task is crash-looping or logs.db is
+    # not writable.
+    if inputs.degraded:
+        items.append(
+            NeedsItem(
+                kind="degraded",
+                title="The app is degraded",
+                detail=" · ".join(inputs.degraded[:3]),
+                action_label="Logs",
+                action_target="/logs",
+                since=None,
             )
         )
 
@@ -149,10 +180,10 @@ def compute_needs(inputs: NeedsInputs) -> Needs:
             NeedsItem(
                 kind="email",
                 title="Email alerts are failing.",
-                detail=failing_error.text,
+                detail=str(failing_error.get("example") or ""),
                 action_label="Fix in Settings",
                 action_target="/settings",
-                since=repo.aware_utc(failing_error.first_at),
+                since=_iso(str(failing_error.get("first_seen") or "")),
             )
         )
     elif email_setup:
@@ -299,6 +330,17 @@ def _health(inputs: NeedsInputs) -> list[HealthItem]:
     return out
 
 
+def _degraded(state: AppState) -> list[str]:
+    """Crash-looping tasks and an unwritable log store make the app
+    degraded — a Needs-you item until cleared."""
+    from app import tasks as tasks_mod
+
+    out = [f"task {name} keeps crashing" for name in sorted(tasks_mod.crash_loops)]
+    if state.log_store is not None and state.log_store._broken:
+        out.append("logs.db is not writable; lines go to the fallback file")
+    return out
+
+
 def load_needs(state: AppState, session: Session, now: datetime) -> Needs:
     """Gather every input and compute the Needs — cheap, never raises."""
     try:
@@ -311,12 +353,15 @@ def load_needs(state: AppState, session: Session, now: datetime) -> Needs:
             engine_status=engine.status if engine is not None else None,
             kill=engine.kill if engine is not None else None,
             pending=repo.pending_decisions(session, account_id),
-            errors=repo.list_errors_unresolved(session),
+            errors=state.log_store.unreviewed_problems()
+            if state.log_store is not None
+            else [],
             sources=state.sources.statuses(),
             notifications=settings.notifications,
             failing_markets=[
                 row for row in repo.list_market_rows(session) if row.active and not row.eligible
             ],
+            degraded=_degraded(state),
             month_spend_eur=budget.month_spend_all(session, now),
             month_cap_eur=settings.model.monthly_cost_cap_eur,
             stale_grace_s=settings.market.stale_grace_s,

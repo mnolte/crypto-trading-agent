@@ -21,7 +21,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.engine import Engine as DbEngine
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -55,7 +55,15 @@ from app.api.deps import (
 from app.config import REPO_ROOT, EnvConfig, get_env, get_secret
 from app.context.collector import ContextCollector
 from app.context.scheduler import context_loop
-from app.db import EngineLock, MarketRow, make_engine, make_session_factory, run_migrations, utcnow
+from app.db import (
+    EngineLock,
+    ErrorRow,
+    MarketRow,
+    make_engine,
+    make_session_factory,
+    run_migrations,
+    utcnow,
+)
 from app.features import briefings as briefings_mod
 from app.features.shadows import ShadowRunner
 from app.operations import backup_loop
@@ -292,6 +300,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             _unclean_start(env)
         run_migrations(env.ta_db_path)
         db_engine = make_engine(env.ta_db_path)
+        store = logstore.get_store()
+        if store is not None:
+            session_factory0 = make_session_factory(db_engine)
+            with session_factory0() as session:
+                legacy = list(session.scalars(select(ErrorRow)))
+            imported = logstore.import_legacy_errors(store, legacy)
+            if imported:
+                log.info(
+                    "imported %d legacy error row(s) into logs.db",
+                    imported,
+                    extra={"event": "legacy.error"},
+                )
         session_factory = make_session_factory(db_engine)
         session = session_factory()
         try:
@@ -322,7 +342,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             status="paused",
         )
         app.state.app_state = state
-        state.log_store = logstore.current()
+        state.log_store = logstore.get_store()
         if state.log_store is not None:
             _wire_log_push(state, state.log_store)
         # Paper account + engine: positions are restored from the database,

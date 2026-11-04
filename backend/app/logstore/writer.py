@@ -361,6 +361,75 @@ class LogStore:
 
     # --------------------------------------------------------------- queries
 
+    def write_lines(self, lines: list[dict[str, Any]]) -> None:
+        """Insert lines synchronously — for the one-time legacy import,
+        which must see its problems before it reviews them."""
+        with self._conn_lock:
+            try:
+                conn = self._ensure_conn()
+                self._insert_batch(conn, lines)
+            except sqlite3.Error as exc:
+                self._stderr(f"logs: legacy import write failed ({exc})")
+
+    def meta_get(self, key: str) -> str | None:
+        with self._conn_lock:
+            try:
+                return schema.meta_get(self._ensure_conn(), key)
+            except sqlite3.Error:
+                return None
+
+    def meta_set(self, key: str, value: str) -> None:
+        with self._conn_lock:
+            try:
+                conn = self._ensure_conn()
+                with conn:
+                    schema.meta_set(conn, key, value)
+            except sqlite3.Error:
+                self._stderr(f"logs: meta write {key} failed")
+
+    def unreviewed_problems(self, min_levelno: int = logging.WARNING) -> list[dict[str, Any]]:
+        """Problems nobody reviewed yet — the Needs-you and readiness
+        inputs now that the errors table is retired."""
+        try:
+            with self.connect_readonly() as conn:
+                rows = list(
+                    conn.execute(
+                        "SELECT * FROM log_problems WHERE state = 'unreviewed' "
+                        "AND levelno >= ? ORDER BY last_seen DESC",
+                        (min_levelno,),
+                    )
+                )
+        except sqlite3.Error:
+            return []
+        out = []
+        for r in rows:
+            p = dict(r)
+            p["pairs"] = json.loads(p.get("pairs") or "[]")
+            out.append(p)
+        return out
+
+    def count_unreviewed(self, min_levelno: int = logging.ERROR) -> int:
+        return self.count_unreviewed_since(None, min_levelno)
+
+    def count_unreviewed_since(
+        self, since: str | None, min_levelno: int = logging.ERROR
+    ) -> int:
+        try:
+            with self.connect_readonly() as conn:
+                where = "state = 'unreviewed' AND levelno >= ?"
+                params: list[Any] = [min_levelno]
+                if since is not None:
+                    where += " AND last_seen >= ?"
+                    params.append(since)
+                return int(
+                    conn.execute(
+                        f"SELECT COUNT(*) FROM log_problems WHERE {where}",
+                        params,
+                    ).fetchone()[0]
+                )
+        except sqlite3.Error:
+            return 0
+
     def connect_readonly(self) -> sqlite3.Connection:
         """A read-only connection for the API — WAL lets it read while the
         writer commits."""

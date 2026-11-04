@@ -10,7 +10,8 @@ from fastapi.testclient import TestClient
 
 from app import repo
 from app.api.deps import AppState
-from app.db import DecisionRow, ErrorRow, LlmCallRow, MarketRow
+from app.db import DecisionRow, LlmCallRow, MarketRow
+from app.logstore.record import COLUMNS, fingerprint
 from app.features.needs import load_needs
 from app.models import KillInfo, Needs, NotificationEventSettings
 
@@ -65,18 +66,33 @@ def _decision_row(**kw: object) -> DecisionRow:
     return DecisionRow(**defaults)
 
 
-def _error_row(text: str = "cycle failed for SOL-EUR: boom", **kw: object) -> ErrorRow:
-    defaults: dict[str, object] = {
-        "first_at": NOW.replace(tzinfo=None),
-        "last_at": NOW.replace(tzinfo=None),
-        "pair": None,
-        "text": text,
-        "affected_decision_or_fill": False,
-        "resolved_at": None,
-        "resolution_note": None,
-    }
-    defaults.update(kw)
-    return ErrorRow(**defaults)
+def _log_problem(
+    state: object,
+    text: str = "cycle failed for SOL-EUR: boom",
+    *,
+    event: str = "cycle.step_failed",
+    pair: str | None = None,
+) -> str:
+    """Write an ERROR line into the test app's logs.db — an unreviewed
+    problem, which is what the Needs items read now."""
+    line = {c: None for c in COLUMNS}
+    line.update(
+        {
+            "ts": NOW.isoformat(),
+            "level": "ERROR",
+            "levelno": 40,
+            "logger": "agent.scheduler",
+            "event": event,
+            "message": text,
+            "process": "app",
+            "pid": 1,
+            "pair": pair,
+            "fingerprint": fingerprint("agent.scheduler", event, text),
+            "version": "test",
+        }
+    )
+    state.log_store.write_lines([line])  # type: ignore[attr-defined]
+    return line["fingerprint"]
 
 
 def _no_email(state: AppState) -> None:
@@ -142,24 +158,13 @@ def test_pending_approvals_item(client: TestClient) -> None:
 
 def test_unresolved_errors_item(client: TestClient) -> None:
     state = _state(client)
-    session = state.session_factory()
-    try:
-        session.add(_error_row("cycle failed for SOL-EUR: boom"))
-        session.add(_error_row("watcher tick failed", first_at=NOW + timedelta(minutes=5)))
-        session.commit()
-    finally:
-        session.close()
+    _log_problem(state, "cycle failed for SOL-EUR: boom")
+    _log_problem(state, "watcher tick failed", event="task.crashed")
     item = next(i for i in _needs(state).items if i.kind == "errors")
     assert item.title == "2 errors not reviewed"
-    assert item.action_target == "/inspector"
-    session = state.session_factory()
-    try:
-        for row in repo.list_errors_unresolved(session):
-            row.resolved_at = datetime.now(UTC).replace(tzinfo=None)
-            row.resolution_note = "seen"
-        session.commit()
-    finally:
-        session.close()
+    assert item.action_target == "/logs"
+    for p in state.log_store.unreviewed_problems():
+        state.log_store.review_problem(p["fingerprint"], "fixed", "seen", NOW)
     assert all(i.kind != "errors" for i in _needs(state).items)
 
 
@@ -186,12 +191,7 @@ def test_email_not_set_up_then_failing(client: TestClient) -> None:
     state.settings.notifications.smtp.host = "smtp.example.com"
     assert all(i.kind != "email" for i in _needs(state).items)
     # A stored delivery failure brings it back, stronger wording.
-    session = state.session_factory()
-    try:
-        session.add(_error_row("notification delivery failed"))
-        session.commit()
-    finally:
-        session.close()
+    _log_problem(state, "notification delivery failed", event="notify.email_failed")
     item = next(i for i in _needs(state).items if i.kind == "email")
     assert item.title == "Email alerts are failing."
     health = next(h for h in _needs(state).health if h.key == "email")
@@ -273,10 +273,10 @@ def test_item_order_follows_the_spec_table(client: TestClient) -> None:
     session = state.session_factory()
     try:
         session.add(_decision_row(status="pending"))
-        session.add(_error_row())
         session.commit()
     finally:
         session.close()
+    _log_problem(state)
     kinds = [i.kind for i in _needs(state).items]
     assert kinds[:3] == ["kill", "approvals", "errors"]
 

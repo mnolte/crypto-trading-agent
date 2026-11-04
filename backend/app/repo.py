@@ -1004,33 +1004,11 @@ def add_activity(
         text=text,
         decision_id=decision_id,
     )
-    session.add(row)
     if kind == "error":
-        when = at or utcnow()
-        existing = session.scalar(
-            select(ErrorRow).where(
-                ErrorRow.resolved_at.is_(None),
-                ErrorRow.pair == pair,
-                ErrorRow.text == text,
-            )
-        )
-        if existing is None:
-            session.add(
-                ErrorRow(
-                    first_at=when,
-                    last_at=when,
-                    pair=pair,
-                    text=text,
-                    affected_decision_or_fill=decision_id is not None,
-                    resolved_at=None,
-                    resolution_note=None,
-                )
-            )
-        else:
-            existing.last_at = when
-            existing.affected_decision_or_fill = (
-                existing.affected_decision_or_fill or decision_id is not None
-            )
+        # The retired errors table is replaced by logs.db; the event was
+        # already logged by the caller, so nothing else is written.
+        return row
+    session.add(row)
     return row
 
 

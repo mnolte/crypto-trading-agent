@@ -277,7 +277,10 @@ class OutcomeFailureRow(Base):
 
 
 class ErrorRow(Base):
-    __tablename__ = "errors"
+    """The retired errors table — renamed errors_legacy by migration
+    0013; rows are imported once into logs.db as problems."""
+
+    __tablename__ = "errors_legacy"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     first_at: Mapped[datetime]
