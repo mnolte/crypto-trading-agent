@@ -78,7 +78,9 @@ _TOAST_SEVERITY = {
 }
 
 
-def _send_email(settings: NotificationSettings, subject: str, body: str) -> None:
+def _send_email(
+    settings: NotificationSettings, subject: str, body: str, timeout_s: float
+) -> None:
     smtp = settings.smtp
     message = EmailMessage()
     message["Subject"] = subject
@@ -86,7 +88,7 @@ def _send_email(settings: NotificationSettings, subject: str, body: str) -> None
     message["To"] = smtp.recipient
     message.set_content(body)
     client_class = smtplib.SMTP
-    with client_class(smtp.host, smtp.port, timeout=10) as client:
+    with client_class(smtp.host, smtp.port, timeout=timeout_s) as client:
         if smtp.tls:
             client.starttls()
         password = get_secret("smtp")
@@ -217,7 +219,13 @@ class NotificationDispatcher:
         repeats: int,
     ) -> None:
         try:
-            await asyncio.to_thread(_send_email, settings, title, body)
+            await asyncio.to_thread(
+                _send_email,
+                settings,
+                title,
+                body,
+                self.state.settings.timeouts.smtp_s,
+            )
             self._last_sent[key] = utcnow()
             self._record(key, self._last_sent[key], repeats)
             session = self.state.session_factory()
@@ -230,6 +238,15 @@ class NotificationDispatcher:
                 session.commit()
             finally:
                 session.close()
+            if self.state.log_store is not None:
+                for p in self.state.log_store.unreviewed_problems():
+                    if p.get("event") == "notify.email_failed":
+                        self.state.log_store.review_problem(
+                            p["fingerprint"],
+                            "fixed",
+                            "SMTP delivery recovered",
+                            utcnow(),
+                        )
         except Exception as exc:
             logging.getLogger("notify").exception(
                 "notification delivery failed: %s",
@@ -269,6 +286,7 @@ async def test_notifications(
                 settings,
                 "Trading Agent · test notification",
                 "Notifications are configured correctly.",
+                state.settings.timeouts.smtp_s,
             )
             email_sent = True
         except (OSError, smtplib.SMTPException) as exc:

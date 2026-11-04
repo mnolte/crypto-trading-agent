@@ -3141,6 +3141,15 @@ select.input--sm {
   color: var(--ta-text-2);
 }
 
+.cycles-card__errors {
+  color: var(--ta-negative-soft);
+  text-decoration: none;
+}
+
+.cycles-card__errors:hover {
+  text-decoration: underline;
+}
+
 /* The rolling quarter-hour slot ticks. */
 .slotline {
   display: flex;

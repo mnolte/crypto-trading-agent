@@ -9,11 +9,13 @@ environment or ``.env``. Secrets never land in the database or in logs.
 
 from __future__ import annotations
 
+import concurrent.futures
 import logging
 import os
+from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import keyring
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -24,6 +26,21 @@ ENV_FILE = REPO_ROOT / ".env"
 KEYRING_SERVICE = "trading-agent"
 
 LOCAL_HOSTS = frozenset({"127.0.0.1", "localhost"})
+
+_KEYRING_POOL = concurrent.futures.ThreadPoolExecutor(
+    max_workers=2, thread_name_prefix="keyring"
+)
+
+
+def _bounded_keyring(fn: Callable[..., object], *args: str) -> object:
+    """Run a keyring call in a thread so a hung backend (locked
+    collection, dead dbus) cannot block the caller past
+    ``timeouts.keyring_s``. The thread itself cannot be killed — the
+    bound is on how long we wait."""
+    from app.models import TimeoutSettings
+
+    future: concurrent.futures.Future[object] = _KEYRING_POOL.submit(fn, *args)
+    return future.result(timeout=TimeoutSettings().keyring_s)
 
 
 class EnvConfig(BaseSettings):
@@ -72,7 +89,10 @@ def get_secret(source: str) -> str | None:
     breaks callers.
     """
     try:
-        stored = keyring.get_password(KEYRING_SERVICE, source)
+        stored = cast(
+            str | None,
+            _bounded_keyring(keyring.get_password, KEYRING_SERVICE, source),
+        )
     except Exception as exc:
         logging.getLogger("app.config").exception(
             "keyring read failed for %s: %s; the key counts as not set",
@@ -89,7 +109,7 @@ def get_secret(source: str) -> str | None:
 
 def set_secret(source: str, value: str) -> None:
     try:
-        keyring.set_password(KEYRING_SERVICE, source, value)
+        _bounded_keyring(keyring.set_password, KEYRING_SERVICE, source, value)
     except Exception as exc:
         raise SecretStoreError(
             f"cannot store a key for {source}: no OS keyring backend available"
@@ -98,7 +118,7 @@ def set_secret(source: str, value: str) -> None:
 
 def delete_secret(source: str) -> None:
     try:
-        keyring.delete_password(KEYRING_SERVICE, source)
+        _bounded_keyring(keyring.delete_password, KEYRING_SERVICE, source)
     except keyring.errors.PasswordDeleteError:
         pass
     except Exception as exc:

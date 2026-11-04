@@ -1,5 +1,7 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 
+const PR_DIR = process.env.SCREENSHOT_DIR ?? "pr-15";
+
 const PAGES = [
   { path: "/", name: "dashboard" },
   { path: "/indicators", name: "indicators" },
@@ -9,6 +11,7 @@ const PAGES = [
   { path: "/reviews", name: "reviews" },
   { path: "/settings", name: "settings" },
   { path: "/inspector", name: "inspector" },
+  { path: "/logs", name: "logs" },
   { path: "/readiness", name: "readiness" },
   { path: "/dev/components", name: "components" },
 ];
@@ -70,7 +73,7 @@ for (const { path, name } of PAGES) {
     // Let the screen's own queries settle (websockets don't block networkidle).
     await page.waitForLoadState("networkidle");
     await page.screenshot({
-      path: `../docs/screenshots/pr-14/${name}-${testInfo.project.name}.png`,
+      path: `../docs/screenshots/${PR_DIR}/${name}-${testInfo.project.name}.png`,
       fullPage: name === "components" || name === "settings",
     });
     // No screen scrolls sideways at phone width.
@@ -90,7 +93,7 @@ test("ask panel opens over the dashboard", async ({ page }, testInfo) => {
   await expect(panel).toBeVisible();
   await expect(panel).toContainText("Read-only");
   await page.screenshot({
-    path: `../docs/screenshots/pr-14/ask-${testInfo.project.name}.png`,
+    path: `../docs/screenshots/${PR_DIR}/ask-${testInfo.project.name}.png`,
   });
 });
 
@@ -103,7 +106,7 @@ test("decision drawer opens from the dashboard", async ({ page }, testInfo) => {
   await expect(drawer).toBeVisible();
   await expect(drawer).toContainText(/Safety gates|Agent reasoning/);
   await page.screenshot({
-    path: `../docs/screenshots/pr-14/decision-drawer-${testInfo.project.name}.png`,
+    path: `../docs/screenshots/${PR_DIR}/decision-drawer-${testInfo.project.name}.png`,
   });
 });
 
@@ -113,7 +116,7 @@ test("stop and flatten asks for confirmation", async ({ page }, testInfo) => {
   const dialog = page.getByRole("dialog", { name: "Close all positions and pause?" });
   await expect(dialog).toBeVisible();
   await page.screenshot({
-    path: `../docs/screenshots/pr-14/flatten-dialog-${testInfo.project.name}.png`,
+    path: `../docs/screenshots/${PR_DIR}/flatten-dialog-${testInfo.project.name}.png`,
   });
 });
 
@@ -128,6 +131,6 @@ test("disconnected pill when the snapshot socket is down", async ({ page }, test
   await expect(pill).toHaveText(/Disconnected/);
   await expect(pill).toHaveAttribute("title", /Last known:/);
   await page.screenshot({
-    path: `../docs/screenshots/pr-14/disconnected-${testInfo.project.name}.png`,
+    path: `../docs/screenshots/${PR_DIR}/disconnected-${testInfo.project.name}.png`,
   });
 });
