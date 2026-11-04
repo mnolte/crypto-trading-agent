@@ -70,7 +70,8 @@ The examples use 099 as a made-up number.
 | 019 | feat | Backtest | — | #18 | — | ready |
 | 020 | feat | Sign-in and access | — | #18, #20 | — | ready |
 | 021 | spec | Naming convention for work items | — | #21 | — | merged |
-| 022 | ops | CI hardening | — | — | #23 | building |
+| 022 | ops | CI hardening | — | — | #23 | merged |
+| 023 | spec | Logs in every sidebar | — | #PRNUM | — | planned |
 
 Status is one of `planned` (spec PR open), `ready` (spec merged, not started), `building` (build PR open), `merged`, `paused` (spec written, held by a decision in `docs/SPEC.md` → Decisions, with the date in the row) or `dropped` (with the reason in the row).
 

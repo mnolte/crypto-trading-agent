@@ -49,6 +49,7 @@ table{border-collapse:collapse}
       <a href="Inspector.dc.html" aria-current="{{nav.c.insp}}" aria-label="LLM inspector" title="LLM inspector" style="{{nav.s.insp}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="11" cy="11" r="6"></circle><line x1="16" y1="16" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>LLM inspector</span></sc-if></a>
       <div style="{{nav.group}}">Control</div>
       <a href="Readiness.dc.html" aria-current="{{nav.c.ready}}" aria-label="Readiness" title="Readiness" style="{{nav.s.ready}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><polyline points="9 12 11 14 15 10"></polyline></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Readiness</span></sc-if></a>
+      <a href="Logs.dc.html" aria-current="{{nav.c.logs}}" aria-label="Logs" title="Logs" style="{{nav.s.logs}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="14 3 14 9 20 9"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="13" y2="17"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Logs</span></sc-if></a>
       <a href="Settings.dc.html" aria-current="{{nav.c.set}}" aria-label="Settings" title="Settings" style="{{nav.s.set}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line><circle cx="9" cy="6" r="2" fill="#0F131A"></circle><circle cx="15" cy="12" r="2" fill="#0F131A"></circle><circle cx="7" cy="18" r="2" fill="#0F131A"></circle></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Settings</span></sc-if></a>
     </nav>
     <div style="flex: 1"></div>
@@ -127,7 +128,7 @@ table{border-collapse:collapse}
                   <td style="padding: 12px 8px; text-align: right; font-family: 'IBM Plex Mono', monospace">{{r.now}}</td>
                   <td style="padding: 12px 8px; text-align: right; font-family: 'IBM Plex Mono', monospace; color: #98A2AF">{{r.need}}</td>
                   <td style="padding: 12px 8px"><div style="height: 6px; border-radius: 3px; background: #232A35; overflow: hidden"><div style="{{r.bar}}"></div></div></td>
-                  <td style="padding: 12px 0 12px 8px"><span style="{{r.pill}}">{{r.status}}</span></td>
+                  <td style="padding: 12px 0 12px 8px"><span style="{{r.pill}}">{{r.status}}</span><sc-if value="{{r.hasLink}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #98A2AF"> · <a href="{{r.href}}" style="color: #F2B94B">{{r.linkText}}</a></span></sc-if></td>
                 </tr>
               </sc-for>
             </tbody>
@@ -151,7 +152,7 @@ class Component extends DCLogic {
     var navCollapsed = !!this.state.navCollapsed;
     var navBase = 'height:44px;display:flex;align-items:center;gap:12px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;box-sizing:border-box;white-space:nowrap;' + (navCollapsed ? 'justify-content:center;padding:0;' : 'padding:0 12px;');
     var s = {}, c = {};
-    ['dash', 'ind', 'perf', 'ins', 'what', 'rev', 'insp', 'ready', 'set', 'ask'].forEach(function (k) { s[k] = navBase + (k === PAGE ? 'background:#1C222C;color:#E7EAEE' : 'color:#98A2AF'); c[k] = k === PAGE ? 'page' : undefined; });
+    ['dash', 'ind', 'perf', 'ins', 'what', 'rev', 'insp', 'ready', 'logs', 'set', 'ask'].forEach(function (k) { s[k] = navBase + (k === PAGE ? 'background:#1C222C;color:#E7EAEE' : 'color:#98A2AF'); c[k] = k === PAGE ? 'page' : undefined; });
     var nav = {
       expanded: !navCollapsed, expandedStr: String(!navCollapsed), s: s, c: c,
       toggle: function () { self.setState({ navCollapsed: !navCollapsed }); },
@@ -174,7 +175,7 @@ class Component extends DCLogic {
       ['Profit factor', 'Total won ÷ total lost', '1.24', '> 1.30', 0.95, false, 'needs better trades, not time'],
       ['Confidence calibration', 'Weighted gap over confidence buckets · needs 50 BUYs', '24 pts', '≤ 10 pts', 0.42, false, 'see Insights'],
       ['No kill switch', 'In the last 30 days', '0 kills', '0', 1, true],
-      ['No unresolved errors', 'Errors that affected a decision or fill, last 7 days', '1 open', '0', 0, false, 'resolve on Dashboard']
+      ['Errors in the log', 'Error and critical problems reviewed as expected or fixed, and no critical line, last 7 days', '1 unreviewed', '0', 0, false, 'review on Logs', 'Logs.dc.html']
     ];
     var met = 0;
     var rows = C.map(function (c) {
@@ -182,7 +183,8 @@ class Component extends DCLogic {
       return {
         name: c[0], why: c[1], now: c[2], need: c[3],
         bar: 'height:6px;border-radius:3px;width:' + Math.round(c[4] * 100) + '%;background:' + (c[5] ? '#3DD68C' : '#F2B94B'),
-        status: c[5] ? 'Met' : 'Not yet · ' + c[6],
+        status: c[5] ? 'Met' : c[7] ? 'Not yet' : 'Not yet · ' + c[6],
+        hasLink: !!c[7], href: c[7] || '', linkText: c[6] || '',
         pill: 'display:inline-flex;align-items:center;min-height:24px;padding:2px 10px;border-radius:999px;font-size:12px;white-space:nowrap;' + (c[5] ? 'background:#0F2A1E;color:#3DD68C;border:1px solid #1E5A3E' : 'background:#211C10;color:#F2B94B;border:1px solid #4A3A16')
       };
     });
