@@ -93,6 +93,12 @@ class Position(BaseModel):
     decision_id: str
     last: MoneyDecimal
     unrealised: MoneyDecimal
+    # Dashboard bar extras (None until computed for the snapshot).
+    stop_dist_pct: MoneyDecimal | None = None  # last price above the stop, %
+    stop_dist_atr: MoneyDecimal | None = None  # same distance in ATR(1h)
+    pnl_r: MoneyDecimal | None = None  # unrealised P&L in R
+    stop_above_entry: bool = False  # stop at or above the entry
+    stop_near: bool = False  # amber: closer than settings.ui.stop_near_atr
 
 
 class PriceInfo(BaseModel):
@@ -153,6 +159,31 @@ class KillInfo(BaseModel):
     closed: list[str]  # pairs closed by the kill
 
 
+class NeedsItem(BaseModel):
+    """One thing only the user can resolve, with its single action."""
+
+    kind: str  # "kill"|"approvals"|"errors"|"source"|"email"|"market"|"cost_cap"
+    title: str
+    detail: str | None = None
+    action_label: str
+    action_target: str  # frontend route
+    since: datetime | None = None
+
+
+class HealthItem(BaseModel):
+    """One health-line reading: Bitvavo, stream, clock, key, collector, email."""
+
+    key: str  # "bitvavo"|"stream"|"clock"|"openai"|"collector"|"email"
+    label: str
+    state: Literal["ok", "warn", "down", "off", "unknown"]
+    value: str | None = None
+
+
+class Needs(BaseModel):
+    items: list[NeedsItem] = []
+    health: list[HealthItem] = []
+
+
 class Snapshot(BaseModel):
     status: Literal["running", "paused", "killed", "error"]
     mode: Literal["paper"]
@@ -182,6 +213,11 @@ class Snapshot(BaseModel):
     today_trades: int = 0
     today_won: int = 0
     return_since_start_pct: float = 0.0
+    needs: Needs = Needs()
+    # BTC buy-and-hold return over the account's life — the "since start"
+    # tile's comparison; None until BTC daily candles are stored.
+    btc_return_since_start_pct: float | None = None
+    account_started_at: datetime | None = None
 
 
 # ---------------------------------------------------------------- settings --
@@ -364,6 +400,15 @@ class ReadinessSettings(BaseModel):
     calibration_gap_pts: Decimal = Decimal("10")
 
 
+class UiSettings(BaseModel):
+    """Display thresholds for the GUI — the amber stop distance lives here
+    so the highlight rule is configurable, never a literal in logic."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    stop_near_atr: Decimal = Decimal("1.5")
+
+
 class Settings(BaseModel):
     """The one validated JSON document stored in the settings table.
 
@@ -386,6 +431,7 @@ class Settings(BaseModel):
     notifications: NotificationSettings = NotificationSettings()
     learning: LearningSettings = LearningSettings()
     readiness: ReadinessSettings = ReadinessSettings()
+    ui: UiSettings = UiSettings()
     # Source ids the user disabled on the Sources page; the registry keeps
     # the runtime status.
     disabled_sources: list[str] = []
@@ -1131,3 +1177,81 @@ class OutcomeStatsRow(OutcomeScorecardRow):
 
 class OutcomeStatsOut(BaseModel):
     items: list[OutcomeStatsRow]
+
+
+# ------------------------------------------------------------ cycles card --
+
+
+class CycleSlotChange(BaseModel):
+    """Something that happened inside a quarter-hour slot."""
+
+    kind: Literal["entry", "exit", "stop_move", "error"]
+    pair: str | None = None
+    detail: str  # short text for tooltips, e.g. "SOL-EUR 136.10 → 139.10 · breakeven"
+    decision_id: str | None = None
+    exit_gain: bool | None = None  # exits only
+
+
+class CycleSlot(BaseModel):
+    """One quarter-hour slot on the rolling timeline."""
+
+    at: datetime  # UTC quarter-hour boundary
+    state: Literal[
+        "entry",
+        "exit_gain",
+        "exit_loss",
+        "stop_moved",
+        "error",
+        "no_change",
+        "missed",
+        "paused",
+        "next",
+        "future",
+    ]
+    missed_reason: str | None = None  # "asleep" | "stopped" | "paused"
+    cycle: int | None = None
+    changes: list[CycleSlotChange] = []
+    jobs: list[str] = []  # "eligibility" | "backup" | "briefing" | "weekly_review"
+
+
+class CycleGroup(BaseModel):
+    """One action+reason group inside a cycle's decisions."""
+
+    label: str  # "BUY" | "SELL" | "HOLD" | "SKIP" | "NO CALL"
+    reason: str | None = None  # gate name, "pre-filter", "positions kept", "model exit"
+    pairs: list[str] = []
+    count: int
+    decision_id: str | None = None
+    detail: str | None = None  # e.g. "0.0807 @ 61,240 · R/R 2.1"
+    change: bool = False  # an executed entry or exit
+
+
+class CycleDecisions(BaseModel):
+    slot_at: datetime
+    cycle: int | None = None
+    groups: list[CycleGroup] = []
+    changes: list[CycleSlotChange] = []
+    decision_count: int = 0
+    missed: bool = False
+
+
+class MissedRange(BaseModel):
+    from_at: datetime
+    to_at: datetime
+    reason: str | None = None
+    count: int
+
+
+class CyclesSummary(BaseModel):
+    ran: int
+    scheduled: int
+    missed: list[MissedRange] = []
+    errors: int = 0
+    cycle_id: int = 0
+    running_since: datetime | None = None
+
+
+class CyclesRecent(BaseModel):
+    slots: list[CycleSlot]
+    summary: CyclesSummary
+    decisions: list[CycleDecisions]

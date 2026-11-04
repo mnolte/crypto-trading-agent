@@ -34,6 +34,8 @@ from app.agent.market.base import MarketClient, MarketInfo
 from app.agent.market.bitvavo import BitvavoClient
 from app.config import LOCAL_HOSTS
 from app.features import quiet as quiet_mod
+from app.features.needs import load_needs
+from app.features.performance import since_start
 from app.models import (
     ActivityItem,
     EntryPause,
@@ -226,6 +228,19 @@ def build_snapshot(state: AppState) -> Snapshot:
         equity = broker.equity()
         cash = broker.cash
         positions = [p.to_model() for p in broker.positions.values()]
+        stop_near_atr = settings.ui.stop_near_atr
+        for model, held in zip(positions, broker.positions.values(), strict=True):
+            model.stop_above_entry = held.stop >= held.entry
+            if held.last <= 0:
+                continue
+            dist = held.last - held.stop
+            model.stop_dist_pct = dist / held.last * 100
+            atr = engine._atr_1h(session, held.pair, now)
+            if atr is not None and atr > 0:
+                model.stop_dist_atr = dist / atr
+                model.stop_near = model.stop_dist_atr < stop_near_atr
+            if held.qty > 0 and held.r_unit > 0:
+                model.pnl_r = held.unrealised / (held.qty * held.r_unit)
         activity = [
             ActivityItem(
                 at=repo.aware_utc(row.at),
@@ -248,6 +263,7 @@ def build_snapshot(state: AppState) -> Snapshot:
         )
         errors_24h = repo.error_count_since(session, now - timedelta(hours=24))
         pauses = repo.list_entry_pauses(session, now)
+        _agent_pct, btc_pct = since_start(session, broker.account, equity, now)
         return Snapshot(
             status=engine.status,
             mode="paper",
@@ -296,6 +312,9 @@ def build_snapshot(state: AppState) -> Snapshot:
                 if Decimal(broker.account.start_balance) > 0
                 else 0.0
             ),
+            needs=load_needs(state, session, now),
+            btc_return_since_start_pct=float(btc_pct) if btc_pct is not None else None,
+            account_started_at=repo.aware_utc(broker.account.started_at),
         )
     finally:
         session.close()
