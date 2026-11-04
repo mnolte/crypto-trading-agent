@@ -1,34 +1,8 @@
 import type { components } from "./schema";
 
-// TODO: replace with schema types after regen (PR 14 backend additions).
-interface SnapshotNewFields {
-  needs?: Needs;
-  btc_return_since_start_pct?: number | null;
-  account_started_at?: string | null;
-}
-interface PositionNewFields {
-  stop_dist_pct?: string | null;
-  stop_dist_atr?: string | null;
-  pnl_r?: string | null;
-  stop_above_entry?: boolean;
-  stop_near?: boolean;
-}
-interface MarketOutNewFields {
-  price?: string | null;
-  chg_24h_pct?: string | null;
-  regime?: components["schemas"]["Regime"] | null;
-  rules_state?: "passed" | "held" | "failed" | "paused" | "warming" | "none" | null;
-  rules_detail?: string | null;
-  last_action_action?: string | null;
-  last_action_at?: string | null;
-}
-interface SettingsNewFields {
-  ui?: { stop_near_atr: string | number };
-}
-
-export type Snapshot = components["schemas"]["Snapshot"] & SnapshotNewFields;
-export type Settings = components["schemas"]["Settings-Input"] & SettingsNewFields;
-export type SettingsOut = components["schemas"]["Settings-Output"] & SettingsNewFields;
+export type Snapshot = components["schemas"]["Snapshot"];
+export type Settings = components["schemas"]["Settings-Input"];
+export type SettingsOut = components["schemas"]["Settings-Output"];
 export type SessionOut = components["schemas"]["SessionOut"];
 export type HealthOut = components["schemas"]["app__api__routes__HealthOut"];
 export type AgentStatus = Snapshot["status"];
@@ -47,12 +21,12 @@ export type TradeOut = components["schemas"]["TradeOut"];
 export type TradeListOut = components["schemas"]["TradeListOut"];
 export type FlattenPreview = components["schemas"]["FlattenPreview"];
 export type PromptInfo = components["schemas"]["PromptInfo"];
-export type MarketOut = components["schemas"]["MarketOut"] & MarketOutNewFields;
+export type MarketOut = components["schemas"]["MarketOut"];
 export type SourceOut = components["schemas"]["SourceOut"];
 export type SecretTestOut = components["schemas"]["SecretTestOut"];
 export type Regime = components["schemas"]["Regime"];
 export type Plan = components["schemas"]["Plan"];
-export type Position = components["schemas"]["Position"] & PositionNewFields;
+export type Position = components["schemas"]["Position"];
 export type ActivityItem = components["schemas"]["ActivityItem"];
 export type ActivityOut = components["schemas"]["ActivityOut"];
 export type ActivityListOut = components["schemas"]["ActivityListOut"];
@@ -103,98 +77,17 @@ export type AskConversationOut = components["schemas"]["AskConversationOut"];
 export type OutcomeStatsOut = components["schemas"]["OutcomeStatsOut"];
 export type OutcomeStatsRow = components["schemas"]["OutcomeStatsRow"];
 
-// TODO: replace with schema types after regen (PR 14 backend additions).
-
-export interface NeedsItem {
-  kind: string;
-  title: string;
-  detail: string | null;
-  action_label: string;
-  action_target: string;
-  since: string | null;
-}
-
-export interface HealthItem {
-  key: string;
-  label: string;
-  state: "ok" | "warn" | "down" | "off" | "unknown";
-  value: string | null;
-}
-
-export interface Needs {
-  items: NeedsItem[];
-  health: HealthItem[];
-}
-
-export type CycleSlotState =
-  | "entry"
-  | "exit_gain"
-  | "exit_loss"
-  | "stop_moved"
-  | "error"
-  | "no_change"
-  | "missed"
-  | "paused"
-  | "next"
-  | "future";
-
-export interface CycleSlotChange {
-  kind: "entry" | "exit" | "stop_move" | "error";
-  pair: string | null;
-  detail: string;
-  decision_id: string | null;
-  exit_gain: boolean | null;
-}
-
-export interface CycleSlot {
-  at: string;
-  state: CycleSlotState;
-  missed_reason: string | null;
-  cycle: number | null;
-  changes: CycleSlotChange[];
-  jobs: string[];
-}
-
-export interface CycleGroup {
-  label: string;
-  reason: string | null;
-  pairs: string[];
-  count: number;
-  decision_id: string | null;
-  detail: string | null;
-  change: boolean;
-}
-
-export interface CycleDecisions {
-  slot_at: string;
-  cycle: number | null;
-  groups: CycleGroup[];
-  changes: CycleSlotChange[];
-  decision_count: number;
-  missed: boolean;
-}
-
-export interface MissedRange {
-  from_at: string;
-  to_at: string;
-  reason: string | null;
-  count: number;
-}
-
-export interface CyclesSummary {
-  ran: number;
-  scheduled: number;
-  missed: MissedRange[];
-  errors: number;
-  cycle_id: number;
-  running_since: string | null;
-}
-
-export interface CyclesRecent {
-  slots: CycleSlot[];
-  summary: CyclesSummary;
-  decisions: CycleDecisions[];
-}
+export type NeedsItem = components["schemas"]["NeedsItem"];
+export type HealthItem = components["schemas"]["HealthItem"];
+export type Needs = components["schemas"]["Needs"];
+export type CycleSlot = components["schemas"]["CycleSlot"];
+export type CycleSlotState = CycleSlot["state"];
+export type CycleSlotChange = components["schemas"]["CycleSlotChange"];
+export type CycleGroup = components["schemas"]["CycleGroup"];
+export type CycleDecisions = components["schemas"]["CycleDecisions"];
+export type MissedRange = components["schemas"]["MissedRange"];
+export type CyclesSummary = components["schemas"]["CyclesSummary"];
+export type CyclesRecent = components["schemas"]["CyclesRecent"];
 
 let localToken: string | null = null;
 

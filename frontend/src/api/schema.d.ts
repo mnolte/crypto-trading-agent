@@ -293,6 +293,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cycles/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Cycles Recent
+         * @description The rolling timeline: one slot per quarter hour, the scheduled
+         *     jobs, the ran/missed summary and the grouped decisions.
+         */
+        get: operations["get_cycles_recent_api_cycles_recent_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data": {
         parameters: {
             query?: never;
@@ -725,6 +746,26 @@ export interface paths {
         post?: never;
         /** Resume Market */
         delete: operations["resume_market_api_markets__market__pause_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/needs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Needs
+         * @description The Needs you list plus the health line. GETs need no token.
+         */
+        get: operations["get_needs_api_needs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1542,6 +1583,143 @@ export interface components {
             /** Spent Usd */
             spent_usd: string | null;
         };
+        /** CycleDecisions */
+        CycleDecisions: {
+            /**
+             * Changes
+             * @default []
+             */
+            changes: components["schemas"]["CycleSlotChange"][];
+            /** Cycle */
+            cycle?: number | null;
+            /**
+             * Decision Count
+             * @default 0
+             */
+            decision_count: number;
+            /**
+             * Groups
+             * @default []
+             */
+            groups: components["schemas"]["CycleGroup"][];
+            /**
+             * Missed
+             * @default false
+             */
+            missed: boolean;
+            /**
+             * Slot At
+             * Format: date-time
+             */
+            slot_at: string;
+        };
+        /**
+         * CycleGroup
+         * @description One action+reason group inside a cycle's decisions.
+         */
+        CycleGroup: {
+            /**
+             * Change
+             * @default false
+             */
+            change: boolean;
+            /** Count */
+            count: number;
+            /** Decision Id */
+            decision_id?: string | null;
+            /** Detail */
+            detail?: string | null;
+            /** Label */
+            label: string;
+            /**
+             * Pairs
+             * @default []
+             */
+            pairs: string[];
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * CycleSlot
+         * @description One quarter-hour slot on the rolling timeline.
+         */
+        CycleSlot: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Changes
+             * @default []
+             */
+            changes: components["schemas"]["CycleSlotChange"][];
+            /** Cycle */
+            cycle?: number | null;
+            /**
+             * Jobs
+             * @default []
+             */
+            jobs: string[];
+            /** Missed Reason */
+            missed_reason?: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "entry" | "exit_gain" | "exit_loss" | "stop_moved" | "error" | "no_change" | "missed" | "paused" | "next" | "future";
+        };
+        /**
+         * CycleSlotChange
+         * @description Something that happened inside a quarter-hour slot.
+         */
+        CycleSlotChange: {
+            /** Decision Id */
+            decision_id?: string | null;
+            /** Detail */
+            detail: string;
+            /** Exit Gain */
+            exit_gain?: boolean | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entry" | "exit" | "stop_move" | "error";
+            /** Pair */
+            pair?: string | null;
+        };
+        /** CyclesRecent */
+        CyclesRecent: {
+            /** Decisions */
+            decisions: components["schemas"]["CycleDecisions"][];
+            /** Slots */
+            slots: components["schemas"]["CycleSlot"][];
+            summary: components["schemas"]["CyclesSummary"];
+        };
+        /** CyclesSummary */
+        CyclesSummary: {
+            /**
+             * Cycle Id
+             * @default 0
+             */
+            cycle_id: number;
+            /**
+             * Errors
+             * @default 0
+             */
+            errors: number;
+            /**
+             * Missed
+             * @default []
+             */
+            missed: components["schemas"]["MissedRange"][];
+            /** Ran */
+            ran: number;
+            /** Running Since */
+            running_since?: string | null;
+            /** Scheduled */
+            scheduled: number;
+        };
         /**
          * DeciderOption
          * @description One selectable decider in the Insights filter.
@@ -1770,6 +1948,23 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * HealthItem
+         * @description One health-line reading: Bitvavo, stream, clock, key, collector, email.
+         */
+        HealthItem: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ok" | "warn" | "down" | "off" | "unknown";
+            /** Value */
+            value?: string | null;
         };
         /** IndicatorCell */
         IndicatorCell: {
@@ -2168,16 +2363,29 @@ export interface components {
             active: boolean;
             /** Checked At */
             checked_at: string | null;
+            /** Chg 24H Pct */
+            chg_24h_pct?: string | null;
             /** Daily Candles */
             daily_candles: number | null;
             /** Eligible */
             eligible: boolean;
             /** Failed Rule */
             failed_rule: string | null;
+            /** Last Action Action */
+            last_action_action?: string | null;
+            /** Last Action At */
+            last_action_at?: string | null;
             /** Market */
             market: string;
             /** Paused */
             paused: boolean;
+            /** Price */
+            price?: string | null;
+            regime?: components["schemas"]["Regime"] | null;
+            /** Rules Detail */
+            rules_detail?: string | null;
+            /** Rules State */
+            rules_state?: ("passed" | "held" | "failed" | "paused" | "warming" | "none") | null;
             /** Spread Pct */
             spread_pct: number | null;
             /** Status */
@@ -2360,6 +2568,23 @@ export interface components {
             /** Active */
             active: boolean;
         };
+        /** MissedRange */
+        MissedRange: {
+            /** Count */
+            count: number;
+            /**
+             * From At
+             * Format: date-time
+             */
+            from_at: string;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * To At
+             * Format: date-time
+             */
+            to_at: string;
+        };
         /** ModelSettings */
         "ModelSettings-Input": {
             /**
@@ -2427,6 +2652,37 @@ export interface components {
              * @default true
              */
             rules_prefilter: boolean;
+        };
+        /** Needs */
+        Needs: {
+            /**
+             * Health
+             * @default []
+             */
+            health: components["schemas"]["HealthItem"][];
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["NeedsItem"][];
+        };
+        /**
+         * NeedsItem
+         * @description One thing only the user can resolve, with its single action.
+         */
+        NeedsItem: {
+            /** Action Label */
+            action_label: string;
+            /** Action Target */
+            action_target: string;
+            /** Detail */
+            detail?: string | null;
+            /** Kind */
+            kind: string;
+            /** Since */
+            since?: string | null;
+            /** Title */
+            title: string;
         };
         /** NotificationEventSettings */
         NotificationEventSettings: {
@@ -2802,10 +3058,26 @@ export interface components {
             opened_at: string;
             /** Pair */
             pair: string;
+            /** Pnl R */
+            pnl_r?: string | null;
             /** Qty */
             qty: string;
             /** Stop */
             stop: string;
+            /**
+             * Stop Above Entry
+             * @default false
+             */
+            stop_above_entry: boolean;
+            /** Stop Dist Atr */
+            stop_dist_atr?: string | null;
+            /** Stop Dist Pct */
+            stop_dist_pct?: string | null;
+            /**
+             * Stop Near
+             * @default false
+             */
+            stop_near: boolean;
             /** Target */
             target: string;
             /** Unrealised */
@@ -3598,6 +3870,12 @@ export interface components {
              */
             schema_version: number;
             /**
+             * @default {
+             *       "stop_near_atr": "1.5"
+             *     }
+             */
+            ui: components["schemas"]["UiSettings-Input"];
+            /**
              * Veto Window S
              * @default 60
              */
@@ -3813,6 +4091,12 @@ export interface components {
              */
             schema_version: number;
             /**
+             * @default {
+             *       "stop_near_atr": "1.5"
+             *     }
+             */
+            ui: components["schemas"]["UiSettings-Output"];
+            /**
              * Veto Window S
              * @default 60
              */
@@ -3998,8 +4282,12 @@ export interface components {
         Snapshot: {
             /** Account Id */
             account_id: number;
+            /** Account Started At */
+            account_started_at?: string | null;
             /** Activity */
             activity: components["schemas"]["ActivityItem"][];
+            /** Btc Return Since Start Pct */
+            btc_return_since_start_pct?: number | null;
             /** Cash */
             cash: string;
             /** Cycle */
@@ -4026,6 +4314,13 @@ export interface components {
              * @constant
              */
             mode: "paper";
+            /**
+             * @default {
+             *       "health": [],
+             *       "items": []
+             *     }
+             */
+            needs: components["schemas"]["Needs"];
             /** Next Run At */
             next_run_at: string | null;
             /** Paused */
@@ -4168,6 +4463,30 @@ export interface components {
              * @enum {string}
              */
             value: "up" | "down" | "sideways";
+        };
+        /**
+         * UiSettings
+         * @description Display thresholds for the GUI — the amber stop distance lives here
+         *     so the highlight rule is configurable, never a literal in logic.
+         */
+        "UiSettings-Input": {
+            /**
+             * Stop Near Atr
+             * @default 1.5
+             */
+            stop_near_atr: number | string;
+        };
+        /**
+         * UiSettings
+         * @description Display thresholds for the GUI — the amber stop distance lives here
+         *     so the highlight rule is configurable, never a literal in logic.
+         */
+        "UiSettings-Output": {
+            /**
+             * Stop Near Atr
+             * @default 1.5
+             */
+            stop_near_atr: string;
         };
         /** Usage */
         Usage: {
@@ -4884,6 +5203,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CostsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_cycles_recent_api_cycles_recent_get: {
+        parameters: {
+            query?: {
+                hours?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CyclesRecent"];
                 };
             };
             /** @description Validation Error */
@@ -5662,6 +6012,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_needs_api_needs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Needs"];
                 };
             };
         };

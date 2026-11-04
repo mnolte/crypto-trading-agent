@@ -850,6 +850,326 @@
         "title": "CostsOut",
         "type": "object"
       },
+      "CycleDecisions": {
+        "properties": {
+          "changes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CycleSlotChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "cycle": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cycle"
+          },
+          "decision_count": {
+            "default": 0,
+            "title": "Decision Count",
+            "type": "integer"
+          },
+          "groups": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CycleGroup"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "missed": {
+            "default": false,
+            "title": "Missed",
+            "type": "boolean"
+          },
+          "slot_at": {
+            "format": "date-time",
+            "title": "Slot At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slot_at"
+        ],
+        "title": "CycleDecisions",
+        "type": "object"
+      },
+      "CycleGroup": {
+        "description": "One action+reason group inside a cycle's decisions.",
+        "properties": {
+          "change": {
+            "default": false,
+            "title": "Change",
+            "type": "boolean"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "pairs": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Pairs",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "label",
+          "count"
+        ],
+        "title": "CycleGroup",
+        "type": "object"
+      },
+      "CycleSlot": {
+        "description": "One quarter-hour slot on the rolling timeline.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "changes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CycleSlotChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "cycle": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cycle"
+          },
+          "jobs": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "missed_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missed Reason"
+          },
+          "state": {
+            "enum": [
+              "entry",
+              "exit_gain",
+              "exit_loss",
+              "stop_moved",
+              "error",
+              "no_change",
+              "missed",
+              "paused",
+              "next",
+              "future"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "state"
+        ],
+        "title": "CycleSlot",
+        "type": "object"
+      },
+      "CycleSlotChange": {
+        "description": "Something that happened inside a quarter-hour slot.",
+        "properties": {
+          "decision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "exit_gain": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Gain"
+          },
+          "kind": {
+            "enum": [
+              "entry",
+              "exit",
+              "stop_move",
+              "error"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "pair": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pair"
+          }
+        },
+        "required": [
+          "kind",
+          "detail"
+        ],
+        "title": "CycleSlotChange",
+        "type": "object"
+      },
+      "CyclesRecent": {
+        "properties": {
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/CycleDecisions"
+            },
+            "title": "Decisions",
+            "type": "array"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/CycleSlot"
+            },
+            "title": "Slots",
+            "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/CyclesSummary"
+          }
+        },
+        "required": [
+          "slots",
+          "summary",
+          "decisions"
+        ],
+        "title": "CyclesRecent",
+        "type": "object"
+      },
+      "CyclesSummary": {
+        "properties": {
+          "cycle_id": {
+            "default": 0,
+            "title": "Cycle Id",
+            "type": "integer"
+          },
+          "errors": {
+            "default": 0,
+            "title": "Errors",
+            "type": "integer"
+          },
+          "missed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/MissedRange"
+            },
+            "title": "Missed",
+            "type": "array"
+          },
+          "ran": {
+            "title": "Ran",
+            "type": "integer"
+          },
+          "running_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running Since"
+          },
+          "scheduled": {
+            "title": "Scheduled",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ran",
+          "scheduled"
+        ],
+        "title": "CyclesSummary",
+        "type": "object"
+      },
       "DeciderOption": {
         "description": "One selectable decider in the Insights filter.",
         "properties": {
@@ -1499,6 +1819,48 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthItem": {
+        "description": "One health-line reading: Bitvavo, stream, clock, key, collector, email.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "warn",
+              "down",
+              "off",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "state"
+        ],
+        "title": "HealthItem",
         "type": "object"
       },
       "IndicatorCell": {
@@ -2826,6 +3188,17 @@
             ],
             "title": "Checked At"
           },
+          "chg_24h_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chg 24H Pct"
+          },
           "daily_candles": {
             "anyOf": [
               {
@@ -2852,6 +3225,29 @@
             ],
             "title": "Failed Rule"
           },
+          "last_action_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Action Action"
+          },
+          "last_action_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Action At"
+          },
           "market": {
             "title": "Market",
             "type": "string"
@@ -2859,6 +3255,57 @@
           "paused": {
             "title": "Paused",
             "type": "boolean"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          },
+          "regime": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Regime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rules_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules Detail"
+          },
+          "rules_state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "passed",
+                  "held",
+                  "failed",
+                  "paused",
+                  "warming",
+                  "none"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules State"
           },
           "spread_pct": {
             "anyOf": [
@@ -3120,6 +3567,42 @@
         "title": "MarketUpdateIn",
         "type": "object"
       },
+      "MissedRange": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "from_at": {
+            "format": "date-time",
+            "title": "From At",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "to_at": {
+            "format": "date-time",
+            "title": "To At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_at",
+          "to_at",
+          "count"
+        ],
+        "title": "MissedRange",
+        "type": "object"
+      },
       "ModelSettings-Input": {
         "properties": {
           "daily_call_budget": {
@@ -3205,6 +3688,80 @@
           }
         },
         "title": "ModelSettings",
+        "type": "object"
+      },
+      "Needs": {
+        "properties": {
+          "health": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/HealthItem"
+            },
+            "title": "Health",
+            "type": "array"
+          },
+          "items": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NeedsItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "Needs",
+        "type": "object"
+      },
+      "NeedsItem": {
+        "description": "One thing only the user can resolve, with its single action.",
+        "properties": {
+          "action_label": {
+            "title": "Action Label",
+            "type": "string"
+          },
+          "action_target": {
+            "title": "Action Target",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "action_label",
+          "action_target"
+        ],
+        "title": "NeedsItem",
         "type": "object"
       },
       "NotificationEventSettings": {
@@ -4164,6 +4721,17 @@
             "title": "Pair",
             "type": "string"
           },
+          "pnl_r": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pnl R"
+          },
           "qty": {
             "title": "Qty",
             "type": "string"
@@ -4171,6 +4739,38 @@
           "stop": {
             "title": "Stop",
             "type": "string"
+          },
+          "stop_above_entry": {
+            "default": false,
+            "title": "Stop Above Entry",
+            "type": "boolean"
+          },
+          "stop_dist_atr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Dist Atr"
+          },
+          "stop_dist_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Dist Pct"
+          },
+          "stop_near": {
+            "default": false,
+            "title": "Stop Near",
+            "type": "boolean"
           },
           "target": {
             "title": "Target",
@@ -5483,6 +6083,12 @@
             "title": "Schema Version",
             "type": "integer"
           },
+          "ui": {
+            "$ref": "#/components/schemas/UiSettings-Input",
+            "default": {
+              "stop_near_atr": "1.5"
+            }
+          },
           "veto_window_s": {
             "default": 60,
             "title": "Veto Window S",
@@ -5709,6 +6315,12 @@
             "default": 1,
             "title": "Schema Version",
             "type": "integer"
+          },
+          "ui": {
+            "$ref": "#/components/schemas/UiSettings-Output",
+            "default": {
+              "stop_near_atr": "1.5"
+            }
           },
           "veto_window_s": {
             "default": 60,
@@ -6118,12 +6730,35 @@
             "title": "Account Id",
             "type": "integer"
           },
+          "account_started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Started At"
+          },
           "activity": {
             "items": {
               "$ref": "#/components/schemas/ActivityItem"
             },
             "title": "Activity",
             "type": "array"
+          },
+          "btc_return_since_start_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Btc Return Since Start Pct"
           },
           "cash": {
             "title": "Cash",
@@ -6178,6 +6813,13 @@
             "const": "paper",
             "title": "Mode",
             "type": "string"
+          },
+          "needs": {
+            "$ref": "#/components/schemas/Needs",
+            "default": {
+              "health": [],
+              "items": []
+            }
           },
           "next_run_at": {
             "anyOf": [
@@ -6580,6 +7222,37 @@
           "value"
         ],
         "title": "TrendPoint",
+        "type": "object"
+      },
+      "UiSettings-Input": {
+        "description": "Display thresholds for the GUI \u2014 the amber stop distance lives here\nso the highlight rule is configurable, never a literal in logic.",
+        "properties": {
+          "stop_near_atr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "1.5",
+            "title": "Stop Near Atr"
+          }
+        },
+        "title": "UiSettings",
+        "type": "object"
+      },
+      "UiSettings-Output": {
+        "description": "Display thresholds for the GUI \u2014 the amber stop distance lives here\nso the highlight rule is configurable, never a literal in logic.",
+        "properties": {
+          "stop_near_atr": {
+            "default": "1.5",
+            "title": "Stop Near Atr",
+            "type": "string"
+          }
+        },
+        "title": "UiSettings",
         "type": "object"
       },
       "Usage": {
@@ -8022,6 +8695,49 @@
           }
         },
         "summary": "Get Costs"
+      }
+    },
+    "/api/cycles/recent": {
+      "get": {
+        "description": "The rolling timeline: one slot per quarter hour, the scheduled\njobs, the ran/missed summary and the grouped decisions.",
+        "operationId": "get_cycles_recent_api_cycles_recent_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "hours",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 72,
+              "minimum": 1,
+              "title": "Hours",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CyclesRecent"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Cycles Recent"
       }
     },
     "/api/data": {
@@ -9471,6 +10187,25 @@
           }
         },
         "summary": "Pause Market"
+      }
+    },
+    "/api/needs": {
+      "get": {
+        "description": "The Needs you list plus the health line. GETs need no token.",
+        "operationId": "get_needs_api_needs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Needs"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Needs"
       }
     },
     "/api/notifications": {
