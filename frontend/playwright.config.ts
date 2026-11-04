@@ -24,5 +24,6 @@ export default defineConfig({
   projects: [
     { name: "w1440", use: { viewport: { width: 1440, height: 900 } } },
     { name: "w1100", use: { viewport: { width: 1100, height: 900 } } },
+    { name: "w390", use: { viewport: { width: 390, height: 844 } } },
   ],
 });

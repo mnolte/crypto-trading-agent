@@ -8,6 +8,7 @@ export default defineConfig({
   test: {
     // Unit tests live next to the code; e2e/*.spec.ts is Playwright's.
     include: ["src/**/*.test.{ts,tsx}"],
+    environment: "happy-dom",
   },
   server: {
     port: 5173,

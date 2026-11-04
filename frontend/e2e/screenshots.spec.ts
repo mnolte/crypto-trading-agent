@@ -61,42 +61,49 @@ test.beforeAll(async ({ request }) => {
 for (const { path, name } of PAGES) {
   test(`screenshot ${name}`, async ({ page }, testInfo) => {
     await page.goto(path);
-    await expect(page.locator(".topbar")).toBeVisible();
+    await expect(page.locator(".shell-header")).toBeVisible();
     // Wait for the snapshot feed and the screen's own data.
-    await expect(page.locator(".topbar .status-pill")).not.toHaveText(
+    await expect(page.locator(".shell-header .status-pill")).not.toHaveText(
       /Disconnected/,
       { timeout: 10_000 },
     );
     // Let the screen's own queries settle (websockets don't block networkidle).
     await page.waitForLoadState("networkidle");
     await page.screenshot({
-      path: `screenshots/${name}-${testInfo.project.name}.png`,
+      path: `../docs/screenshots/pr-14/${name}-${testInfo.project.name}.png`,
       fullPage: name === "components" || name === "settings",
     });
+    // No screen scrolls sideways at phone width.
+    if ((page.viewportSize()?.width ?? 0) <= 400) {
+      const scrollWidth = await page.evaluate(
+        () => document.documentElement.scrollWidth,
+      );
+      expect(scrollWidth).toBeLessThanOrEqual(391);
+    }
   });
 }
 
 test("ask panel opens over the dashboard", async ({ page }, testInfo) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Ask the agent" }).click();
+  await page.locator(".shell-header").getByRole("button", { name: "Ask" }).click();
   const panel = page.locator(".slide-panel--side");
   await expect(panel).toBeVisible();
   await expect(panel).toContainText("Read-only");
   await page.screenshot({
-    path: `screenshots/ask-${testInfo.project.name}.png`,
+    path: `../docs/screenshots/pr-14/ask-${testInfo.project.name}.png`,
   });
 });
 
 test("decision drawer opens from the dashboard", async ({ page }, testInfo) => {
   await page.goto("/");
-  const open = page.getByRole("button", { name: "Open full reasoning" });
+  const open = page.getByRole("button", { name: "Open full decision" });
   await expect(open).toBeVisible({ timeout: 10_000 });
   await open.click();
   const drawer = page.locator(".slide-panel--drawer");
   await expect(drawer).toBeVisible();
   await expect(drawer).toContainText(/Safety gates|Agent reasoning/);
   await page.screenshot({
-    path: `screenshots/decision-drawer-${testInfo.project.name}.png`,
+    path: `../docs/screenshots/pr-14/decision-drawer-${testInfo.project.name}.png`,
   });
 });
 
@@ -106,7 +113,7 @@ test("stop and flatten asks for confirmation", async ({ page }, testInfo) => {
   const dialog = page.getByRole("dialog", { name: "Close all positions and pause?" });
   await expect(dialog).toBeVisible();
   await page.screenshot({
-    path: `screenshots/flatten-dialog-${testInfo.project.name}.png`,
+    path: `../docs/screenshots/pr-14/flatten-dialog-${testInfo.project.name}.png`,
   });
 });
 
@@ -117,10 +124,10 @@ test("disconnected pill when the snapshot socket is down", async ({ page }, test
     ws.close();
   });
   await page.goto("/");
-  const pill = page.locator(".topbar .status-pill");
+  const pill = page.locator(".shell-header .status-pill");
   await expect(pill).toHaveText(/Disconnected/);
   await expect(pill).toHaveAttribute("title", /Last known:/);
   await page.screenshot({
-    path: `screenshots/disconnected-${testInfo.project.name}.png`,
+    path: `../docs/screenshots/pr-14/disconnected-${testInfo.project.name}.png`,
   });
 });
