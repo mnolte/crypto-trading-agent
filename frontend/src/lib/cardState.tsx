@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
+import { ApiError } from "../api/client";
 import { formatTime } from "./format";
 
 /** Card states (design/DESIGN.md → Interaction rules): every card that
@@ -78,7 +79,11 @@ export function CardFetch({
           <WarnIcon />
           <span>
             Couldn’t load {name} at {formatTime(new Date().toISOString())} (
-            {error instanceof Error ? error.message : "request failed"}).
+            {error instanceof Error ? error.message : "request failed"}
+            {error instanceof ApiError && error.errorId
+              ? ` · ${error.errorId}`
+              : ""}
+            ).
             {dataUpdatedAt
               ? ` Showing data from ${formatTime(new Date(dataUpdatedAt).toISOString())}.`
               : ""}
