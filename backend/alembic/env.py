@@ -4,6 +4,7 @@ wins for scripts and tests. The value in alembic.ini is a placeholder."""
 
 from __future__ import annotations
 
+import logging
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
@@ -13,7 +14,10 @@ from app.db import Base
 
 config = context.config
 
-if config.config_file_name is not None:
+# fileConfig replaces root.handlers wholesale — only apply it when nothing
+# is configured yet (a bare `alembic` CLI run), not inside the app where the
+# log store's handlers must survive migrations.
+if config.config_file_name is not None and not logging.getLogger().handlers:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
