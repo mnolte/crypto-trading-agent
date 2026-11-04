@@ -269,7 +269,9 @@ def test_problem_grouping_and_review(store: LogStore) -> None:
             fingerprint=fingerprint("agent.scheduler", "candles.stale", msg),
         )
     )
-    wait_for(lambda: dict(rows(store)[0])["fingerprint"] is not None)
+    # Wait for the third line itself: row 0 already had a fingerprint, so
+    # waiting on it returned before the writer stored this line.
+    wait_for(lambda: len(rows(store)) == 3)
     with store.connect_readonly() as conn:
         prob = dict(
             conn.execute("SELECT * FROM log_problems WHERE fingerprint = ?", (fp,)).fetchone()
