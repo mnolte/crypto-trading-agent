@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trading Agent — Logs</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#F2B94B}a:hover{color:#FFD58A}
+button,input,select{font-family:inherit}
+table{border-collapse:collapse}
+:focus-visible{outline:2px solid #F2B94B;outline-offset:2px;border-radius:6px}.ta-row{cursor:pointer}.ta-row:hover{background:#1C222C}button:not([disabled]):hover{filter:brightness(1.15)}.ta-tile{text-decoration:none;color:inherit}.ta-tile:hover{border-color:#2E3643 !important;background:#171C24 !important}@keyframes ta-pulse{0%{opacity:.45}50%{opacity:.9}100%{opacity:.45}}.ta-skel{animation:ta-pulse 1.4s ease-in-out infinite}@media (prefers-reduced-motion: reduce){.ta-skel{animation:none}}@media (max-width: 820px){.ta-aside{display:none !important}.ta-phonebar{display:flex !important}.ta-needs-chip{display:none !important}.ta-hide-phone{display:none !important}.ta-only-phone{display:inline !important}}.ta-only-phone{display:none}
+
+.ta-more{display:none}
+.ta-logline{display:grid;grid-template-columns:104px 84px minmax(0,1fr);gap:4px 14px;align-items:start}
+.ta-logline .ta-msg{grid-column:auto}
+.ta-prob{display:grid;grid-template-columns:84px minmax(0,1fr) 56px 128px 120px;gap:6px 14px;align-items:start}
+.ta-around{display:grid;grid-template-columns:96px 64px 128px minmax(0,1fr);gap:2px 12px}
+@media (max-width: 640px){
+  .ta-adv{display:none !important}.ta-more{display:flex}
+  .ta-logline{grid-template-columns:auto minmax(0,1fr)}
+  .ta-logline .ta-msg{grid-column:1 / -1}
+  .ta-prob{grid-template-columns:auto minmax(0,1fr) auto}
+  .ta-prob .ta-prob-main{grid-column:1 / -1;order:5}
+  .ta-prob .ta-prob-seen{display:none}
+  .ta-prob .ta-prob-rev{grid-column:1 / -1;order:6;justify-content:flex-start !important}
+  .ta-around{grid-template-columns:auto minmax(0,1fr);padding:4px 6px !important}
+  .ta-around .ta-around-logger{display:none}
+  .ta-around .ta-around-msg{grid-column:1 / -1}
+  .ta-pre{white-space:pre !important;overflow-x:auto;overflow-wrap:normal !important}
+}
+
+</style>
+</helmet>
+<div style="min-height: 1800px; background: #0B0E13; color: #E7EAEE; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <div class="ta-phonebar" style="display: none; flex: 1 1 100%; position: sticky; top: 0; z-index: 5; align-items: center; gap: 10px; height: 56px; padding: 0 12px 0 16px; background: #0F131A; border-bottom: 1px solid #232A35; box-sizing: border-box">
+    <div style="width: 32px; height: 32px; flex: 0 0 32px; border-radius: 8px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 13px">TA</div>
+    <span style="flex: 1; min-width: 0; font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Logs</span>
+    <a href="Main.dc.html#needs" aria-label="2 items need you" style="display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 10px; border-radius: 999px; background: #3A2A0E; border: 1px solid #6B4E17; color: #FFD58A; font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-decoration: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M12 3l10 18H2z"></path><line x1="12" y1="10" x2="12" y2="14"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg>2</a>
+    <a href="Ask.dc.html" aria-label="Ask the agent" style="width: 44px; height: 44px; flex: 0 0 44px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #4A3A16; background: #211C10; color: #F2B94B"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 20px"><path d="M4 5h16v11H9l-5 4z"></path><line x1="8" y1="9" x2="16" y2="9"></line><line x1="8" y1="12" x2="13" y2="12"></line></svg></a>
+    <button type="button" aria-label="Open menu" aria-expanded="false" style="width: 44px; height: 44px; flex: 0 0 44px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 20px"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg></button>
+  </div>
+  <aside class="ta-aside" aria-label="Sidebar" style="{{nav.aside}}">
+    <div style="{{nav.brandRow}}">
+      <div style="width: 36px; height: 36px; flex: 0 0 36px; border-radius: 8px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px">TA</div>
+      <sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+          <div style="font-weight: 600; font-size: 16px; white-space: nowrap">Trading Agent</div>
+          <div style="font-size: 12px; color: #98A2AF; white-space: nowrap">Paper · local · v0.1</div>
+        </div>
+      </sc-if>
+    </div>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+      <div style="{{nav.group}}">Monitor</div>
+      <a href="Main.dc.html" aria-label="Dashboard" title="Dashboard" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Dashboard</span></sc-if></a>
+      <a href="Indicators.dc.html" aria-label="Indicators" title="Indicators" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><polyline points="3 17 9 11 13 15 21 7"></polyline><line x1="3" y1="21" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Indicators</span></sc-if></a>
+      <a href="Performance.dc.html" aria-label="Performance" title="Performance" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="6" y1="20" x2="6" y2="14"></line><line x1="12" y1="20" x2="12" y2="9"></line><line x1="18" y1="20" x2="18" y2="4"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Performance</span></sc-if></a>
+      <div style="{{nav.group}}">Learn</div>
+      <a href="Insights.dc.html" aria-label="Insights" title="Insights" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M9 18h6"></path><path d="M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Insights</span></sc-if></a>
+      <a href="WhatIf.dc.html" aria-label="What-if" title="What-if" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="9" r="2"></circle><path d="M6 8v8"></path><path d="M6 13c0-3 3-4 6-4h4"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>What-if</span></sc-if></a>
+      <a href="Reviews.dc.html" aria-label="Reviews" title="Reviews" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Reviews</span></sc-if></a>
+      <a href="Inspector.dc.html" aria-label="LLM inspector" title="LLM inspector" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="11" cy="11" r="6"></circle><line x1="16" y1="16" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>LLM inspector</span></sc-if></a>
+      <div style="{{nav.group}}">Control</div>
+      <a href="Readiness.dc.html" aria-label="Readiness" title="Readiness" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><polyline points="9 12 11 14 15 10"></polyline></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Readiness</span></sc-if></a>
+      <a href="Logs.dc.html" aria-current="page" aria-label="Logs" title="Logs" style="{{nav.active}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="14 3 14 9 20 9"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="13" y2="17"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Logs</span></sc-if></a>
+      <a href="Settings.dc.html" aria-label="Settings" title="Settings" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line><circle cx="9" cy="6" r="2" fill="#0F131A"></circle><circle cx="15" cy="12" r="2" fill="#0F131A"></circle><circle cx="7" cy="18" r="2" fill="#0F131A"></circle></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Settings</span></sc-if></a>
+    </nav>
+    <div style="flex: 1"></div>
+    <div style="{{nav.status}}"><span style="{{nav.dot}}"></span><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>{{nav.statusText}}</span></sc-if></div>
+    <button type="button" onClick="{{nav.toggle}}" aria-label="{{nav.toggleLabel}}" aria-expanded="{{nav.expandedStr}}" title="{{nav.toggleLabel}}" style="{{nav.toggleStyle}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Collapse</span></sc-if></button>
+  </aside>
+
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 14px 24px; border-bottom: 1px solid #232A35; background: #0F131A">
+    <div style="display: flex; align-items: center; gap: 12px; flex: 1 1 300px; min-width: 0; flex-wrap: wrap">
+      <div style="display: flex; flex-direction: column; gap: 2px"><h1 style="margin: 0; font-size: 18px; font-weight: 600">Logs</h1><div style="font-size: 13px; color: #98A2AF">Everything the app logged · warnings and errors first</div></div>
+      <span title="Orders are simulated against Bitvavo prices. Real-money trading is not built." style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 6px; background: #211C10; border: 1px solid #4A3A16; color: #F2B94B; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; letter-spacing: 0.08em">PAPER</span>
+      <div title="Cycles run every 15 minutes, day and night" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-radius: 999px; background: #171C24; border: 1px solid #232A35; font-size: 13px; white-space: nowrap">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #3DD68C"></span>
+        <span>Running</span>
+        <span style="color: #98A2AF">· next cycle 12:45 · in 11 min</span>
+      </div>
+      <a class="ta-needs-chip" href="Main.dc.html#needs" title="2 items need you: 2 errors not reviewed, email alerts not set up" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; background: #3A2A0E; border: 1px solid #6B4E17; color: #FFD58A; font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M12 3l10 18H2z"></path><line x1="12" y1="10" x2="12" y2="14"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg><span>Needs you · 2</span></a>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px">
+      <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Equity</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E7EAEE; white-space: nowrap">€10,412.80</span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Today</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #3DD68C; white-space: nowrap">+€86.20 <span style="color: #98A2AF; font-size: 12px">+0.83%</span></span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <span title="BTC regime: 4h trend × volatility. Each pair also has its own." style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em; text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; align-self: flex-start">Regime</span>
+        <span style="display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; white-space: nowrap; background: #123A27; color: #3DD68C; border: 1px solid #1E5A3E">BTC up · normal vol</span>
+      </div>
+      <a href="Ask.dc.html" title="Ask the agent about this page (Ctrl+J)" aria-keyshortcuts="Control+J Meta+J" style="height: 44px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border-radius: 8px; border: 1px solid #4A3A16; background: #211C10; color: #F2B94B; font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 16px"><path d="M4 5h16v11H9l-5 4z"></path><line x1="8" y1="9" x2="16" y2="9"></line><line x1="8" y1="12" x2="13" y2="12"></line></svg><span>Ask</span></a>
+      <a href="States.dc.html" title="Pause new entries. Stops, targets and the exit watcher keep working." style="height: 44px; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 16px"><line x1="8" y1="5" x2="8" y2="19"></line><line x1="16" y1="5" x2="16" y2="19"></line></svg><span>Pause</span></a>
+      <a href="States.dc.html" title="Close every position at market and pause" style="height: 44px; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-radius: 8px; border: 1px solid #7A2A2E; background: #3A1416; color: #FFB3B6; font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 16px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="7" x2="12" y2="13"></line><line x1="12" y1="17" x2="12" y2="17"></line></svg><span>Stop &amp; flatten</span></a>
+    </div>
+  </header>
+  <main style="max-width: 1440px; width: 100%; min-width: 0; margin: 0 auto; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+
+<section aria-label="Filters" style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; box-sizing: border-box">
+  <div style="display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end">
+    <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+      <span style="font-size: 12px; color: #98A2AF">Levels · warning and up by default</span>
+      <div role="group" aria-label="Levels" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+        <sc-for list="{{levels}}" as="l" hint-placeholder-count="5"><button type="button" onClick="{{l.toggle}}" aria-pressed="{{l.pressed}}" style="{{l.style}}"><span style="{{l.dot}}"></span>{{l.name}} <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 400; color: #98A2AF">{{l.count}}</span></button></sc-for>
+      </div>
+    </div>
+    <button type="button" role="switch" aria-checked="{{lowOnStr}}" onClick="{{toggleLow}}" style="display: inline-flex; align-items: center; gap: 10px; height: 36px; padding: 0 4px; background: transparent; border: 0; color: #C9CFD6; font-size: 13px; cursor: pointer">
+      <span style="{{lowTrack}}"><span style="{{lowKnob}}"></span></span>
+      Show debug and info
+    </button>
+    <span style="flex: 1"></span>
+    <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0"><span style="font-size: 12px; color: #98A2AF">Period</span>
+      <div role="group" aria-label="Period" style="display: inline-flex; flex-wrap: wrap; align-self: flex-start; padding: 3px; background: #171C24; border: 1px solid #232A35; border-radius: 8px">
+        <sc-for list="{{periods}}" as="p" hint-placeholder-count="5"><button type="button" onClick="{{p.pick}}" aria-pressed="{{p.pressed}}" style="{{p.style}}">{{p.label}}</button></sc-for>
+      </div>
+    </div>
+  </div>
+  <div class="ta-more" style="gap: 8px; align-items: center; flex-wrap: wrap"><button type="button" style="height: 40px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; box-sizing: border-box">More filters</button><span style="font-size: 12px; color: #98A2AF">search, component, pair, cycle · none set</span></div>
+  <div class="ta-adv" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end">
+    <label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #98A2AF; min-width: 0; flex: 2 1 240px">Search messages<input type="search" placeholder="e.g. timeout, BTC-EUR, 503" style="height: 40px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0B0E13; color: #E7EAEE; font-size: 14px; padding: 0 10px; width: 100%"></label>
+    <label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #98A2AF; min-width: 0; flex: 1 1 160px">Component<select style="height: 40px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0B0E13; color: #E7EAEE; font-size: 14px; padding: 0 10px; width: 100%"><option>Any component</option><option>app</option><option>agent.scheduler</option><option>agent.rules</option><option>agent.decider</option><option>agent.risk</option><option>agent.watcher</option><option>broker.paper</option><option>market.bitvavo</option><option>market.stream</option><option>market.universe</option><option>context.collector</option><option>notify</option><option>ops.backup</option><option>ops.logs</option><option>api</option><option>frontend</option><option>python.warning</option></select></label>
+    <label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #98A2AF; min-width: 0; flex: 1 1 120px">Pair<input type="search" placeholder="Any" style="height: 40px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0B0E13; color: #E7EAEE; font-size: 14px; padding: 0 10px; width: 100%"></label>
+    <label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #98A2AF; min-width: 0; flex: 1 1 140px">Cycle, error or request id<input type="search" placeholder="e.g. c-0716, e-3f9a21c0" style="height: 40px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0B0E13; color: #E7EAEE; font-size: 14px; padding: 0 10px; width: 100%"></label>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" onClick="{{clearFilters}}" style="height: 40px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; border: 1px solid #232A35; background: transparent; color: #C9CFD6; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; box-sizing: border-box">Clear filters</button><button type="button" style="height: 40px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; box-sizing: border-box">Download .jsonl</button></div>
+  </div>
+</section>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section aria-label="Warnings and errors per day" style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; box-sizing: border-box; flex: 1 1 340px">
+  <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap"><h2 style="margin: 0; font-size: 13px; font-weight: 600; color: #C9CFD6; text-transform: uppercase; letter-spacing: 0.06em">Warnings and errors per day</h2><span style="font-size: 12px; color: #98A2AF">7 days</span></div>
+  <div role="group" aria-label="Warnings and errors per day, click a day to show it" style="display: flex; gap: 8px; align-items: flex-end; height: 120px; padding-bottom: 22px; position: relative">
+    <sc-for list="{{bars}}" as="b" hint-placeholder-count="7"><button type="button" title="{{b.title}}" aria-label="{{b.title}}" style="flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 0; padding: 0; border: 0; background: transparent; cursor: pointer; position: relative"><span style="{{b.err}}"></span><span style="{{b.warn}}"></span><span style="position: absolute; bottom: -20px; left: 0; right: 0; text-align: center; font-size: 11px; color: #98A2AF; white-space: nowrap">{{b.label}}</span></button></sc-for>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: #98A2AF"><span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 2px; background: #F2B94B"></span>Warning</span><span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 2px; background: #FF6B70"></span>Error</span><span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 2px; background: #FF3B6B"></span>Critical</span></div>
+  <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.5">The agent runs day and night, so every day has lines. Debug and info are not counted here. Mon 12: 3 slots skipped while the computer slept.</p>
+</section>
+<section aria-label="Recurring problems" style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; box-sizing: border-box; flex: 2 1 560px">
+  <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap"><h2 style="margin: 0; font-size: 13px; font-weight: 600; color: #C9CFD6; text-transform: uppercase; letter-spacing: 0.06em">Recurring problems</h2><span style="font-size: 12px; color: #98A2AF">warning and up · 7 days · 1 unreviewed</span></div>
+  <div class="ta-prob ta-hide-phone" style="font-size: 12px; color: #98A2AF; padding: 0 0 6px; border-bottom: 1px solid #232A35"><span>Level</span><span>Problem</span><span style="text-align: right">Count</span><span>First · last seen</span><span style="text-align: right">Review</span></div>
+  <div style="display: flex; flex-direction: column">
+    <sc-for list="{{problems}}" as="p" hint-placeholder-count="9"><div class="ta-prob ta-row" style="padding: 10px 6px; margin: 0 -6px; border-bottom: 1px solid #232A35; border-radius: 6px; cursor: pointer" title="Filter the log on this problem">
+      <span style="{{p.chip}}">{{p.level}}</span>
+      <span class="ta-prob-main" style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="font-size: 13px; color: #E7EAEE; line-height: 1.45">{{p.text}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #98A2AF; overflow-wrap: anywhere">{{p.where}}</span></span>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right; color: #E7EAEE">×{{p.count}}</span>
+      <span class="ta-prob-seen" style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #98A2AF; line-height: 1.6">{{p.first}}<br>{{p.last}}</span>
+      <span class="ta-prob-rev" style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center"><span style="{{p.revStyle}}" title="{{p.revNote}}">{{p.rev}}</span><sc-if value="{{p.canReview}}" hint-placeholder-val="{{ false }}"><button type="button" style="height: 36px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 6px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap; cursor: pointer">Review</button></sc-if></span>
+    </div></sc-for>
+  </div>
+  <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.5">Lines with the same component and event are grouped, with numbers, pairs and ids ignored. Click a row to filter the log on it. Errors need a review (expected or fixed) for Readiness; a fixed problem that comes back is unreviewed again.</p>
+</section>
+</div>
+<section aria-label="Log lines" style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; display: flex; flex-direction: column; min-width: 0">
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 14px 20px 10px">
+    <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; min-width: 0"><h2 style="margin: 0; font-size: 13px; font-weight: 600; color: #C9CFD6; text-transform: uppercase; letter-spacing: 0.06em">Log</h2><span style="font-size: 12px; color: #98A2AF">{{logSub}}</span></div>
+    <button type="button" aria-pressed="true" style="height: 36px; padding: 0 12px; display: inline-flex; align-items: center; gap: 8px; border-radius: 8px; border: 1px solid #1E5A3E; background: #123A27; color: #3DD68C; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3DD68C"></span>Follow new lines</button>
+  </div>
+  <sc-if value="{{trace}}" hint-placeholder-val="{{ false }}"><div role="status" style="margin: 0 20px 8px; padding: 10px 14px; border: 1px solid #24405F; background: #13202F; border-radius: 8px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px">
+    <span style="font-size: 13px; color: #E7EAEE; line-height: 1.5"><b style="font-weight: 600">Every line of cycle c-0716</b> <span style="color: #9FB4CC">· 09:30:00–09:31:03 · 63 s · 9 pairs · 2 model calls, 1 failed · all levels</span></span>
+    <button type="button" onClick="{{endTrace}}" style="height: 36px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 6px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap; cursor: pointer">Back to warnings and errors</button>
+  </div></sc-if>
+  <div style="padding: 0 12px 8px">
+    <sc-for list="{{lines}}" as="r" hint-placeholder-count="12"><div>
+      <sc-if value="{{r.isDay}}" hint-placeholder-val="{{ false }}"><div style="position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; padding: 10px 8px 6px; background: #12161D; border-bottom: 1px solid #232A35; font-size: 12px"><span style="font-weight: 600; color: #C9CFD6; text-transform: uppercase; letter-spacing: 0.06em">{{r.day}}</span><span style="color: #98A2AF">{{r.dayCount}}</span></div></sc-if>
+      <sc-if value="{{r.isLine}}" hint-placeholder-val="{{ true }}"><button type="button" class="ta-logline ta-row" onClick="{{r.toggle}}" aria-expanded="{{r.openStr}}" style="{{r.rowStyle}}">
+        <span title="{{r.utc}}" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #98A2AF; padding-top: 3px; white-space: nowrap">{{r.t}}</span>
+        <span style="padding-top: 1px"><span style="{{r.chip}}">{{r.lv}}</span></span>
+        <span class="ta-msg" style="display: flex; flex-direction: column; gap: 5px; min-width: 0"><span style="font-size: 13px; color: #E7EAEE; line-height: 1.5; overflow-wrap: anywhere">{{r.msg}}</span><span style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #98A2AF">{{r.logger}}</span><sc-for list="{{r.ctx}}" as="c" hint-placeholder-count="2"><span style="{{c.style}}">{{c.text}}</span></sc-for></span></span>
+      </button></sc-if>
+      <sc-if value="{{r.open}}" hint-placeholder-val="{{ false }}"><div style="margin: 4px 0 12px 8px; padding: 14px 16px; border-left: 3px solid {{r.accent}}; background: #0F131A; border-radius: 0 8px 8px 0; display: flex; flex-direction: column; gap: 14px; min-width: 0">
+  <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between">
+    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #C9CFD6">Error id {{r.errorId}} · process app · pid 48211 · task cycle</span>
+    <span style="display: flex; flex-wrap: wrap; gap: 8px"><button type="button" style="height: 36px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 6px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap; cursor: pointer">Copy line</button><button type="button" style="height: 36px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 6px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap; cursor: pointer">Copy error id</button><a href="Inspector.dc.html" style="height: 36px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 6px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap; cursor: pointer">Open model call 5531</a></span>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px">
+    <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid #232A35; border-radius: 8px; background: #12161D"><span style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">What this means · <span style="font-family: 'IBM Plex Mono', monospace; text-transform: none; letter-spacing: 0">{{r.event}}</span></span><span style="font-size: 13px; color: #E7EAEE; line-height: 1.5">{{r.means}}</span></div>
+    <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid #232A35; border-radius: 8px; background: #12161D"><span style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">What to do</span><span style="font-size: 13px; color: #E7EAEE; line-height: 1.5">{{r.todo}}</span></div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0"><span style="font-size: 12px; color: #98A2AF">Exception</span><pre class="ta-pre" style="margin: 0; padding: 12px; border: 1px solid #232A35; border-radius: 8px; background: #0B0E13; color: #FFB3B6; font-family: 'IBM Plex Mono', monospace; font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere">{{r.trace}}</pre></div>
+  <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0"><span style="font-size: 12px; color: #98A2AF">Stored line</span><pre class="ta-pre" style="margin: 0; padding: 12px; border: 1px solid #232A35; border-radius: 8px; background: #0B0E13; color: #C9CFD6; font-family: 'IBM Plex Mono', monospace; font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere">{{r.json}}</pre></div>
+  <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; font-size: 12px; color: #98A2AF"><span>Surrounding lines · same process, all levels</span><a href="#" onClick="{{r.trace_cycle}}" style="font-size: 12px">Every line of cycle {{r.cycle}}</a></div>
+    <div style="padding: 8px 10px; border: 1px solid #232A35; border-radius: 8px; background: #0B0E13; display: flex; flex-direction: column; gap: 2px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; line-height: 1.5">
+      <sc-for list="{{r.around}}" as="a" hint-placeholder-count="8"><div class="ta-around" style="{{a.style}}"><span style="color: #98A2AF">{{a.t}}</span><span style="{{a.lvStyle}}">{{a.lv}}</span><span class="ta-around-logger" style="color: #98A2AF; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{a.logger}}</span><span class="ta-around-msg" style="color: #C9CFD6; overflow-wrap: anywhere">{{a.msg}}</span></div></sc-for>
+    </div>
+    <button type="button" style="height: 36px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 6px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap; cursor: pointer; align-self: flex-start">Show 50 more</button>
+  </div>
+</div></sc-if>
+    </div></sc-for>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 20px; border-top: 1px solid #232A35">
+    <span style="font-size: 12px; color: #98A2AF; line-height: 1.5">{{footer}} · <span style="font-family: 'IBM Plex Mono', monospace">logs.db</span> 412 MB · kept: debug 7 d, info 30 d, warnings 180 d, errors 365 d</span>
+    <button type="button" style="height: 40px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; box-sizing: border-box">Load older</button>
+  </div>
+</section>
+
+  </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2800}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { lv: { DEBUG: false, INFO: false, WARNING: true, ERROR: true, CRITICAL: true }, period: '7 days', open: 'l-0930', trace: false };
+  }
+  renderVals() {
+    var self = this;
+    var st = this.state;
+    var paused = false;
+    var live = false;
+
+    var navCollapsed = !!(this.state && this.state.navCollapsed);
+    var navBase = 'height:44px;display:flex;align-items:center;gap:12px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;box-sizing:border-box;white-space:nowrap;' + (navCollapsed ? 'justify-content:center;padding:0;' : 'padding:0 12px;');
+    var nav = {
+      expanded: !navCollapsed,
+      expandedStr: String(!navCollapsed),
+      toggle: function () { self.setState({ navCollapsed: !navCollapsed }); },
+      toggleLabel: navCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      aside: 'flex:0 0 ' + (navCollapsed ? '72px' : '232px') + ';box-sizing:border-box;display:flex;flex-direction:column;gap:16px;padding:16px ' + (navCollapsed ? '12px' : '16px') + ';background:#0F131A;border-right:1px solid #232A35',
+      brandRow: 'display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid #232A35;' + (navCollapsed ? 'justify-content:center' : ''),
+      item: navBase + 'color:#98A2AF',
+      active: navBase + 'background:#1C222C;color:#E7EAEE',
+      status: 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#171C24;border:1px solid #232A35;font-size:13px;' + (navCollapsed ? 'justify-content:center' : ''),
+      dot: 'width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:' + (paused ? '#98A2AF' : (live ? '#F2B94B' : '#3DD68C')),
+      statusText: paused ? 'Paused' : (live ? 'Running · live' : 'Running · paper'),
+      toggleStyle: navBase + 'width:100%;border:1px solid #232A35;background:transparent;color:#98A2AF;cursor:pointer;font-family:inherit'
+    };
+
+    nav.group = navCollapsed ? 'height:1px;background:#232A35;margin:8px 4px;overflow:hidden;color:transparent;font-size:0' : 'font-size:11px;font-weight:600;color:#8A94A1;text-transform:uppercase;letter-spacing:0.08em;padding:12px 12px 4px';
+
+    var MONO = 'font-family:IBM Plex Mono,monospace;';
+    var LV = {
+      DEBUG: { n: 'Debug', c: '#98A2AF', bg: '#171C24', bd: '#2E3643', dot: '#9FB4CC', count: '41,880' },
+      INFO: { n: 'Info', c: '#7FB8FF', bg: '#13202F', bd: '#24405F', dot: '#7FB8FF', count: '3,212' },
+      WARNING: { n: 'Warning', c: '#FFD58A', bg: '#3A2A0E', bd: '#6B4E17', dot: '#F2B94B', count: '18' },
+      ERROR: { n: 'Error', c: '#FF8A8F', bg: '#3A1416', bd: '#7A2A2E', dot: '#FF6B70', count: '4' },
+      CRITICAL: { n: 'Critical', c: '#FFE0E8', bg: '#5A0F25', bd: '#A3224A', dot: '#FF3B6B', count: '0' }
+    };
+    function chip(l) {
+      var v = LV[l];
+      return 'display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:5px;' + MONO + 'font-size:11px;white-space:nowrap;background:' + v.bg + ';color:' + v.c + ';border:1px solid ' + v.bd;
+    }
+    var on = st.trace ? { DEBUG: true, INFO: true, WARNING: true, ERROR: true, CRITICAL: true } : st.lv;
+
+    var levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].map(function (l) {
+      var v = LV[l], p = !!on[l];
+      return {
+        name: v.n, count: v.count, pressed: String(p),
+        dot: 'width:8px;height:8px;border-radius:50%;flex:0 0 8px;' + (p ? 'background:' + v.dot : 'background:transparent;border:1px solid ' + v.dot),
+        style: 'height:36px;padding:0 12px;display:inline-flex;align-items:center;gap:8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;' +
+          (p ? 'background:' + v.bg + ';color:' + v.c + ';border:1px solid ' + v.bd : 'background:transparent;color:#98A2AF;border:1px dashed #2E3643'),
+        toggle: function () { var n = Object.assign({}, st.lv); n[l] = !n[l]; self.setState({ lv: n, trace: false }); }
+      };
+    });
+    var lowOn = !!(on.DEBUG && on.INFO);
+    var periods = ['Last hour', 'Today', '7 days', '30 days', 'Custom'].map(function (p) {
+      var a = st.period === p;
+      return { label: p, pressed: String(a), pick: function () { self.setState({ period: p }); },
+        style: 'height:36px;padding:0 12px;border:0;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;' + (a ? 'background:#2A313C;color:#E7EAEE' : 'background:transparent;color:#98A2AF') };
+    });
+
+    var BARS = [['Wed 7', 1, 0], ['Thu 8', 2, 0], ['Fri 9', 1, 1], ['Sat 10', 3, 1], ['Sun 11', 2, 0], ['Mon 12', 5, 0], ['Tue 13', 4, 2]];
+    var bars = BARS.map(function (b) {
+      var max = 6, h = 98;
+      return { label: b[0], title: b[0] + ' Oct: ' + b[1] + ' warnings, ' + b[2] + ' errors',
+        warn: 'display:block;width:100%;background:#F2B94B;border-radius:' + (b[2] ? '0' : '3px 3px 0 0') + ';height:' + Math.round(b[1] / max * h) + 'px',
+        err: 'display:block;width:100%;background:#FF6B70;border-radius:3px 3px 0 0;height:' + Math.round(b[2] / max * h) + 'px' };
+    });
+
+    var REV = {
+      unreviewed: 'display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:5px;font-size:11px;white-space:nowrap;background:#3A2A0E;color:#FFD58A;border:1px solid #6B4E17',
+      expected: 'display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:5px;font-size:11px;white-space:nowrap;background:#171C24;color:#C9CFD6;border:1px solid #2E3643;cursor:help',
+      fixed: 'display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:5px;font-size:11px;white-space:nowrap;background:#123A27;color:#3DD68C;border:1px solid #1E5A3E;cursor:help',
+      none: 'display:none'
+    };
+    var PROBS = [
+      ['ERROR', 'Decision call timed out after its retry; Rules answered the cycle', 'agent.decider · model.call_failed · BTC-EUR, ETH-EUR', 2, 'Tue 13 Oct 09:16', 'last 09:31', 'unreviewed', ''],
+      ['ERROR', 'Collector source failed after its retry: OKX 503', 'context.collector · job.failed · —', 1, 'Fri 9 Oct 14:00', 'last 9 Oct 14:00', 'expected', 'Expected · OKX maintenance window, announced on their status page (Marc, 9 Oct)'],
+      ['ERROR', 'Backup failed: trading database locked past 5 s', 'ops.backup · job.failed · —', 1, 'Sat 10 Oct 03:00', 'last 10 Oct 03:00', 'fixed', 'Fixed · backup now waits for the cycle to finish (PR 15, Marc, 11 Oct)'],
+      ['WARNING', 'Newest 1h candle not there after 3 tries; pair held and marked stale', 'market.bitvavo · candles.stale · AVAX-EUR ×3, SOL-EUR, ADA-EUR', 5, 'Wed 7 Oct 18:15', 'last 13 Oct 12:15', 'none', ''],
+      ['WARNING', 'Price stream disconnected; reconnected, REST prices used meanwhile', 'market.stream · stream.disconnected · —', 4, 'Thu 8 Oct 02:41', 'last 13 Oct 01:12', 'none', ''],
+      ['WARNING', 'Slots skipped while the computer was asleep; not replayed', 'agent.scheduler · scheduler.slot_skipped · —', 3, 'Mon 12 Oct 23:58', 'last 12 Oct 23:58', 'none', ''],
+      ['WARNING', 'Model output failed a post-check; HOLD', 'agent.decider · postcheck.failed · LINK-EUR, XRP-EUR', 2, 'Sat 10 Oct 11:30', 'last 12 Oct 18:46', 'none', ''],
+      ['WARNING', 'Email not sent: SMTP host is not set; browser notification sent', 'notify · notify.email_skipped · —', 2, 'Mon 12 Oct 08:00', 'last 13 Oct 08:00', 'none', ''],
+      ['WARNING', 'Python FutureWarning from pandas in indicators', 'python.warning · python.warning · —', 1, 'Mon 12 Oct 14:03', 'last 12 Oct 14:03', 'none', '']
+    ];
+    var problems = PROBS.map(function (p) {
+      return { level: p[0].toLowerCase(), chip: chip(p[0]), text: p[1], where: p[2], count: p[3], first: p[4], last: p[5],
+        rev: p[6] === 'none' ? '' : p[6], revStyle: REV[p[6]], revNote: p[7] || (p[6] === 'unreviewed' ? 'Needs a review: expected or fixed, with a note' : 'Warnings need no review'),
+        canReview: p[6] === 'unreviewed' };
+    });
+
+    function ctxChip(t, kind) {
+      var s = 'display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;' + MONO + 'font-size:11px;white-space:nowrap;';
+      if (kind === 'cycle') return { text: t, style: s + 'background:#13202F;color:#7FB8FF;border:1px solid #24405F' };
+      if (kind === 'err') return { text: t, style: s + 'background:#3A1416;color:#FFB3B6;border:1px solid #7A2A2E' };
+      return { text: t, style: s + 'background:#1C222C;color:#C9CFD6;border:1px solid #2E3643' };
+    }
+
+    var AROUND = [
+      ['09:30:00.004', 'INFO', 'agent.scheduler', 'Cycle c-0716 started · slot 09:30 · 9 active pairs'],
+      ['09:30:00.881', 'DEBUG', 'market.bitvavo', 'GET /v2/BTC-EUR/candles 1h limit 300 → 200 in 142 ms · newest close 09:00'],
+      ['09:30:01.020', 'DEBUG', 'agent.rules', 'BTC-EUR: pre-filter passed · ADX 26 ≥ 20 · 0.6 ATR above EMA 20 ≤ 1.5 · 4h trend up'],
+      ['09:30:01.023', 'DEBUG', 'agent.decider', 'BTC-EUR: decision call sent · gpt-4o-mini · decision.v2 · llm_call 5531'],
+      ['09:30:31.025', 'DEBUG', 'agent.decider', 'BTC-EUR: attempt 1 timed out after 30 s; retrying once'],
+      ['09:31:01.041', 'ERROR', 'agent.decider', 'BTC-EUR: decision call timed out after its retry (2 × 30 s); Rules answered: HOLD'],
+      ['09:31:01.044', 'INFO', 'agent.decider', 'BTC-EUR: final action HOLD · Rules stand-in · model_error'],
+      ['09:31:03.410', 'INFO', 'agent.scheduler', 'Cycle c-0716 ended in 63.4 s · 9 pairs · 2 passed the pre-filter · 2 model calls, 1 failed · 0 entries · 0 exits · 1 error']
+    ];
+    var around = AROUND.map(function (a) {
+      var hit = a[1] === 'ERROR';
+      return { t: a[0], lv: a[1], logger: a[2], msg: a[3], lvStyle: 'color:' + LV[a[1]].c,
+        style: 'padding:2px 6px;border-radius:4px;' + (hit ? 'background:#3A1416' : '') };
+    });
+
+    // [id, day, time, level, logger, event, message, ctx, utc]
+    var LOG = [
+      ['Tue 13 Oct · today'],
+      ['l-1230c', 'INFO', '12:30:41.207', 'agent.scheduler', 'cycle.end', 'Cycle c-0728 ended in 41.2 s · 9 pairs · 3 passed the pre-filter · 3 model calls · 1 entry (BTC-EUR) · 0 errors', [['c-0728', 'cycle']]],
+      ['l-1230f', 'INFO', '12:30:40.112', 'broker.paper', 'fill.entry', 'BTC-EUR: BUY 0.0807 filled at 61,240.00 · reference 61,230.10 · slippage 0.02% · taker fee €12.35', [['c-0728', 'cycle'], ['BTC-EUR']]],
+      ['l-1215', 'WARNING', '12:15:32.880', 'market.bitvavo', 'candles.stale', 'AVAX-EUR: newest 1h candle (12:00) not there after 3 tries 10 s apart; pair held and marked stale', [['c-0727', 'cycle'], ['AVAX-EUR']]],
+      ['l-1200', 'INFO', '12:00:38.540', 'broker.paper', 'fill.exit', 'XRP-EUR: SELL 9,180 at 0.5302 · target hit · +€41.20 · +1.6R', [['c-0726', 'cycle'], ['XRP-EUR']]],
+      ['l-0930', 'ERROR', '09:31:01.041', 'agent.decider', 'model.call_failed', 'BTC-EUR: decision call timed out after its retry (2 × 30 s); Rules answered the cycle: HOLD', [['c-0716', 'cycle'], ['BTC-EUR'], ['e-3f9a21c0', 'err']]],
+      ['l-0915', 'ERROR', '09:16:00.872', 'agent.decider', 'model.call_failed', 'ETH-EUR: decision call timed out after its retry (2 × 30 s); Rules answered the cycle: HOLD', [['c-0715', 'cycle'], ['ETH-EUR'], ['e-a71c0e52', 'err']]],
+      ['l-0800', 'WARNING', '08:00:04.311', 'notify', 'notify.email_skipped', 'Morning briefing: email not sent, the SMTP host is not set; browser notification sent to 1 tab', []],
+      ['l-0300b', 'INFO', '03:00:14.820', 'ops.backup', 'job.end', 'Backup agent-2026-10-13.db written in 1.8 s (42 MB); 14 kept', [['j-0313', '']]],
+      ['l-0300', 'WARNING', '03:00:12.540', 'market.universe', 'eligibility.failing', 'Eligibility check: DOGE-EUR spread 0.17% is above 0.15% (day 1 of 3); stays active', [['DOGE-EUR']]],
+      ['l-0112', 'WARNING', '01:12:44.090', 'market.stream', 'stream.disconnected', 'Price stream disconnected (close code 1006); reconnected after 2 s; the watcher used REST prices meanwhile', []],
+      ['Mon 12 Oct'],
+      ['l-2358', 'WARNING', '23:58:02.115', 'agent.scheduler', 'scheduler.slot_skipped', '3 slots skipped while the computer was asleep (23:15, 23:30, 23:45); stored with reason asleep, not replayed', []],
+      ['l-2357', 'WARNING', '23:58:01.870', 'agent.scheduler', 'clock.offset_high', 'Clock offset +2.4 s against Bitvavo after waking; information only, the cycle runs', []],
+      ['l-1846', 'WARNING', '18:46:12.402', 'agent.decider', 'postcheck.failed', 'LINK-EUR: model output failed post-check stop_side (stop 11.62 above entry 11.47 for a BUY); HOLD', [['c-0652', 'cycle'], ['LINK-EUR']]],
+      ['l-1403', 'WARNING', '14:03:55.611', 'python.warning', 'python.warning', 'FutureWarning in app/agent/indicators.py:212: Series.fillna(method=…) is deprecated', []]
+    ];
+    var TRACE = [
+      ['Tue 13 Oct · cycle c-0716'],
+      ['t1', 'INFO', '09:31:03.410', 'agent.scheduler', 'cycle.end', AROUND[7][3], [['c-0716', 'cycle']]],
+      ['t2', 'INFO', '09:31:02.950', 'agent.decider', 'decision.final', 'ETH-EUR: final action HOLD · model · confidence 0.54 · position kept', [['c-0716', 'cycle'], ['ETH-EUR']]],
+      ['t3', 'DEBUG', '09:31:02.948', 'agent.decider', 'model.call_returned', 'ETH-EUR: decision call returned in 1,894 ms · 1,412 + 96 tokens · €0.0004 · llm_call 5532', [['c-0716', 'cycle'], ['ETH-EUR']]],
+      ['t4', 'INFO', '09:31:01.044', 'agent.decider', 'decision.final', AROUND[6][3], [['c-0716', 'cycle'], ['BTC-EUR']]],
+      ['l-0930', 'ERROR', '09:31:01.041', 'agent.decider', 'model.call_failed', 'BTC-EUR: decision call timed out after its retry (2 × 30 s); Rules answered the cycle: HOLD', [['c-0716', 'cycle'], ['BTC-EUR'], ['e-3f9a21c0', 'err']]],
+      ['t5', 'DEBUG', '09:30:31.025', 'agent.decider', 'retry.attempt', AROUND[4][3], [['c-0716', 'cycle'], ['BTC-EUR']]],
+      ['t6', 'DEBUG', '09:30:01.214', 'agent.rules', 'prefilter.held', 'ADA-EUR: pre-filter held · ADX 16 < 20', [['c-0716', 'cycle'], ['ADA-EUR']]],
+      ['t7', 'DEBUG', '09:30:01.023', 'agent.decider', 'model.call_sent', AROUND[3][3], [['c-0716', 'cycle'], ['BTC-EUR']]],
+      ['t8', 'DEBUG', '09:30:01.020', 'agent.rules', 'prefilter.pass', AROUND[2][3], [['c-0716', 'cycle'], ['BTC-EUR']]],
+      ['t9', 'DEBUG', '09:30:00.881', 'market.bitvavo', 'http.call', AROUND[1][3], [['c-0716', 'cycle'], ['BTC-EUR']]],
+      ['t10', 'INFO', '09:30:00.004', 'agent.scheduler', 'cycle.start', AROUND[0][3], [['c-0716', 'cycle']]]
+    ];
+    var JSONTXT = '{\n  "id": 9182044,\n  "ts": "2026-10-13T07:31:01.041Z",\n  "level": "ERROR",\n  "logger": "agent.decider",\n  "event": "model.call_failed",\n  "message": "BTC-EUR: decision call timed out after its retry (2 × 30 s); Rules answered the cycle: HOLD",\n  "process": "app", "pid": 48211, "task": "cycle",\n  "cycle_id": "c-0716", "pair": "BTC-EUR", "decision_id": "d-0716-BTC-EUR",\n  "duration_ms": 60018, "error_id": "e-3f9a21c0",\n  "exc_type": "app.errors.ModelError",\n  "data": {"model": "gpt-4o-mini", "prompt": "decision.v2", "llm_call_id": 5531, "attempts": 2, "timeout_s": 30, "outcome": "rules_stand_in"},\n  "fingerprint": "agent.decider|model.call_failed|<pair>: decision call timed out after its retry (<n> × <n> s)…",\n  "version": "0.3.0+aa258e9"\n}';
+    var TRACEBACK = 'Traceback (most recent call last):\n  File "backend/app/agent/openai_client.py", line 142, in create\n    resp = await self._client.responses.create(**req, timeout=self.timeout_s)\n  File ".venv/lib/python3.12/site-packages/openai/_base_client.py", line 1634, in request\n    raise APITimeoutError(request=request) from err\nopenai.APITimeoutError: Request timed out.\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File "backend/app/agent/deciders/openai_decider.py", line 388, in decide\n    raw = await retry_call(self.client.create, req, policy=self.policy)\n  File "backend/app/agent/retry.py", line 61, in retry_call\n    raise ModelError("timeout", attempts=2) from last\napp.errors.ModelError: timeout after 2 attempts (30 s each)';
+
+    var src = st.trace ? TRACE : LOG;
+    var shown = 0;
+    var lines = [];
+    var dayRow = null, dayW = 0, dayE = 0;
+    src.forEach(function (l) {
+      if (l.length === 1) { dayRow = { isDay: true, isLine: false, open: false, day: l[0], dayCount: '', around: [], ctx: [] }; lines.push(dayRow); dayW = 0; dayE = 0; return; }
+      if (!on[l[1]]) return;
+      shown++;
+      if (l[1] === 'WARNING') dayW++; if (l[1] === 'ERROR') dayE++;
+      dayRow.dayCount = (dayW ? dayW + (dayW === 1 ? ' warning' : ' warnings') : '') + (dayW && dayE ? ' · ' : '') + (dayE ? dayE + (dayE === 1 ? ' error' : ' errors') : '');
+      var isOpen = st.open === l[0];
+      var h = parseInt(l[2].slice(0, 2), 10), utcH = (h + 22) % 24;
+      lines.push({
+        isDay: false, isLine: true, open: isOpen, openStr: String(isOpen),
+        t: l[2], utc: (utcH < 10 ? '0' : '') + utcH + l[2].slice(2) + ' UTC', lv: l[1].toLowerCase(), chip: chip(l[1]),
+        logger: l[3], msg: l[5], ctx: l[6].map(function (c) { return ctxChip(c[0], c[1]); }),
+        rowStyle: 'width:100%;text-align:left;border:0;cursor:pointer;color:inherit;font:inherit;padding:10px 8px;border-radius:6px;border-bottom:1px solid #1C222C;background:' + (isOpen ? '#171C24' : 'transparent'),
+        toggle: function () { if (l[0] === 'l-0930') self.setState({ open: isOpen ? null : l[0] }); },
+        accent: '#FF6B70', errorId: 'e-3f9a21c0', event: l[4], cycle: 'c-0716',
+        means: 'The decision call to OpenAI got no answer within its timeout, and its one retry timed out too. The pair was answered by Rules for this cycle, so nothing was traded on a guess.',
+        todo: 'Once in a while is normal. If it repeats, check status.openai.com and the latency column in the LLM inspector for this model. Mark the problem Expected with a note, or Fixed once the cause is gone.',
+        trace: TRACEBACK, json: JSONTXT, around: around,
+        trace_cycle: function (e) { if (e && e.preventDefault) e.preventDefault(); self.setState({ trace: true }); }
+      });
+    });
+    lines.forEach(function (l) { if (l.isDay && !l.dayCount) l.dayCount = st.trace ? 'all levels' : 'nothing at these levels'; });
+
+    return {
+      nav: nav, levels: levels, periods: periods, bars: bars, problems: problems, lines: lines, trace: st.trace,
+      lowOnStr: String(lowOn),
+      lowTrack: 'width:36px;height:20px;border-radius:10px;position:relative;flex:0 0 36px;background:' + (lowOn ? '#F2B94B' : '#2E3643'),
+      lowKnob: 'position:absolute;top:3px;width:14px;height:14px;border-radius:50%;left:' + (lowOn ? '19px' : '3px') + ';background:' + (lowOn ? '#0B0E13' : '#98A2AF'),
+      toggleLow: function () { var n = Object.assign({}, st.lv); n.DEBUG = !lowOn; n.INFO = !lowOn; self.setState({ lv: n, trace: false }); },
+      clearFilters: function () { self.setState({ lv: { DEBUG: false, INFO: false, WARNING: true, ERROR: true, CRITICAL: true }, period: '7 days', trace: false }); },
+      endTrace: function () { self.setState({ trace: false }); },
+      logSub: st.trace ? shown + ' lines · every level of one cycle · times in Amsterdam, UTC on hover' : shown + ' lines · newest first · times in Amsterdam, UTC on hover',
+      footer: shown + ' of ' + (st.trace ? shown : 22) + ' loaded'
+    };
+  }
+}
+
+</script>
+</body>
+</html>

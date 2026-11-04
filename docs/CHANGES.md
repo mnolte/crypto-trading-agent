@@ -2,6 +2,20 @@
 
 Newest first. Each entry names the sections it touches.
 
+## 2026-11-04 — v0.3: error handling and logs in SQLite
+
+- v0.3 → Logging, errors and the Logs screen, rewritten:
+  - logs are stored in `data/logs/logs.db` (tables `log_lines` and `log_problems`, full-text search); the JSON log file is gone, a fallback file is written only while the store can't be written; retention per level (DEBUG 7 days, INFO 30, WARNING 180, ERROR and CRITICAL 365) and a 2 GB cap;
+  - error handling for the whole repository: exception classes in `app/errors.py`, isolation boundaries as the only broad catches, `spawn()` for every background task with restart and backoff, timeouts on every external call, one `retry_call()` with the retry rules the spec already had, Python warnings logged and failing tests;
+  - an event registry (`app/logevents.py`) with meaning and what to do, and a failure catalogue with the defined outcome, level and event of every known failure;
+  - the error pages move from PR 20 to PR 15: the API error shape with a status table, `X-Request-Id`, the in-app pages (not found for a page and a record, something went wrong, the app isn't answering, offline) and the static pages in `deploy/errors/` (app down, updating); frontend errors and console warnings are reported;
+  - the Logs screen gains the trace view, event meaning and what to do, Copy error id, a storage footer and ways in from Needs you, the Cycles card and the Decision drawer;
+  - the `errors` table is renamed `errors_legacy` and imported once into `logs.db`.
+- v0.3 → Shell and Dashboard → Needs you: new item "the app is degraded" (from PR 15).
+- v0.3 → "Sign-in, access and error pages" becomes "Sign-in and access" (PR 20 keeps sign-in and adds the 401 and 403 rows).
+- Settings, secrets and persistence → Operations, User features → Readiness, Build order (v0.3) and Decisions: pointers to the new section.
+- New kickoff `docs/kickoffs/pr-15.md`. Design: `design/CHANGES.md`, entry "Logs screen and error pages".
+
 ## 2026-11-04 — v0.3: cycles for a 24/7 market
 
 - v0.3 → Shell and Dashboard: the cycle strip becomes the Cycles card with a rolling 24-hour timeline (slot states and precedence, missed and paused slots, scheduled jobs, summary); nothing counts per Amsterdam day. The scheduler stores skipped slots with their reason. New endpoint `GET /api/cycles/recent?hours=24`.
