@@ -4,14 +4,22 @@ on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    # Monday 05:17 UTC: a weekly full run, including the slow tests.
+    - cron: "17 5 * * 1"
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A new push to a PR cancels its stale run; every commit on main keeps its own.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
+
+# Python comes from .python-version (3.12); uv installs it if the runner lacks it.
+# The spec label check and the PR title check are in spec-label.yml, the
+# dependency audits in audit.yml.
 
 jobs:
   backend:
@@ -28,12 +36,31 @@ jobs:
           enable-cache: true
       - run: uv sync --frozen
       - run: uv run ruff check .
+      # Fails on unformatted code; run `make fix` (or the pre-commit hook) before committing.
       - run: uv run ruff format --check .
       - run: uv run mypy .
       # pytest runs with --disable-socket --allow-hosts=127.0.0.1,localhost
       # (addopts in pyproject.toml): any real outbound call fails.
-      # The 2000-cycle soak is marked slow and runs via `make soak`, not CI.
-      - run: uv run pytest -m "not slow"
+      # The slow tests run in the backend-slow job below.
+      - run: uv run pytest -m "not slow" -n auto --dist load
+
+  backend-slow:
+    # The 2000-cycle soak (marker "slow"): on pushes to main, the weekly run
+    # and manual runs, not on PRs, so PR feedback stays fast.
+    name: backend-slow
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TA_DATA_DIR: /tmp/ta-data
+      TA_DB_PATH: /tmp/ta-data/agent.db
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run pytest -m slow -v
 
   frontend:
     name: frontend
@@ -44,20 +71,7 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 20
-      - run: corepack enable
-      - name: Locate pnpm store
-        id: pnpm-store
-        run: echo "dir=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ${{ steps.pnpm-store.outputs.dir }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-      - run: corepack pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-frontend
       - run: corepack pnpm lint
       - run: corepack pnpm typecheck
       - run: corepack pnpm test:run
@@ -75,22 +89,8 @@ jobs:
       - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
         with:
           enable-cache: true
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 20
       - run: uv sync --frozen
-      - run: corepack enable
-      - name: Locate pnpm store
-        id: pnpm-store
-        run: echo "dir=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-        working-directory: frontend
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ${{ steps.pnpm-store.outputs.dir }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-      - run: (cd frontend && corepack pnpm install --frozen-lockfile)
+      - uses: ./.github/actions/setup-frontend
       # Regenerate both artifacts, then fail if the tree changed.
       - name: Regenerate openapi.json and schema.d.ts
         run: |
@@ -101,10 +101,10 @@ jobs:
           git diff --exit-code -- openapi.json frontend/src/api/schema.d.ts
 
   e2e:
+    # Runs in parallel with backend and frontend: it builds what it needs itself.
     name: e2e
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [backend, frontend]
     env:
       TA_DATA_DIR: /tmp/ta-data
       TA_DB_PATH: /tmp/ta-data/agent.db
@@ -116,22 +116,14 @@ jobs:
       - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
         with:
           enable-cache: true
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 20
       - run: uv sync --frozen
         working-directory: .
-      - run: corepack enable
-      - name: Locate pnpm store
-        id: pnpm-store
-        run: echo "dir=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-frontend
+      # The browser download is cached; the system packages are installed each run.
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          path: ${{ steps.pnpm-store.outputs.dir }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-      - run: corepack pnpm install --frozen-lockfile
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('frontend/pnpm-lock.yaml') }}
       - run: corepack pnpm exec playwright install --with-deps chromium
       # The app serves the built SPA — dist/ must exist for the suite to load a page.
       - run: corepack pnpm build
@@ -148,30 +140,6 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 14
-
-  guard:
-    name: guard
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          fetch-depth: 0
-      - name: Check protected paths
-        run: |
-          git diff --name-only "origin/${{ github.base_ref }}...HEAD" | tee /tmp/changed.txt
-          if ! grep -qE '^(docs/SPEC\.md|docs/CHANGES\.md|design/|backend/prompts/)' /tmp/changed.txt; then
-            echo "No protected files changed."
-            exit 0
-          fi
-          if echo '${{ toJSON(github.event.pull_request.labels.*.name) }}' | grep -q '"spec-change"'; then
-            echo "Protected files changed, but 'spec-change' label is present."
-            exit 0
-          fi
-          echo "::error::Protected files changed without the 'spec-change' label:"
-          grep -E '^(docs/SPEC\.md|docs/CHANGES\.md|design/|backend/prompts/)' /tmp/changed.txt
-          exit 1
 
   secrets:
     name: secrets
@@ -191,12 +159,16 @@ jobs:
             | sha256sum -c -
           tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
       - name: Scan changed commits for secrets
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            RANGE="origin/${{ github.base_ref }}...HEAD"
-          elif [ "${{ github.event_name }}" = "push" ] && \
-               [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
-            RANGE="${{ github.event.before }}..HEAD"
+          if [ "$EVENT" = "pull_request" ]; then
+            RANGE="origin/$BASE_REF...HEAD"
+          elif [ "$EVENT" = "push" ] && [ -n "$BEFORE" ] && \
+               [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            RANGE="$BEFORE..HEAD"
           else
             RANGE="--all"
           fi

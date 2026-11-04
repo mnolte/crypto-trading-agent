@@ -53,12 +53,15 @@ follow the spec and list the difference in the PR under "Design differences".
 make dev        # backend (Uvicorn with reload) + Vite dev server
 make run        # build the UI, serve everything on 127.0.0.1:8000
 make test       # pytest + Vitest (+ Playwright where present)
+make fix        # ruff check --fix, ruff format, eslint --fix
+make hooks      # once per clone: the pre-commit hook runs ruff on each commit
 uv run ruff check . && uv run mypy .     # backend lint and types
 pnpm --dir frontend lint && pnpm --dir frontend typecheck
 ```
 
-Run `make test` and the lint/type checks before every commit. Do not mark a PR ready
-with failing checks.
+Run `make fix`, `make test` and the lint/type checks before every commit; CI fails on
+unformatted code. Do not mark a PR ready with failing checks. A PR that touches a path in
+`.github/spec-paths.txt` needs the `spec-change` label (the `spec-label` check).
 
 ## Hard rules
 

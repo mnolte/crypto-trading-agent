@@ -63,13 +63,14 @@ The examples use 099 as a made-up number.
 | 012 | feat | Limit entries | `DEVIN_KICKOFF.md` | — | #17 | merged |
 | 013 | feat | Decision quality (prompt v2) | `DEVIN_KICKOFF.md` | — | #17 | merged |
 | 014 | feat | Shell and Dashboard | `pr-14.md` | #18 | #19 | merged |
-| 015 | feat | Error handling, logging and the Logs screen | `pr-15.md` | #18, #20 | — | ready |
+| 015 | feat | Error handling, logging and the Logs screen | `pr-15.md` | #18, #20 | #22 | merged |
 | 016 | feat | Positions & orders | — | #18 | — | ready |
 | 017 | feat | Markets screen | — | #18 | — | ready |
 | 018 | feat | Strategies screen | — | #18 | — | ready |
 | 019 | feat | Backtest | — | #18 | — | ready |
 | 020 | feat | Sign-in and access | — | #18, #20 | — | ready |
-| 021 | spec | Naming convention for work items | — | #21 | — | planned |
+| 021 | spec | Naming convention for work items | — | #21 | — | merged |
+| 022 | ops | CI hardening | — | — | #23 | building |
 
 Status is one of `planned` (spec PR open), `ready` (spec merged, not started), `building` (build PR open), `merged`, `paused` (spec written, held by a decision in `docs/SPEC.md` → Decisions, with the date in the row) or `dropped` (with the reason in the row).
 
