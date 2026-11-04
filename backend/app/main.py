@@ -266,7 +266,8 @@ def _install_signal_handlers(app: FastAPI) -> None:
     def _handler(signum: int, frame: FrameType | None) -> None:
         counts[signum] += 1
         if counts[signum] == 1:
-            app.state.sigint_requested = True
+            if signum == signal.SIGINT:
+                app.state.sigint_requested = True
             _announce_shutdown(app)
         elif signum == signal.SIGINT and counts[signum] == 2:
             logging.getLogger("app.main").warning(
