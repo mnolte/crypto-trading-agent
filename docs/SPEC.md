@@ -547,7 +547,7 @@ Eleven features that reduce confusion, anxiety and guesswork for the person runn
 
 **Trust and safety**
 
-5. **Live-readiness checklist.** A Readiness screen with criteria that must all pass before the Live switch can be unlocked (live trading itself is a later phase). Defaults, editable in Settings: at least 100 closed trades; at least 30 days of paper trading; return above BTC buy-and-hold after fees over the same period; max drawdown under 6%; average R above +0.2 after fees; profit factor above 1.3; confidence calibration within 10 percentage points (BUYs grouped by stated confidence into 0.5–0.6, 0.6–0.7, 0.7–0.8 and 0.8+; per bucket the gap between average stated confidence and actual win rate; gaps averaged weighted by bucket size, skipping buckets with fewer than 10 BUYs; cannot pass before 50 BUYs); no kill-switch event in the last 30 days; no unresolved errors in the last 7 days (only errors that affected a decision or a fill; see Operations). Each criterion shows its current value, target, pass or fail, and for counts an estimated date at the current pace. Criteria count from the current paper account. Any threshold change is kept in the settings history; a loosened threshold is shown on the screen with its date.
+5. **Live-readiness checklist.** A Readiness screen with criteria that must all pass before the Live switch can be unlocked (live trading itself is a later phase). Defaults, editable in Settings: at least 100 closed trades; at least 30 days of paper trading; return above BTC buy-and-hold after fees over the same period; max drawdown under 6%; average R above +0.2 after fees; profit factor above 1.3; confidence calibration within 10 percentage points (BUYs grouped by stated confidence into 0.5–0.6, 0.6–0.7, 0.7–0.8 and 0.8+; per bucket the gap between average stated confidence and actual win rate; gaps averaged weighted by bucket size, skipping buckets with fewer than 10 BUYs; cannot pass before 50 BUYs); no kill-switch event in the last 30 days; no unresolved errors in the last 7 days (only errors that affected a decision or a fill; see Operations; from PR 15 the criterion in v0.3 → Logging, errors and the Logs screen). Each criterion shows its current value, target, pass or fail, and for counts an estimated date at the current pace. Criteria count from the current paper account. Any threshold change is kept in the settings history; a loosened threshold is shown on the screen with its date.
 6. **Per-coin pause.** Pause new entries on one coin, or on all coins, for 1 hour, 24 hours, until a date and time, or until resumed. Exits and the model's SELL decisions keep working; pauses expire automatically, show a clock badge on the pair, and are logged. Set from the pair selector, the latest-decision card or the Settings markets table; Ask cannot set it. While a pair's entries are paused and it has no open position, the model is not called for it (shadows included): the Rules engine answers, any BUY ends as SKIP at the Entry pause gate, and no call budget is spent. With an open position the model is called as usual, so SELL decisions keep working. The Entry pause gate is checked again when a pending approval fills.
 7. **Risk budget meter.** A Dashboard card that also shows, when active, the risk throttle (0.5% per trade and what lifts it), the shock brake (and when it ends) and the correlated slots left, plus three bars: open risk vs the 2.5% cap, today's loss vs the 3% daily limit, drawdown vs the 8% kill level; plus one line such as "Room for about 2 more full-size trades".
 
@@ -797,8 +797,8 @@ Everything the agent knows survives a restart, and it always restarts paused.
 
 **Operations**
 
-- Logs: structured JSON lines in `logs/app.log`, rotated at 10 MB, 5 files kept. Secrets are never logged.
-- Errors: every error also lands in the activity log with kind "error"; the header shows an error badge with the count of the last 24h, linking to the filtered activity log. An error resolves itself when its cause has not recurred for 1 hour (for example a source that recovers); others are dismissed with a short note from the activity log. Errors that affected a decision or a fill are flagged and count for Readiness.
+- Logs: structured JSON lines in `logs/app.log`, rotated at 10 MB, 5 files kept. Secrets are never logged. From PR 15 replaced by v0.3 → Logging, errors and the Logs screen (logs in `data/logs/logs.db`).
+- Errors (until PR 15; then recurring problems on the Logs screen): every error also lands in the activity log with kind "error"; the header shows an error badge with the count of the last 24h, linking to the filtered activity log. An error resolves itself when its cause has not recurred for 1 hour (for example a source that recovers); others are dismissed with a short note from the activity log. Errors that affected a decision or a fill are flagged and count for Readiness.
 - Backups: a daily copy of the SQLite database at 03:00 using SQLite's backup API, into `backups/` inside the data folder, keeping the last 14.
 - Health: `GET /api/health` reports engine state, last cycle, source status and recent errors, for later monitoring on the VPS.
 
@@ -988,6 +988,7 @@ Screen controls (filters, periods, export, save) sit at the top of the page, not
 | Item | Action |
 | --- | --- |
 | Kill switch fired, not acknowledged | Review and acknowledge |
+| From PR 15: the app is degraded (an open position the watcher can't price for 2 minutes, the trading database can't be written, a background task crashing 5 times in 10 minutes) | Open in Logs |
 | Trades waiting for approval (supervised mode) | Approve or veto |
 | Errors not reviewed (from PR 15: ERROR and CRITICAL recurring problems; before it, open rows in `errors`) | Review |
 | An API key or data source failing (3 failures in a row) | Fix in Settings |
@@ -1017,54 +1018,175 @@ The header chip shows the count and is hidden at 0; the Dashboard card is first 
 
 ### Logging, errors and the Logs screen
 
-Every part of the app logs what it does, so a cycle, a fill or a failure can be traced afterwards; no error is swallowed; Ctrl+C stops the app without damaging the database. This replaces the Logs and Errors bullets under Operations. The PR starts with an audit: `docs/analysis/<date>-error-handling-audit.md` lists every `try`/`except`, background task and silent failure path (file, line, today, fix), each component's logging, and what Ctrl+C does today during a cycle, a fill and a backup. Fixes follow the report; anything that would change trading behaviour is listed as a question.
+Every failure can be looked up afterwards: what failed, in which component, during which cycle and on which pair, with which inputs, and what the app did about it. No error, warning or exception passes silently, in the backend, the frontend or a backtest. Logs are stored in SQLite so they can be searched and filtered. Ctrl+C stops the app without damaging the database. This replaces the Logs and Errors bullets under Operations, the `errors` table and the error badge.
 
-**Log file.** One JSON object per line in `data/logs/trading-agent.log`:
+**Audit first.** The PR starts with `docs/analysis/<date>-error-handling-audit.md`:
 
-- `ts` (UTC, milliseconds), `level`, `logger` (component, e.g. `market.bitvavo`), `event` (a stable code such as `candles.stale`), `message`;
-- `context`: cycle id, pair, decision, order, shadow, backtest run or HTTP request id, whichever apply;
-- `process` (`app` or `backtest-<id>`), `pid`; for errors `error_id` and `exception` (type, message, traceback).
+- every `try`/`except`, background task, `print()` and place a failure could pass silently, each with file, line, what happens today and the fix (a row of the failure catalogue below, or a new row proposed as a question). Measured on `main` on 4 November 2026: 54 `except Exception` in 14 files, 3 that `pass`, 2 that `return None` without a log line, 11 bare `asyncio.create_task`, 3 `print()`, and a logger in 9 of 110 modules;
+- every component with its logging today and the INFO and DEBUG lines it needs so a cycle can be followed from schedule to fill;
+- every external call with its timeout and retry today;
+- what Ctrl+C does today during a cycle, a fill, a model call and a backup.
 
-All levels go to the file; the console shows INFO and up. Lines go through a queue to one writer thread, so logging never blocks a cycle. The file rotates at 50 MB (gzipped); files older than 30 days or beyond 20 are deleted. A filter on every handler replaces stored keys and anything that looks like a key or an Authorization header with `[redacted]`. Model prompts and responses are not logged; they live in `llm_calls`.
+Fixes follow the report. Anything that would change trading behaviour (decisions, gates, sizing, exits, the cycle) is listed as a question, never fixed in this PR.
+
+**Where logs go.**
+
+| Sink | Levels | Purpose |
+| --- | --- | --- |
+| `data/logs/logs.db` | all | The store: searched by the Logs screen and the API |
+| Console | INFO and up (`logging.console_level`) | One short readable line per record while running `make run` or `make dev` |
+| `data/logs/fallback-<date>.jsonl` | all | Only while `logs.db` can't be written; one JSON object per line |
+
+`logs.db` is a SQLite file of its own, never the trading database, and is not in the 03:00 backup: losing it loses diagnosis, never trading state. The app, the frontend (through the API) and backtest child processes write to it.
+
+**Writer.**
+
+- A log call puts the record on an in-memory queue (at most `logging.queue_size`, 20,000) and returns; it never waits for disk, so logging never blocks a cycle or the exit watcher.
+- One writer thread commits the queue in batches every second or every 500 lines. An ERROR or CRITICAL line commits at once with the lines before it.
+- The connection uses WAL, `synchronous=NORMAL` and a 5 s busy timeout. A backtest child process opens its own connection to the same file with `process = backtest-<id>`; it writes INFO and up unless `logging.backtest_debug` is on.
+- When the queue is full, DEBUG lines are dropped first, then INFO. WARNING and up are never dropped: the call waits up to 1 s, then the line goes to the fallback file. Dropped lines are counted and reported once a minute as a WARNING `logs.dropped` with the counts per level.
+- When `logs.db` can't be written (locked past the timeout, disk full, corrupt), lines go to the fallback file and to stderr, and the writer retries every 30 s. Once it can write again it imports the fallback file into `logs.db` and renames it `.imported`; retention removes it after 30 days. The writer's own failures never go through the logger, so a broken store can't loop.
+- The writer starts before anything else at startup and stops last at shutdown.
+
+**Table `log_lines`.**
+
+| Column | Content |
+| --- | --- |
+| `id` | Integer, increasing; the keyset cursor |
+| `ts` | UTC with milliseconds |
+| `level`, `levelno` | DEBUG, INFO, WARNING, ERROR, CRITICAL, and the number for range queries |
+| `logger` | The component, e.g. `market.bitvavo`, `agent.decider`, `frontend` |
+| `event` | A code from the event registry, e.g. `candles.stale` |
+| `message` | One sentence a person can read, with the values that matter ("BTC-EUR: newest 1h candle 12:00 is 2 cycles old (limit 1); pair held") |
+| `process`, `pid`, `task` | `app` or `backtest-<id>`; the process id; the asyncio task or thread name |
+| `cycle_id`, `job`, `pair`, `decision_id`, `trade_id`, `order_id`, `shadow_id`, `backtest_id`, `request_id` | The trace context, whichever apply (see Tracing) |
+| `duration_ms` | For lines that end a timed step: an API call, a model call, a cycle, a job, a request |
+| `error_id` | `e-` and 8 hex characters, on every ERROR and CRITICAL line and on the API error and the GUI message that go with it |
+| `exc_type`, `exc_message`, `traceback` | When an exception is attached; the traceback includes chained causes |
+| `data` | Other fields as JSON (inputs, counts, HTTP status, attempt), scrubbed |
+| `fingerprint` | Groups recurring problems (below) |
+| `version` | App version and git commit |
+
+Full-text search (SQLite FTS5) covers message, event, `exc_type`, `exc_message` and `data`. Indexes: (ts), (levelno, ts), (logger, ts), (event, ts), (cycle_id), (pair, ts), (fingerprint, ts), (error_id), (request_id).
+
+**Table `log_problems`.** One row per fingerprint of WARNING and up, updated by the writer in the same transaction as the line: level (the highest seen), logger, event, an example message, count, first and last seen, up to 5 pairs seen, and the review: state (unreviewed, expected, fixed), note, time and the count at review. A problem marked fixed that comes back returns to unreviewed with "came back after it was marked fixed". An expected problem stays expected unless its level rises. The fingerprint is logger + event + the message with numbers, pairs, ids, times and quoted values replaced by placeholders.
+
+**Retention.** Daily at 03:30 Amsterdam, after the backup, in batches of 5,000 rows, followed by an incremental vacuum:
+
+| Level | Kept (`logging.keep_days`) |
+| --- | --- |
+| DEBUG | 7 days |
+| INFO | 30 days |
+| WARNING | 180 days |
+| ERROR, CRITICAL | 365 days |
+
+Above `logging.max_db_mb` (2,000) the oldest DEBUG lines go first, then the oldest INFO lines, until the file is under the limit; WARNING and up are only removed by age. Problems are kept. Expected volume is about 30,000 lines and 25 MB a day; the PR measures it over 24 hours and reports it.
+
+**Scrubbing.** Before a line is queued, a filter replaces the value of every stored key, the SMTP password, anything that looks like a key or token, and Authorization and Cookie headers with `[redacted]`, in the message, the `data` field and exception messages. Model prompts and responses are not logged; they live in `llm_calls`, and a model line carries the `llm_calls` id instead.
+
+**Levels.** Every component logs its steps at DEBUG and its milestones at INFO.
 
 | Level | Meaning | Examples |
 | --- | --- | --- |
-| DEBUG | Steps and values behind a decision | candles fetched per pair, each pre-filter condition with its value, gate inputs and results, sizing math, model call sent and returned (tokens, latency), API calls with status and duration |
-| INFO | One line per milestone | app start and stop with version and config hash, cycle start and end with a summary, each decision's final action, fill, stop moved, exit, settings saved, key tested, job run |
-| WARNING | Degraded but handled | pair stale, source retry, invalid model output, a cycle over 5 minutes, unclean previous shutdown |
-| ERROR | A unit of work given up | unhandled exception in a cycle step, model error, job failed, email failed, database rollback |
-| CRITICAL | Safety at risk or the app can't continue | kill switch fired, a position the watcher can't price, database not writable, startup refused |
+| DEBUG | Steps and values behind a decision | Candles fetched per pair with the newest close time, each pre-filter condition with its value, gate inputs and results, sizing math, fill math (reference price, slippage, fee), model call sent and returned (tokens, latency, `llm_calls` id), every external call with method, endpoint, status, duration and attempt (no bodies), each watcher pass, API requests |
+| INFO | One line per milestone | App start (version, commit, config hash, data folder, Python) and stop; cycle start and end with a summary; each pair's final action; fill, stop moved, exit, limit placed, filled or cancelled; settings saved (the keys changed and their old and new values, never a secret); key tested; job start and end; price stream connected; notification sent |
+| WARNING | Degraded but handled | Pair stale, a retry, invalid model output, a post-check failure, a cycle over 5 minutes, a clock offset over 2 s, a missed slot, a Python warning, an unclean previous shutdown, dropped log lines, 401 and 403 responses |
+| ERROR | A unit of work given up | An unhandled exception in a pair, cycle step, job or request; a model error after its retry; an email that failed; a database error that was rolled back; a background task that crashed; a frontend error |
+| CRITICAL | Safety at risk or the app can't continue | Kill switch fired; an open position the watcher can't price for 2 minutes; the trading database can't be written; startup refused; a background task that keeps crashing |
 
-**Tracing.** Every cycle, watcher pass and job gets an id (`c-0728`) in a context variable, carried by every line it writes; lines about one pair carry the pair and, once known, the decision id. API requests get a request id, returned in `X-Request-Id`.
+**Event registry.** Every log call names an event from one registry, `backend/app/logevents.py`: the code, its level, the component, what it means in one sentence and, for WARNING and up, what to do. A test fails on a log call with an event that isn't registered, and on a WARNING-or-up event without "what to do". `GET /api/logs/events` serves the registry; the Logs screen shows the meaning and what to do when a line is opened. Codes are stable; renaming one is noted in `docs/CHANGES.md`.
+
+**Tracing.**
+
+- Every cycle, watcher pass and job gets an id (`c-0728`, `w-…`, `j-…`) in a context variable. A `log_context(...)` context manager adds pair, decision, trade, order and shadow as they become known. Every line written inside carries them, including lines from tasks started inside (the `spawn()` helper copies the context).
+- API requests get a request id, returned in `X-Request-Id`, sent back by the frontend with its error reports.
+- The cycle's last line is an INFO summary: duration, pairs, pre-filter passes, model calls, entries, exits, stop moves, holds, warnings and errors. Filtering on its id shows the whole cycle, from schedule to fill.
 
 **Error handling.**
 
-- Never swallowed: a caught exception is re-raised, turned into a defined outcome (a Rules stand-in, a failed gate, a cycle stored as error) and logged with its traceback, or logged at WARNING as an expected condition. Ruff rules E722, BLE001, S110, TRY400 and TRY203 fail `make lint`.
-- Global hooks: `sys.excepthook`, `threading.excepthook`, the asyncio exception handler, one `spawn()` helper for every background task (a bare `asyncio.create_task` fails a test), the scheduler's job-error listener and `logging.captureWarnings`. Library loggers go to the same handlers at WARNING and up.
-- An unhandled API error returns 500 with an `error_id` that is also on the log line. Frontend errors (`window.onerror`, `unhandledrejection`, the React error boundary) go to `POST /api/logs/client`, at most 10 a minute per tab; the boundary shows "Something went wrong" with the `error_id` and Reload.
-- The log is for diagnosis. Notifications and the Needs you list come from events, never from a log line.
+- **Never swallowed.** No bare `except:`, no `except Exception: pass`, no catch that neither logs nor re-raises. A caught exception is one of three things: re-raised; turned into a defined outcome from the catalogue below and logged with its traceback; or an expected condition, logged at WARNING with its reason. Ruff rules E722, BLE001, S110, TRY400, TRY203 and LOG fail `make lint`. A narrow exception that is deliberately allowed needs `# noqa` with a reason.
+- **Exception classes.** `backend/app/errors.py` defines `AgentError` with an event code and whether it is retryable, and below it `DataError` (stale, missing, invalid), `SourceError` (HTTP status, timeout, rate limit), `ModelError` (timeout, refused, invalid output, cost cap), `BrokerError` (a paper broker invariant), `StorageError`, `ConfigError` and `SafetyError`. Library exceptions are converted at the client that calls the library (Bitvavo, OpenAI, the collector sources, SMTP, keyring, SQLAlchemy), keeping the original as the cause, so code above that client catches these classes and never `Exception`.
+- **Isolation boundaries.** A broad catch is allowed only at these points, each logging ERROR with the traceback and `error_id`, recording its defined outcome and carrying on: one pair inside a cycle; one cycle step (refresh, decide, exits, outcomes, shadows); one watcher pass; one job; one iteration of a background loop; one API request (the exception handler); one notification channel; one shadow; one backtest strategy step. The audit lists each boundary with its file and line.
+- **Background tasks.** Every task starts through one `spawn()` helper (a bare `asyncio.create_task` outside it fails a test). A task that raises is logged at ERROR (`task.crashed`) and restarted after a backoff from 5 s to 5 minutes; 5 crashes in 10 minutes is CRITICAL and a Needs you item.
+- **Global hooks**, so nothing escapes the log: `sys.excepthook`, `threading.excepthook`, the asyncio loop's exception handler, the scheduler's job-error listener, `logging.captureWarnings(True)` and `warnings.simplefilter("default")`. Uvicorn's and every library's loggers go to the same writer at WARNING and up, unless `logging.library_debug` is on.
+- **Timeouts.** Every external call has a timeout from config: Bitvavo REST 10 s, the price stream's read 60 s, OpenAI 30 s (as now), the collector's sources 10 s (as now), SMTP 15 s, keyring 5 s. A test with a client that never answers proves each one.
+- **Retries.** One helper, `retry_call()`, for idempotent reads only, with the policies the spec already sets: candles 3 times 10 s apart, OpenAI one retry on a network error, 429 or 5xx, collector sources one retry. It honours `Retry-After` and never runs past the cycle's deadline. Each attempt is a DEBUG line; giving up is the catalogue's line. A paper fill, a database write that may have committed and an email are never retried by it.
+- **Python warnings** (deprecations, pandas FutureWarning, numpy RuntimeWarning in indicator maths) are logged at WARNING as `python.warning` with category, file and line. In tests, warnings raised from `app.*` are errors, so a new one fails CI.
+- **Logs and events.** The log is for diagnosis. Notifications and the Needs you list come from events and stored state, never from a log line; the one exception is the Errors item, which reads `log_problems`.
 
-**Graceful shutdown.** Ctrl+C or SIGTERM: log "Shutdown requested", show a banner in every tab, stop the scheduler and the watcher's new passes; API writes return 503. Running work gets 60 s; a fill and its position update are one transaction and never cut off. Then shadows and a running backtest are cancelled, clients closed, every session committed or rolled back, a WAL checkpoint run, and the log flushed last ("Shutdown complete in n s"). A second Ctrl+C skips the wait. The lock file gains a heartbeat every 30 s; if it is still there at the next start, the app logs a WARNING, runs `PRAGMA quick_check`, marks running cycles `interrupted` and says "The previous run did not shut down cleanly". It still restarts paused.
+**Failure catalogue.** The defined outcome of each failure. "Unchanged" means the behaviour already in this spec; this PR adds the log line, the error id and the test.
 
-**Log index and API.** The writer thread also batches each line into `data/logs/logs.db` (never the trading database, not in the backup): a `log_lines` table with full-text search on the message, indexes on time, level, logger, cycle and pair, and a fingerprint (logger + event + the message with numbers, pairs and ids replaced) that groups recurring problems. If the index fails, the file keeps working; `make logs-reindex` rebuilds it.
+| Failure | Outcome | Level | Event |
+| --- | --- | --- | --- |
+| Newest 1h candle missing after the 3 retries, or a candles request failing | Pair held and marked stale (unchanged); other pairs go on | WARNING; ERROR when every active pair fails in one cycle | `candles.stale`, `candles.fetch_failed` |
+| Price stream disconnected | Reconnect with backoff 1 s to 60 s; the watcher uses the REST ticker meanwhile; health line amber | WARNING; ERROR after 5 minutes | `stream.disconnected`, `stream.down` |
+| An open position the watcher can't price | Unchanged behaviour; Needs you item and a critical notification after 2 minutes | WARNING; CRITICAL after 2 minutes | `watcher.unpriced` |
+| Model timeout, 429 or 5xx after its retry | HOLD with `model_error` (unchanged) | ERROR | `model.call_failed` |
+| Invalid model output or a failed post-check | HOLD with the reason (unchanged) | WARNING | `model.output_invalid`, `postcheck.failed` |
+| Monthly cost cap reached | Rules only (unchanged) | WARNING, once per day | `model.cost_cap` |
+| An exception while deciding one pair | HOLD recorded with the `error_id` (unchanged); other pairs go on | ERROR | `cycle.pair_failed` |
+| An exception in a cycle step | Cycle stored as error with the `error_id`; its slot shows "!" | ERROR | `cycle.step_failed` |
+| Cycle over 5 minutes | Unchanged | WARNING | `cycle.slow` |
+| Slot skipped (asleep, stopped, paused) | Stored with its reason (PR 14) | WARNING for asleep and stopped, INFO for paused | `scheduler.slot_skipped` |
+| Order book unreadable for a limit entry | No order placed (unchanged) | WARNING | `book.unavailable` |
+| Clock offset unreadable or over 2 s | Information only, never blocks a cycle | WARNING | `clock.offset_failed`, `clock.offset_high` |
+| Trading database locked past its timeout | The unit of work is rolled back; the cycle step is stored as error | ERROR | `db.locked` |
+| Trading database can't be written (disk full, read-only, corrupt) | Needs you item; what the engine does next is an open question for this PR | CRITICAL | `db.unwritable` |
+| A job fails (backup, eligibility check, briefing, weekly review, outcomes, collector, log retention) | Job recorded as failed with the `error_id`; next run as scheduled; the eligibility check keeps the previous result (unchanged) | ERROR | `job.failed` |
+| A background task raises | Restarted with backoff (above) | ERROR; CRITICAL after 5 crashes in 10 minutes | `task.crashed`, `task.crash_loop` |
+| Email send fails | The browser notification still goes out; Needs you email item (unchanged) | ERROR | `notify.email_failed` |
+| Keyring unavailable | Keys count as not set; Needs you key item | ERROR | `secrets.unavailable` |
+| Config invalid at startup | Startup refused, naming the key and why | CRITICAL | `config.invalid` |
+| Unhandled API exception | 500 with `{"error": {"code", "message", "error_id"}}` | ERROR | `api.unhandled` |
+| API request rejected (422, 404) | The error shape with the field or record | DEBUG | `api.rejected` |
+| Frontend error | Reported to `POST /api/logs/client` | ERROR | `frontend.error` |
+| `logs.db` can't be written | Fallback file and stderr (above) | ERROR on stderr | `logs.store_failed` |
+
+**API errors.** Every API error uses one shape, `{"error": {"code", "message", "error_id"}}`, with `X-Request-Id` on every response. This PR introduces the shape; PR 20 adds 401.
+
+**Frontend errors.**
+
+- One API client for every call: a 15 s timeout, the error shape parsed, and the card's error state showing what failed, when, and the `error_id`.
+- `window.onerror`, `unhandledrejection`, a React error boundary per screen and per card, and `console.error` and `console.warn` in production builds go to `POST /api/logs/client`, at most 10 a minute per tab. Each report carries the route, the component stack, the last request id and the browser. They are logged at ERROR (warnings at WARNING) with logger `frontend`.
+- The screen's boundary shows "Something went wrong" with the `error_id`, Copy and Reload; a card's boundary keeps the rest of the screen working.
+
+**Graceful shutdown.** Ctrl+C or SIGTERM, on macOS, Linux and Windows, with `make run` and `make dev`:
+
+1. Log "Shutdown requested" and show a banner in every tab. Stop the scheduler and the watcher's new passes. API writes return 503; reads keep working.
+2. Running work gets 60 s (`storage.shutdown_grace_seconds`). A fill and its position update are one transaction and are never cut off.
+3. After that, shadows and a running backtest are cancelled (the child is stopped by its PID after 10 s). Pending emails get 5 s. WebSocket clients and the Bitvavo, OpenAI and collector clients are closed.
+4. Every session is committed or rolled back, then a WAL checkpoint runs.
+5. The log writer is flushed and closed last. The final line is "Shutdown complete in n s".
+
+A second Ctrl+C logs a WARNING and skips the wait; steps 4 and 5 always run. The lock file gets a heartbeat every 30 s. If it is still there at the next start, the app logs a WARNING (`app.unclean_shutdown`), runs `PRAGMA quick_check`, marks running cycles `interrupted` and says "The previous run did not shut down cleanly". It still restarts paused.
+
+**API.**
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/logs?levels=&from=&to=&q=&logger=&pair=&cycle=&cursor=` | Lines, newest first, keyset cursor, up to 200 |
-| `GET /api/logs/summary` | Counts per level, warnings and up per day, recurring problems |
-| `GET /api/logs/{id}/around?n=50` | Surrounding lines of the same process, all levels |
-| `GET /api/logs/export.jsonl` | The filtered lines |
+| `GET /api/logs?levels=&from=&to=&q=&logger=&event=&pair=&cycle=&error_id=&request_id=&fingerprint=&process=&cursor=&limit=` | Lines, newest first, keyset cursor, up to 200 |
+| `GET /api/logs/summary?from=&to=` | Counts per level, warnings and up per day (per hour for a period under 2 days), size of `logs.db` and the retention |
+| `GET /api/logs/problems?state=&from=&to=` | Recurring problems |
 | `POST /api/logs/problems/{fingerprint}/review` | Expected or Fixed, with a required note |
+| `GET /api/logs/{id}` and `GET /api/logs/{id}/around?n=50` | One line with everything stored, and the lines around it of the same process at all levels |
+| `GET /api/logs/events` | The event registry |
+| `GET /api/logs/export.jsonl` | The filtered lines, at most 100,000 |
+| `POST /api/logs/client` | Frontend error reports |
+| WebSocket topic `logs` | New lines at WARNING and up, debounced 1 s |
 
-**Logs screen** (Control group):
+**Logs screen** (Control group, after Readiness):
 
-- level toggles with counts (Warning, Error and Critical on by default; "Show debug and info"), period (last hour, today, 7 days, 30 days, custom), search, component, pair, cycle, Clear filters and Download .jsonl;
-- warnings and errors per day as stacked bars;
-- recurring problems with level, count, first and last seen; ERROR and CRITICAL ones show unreviewed, expected or fixed, and Review;
-- the log grouped per day, each line with time (UTC on hover), level chip, message, component and context chips linking to the cycle, decision or trade; opening a line shows the traceback, the stored JSON and the surrounding lines;
-- Follow new lines, on by default, paused while scrolled away from the top.
+- **Filters:** level toggles with counts (Warning, Error and Critical on by default; "Show debug and info" switches both on or off), period (last hour, today, 7 days by default, 30 days, custom), search, component, pair, cycle, Clear filters and Download .jsonl. Filters live in the URL, so a link opens the same view. At phone width search, component, pair and cycle sit behind "More filters".
+- **Trace:** filtering on a cycle, an error id or a request id turns every level on and shows a banner: "Every line of cycle c-0728 · 12:30:00–12:30:41 · 41 s · 9 pairs · 3 model calls", with "Back to warnings and errors".
+- **Warnings and errors per day** as stacked bars; clicking a day filters on it.
+- **Recurring problems:** level, problem, component and pairs, count, first and last seen. ERROR and CRITICAL ones show unreviewed, expected or fixed, and Review (a dialog: Expected or Fixed, and a required note). Clicking a row filters the log on it.
+- **The log:** grouped per day under sticky headers, newest first. Each line shows its time (Amsterdam, UTC on hover), level chip, message, component and context chips; the chips link to the cycle trace, the decision drawer or the trade.
+- **An opened line** shows what the event means and what to do (from the registry), the exception with its traceback, the context, the stored JSON, and the surrounding lines (same process, all levels, "Show 50 more"); Copy line, Copy error id, and a link to what it concerns.
+- **Follow new lines:** on by default, paused while scrolled away from the top.
+- **Footer:** lines loaded, the size of `logs.db`, the retention per level, and Load older.
+- **Ways in:** the Needs you Errors item opens the unreviewed problems; an error slot on the Cycles card opens that cycle's trace; the Decision drawer has "Logs for this decision"; any `error_id` shown in the GUI links to its line.
 
-The Readiness criterion on errors changes to: no unreviewed ERROR or CRITICAL problem, and no CRITICAL line in the last 7 days. The `errors` table and the error badge are retired; their rows are migrated as reviewed problems.
+**Readiness and the `errors` table.** The Readiness criterion on errors becomes: no unreviewed ERROR or CRITICAL problem, and no CRITICAL line in the last 7 days. The `errors` table and the error badge are retired. Because `logs.db` is a separate file, Alembic does not copy them: an Alembic revision renames the table to `errors_legacy`, and at the first start after it the app copies each row into `log_lines` (ERROR, event `legacy.error`, at its first time) and `log_problems` (fixed with its resolution note when it was resolved, otherwise unreviewed), and records that the import is done so it runs once. `errors_legacy` is dropped in a later PR, after Marc has checked the import. The activity log stops writing kind "error"; the Needs you Errors item reads unreviewed problems.
 
 ### Positions & orders
 
@@ -1183,14 +1305,14 @@ The app gets a sign-in before it runs anywhere but on Marc's own computer. Built
 
 - In the app, inside a simplified shell: not found for a record ("This decision doesn't exist" with a link back), not found for a page, something went wrong (with the `error_id` and Reload), and the API not answering on first load (retrying every 15 s).
 - Static pages served by the reverse proxy on the VPS, without sidebar or data: app down (502 and 504) and updating (503).
-- API errors return one JSON shape: `{"error": {"code", "message", "error_id"}}`; 401 sends the browser to sign-in, keeping the page it was on.
+- API errors use the shape from PR 15, `{"error": {"code", "message", "error_id"}}`; 401 sends the browser to sign-in, keeping the page it was on.
 
 ### Build order (v0.3)
 
 v0.3 starts after PR 13 and the fix PR are merged; PR 10 and 11 stay paused. None of these PRs changes decisions, gates or exits, so they don't fall under the pause on strategy features. Each UI PR attaches Playwright screenshots at 1440 × 900 and 390 × 844 next to the reference PNGs, and waits until its screens are on the design canvas; the design for PR 14 is there now.
 
 - **PR 14, Shell and Dashboard:** the token rename, the header, Needs you (`GET /api/needs`), the phone top bar and 390 px layouts on every screen, the Dashboard in the new order, card states and toasts.
-- **PR 15, Logging and Logs screen:** the audit report first, then the log format, levels, tracing, error-handling rules and hooks, graceful shutdown, the log index, its endpoints and the Logs screen; the Readiness error criterion; the `errors` table migrated.
+- **PR 15, Error handling, logging and the Logs screen:** the audit report first; then the log store in `data/logs/logs.db` with its writer, retention and scrubbing; the event registry; tracing; the exception classes, isolation boundaries, `spawn()`, global hooks, timeouts and retries; every row of the failure catalogue; the API error shape and frontend error reporting; graceful shutdown; the logs endpoints and the Logs screen; the Readiness error criterion; the `errors` table imported.
 - **PR 16, Positions & orders:** the screen, the fills endpoints and export.
 - **PR 17, Markets screen:** the screen, the markets endpoints; Settings keeps the thresholds.
 - **PR 18, Strategies screen:** the comparison with both BTC benchmarks, equity curves, disagreements; Settings → Shadow strategies replaced by a link.
@@ -1266,3 +1388,4 @@ Funding, open interest, the long/short ratio and options data are the first grou
 - [x] Strategy families (25 October 2026): daily breakout trend-following, relative-strength rotation and dip buying also failed the rule above. The search for price-based strategies stops; about 50 variations have been tested.
 - [ ] February 2027: test the v0.2 positioning data (funding, open interest, long/short ratio, DVOL, 25-delta skew) in the research script under the same rule, before PR 10 or Shadow A are reconsidered.
 - [x] Design and screens follow Stock Trading Agent (3 November 2026): the shell, Dashboard and interaction rules were aligned on the design canvas, and v0.3 adds its missing screens (Logs, Positions & orders, Markets, Strategies, Backtest, sign-in). No change to how the agent decides, sizes or exits.
+- [x] Logs are stored in SQLite (4 November 2026): `data/logs/logs.db` is the log store, searched by the Logs screen; a JSON file is written only while the store can't be written. Every failure has a defined outcome in the failure catalogue, and every log call names a registered event.

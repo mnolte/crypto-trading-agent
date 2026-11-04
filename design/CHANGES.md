@@ -2,6 +2,19 @@
 
 Newest first. Each entry names the screens it touches.
 
+## 2026-11-04 — Logs screen
+
+- New `Logs.dc.html`, adapted from Stock Trading Agent's Logs screen to crypto (pairs instead of symbols, UTC on hover, the crypto components, the same scenario as the Dashboard: the two OpenAI timeouts at 09:15 and 09:30, the sleep 23:15–23:45):
+  - filters: level toggles with counts, "Show debug and info", period, search, component, pair, "Cycle, error or request id", Clear filters, Download .jsonl; at 390 px the text filters sit behind "More filters";
+  - warnings and errors per day for 7 days;
+  - recurring problems with unreviewed, expected (with its note) and fixed, and Review;
+  - the log per day; the 09:31 error is opened with **What this means** and **What to do** from the event registry, the chained traceback, the stored line, and the surrounding lines of cycle c-0716;
+  - **trace view**: "Every line of cycle c-0716" shows all levels of that cycle with a banner (`Logs-trace.png`);
+  - footer: lines loaded, the size of `logs.db` and the retention per level.
+- Changes from the stock design: event meaning and what to do in the opened line; Copy error id; the trace view; error and request ids as a filter; at phone width the message runs full width under the time and level, and tracebacks scroll sideways.
+- Sidebar: a Logs item under Control after Readiness (drawn in `Logs.dc.html`; every screen's sidebar gets it in PR 15).
+- Screenshots `Logs.png`, `Logs-390.png`, `Logs-trace.png`.
+
 ## 2026-11-04 — Cycles for a 24/7 market
 
 - `Main.dc.html`: the cycle strip becomes the **Cycles** card. Nothing counts per day any more ("Cycle n of 96 today" and "this hour's four cycles" are gone):
