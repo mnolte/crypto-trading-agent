@@ -61,6 +61,7 @@ _EVENTS = [
     LogEvent("clock.offset_failed", WRN, "app", "The exchange clock could not be read this cycle; the offset shown is the last known value.", "Information only. If it repeats, the /time endpoint may be failing — check candles.fetch_failed lines too."),
     LogEvent("clock.offset_high", WRN, "app", "The local clock is more than 2 s off the exchange clock.", "Information only, cycles still run. Check the system clock if it grows."),
     LogEvent("eligibility.failing", WRN, "market.universe", "An active market failed today's eligibility check.", "The market stays active but takes no new entries. Review it on the Markets screen."),
+    LogEvent("source.failing", ERR, "market.bitvavo", "A data source failed three times in a row; its error is on the Sources card.", "Check the source's status on the Sources card and its key in Settings; the app keeps trading on the last good data."),
     LogEvent("eligibility.check_failed", ERR, "market.universe", "The daily eligibility check itself failed; yesterday's result stands.", "Check the job.failed line for the error; the check runs again tomorrow."),
     # ---- engine ---------------------------------------------------------------
     LogEvent("cycle.start", INF, "agent.scheduler", "A cycle started."),

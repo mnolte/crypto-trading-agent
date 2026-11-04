@@ -4,6 +4,7 @@ import shutil
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import select
@@ -14,9 +15,7 @@ from app.agent.broker.paper import HeldPosition, PaperBroker
 from app.agent.market.base import Candle
 from app.agent.outcomes import MAX_OUTCOME_ATTEMPTS, _label, compute_outcome, run_outcomes
 from app.db import (
-    ActivityRow,
     DecisionRow,
-    ErrorRow,
     OutcomeFailureRow,
     TradeRow,
     make_engine,
@@ -214,7 +213,9 @@ def test_permanently_unavailable_outcome_stops_retrying(tmp_path: Path, migrated
     assert all(failure.terminal for failure in failures)
 
 
-def test_terminal_outcome_records_one_error_per_horizon(tmp_path: Path, migrated_db: Path) -> None:
+def test_terminal_outcome_records_one_error_per_horizon(
+    tmp_path: Path, migrated_db: Path
+) -> None:
     """When a horizon turns terminal, the user sees it: one aggregated error,
     flagged as affecting a decision, carrying the decision id and reason."""
     session = _session(tmp_path / "agent.db", migrated_db)
@@ -224,19 +225,20 @@ def test_terminal_outcome_records_one_error_per_horizon(tmp_path: Path, migrated
     session.commit()
     now = NOW + timedelta(hours=100)
 
-    for _ in range(MAX_OUTCOME_ATTEMPTS + 1):
-        run_outcomes(session, now)
+    with patch("app.agent.outcomes.log") as mock_log:
+        for _ in range(MAX_OUTCOME_ATTEMPTS + 1):
+            run_outcomes(session, now)
 
-    errors = session.scalars(select(ErrorRow)).all()
-    assert len(errors) == 3
-    assert all(error.affected_decision_or_fill for error in errors)
-    assert all(error.resolved_at is None for error in errors)
-    activities = session.scalars(select(ActivityRow).where(ActivityRow.kind == "error")).all()
-    assert len(activities) == 3
-    assert all(activity.decision_id == decision.id for activity in activities)
-    assert {activity.text.split(":")[0] for activity in activities} == {
-        f"outcome unavailable at {horizon}h" for horizon in (4, 24, 72)
-    }
+    calls = [
+        c
+        for c in mock_log.exception.call_args_list
+        if "outcome unavailable at" in str(c.args[0])
+    ]
+    assert len(calls) == 3
+    assert all(
+        c.kwargs["extra"]["decision_id"] == str(decision.id) for c in calls
+    )
+    assert {c.args[1] for c in calls} == {4, 24, 72}
 
 
 def test_same_candle_touching_stop_and_target_counts_stop_first(

@@ -17,6 +17,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import select
@@ -39,7 +40,6 @@ from app.config import get_env
 from app.db import (
     AccountRow,
     DecisionRow,
-    ErrorRow,
     LlmCallRow,
     MarketRow,
     TradeRow,
@@ -1192,16 +1192,22 @@ async def test_pair_crash_records_a_hold_and_the_cycle_lives(env: Path) -> None:
     e.market.add_uptrend("ETH-EUR", base=3_000.0)
     e.market.add_uptrend("BTC-EUR", base=60_000.0)
     e.market.add_uptrend("USDC-EUR", base=0.92)
-    await e.engine.run_cycle()
+    with patch("app.agent.engine.log") as mock_log:
+        await e.engine.run_cycle()
     assert "SOL-EUR" in e.broker.positions
     assert "ETH-EUR" not in e.broker.positions
     s = e.session()
     rows = {r.pair: r for r in _decisions(s)}
-    errors = list(s.scalars(select(ErrorRow).where(ErrorRow.pair == "ETH-EUR")))
     s.close()
     assert rows["ETH-EUR"].action == "HOLD"
     assert "cycle error" in (rows["ETH-EUR"].error or "")
-    assert errors and errors[0].affected_decision_or_fill
+    hit = [
+        c
+        for c in mock_log.error.call_args_list
+        if c.kwargs.get("extra", {}).get("event") == "cycle.pair_failed"
+        and c.kwargs.get("extra", {}).get("pair") == "ETH-EUR"
+    ]
+    assert hit
     # The next cycle runs: the crash did not poison the engine.
     e.clock.advance(minutes=15)
     await e.engine.run_cycle()
@@ -1241,13 +1247,18 @@ async def test_scheduler_survives_a_crashed_cycle(env: Path) -> None:
         e.clock.advance(seconds=max(seconds, 1.0))
 
     e.engine._sleep = sleeper
-    await e.engine._scheduler_loop()
+    with patch("app.agent.engine.log") as mock_log:
+        await e.engine._scheduler_loop()
     assert calls == 3
     assert "SOL-EUR" in e.broker.positions
     s = e.session()
-    errors = list(s.scalars(select(ErrorRow)).all())
     s.close()
-    assert errors and "boom" in errors[0].text
+    hits = [
+        c
+        for c in mock_log.error.call_args_list
+        if c.kwargs.get("extra", {}).get("event") == "cycle.step_failed"
+    ]
+    assert hits
     assert e.engine.status == "running"
 
 

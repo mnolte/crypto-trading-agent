@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import smtplib
 from datetime import datetime, timedelta
 from email.message import EmailMessage
@@ -13,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app import repo
+from app import tasks as tasks_mod
 from app.api.deps import AppState, get_state, require_token
 from app.config import SecretStoreError, get_secret, secret_status, set_secret
 from app.db import utcnow
@@ -101,8 +103,15 @@ class NotificationDispatcher:
         self._inflight: set[tuple[str, str, str]] = set()
 
     def schedule(self, event: str, title: str, body: str) -> None:
-        task = asyncio.create_task(self.notify(event, title, body))
-        self.state.tasks.append(task)
+        task = tasks_mod.spawn(
+            self.notify,
+            event,
+            title,
+            body,
+            name=f"notify-{event}",
+            restart=False,
+            track=lambda t: self.state.tasks.append(t),
+        )
         task.add_done_callback(
             lambda completed: (
                 self.state.tasks.remove(completed) if completed in self.state.tasks else None
@@ -129,10 +138,17 @@ class NotificationDispatcher:
             rendered, repeats = self._render_or_suppress(key, body, now)
             if rendered is not None:
                 self._inflight.add(key)
-                task = asyncio.create_task(
-                    self._deliver_email(key, settings, title, rendered, repeats)
+                task = tasks_mod.spawn(
+                    self._deliver_email,
+                    key,
+                    settings,
+                    title,
+                    rendered,
+                    repeats,
+                    name="notify-email",
+                    restart=False,
+                    track=lambda t: self.state.tasks.append(t),
                 )
-                self.state.tasks.append(task)
                 task.add_done_callback(
                     lambda completed: (
                         self.state.tasks.remove(completed)
@@ -214,13 +230,12 @@ class NotificationDispatcher:
                 session.commit()
             finally:
                 session.close()
-        except Exception:  # noqa: BLE001 - boundary: one notification channel
-            session = self.state.session_factory()
-            try:
-                repo.add_activity(session, "error", "notification delivery failed")
-                session.commit()
-            finally:
-                session.close()
+        except Exception as exc:
+            logging.getLogger("notify").exception(
+                "notification delivery failed: %s",
+                exc,
+                extra={"event": "notify.email_failed"},
+            )
         finally:
             self._inflight.discard(key)
 

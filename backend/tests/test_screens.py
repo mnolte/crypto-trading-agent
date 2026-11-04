@@ -1071,7 +1071,7 @@ def test_run_now_refused_while_killed(screens_client: tuple[TestClient, SimMarke
 
     response = client.post("/api/agent/run-now", headers={"X-Local-Token": _token(client)})
     assert response.status_code == 409
-    assert "Killed" in response.json()["detail"]
+    assert "Killed" in response.json()["error"]["message"]
 
 
 # -------------------------------------------------------------- danger zone

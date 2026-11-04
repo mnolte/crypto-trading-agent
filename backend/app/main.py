@@ -15,7 +15,7 @@ import sqlite3
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from types import FrameType
 from typing import Any
 
@@ -67,6 +67,7 @@ from app.db import (
 )
 from app.features import briefings as briefings_mod
 from app.features.shadows import ShadowRunner
+from app.logstore.record import fingerprint
 from app.operations import backup_loop
 from app.sources import SOURCES, SourceRegistry
 
@@ -99,6 +100,13 @@ async def _resolve_source_error_after_recovery(
         session.commit()
     finally:
         session.close()
+    if state.log_store is not None:
+        state.log_store.review_problem(
+            fingerprint("app", "source.failing", f"data source failing: {source_id}"),
+            "fixed",
+            "source recovered for 1 hour",
+            datetime.now(UTC),
+        )
 
 
 def _loop_of(coro: Awaitable[None]) -> Callable[[], Awaitable[None]]:
@@ -365,16 +373,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             source_recovery_generations[source_id] = (
                 source_recovery_generations.get(source_id, 0) + 1
             )
-            session = state.session_factory()
-            try:
-                repo.add_activity(
-                    session,
-                    "error",
-                    f"data source failing: {source_id}",
-                )
-                session.commit()
-            finally:
-                session.close()
+            log.error(
+                "data source failing: %s",
+                source_id,
+                extra={"event": "source.failing", "data": {"source": source_id}},
+            )
             notification_dispatcher.schedule(
                 "source_failing",
                 f"Data source failing · {source_id}",
