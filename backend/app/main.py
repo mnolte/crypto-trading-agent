@@ -76,6 +76,29 @@ log = logging.getLogger(__name__)
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 
 SOURCE_RECOVERY_RESOLVE_S = 3600
+EMAIL_SHUTDOWN_GRACE_S = 5.0
+CHECKPOINT_RETRY_S = 5.0
+# Strong refs for in-flight shutdown-announce sends; done callbacks drop them.
+_announce_tasks: set[asyncio.Task[None]] = set()
+
+
+def _interrupt_running_runs(eng: DbEngine) -> int:
+    """What-if runs still 'running' are marked interrupted — their work
+    cannot continue on a new process. A missing/legacy whatif table is
+    not worth blocking startup or shutdown."""
+    try:
+        with eng.begin() as conn:
+            return (
+                conn.execute(
+                    text(
+                        "UPDATE whatif_scenarios SET status = 'interrupted' "
+                        "WHERE status = 'running'"
+                    )
+                ).rowcount
+                or 0
+            )
+    except SQLAlchemyError:
+        return 0
 
 
 async def _resolve_source_error_after_recovery(
@@ -150,24 +173,15 @@ def _unclean_start(env: EnvConfig) -> None:
             exc,
             extra={"event": "db.unwritable"},
         )
-    try:
-        eng = make_engine(env.ta_db_path)
-        with eng.begin() as db_conn:
-            marked = db_conn.execute(
-                text(
-                    "UPDATE whatif_scenarios SET status = 'interrupted' "
-                    "WHERE status = 'running'"
-                )
-            ).rowcount
-        eng.dispose()
-        if marked:
-            log.warning(
-                "%d interrupted run(s) marked after an unclean shutdown",
-                marked,
-                extra={"event": "app.unclean_shutdown"},
-            )
-    except SQLAlchemyError:
-        pass  # a missing/legacy whatif table is not worth blocking startup
+    eng = make_engine(env.ta_db_path)
+    marked = _interrupt_running_runs(eng)
+    eng.dispose()
+    if marked:
+        log.warning(
+            "%d interrupted run(s) marked after an unclean shutdown",
+            marked,
+            extra={"event": "app.unclean_shutdown"},
+        )
 
 
 def _wire_log_push(state: AppState, store: Any) -> None:
@@ -192,32 +206,131 @@ def _wire_log_push(state: AppState, store: Any) -> None:
     store.on_line = push
 
 
-def _install_sigint(app: FastAPI) -> None:
-    """The first Ctrl+C is a normal request; a second one means the user
-    does not want to wait — log it and let uvicorn force-exit."""
-    try:
-        previous = signal.getsignal(signal.SIGINT)
-    except (ValueError, OSError):
-        return  # not the main thread (tests)
+def _announce_shutdown(app: FastAPI) -> None:
+    """Push the shutdown notice to every tab over the snapshot stream.
 
-    count = 0
+    Called from the signal handler because uvicorn has already closed the
+    sockets by the time the lifespan finally runs; also called there for
+    non-signal shutdowns. The flag makes it once-only.
+    """
+    if getattr(app.state, "shutdown_announced", False):
+        return
+    app.state.shutdown_announced = True
+    state = getattr(app.state, "app_state", None)
+    if state is None or not state.ws_clients:
+        return
+
+    async def send() -> None:
+        payload = (
+            '{"type":"alert","data":{"event":"shutdown","severity":"critical",'
+            '"title":"Trading Agent is shutting down",'
+            '"body":"Running work finishes first; the app exits when it is done."}}'
+        )
+        for client in list(state.ws_clients):
+            try:
+                await client.send_text(payload)
+            except Exception:  # noqa: BLE001 - a closed socket shows as any error
+                state.ws_clients.discard(client)
+
+    def schedule() -> None:
+        task = asyncio.ensure_future(send())
+        _announce_tasks.add(task)
+        task.add_done_callback(_announce_tasks.discard)
+
+    try:
+        asyncio.get_running_loop().call_soon_threadsafe(schedule)
+    except RuntimeError:
+        pass
+
+
+def _install_signal_handlers(app: FastAPI) -> None:
+    """The first Ctrl+C or SIGTERM is a normal request: the tabs are told
+    and the signal goes to uvicorn, which shuts down through the lifespan.
+
+    A second Ctrl+C skips the grace wait but keeps the final
+    commit/checkpoint/log steps — it is deliberately NOT handed on,
+    because uvicorn's force-exit would skip the whole lifespan shutdown.
+    A third one is handed over as a last-resort abort. Repeated SIGTERMs
+    always forward; uvicorn never force-exits on SIGTERM.
+    """
+    previous: dict[int, Any] = {}
+    for signo in (signal.SIGINT, signal.SIGTERM):
+        try:
+            previous[signo] = signal.getsignal(signo)
+        except (ValueError, OSError):
+            pass
+    if not previous:
+        return
+    counts: dict[int, int] = dict.fromkeys(previous, 0)
 
     def _handler(signum: int, frame: FrameType | None) -> None:
-        nonlocal count
-        count += 1
-        if count > 1:
+        counts[signum] += 1
+        if counts[signum] == 1:
+            app.state.sigint_requested = True
+            _announce_shutdown(app)
+        elif signum == signal.SIGINT and counts[signum] == 2:
             logging.getLogger("app.main").warning(
                 "second interrupt: skipping the graceful wait",
                 extra={"event": "app.shutdown_forced"},
             )
-        app.state.sigint_requested = True
-        if callable(previous):
-            previous(signum, frame)
+            app.state.sigint_skip_wait = True
+            return
+        prev = previous[signum]
+        if callable(prev):
+            prev(signum, frame)
 
-    try:
-        signal.signal(signal.SIGINT, _handler)
-    except (ValueError, OSError):
-        pass
+    for installed_signo in previous:
+        try:
+            signal.signal(installed_signo, _handler)
+        except (ValueError, OSError):
+            pass  # not the main thread (tests)
+
+
+async def _final_checkpoint(eng: DbEngine) -> None:
+    """Spec step 4: by now every session is committed or rolled back; the
+    WAL checkpoint lands them in the main file. A connection can still be
+    open briefly (a backup finishing on its own thread), so the attempt
+    retries for a few seconds before warning."""
+    deadline = time.monotonic() + CHECKPOINT_RETRY_S
+    while True:
+        busy = True
+        try:
+            with eng.connect() as conn:
+                conn.execute(text("PRAGMA busy_timeout = 2000"))
+                row = conn.execute(text("PRAGMA wal_checkpoint(TRUNCATE)")).fetchone()
+                busy = bool(row and row[0])
+        except SQLAlchemyError:
+            pass
+        if not busy:
+            return
+        if time.monotonic() >= deadline:
+            log.warning(
+                "final WAL checkpoint did not finish",
+                extra={"event": "db.checkpoint_failed"},
+            )
+            return
+        await asyncio.sleep(0.2)
+
+
+async def _drain_tasks(
+    tasks: list[asyncio.Task[Any]], forced: Callable[[], bool]
+) -> None:
+    """Cancel every tracked task. In-flight email sends get a short
+    window to finish first; a second Ctrl+C cancels them too."""
+    emails = [t for t in tasks if t.get_name() == "notify-email"]
+    others = [t for t in tasks if t.get_name() != "notify-email"]
+    for task in others:
+        task.cancel()
+    if others:
+        await asyncio.gather(*others, return_exceptions=True)
+    if emails:
+        _done, pending = await asyncio.wait(
+            emails, timeout=0.0 if forced() else EMAIL_SHUTDOWN_GRACE_S
+        )
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
 
 
 def _track_task(state: AppState, task: asyncio.Task[None]) -> None:
@@ -469,7 +582,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             track=lambda t: _track_task(state, t),
         )
         tasks_mod.install_global_hooks()
-        _install_sigint(app)
+        _install_signal_handlers(app)
         yield
     finally:
         shutdown_started = time.monotonic()
@@ -477,26 +590,51 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             state.shutting_down = True
         app.state.shutting_down = True
         log.info("Shutdown requested", extra={"event": "app.shutdown"})
+        _announce_shutdown(app)  # a no-op when a signal already announced
         if state is not None:
+            agent = state.agent_engine
+            if agent is not None:
+                # No new cycles or watcher passes; in-flight work runs on.
+                agent.begin_shutdown()
             # Running work gets its grace period; a fill and its position
-            # update are one transaction and are never cut off.
+            # update are one transaction and are never cut off. A second
+            # Ctrl+C skips the wait, never the final steps.
             grace = state.settings.storage.shutdown_grace_seconds
+
+            def forced() -> bool:
+                return bool(getattr(app.state, "sigint_skip_wait", False))
             while (
-                state.agent_engine is not None
-                and state.agent_engine.cycle_in_progress
+                agent is not None
+                and agent.cycle_in_progress
+                and not forced()
                 and time.monotonic() - shutdown_started < grace
             ):
                 await asyncio.sleep(0.1)
-            if state.agent_engine is not None:
-                await state.agent_engine.stop()
+            if agent is not None:
+                await agent.stop()
             tasks = list(state.tasks)
             state.tasks.clear()
-            for task in tasks:
-                task.cancel()
-            if tasks:
-                await asyncio.gather(*tasks, return_exceptions=True)
+            await _drain_tasks(tasks, forced)
+            for ws_client in list(state.ws_clients):
+                state.ws_clients.discard(ws_client)
+                try:
+                    await ws_client.close(code=1012)
+                except Exception as exc:  # noqa: BLE001 - a dead socket shows as any error
+                    log.debug(
+                        "closing a WebSocket client at shutdown failed: %s",
+                        exc,
+                        extra={"event": "ws.client_lost"},
+                    )
             await state.market_client.aclose()
         if db_engine is not None:
+            interrupted = _interrupt_running_runs(db_engine)
+            if interrupted:
+                log.info(
+                    "%d interrupted run(s) marked at shutdown",
+                    interrupted,
+                    extra={"event": "app.interrupted_run"},
+                )
+            await _final_checkpoint(db_engine)
             db_engine.dispose()
         lock.release()
         log.info(

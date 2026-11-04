@@ -648,6 +648,9 @@ async def generate_briefing(
                 feature=feature,
             )
             call_rows.append(call_row)
+            # No transaction may stay open across the model call — the
+            # rate read below would otherwise upgrade a stale snapshot.
+            session.commit()
             try:
                 result = await client.call(payload)
             except Exception as exc:  # noqa: BLE001 - the transport itself blew up
@@ -686,6 +689,9 @@ async def generate_briefing(
                 prompt,
             )
         await client.aclose()
+        # The last rate read's transaction ends here — the briefing row
+        # and call rows write in a fresh one.
+        session.commit()
         if text is None and reason is None:
             reason = "the number check rejected the model's text"
 

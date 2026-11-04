@@ -813,6 +813,10 @@ class OpenAIDecider:
             )
             row.cost_usd = str(usd) if usd is not None else None
             row.cost_eur = str(eur) if eur is not None else None
+            # The rate read's transaction ends here — the notify await
+            # below must not hold it, or the INSERT upgrades a stale
+            # snapshot and fails with "database is locked".
+            session.commit()
 
             if result.status != "ok":
                 await self._track_model_result(result.status, result.error or result.status)
@@ -932,6 +936,9 @@ class OpenAIDecider:
             if ctx.pair == "ETH-EUR"
             else drop_forming(repo.load_candles(session, "ETH-EUR", "4h", 300), "4h", now)
         )
+        # The reads above end here — the order-book and ticker fetches
+        # inside _liquidity must not run inside a transaction.
+        session.commit()
         liquidity = await self._liquidity(session, ctx.pair)
         trades, hours_since = pair_history(session, broker.account_id, ctx.pair, now)
         tick = self._tick_size(ctx.pair)

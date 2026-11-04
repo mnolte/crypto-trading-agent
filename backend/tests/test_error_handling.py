@@ -170,3 +170,34 @@ def test_api_error_shape_and_request_id(client: TestClient) -> None:
 
 def _token(client: TestClient) -> str:
     return str(client.get("/api/session").json()["token"])
+
+
+def test_store_handler_survives_migrations(tmp_path: Path) -> None:
+    """alembic's fileConfig used to wipe root.handlers; the store must
+    still be attached after run_migrations so app lines reach logs.db."""
+    import logging
+
+    from app import logstore
+    from app.db import run_migrations
+
+    store = logstore.install(tmp_path)
+    try:
+        run_migrations(tmp_path / "agent.db")
+        assert any(
+            type(h).__name__ == "StoreHandler"
+            for h in logging.getLogger().handlers
+        )
+        logging.getLogger("app").warning("post-migration probe")
+        import time as _t
+
+        _t.sleep(1.5)
+        import sqlite3 as _s
+
+        conn = _s.connect(str(store.db_path))
+        rows = conn.execute(
+            "SELECT COUNT(*) FROM log_lines WHERE message LIKE '%post-migration probe%'"
+        ).fetchone()[0]
+        conn.close()
+        assert rows == 1
+    finally:
+        logstore.shutdown()

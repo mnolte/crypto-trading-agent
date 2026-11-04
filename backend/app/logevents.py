@@ -49,6 +49,7 @@ _EVENTS = [
     LogEvent("app.stop", INF, "app", "The app stopped cleanly."),
     LogEvent("app.shutdown", INF, "app", "Shutdown requested; running work gets its grace period."),
     LogEvent("app.shutdown_forced", WRN, "app", "Second Ctrl+C: skipping the graceful wait.", "No action needed; the session still commits or rolls back and checkpoints."),
+    LogEvent("app.interrupted_run", INF, "app", "A What-if run in progress at shutdown was cancelled and marked interrupted."),
     LogEvent("app.unclean_shutdown", WRN, "app", "The previous run did not shut down cleanly; the database was checked and cycles marked interrupted.", "Usually the computer was stopped or killed. Nothing to do unless it repeats."),
     LogEvent("config.invalid", CRT, "app", "A config or settings value failed validation at startup.", "Fix the named key and start again."),
     LogEvent("secrets.unavailable", ERR, "app", "The OS keyring can't be read or written; keys count as not set.", "Check the keyring backend (login keyring unlocked, secret service running); the Needs you key item lists which keys are affected."),
@@ -92,6 +93,7 @@ _EVENTS = [
     # ---- storage ----------------------------------------------------------------
     LogEvent("db.locked", ERR, "app", "The trading database stayed locked past its timeout; the unit of work was rolled back.", "If it repeats, something else is holding the database — check for a second process or a long backup."),
     LogEvent("db.unwritable", CRT, "app", "The trading database can't be written (disk full, read-only or corrupt).", "Check disk space and file permissions right away — this is a Needs you item and trading state may not persist."),
+    LogEvent("db.checkpoint_failed", WRN, "app", "The WAL checkpoint at shutdown did not finish; the next start replays the log normally.", "Usually another process still had the database open. Nothing to do unless it repeats."),
     # ---- jobs ---------------------------------------------------------------------
     LogEvent("job.start", INF, "ops.jobs", "A scheduled job started."),
     LogEvent("job.end", INF, "ops.jobs", "A scheduled job ended."),

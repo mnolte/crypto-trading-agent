@@ -688,6 +688,9 @@ async def answer_question(
                                 text = cand2
                     break
             finally:
+                # Land the staged call rows and release the read snapshot
+                # before the await — no transaction spans a yield.
+                session.commit()
                 await client.aclose()
         if text is None and reason is None:
             reason = "the number check rejected the answer"
