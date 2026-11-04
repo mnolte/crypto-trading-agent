@@ -4,10 +4,11 @@
 docs/
   README.md           this file: how to use the spec
   SPEC.md             the build spec, the single source of truth for behaviour
-  DEVIN_KICKOFF.md    kickoff messages up to PR 13 (archive)
+  DEVIN_KICKOFF.md    kickoff messages for items 001–013 (archive)
   CHANGES.md          what changed in the spec, newest first
   RESEARCH.md         the strategy research findings
-  kickoffs/           the kickoff message for each PR from PR 14 (pr-<n>.md)
+  kickoffs/           the kickoff for each work item from 014 (pr-<n>.md up to 015, then NNN-type-slug.md)
+  work-items.md       the naming convention and the register of work items
 backend/prompts/
   decision.v1.md      the system prompt from the spec, ready to use
 design/               the visual reference (see design/DESIGN.md)
@@ -26,12 +27,19 @@ design/               the visual reference (see design/DESIGN.md)
    the spec says; never hard-code them in logic.
 4. **Money is computed in Python with Decimal.** The model never computes money, and the
    frontend never does arithmetic on money.
-5. **One PR at a time, in the build order.** Each PR builds only what its step lists, with
-   its tests passing. Do not start the next step in the same PR.
+5. **One work item per PR.** Build plan items go in the build order; each PR builds only
+   what its item lists, with its tests passing. Do not start the next item in the same PR.
+   Use the map below for which spec sections a build plan item needs; newer items name
+   their sections in the kickoff.
 6. **Tests come from the spec.** Every rule in "Risk gates", "Rules engine", "OpenAI
    decision layer" (post-checks) and "Testing and acceptance criteria" gets a test.
 7. **Keep `backend/prompts/decision.v1.md` unchanged.** A prompt change is a new file
    (`decision.v2.md`) and a new prompt version, never an edit.
+8. **Work items have a number and a name.** Every feature, fix, analysis or ops change
+   with a kickoff is a work item `NNN-type-slug` (for example `099-fix-stop-retry`). The
+   number is used in branches, PR titles, commits, screenshots and changelog headings.
+   `docs/work-items.md` defines the format and holds the register. Items 001–020 are build
+   plan items 1–20; "PR n" in the spec means item n, not GitHub PR #n.
 
 ## Which spec sections each PR needs
 
@@ -63,8 +71,11 @@ Every PR also checks the "Testing and acceptance criteria" items that belong to 
 ## PR description template
 
 ```
+Title: [NNN] type: Title. Branch: type/NNN-slug (docs/work-items.md).
+
 ## What this PR builds
-<step from the build order>
+Work item: NNN-type-slug (kickoff docs/kickoffs/…)
+<what was built, in a few bullets>
 
 ## Spec sections covered
 <section names>
@@ -85,5 +96,7 @@ Every PR also checks the "Testing and acceptance criteria" items that belong to 
 ## When the spec changes
 
 Spec and design changes arrive as pull requests with the `spec-change` label, each with
-an entry in `docs/CHANGES.md` or `design/CHANGES.md`. Marc reviews and merges them. Treat
-each entry as a task: update the code and tests it affects, and mention the entry in the PR.
+an entry in `docs/CHANGES.md` or `design/CHANGES.md`. Claude makes them on a
+`spec/NNN-slug` branch; Marc reviews and merges them. Each item's kickoff is a file in
+`docs/kickoffs/`, so Devin is started with one line: "Build
+docs/kickoffs/NNN-type-slug.md." Treat each entry as a task: update the code and tests it affects, and mention the entry in the PR.
