@@ -160,6 +160,7 @@ class AppState:
     ws_clients: set[WebSocket] = field(default_factory=set)
     broker: PaperBroker | None = None
     agent_engine: AgentEngine | None = None
+    shutting_down: bool = False
 
 
 def build_market_client(settings: Settings, sources: SourceRegistry) -> MarketClient:

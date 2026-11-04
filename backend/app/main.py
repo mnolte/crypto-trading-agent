@@ -9,15 +9,21 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import signal
+import sqlite3
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import timedelta
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from sqlalchemy.engine import Engine as DbEngine
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 from starlette.types import Scope
 
 from app import logstore, repo
@@ -34,7 +40,7 @@ from app.agent.market.universe import (
 from app.agent.outcomes import outcome_loop
 from app.api import context as context_routes
 from app.api import dashboard as dashboard_routes
-from app.api import deps, evidence, inspector, notifications, routes, screens, ws
+from app.api import deps, errors, evidence, inspector, notifications, routes, screens, ws
 from app.api import sources as source_routes
 from app.api import understanding as understanding_routes
 from app.api.deps import (
@@ -43,7 +49,7 @@ from app.api.deps import (
     build_market_client,
     generate_local_token,
 )
-from app.config import REPO_ROOT, get_env, get_secret
+from app.config import REPO_ROOT, EnvConfig, get_env, get_secret
 from app.context.collector import ContextCollector
 from app.context.scheduler import context_loop
 from app.db import EngineLock, MarketRow, make_engine, make_session_factory, run_migrations, utcnow
@@ -89,6 +95,87 @@ def _loop_of(coro: Awaitable[None]) -> Callable[[], Awaitable[None]]:
     async def run() -> None:
         await coro
     return run
+
+
+def _heartbeat_loop(lock: EngineLock) -> Callable[[], Awaitable[None]]:
+    """Touches the lock file every 30 s so a stale lock is obvious."""
+    async def run() -> None:
+        while True:
+            await asyncio.sleep(30)
+            lock.heartbeat()
+    return run
+
+
+def _unclean_start(env: EnvConfig) -> None:
+    """A leftover lock file means the last run did not shut down cleanly:
+    WARNING, a quick_check on the trading database, running cycles marked
+    interrupted, and the agent restarts paused (AppState defaults)."""
+    log.warning(
+        "previous run did not shut down cleanly",
+        extra={"event": "app.unclean_shutdown"},
+    )
+    try:
+        conn = sqlite3.connect(str(env.ta_db_path), timeout=5.0)
+        verdict = conn.execute("PRAGMA quick_check").fetchone()
+        conn.close()
+        if verdict and verdict[0] != "ok":
+            log.critical(
+                "trading database failed PRAGMA quick_check: %s",
+                verdict[0],
+                extra={"event": "db.unwritable"},
+            )
+    except (sqlite3.Error, OSError) as exc:
+        log.critical(
+            "trading database could not be opened for a clean-start check: %s",
+            exc,
+            extra={"event": "db.unwritable"},
+        )
+    try:
+        eng = make_engine(env.ta_db_path)
+        with eng.begin() as conn:
+            marked = conn.execute(
+                text(
+                    "UPDATE whatif_scenarios SET status = 'interrupted' "
+                    "WHERE status = 'running'"
+                )
+            ).rowcount
+        eng.dispose()
+        if marked:
+            log.warning(
+                "%d interrupted run(s) marked after an unclean shutdown",
+                marked,
+                extra={"event": "app.unclean_shutdown"},
+            )
+    except SQLAlchemyError:
+        pass  # a missing/legacy whatif table is not worth blocking startup
+
+
+def _install_sigint(app: FastAPI) -> None:
+    """The first Ctrl+C is a normal request; a second one means the user
+    does not want to wait — log it and let uvicorn force-exit."""
+    try:
+        previous = signal.getsignal(signal.SIGINT)
+    except (ValueError, OSError):
+        return  # not the main thread (tests)
+
+    count = 0
+
+    def _handler(signum: int, frame: object) -> None:
+        nonlocal count
+        count += 1
+        if count > 1:
+            logging.getLogger("app.main").warning(
+                "second interrupt: skipping the graceful wait",
+                extra={"event": "app.shutdown_forced"},
+            )
+        app.state.sigint_requested = True
+        if callable(previous):
+            previous(signum, frame)
+
+    try:
+        signal.signal(signal.SIGINT, _handler)
+    except (ValueError, OSError):
+        pass
 
 
 def _track_task(state: AppState, task: asyncio.Task[None]) -> None:
@@ -176,6 +263,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db_engine: DbEngine | None = None
     state: AppState | None = None
     try:
+        if lock.preexisted:
+            _unclean_start(env)
         run_migrations(env.ta_db_path)
         db_engine = make_engine(env.ta_db_path)
         session_factory = make_session_factory(db_engine)
@@ -322,10 +411,30 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 name=job,
                 track=lambda t: _track_task(state, t),
             )
+        tasks_mod.spawn(
+            _heartbeat_loop(lock),
+            name="job-lock-heartbeat",
+            track=lambda t: _track_task(state, t),
+        )
         tasks_mod.install_global_hooks()
+        _install_sigint(app)
         yield
     finally:
+        shutdown_started = time.monotonic()
         if state is not None:
+            state.shutting_down = True
+        app.state.shutting_down = True
+        log.info("Shutdown requested", extra={"event": "app.shutdown"})
+        if state is not None:
+            # Running work gets its grace period; a fill and its position
+            # update are one transaction and are never cut off.
+            grace = state.settings.storage.shutdown_grace_seconds
+            while (
+                state.agent_engine is not None
+                and state.agent_engine.cycle_in_progress
+                and time.monotonic() - shutdown_started < grace
+            ):
+                await asyncio.sleep(0.1)
             if state.agent_engine is not None:
                 await state.agent_engine.stop()
             tasks = list(state.tasks)
@@ -338,14 +447,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if db_engine is not None:
             db_engine.dispose()
         lock.release()
+        log.info(
+            "Shutdown complete in %.1f s",
+            time.monotonic() - shutdown_started,
+            extra={"event": "app.stop"},
+        )
         # The log writer is flushed and closed last.
         logstore.shutdown()
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Trading Agent", version="0.1.0", lifespan=lifespan)
-    app.add_middleware(deps.RequestIdMiddleware)
+    app.add_exception_handler(StarletteHTTPException, errors.http_exception_handler)
+    app.add_exception_handler(RequestValidationError, errors.validation_handler)
+    app.add_exception_handler(Exception, errors.unhandled_handler)
     app.add_middleware(LocalOnlyMiddleware)
+    app.add_middleware(errors.ShutdownGuard)
+    app.add_middleware(deps.RequestIdMiddleware)
     app.include_router(routes.router)
     app.include_router(screens.router)
     app.include_router(dashboard_routes.router)
@@ -367,7 +485,7 @@ class SpaStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope: Scope) -> Response:
         # Unknown API paths must answer 404 JSON, not the SPA's index.html.
         if path.startswith("api/"):
-            return JSONResponse({"detail": "Not Found"}, status_code=404)
+            return errors.api_error(404, "That page or record does not exist.")
         try:
             return await super().get_response(path, scope)
         except StarletteHTTPException as exc:
