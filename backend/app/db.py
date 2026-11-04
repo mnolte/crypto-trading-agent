@@ -488,6 +488,30 @@ class MarketContextRow(Base):
     fetched_at: Mapped[datetime]
 
 
+class SkippedSlotRow(Base):
+    """A scheduled quarter-hour slot the cycle did not run in, and why."""
+
+    __tablename__ = "skipped_slots"
+
+    slot_at: Mapped[datetime] = mapped_column(primary_key=True)  # the UTC quarter-hour boundary
+    reason: Mapped[str]  # "asleep" | "stopped" | "paused"
+    recorded_at: Mapped[datetime]
+
+
+class StopMoveRow(Base):
+    """Every time the exit watcher moves a position's stop (breakeven/trailing)."""
+
+    __tablename__ = "stop_moves"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    account_id: Mapped[int]
+    pair: Mapped[str]
+    at: Mapped[datetime]
+    old_stop: Mapped[str]
+    new_stop: Mapped[str]
+    reason: Mapped[str]  # "breakeven" | "trailing"
+
+
 BUSY_TIMEOUT_MS = 30000
 
 

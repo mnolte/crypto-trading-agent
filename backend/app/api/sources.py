@@ -9,7 +9,8 @@ active / warming-up state.
 
 from __future__ import annotations
 
-from datetime import datetime
+import re
+from datetime import datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -27,7 +28,8 @@ from app.agent.market.universe import (
 from app.api.deps import AppState, get_state, require_token
 from app.api.routes import broadcast_snapshot
 from app.config import SecretStoreError, delete_secret, set_secret
-from app.db import MarketRow, utcnow
+from app.db import DecisionRow, MarketRow, utcnow
+from app.models import MoneyDecimal, Regime
 from app.sources import SourceStatus, get_spec, test_source_key
 
 router = APIRouter(prefix="/api")
@@ -98,9 +100,35 @@ class MarketOut(BaseModel):
     spread_pct: float | None
     daily_candles: int | None
     checked_at: datetime | None
+    # Markets card extras — filled for active markets only.
+    price: MoneyDecimal | None = None
+    chg_24h_pct: MoneyDecimal | None = None
+    regime: Regime | None = None
+    rules_state: Literal["passed", "held", "failed", "paused", "warming", "none"] | None = None
+    rules_detail: str | None = None
+    last_action_action: str | None = None  # e.g. "BUY", "SELL", "HOLD", "SKIP"
+    last_action_at: datetime | None = None
 
 
-def _market_out(state: AppState, row: MarketRow, session: Session | None = None) -> MarketOut:
+_FAILED_RE = re.compile(r"failed:\s*(.+?)\s*\.?\s*$")
+
+
+def _rules_detail(reasoning: str) -> str:
+    """The failed-condition tail of a pre-filter reasoning string."""
+    match = _FAILED_RE.search(reasoning)
+    if match:
+        return match.group(1)
+    return reasoning[:80]
+
+
+def _market_out(
+    state: AppState,
+    row: MarketRow,
+    session: Session | None = None,
+    *,
+    latest: dict[str, DecisionRow] | None = None,
+    last_actions: dict[str, DecisionRow] | None = None,
+) -> MarketOut:
     close_after = session is None
     session = session or state.session_factory()
     try:
@@ -109,6 +137,38 @@ def _market_out(state: AppState, row: MarketRow, session: Session | None = None)
     finally:
         if close_after:
             session.close()
+    price = chg = None
+    regime: Regime | None = None
+    rules_state: Literal["passed", "held", "failed", "paused", "warming", "none"] | None = None
+    rules_detail: str | None = None
+    action_row: DecisionRow | None = None
+    if row.active:
+        engine = state.agent_engine
+        if engine is not None:
+            info = engine.prices.get(row.market)
+            if info is not None:
+                price, chg = info.last, info.chg_24h_pct
+        drow = (latest or {}).get(row.market)
+        if drow is not None:
+            try:
+                regime = Regime.model_validate_json(drow.regime)
+            except (ValueError, TypeError):
+                regime = None
+        holding = state.broker is not None and row.market in state.broker.positions
+        if warming:
+            rules_state = "warming"
+        elif paused:
+            rules_state = "paused"
+        elif drow is None:
+            rules_state = "none"
+        elif not drow.prefilter:
+            rules_state = "failed"
+            rules_detail = _rules_detail(drow.reasoning)
+        elif holding:
+            rules_state = "held"
+        else:
+            rules_state = "passed"
+        action_row = (last_actions or {}).get(row.market)
     return MarketOut(
         market=row.market,
         eligible=row.eligible,
@@ -121,6 +181,13 @@ def _market_out(state: AppState, row: MarketRow, session: Session | None = None)
         spread_pct=row.spread_pct,
         daily_candles=row.daily_candles,
         checked_at=row.checked_at,
+        price=price,
+        chg_24h_pct=chg,
+        regime=regime,
+        rules_state=rules_state,
+        rules_detail=rules_detail,
+        last_action_action=action_row.action if action_row is not None else None,
+        last_action_at=repo.aware_utc(action_row.at) if action_row is not None else None,
     )
 
 
@@ -224,7 +291,27 @@ def list_markets(state: Annotated[AppState, Depends(get_state)]) -> list[MarketO
     session = state.session_factory()
     try:
         rows = repo.list_market_rows(session)
-        return [_market_out(state, row, session) for row in rows]
+        account_id = state.broker.account_id if state.broker is not None else None
+        latest = (
+            repo.latest_decisions(session, account_id, [r.market for r in rows])
+            if account_id is not None
+            else {}
+        )
+        last_actions: dict[str, DecisionRow] = {}
+        if account_id is not None:
+            for drow in repo.list_decision_rows(
+                session,
+                account_id=account_id,
+                after=utcnow() - timedelta(hours=24),
+                limit=None,
+            ):
+                # Rules no-calls are not actions — the newest called row wins.
+                if drow.prefilter and drow.pair not in last_actions:
+                    last_actions[drow.pair] = drow
+        return [
+            _market_out(state, row, session, latest=latest, last_actions=last_actions)
+            for row in rows
+        ]
     finally:
         session.close()
 
