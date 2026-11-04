@@ -301,9 +301,7 @@ def build_snapshot(state: AppState) -> Snapshot:
             cost_month_eur=budget.month_spend_all(session, now),
             cap_eur=settings.model.monthly_cost_cap_eur,
         )
-        errors_24h = logstore.unreviewed_error_count_since(
-            (now - timedelta(hours=24)).isoformat()
-        )
+        errors_24h = logstore.unreviewed_error_count_since((now - timedelta(hours=24)).isoformat())
         pauses = repo.list_entry_pauses(session, now)
         _agent_pct, btc_pct = since_start(session, broker.account, equity, now)
         return Snapshot(

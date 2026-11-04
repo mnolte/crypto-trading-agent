@@ -27,9 +27,7 @@ KEYRING_SERVICE = "trading-agent"
 
 LOCAL_HOSTS = frozenset({"127.0.0.1", "localhost"})
 
-_KEYRING_POOL = concurrent.futures.ThreadPoolExecutor(
-    max_workers=2, thread_name_prefix="keyring"
-)
+_KEYRING_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="keyring")
 
 
 def _bounded_keyring(fn: Callable[..., object], *args: str) -> object:

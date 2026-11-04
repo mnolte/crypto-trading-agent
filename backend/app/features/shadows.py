@@ -887,9 +887,7 @@ class ShadowRunner:
                 pairs.update(sh.broker.positions)
                 pairs.update(
                     o.pair
-                    for o in repo.open_paper_orders(
-                        session, sh.broker.account_id, leg="entry"
-                    )
+                    for o in repo.open_paper_orders(session, sh.broker.account_id, leg="entry")
                 )
             session.commit()
             prices: dict[str, Decimal] = {}
@@ -932,9 +930,7 @@ class ShadowRunner:
                         )
                         if reason is not None:
                             # Stops, time stops and forced exits stay market.
-                            self._close_shadow_position(
-                                session, shadow, pair, price, now, reason
-                            )
+                            self._close_shadow_position(session, shadow, pair, price, now, reason)
                             continue
                         if limit_targets:
                             if sell_fills(price, pos.target, self._tick_size(pair)):

@@ -96,9 +96,7 @@ CREATE INDEX IF NOT EXISTS ix_problems_last_seen ON log_problems (last_seen);
 
 def _version(conn: sqlite3.Connection) -> int:
     try:
-        row = conn.execute(
-            "SELECT value FROM meta WHERE key = 'schema_version'"
-        ).fetchone()
+        row = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
     except sqlite3.Error:
         return 0
     return int(row[0]) if row else 0

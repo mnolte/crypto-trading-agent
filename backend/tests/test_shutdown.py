@@ -44,10 +44,7 @@ def _start(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 def _log_messages(data_dir: Path) -> list[str]:
     conn = sqlite3.connect(data_dir / "logs" / "logs.db")
     try:
-        return [
-            row[0]
-            for row in conn.execute("SELECT message FROM log_lines ORDER BY id")
-        ]
+        return [row[0] for row in conn.execute("SELECT message FROM log_lines ORDER BY id")]
     finally:
         conn.close()
 
@@ -116,9 +113,7 @@ def test_shutdown_waits_for_a_running_cycle(
     state = cast(FastAPI, client.app).state.app_state
     state.settings.storage.shutdown_grace_seconds = 5
     state.agent_engine.cycle_in_progress = True
-    threading.Timer(
-        0.3, setattr, args=(state.agent_engine, "cycle_in_progress", False)
-    ).start()
+    threading.Timer(0.3, setattr, args=(state.agent_engine, "cycle_in_progress", False)).start()
     started = time.monotonic()
     client.__exit__(None, None, None)
     elapsed = time.monotonic() - started

@@ -353,9 +353,7 @@ def load_needs(state: AppState, session: Session, now: datetime) -> Needs:
             engine_status=engine.status if engine is not None else None,
             kill=engine.kill if engine is not None else None,
             pending=repo.pending_decisions(session, account_id),
-            errors=state.log_store.unreviewed_problems()
-            if state.log_store is not None
-            else [],
+            errors=state.log_store.unreviewed_problems() if state.log_store is not None else [],
             sources=state.sources.statuses(),
             notifications=settings.notifications,
             failing_markets=[

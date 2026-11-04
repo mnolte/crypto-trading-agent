@@ -134,9 +134,7 @@ def test_unclean_start_marks_interrupted_runs(tmp_path: Path) -> None:
     eng = make_engine(db_path)
     with eng.begin() as conn:
         status = conn.execute(
-            __import__("sqlalchemy").text(
-                "SELECT status FROM whatif_scenarios WHERE id = 'w1'"
-            )
+            __import__("sqlalchemy").text("SELECT status FROM whatif_scenarios WHERE id = 'w1'")
         ).scalar()
     eng.dispose()
     assert status == "interrupted"
@@ -184,10 +182,7 @@ def test_store_handler_survives_migrations(tmp_path: Path) -> None:
     store = logstore.install(tmp_path)
     try:
         run_migrations(tmp_path / "agent.db")
-        assert any(
-            type(h).__name__ == "StoreHandler"
-            for h in logging.getLogger().handlers
-        )
+        assert any(type(h).__name__ == "StoreHandler" for h in logging.getLogger().handlers)
         logging.getLogger("app").warning("post-migration probe")
         import time as _t
 

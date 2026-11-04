@@ -197,9 +197,7 @@ def list_logs(
         clauses.append("ts <= ?")
         params.append(until)
     if q:
-        clauses.append(
-            "id IN (SELECT rowid FROM log_fts WHERE log_fts MATCH ?)"
-        )
+        clauses.append("id IN (SELECT rowid FROM log_fts WHERE log_fts MATCH ?)")
         params.append('"' + q.replace('"', '""') + '"')
     if after:
         try:
@@ -213,8 +211,7 @@ def list_logs(
         with store.connect_readonly() as conn:
             rows = list(
                 conn.execute(
-                    f"SELECT * FROM log_lines {where} "
-                    "ORDER BY ts DESC, id DESC LIMIT ?",
+                    f"SELECT * FROM log_lines {where} ORDER BY ts DESC, id DESC LIMIT ?",
                     (*params, limit + 1),
                 )
             )
@@ -284,14 +281,10 @@ class ReviewBody(BaseModel):
 
 
 @router.post("/problems/{fingerprint}/review", dependencies=[Depends(require_token)])
-def review_problem(
-    fingerprint: str, body: ReviewBody, request: Request
-) -> OkOut:
+def review_problem(fingerprint: str, body: ReviewBody, request: Request) -> OkOut:
     store = _store(request)
     try:
-        ok = store.review_problem(
-            fingerprint, body.state, body.note, datetime.now(UTC)
-        )
+        ok = store.review_problem(fingerprint, body.state, body.note, datetime.now(UTC))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if not ok:
@@ -301,9 +294,7 @@ def review_problem(
 
 @router.get("/events")
 def events() -> EventsOut:
-    return EventsOut(
-        events=[LogEventOut(**e.as_dict()) for e in logevents.EVENTS.values()]
-    )
+    return EventsOut(events=[LogEventOut(**e.as_dict()) for e in logevents.EVENTS.values()])
 
 
 @router.get("/export.jsonl")
@@ -317,8 +308,7 @@ def export_jsonl(request: Request, day: str | None = None) -> StreamingResponse:
         conn = store.connect_readonly()
         try:
             for row in conn.execute(
-                "SELECT * FROM log_lines WHERE ts >= ? AND ts <= ? "
-                "ORDER BY ts, id LIMIT ?",
+                "SELECT * FROM log_lines WHERE ts >= ? AND ts <= ? ORDER BY ts, id LIMIT ?",
                 (start, end, _EXPORT_LIMIT),
             ):
                 yield json.dumps({c: row[c] for c in (*COLUMNS, "id")}) + "\n"
@@ -328,9 +318,7 @@ def export_jsonl(request: Request, day: str | None = None) -> StreamingResponse:
     return StreamingResponse(
         gen(),
         media_type="application/x-ndjson",
-        headers={
-            "Content-Disposition": f'attachment; filename="logs-{day}.jsonl"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="logs-{day}.jsonl"'},
     )
 
 
@@ -361,7 +349,8 @@ def client_report(body: ClientReport, request: Request) -> OkOut:
     levelno = logging.ERROR if body.level.lower() != "warning" else logging.WARNING
     logging.getLogger("frontend.client").log(
         levelno,
-        "client: %s", body.message[:2000],
+        "client: %s",
+        body.message[:2000],
         extra={
             "event": "frontend.error",
             "component": "frontend",
@@ -375,9 +364,7 @@ def client_report(body: ClientReport, request: Request) -> OkOut:
 def get_line(line_id: int, request: Request) -> LogLineOut:
     store = _store(request)
     with store.connect_readonly() as conn:
-        row = conn.execute(
-            "SELECT * FROM log_lines WHERE id = ?", (line_id,)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM log_lines WHERE id = ?", (line_id,)).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="no log line with that id")
     return _row_dict(row)
@@ -387,9 +374,7 @@ def get_line(line_id: int, request: Request) -> LogLineOut:
 def around_line(line_id: int, request: Request) -> AroundOut:
     store = _store(request)
     with store.connect_readonly() as conn:
-        focus = conn.execute(
-            "SELECT * FROM log_lines WHERE id = ?", (line_id,)
-        ).fetchone()
+        focus = conn.execute("SELECT * FROM log_lines WHERE id = ?", (line_id,)).fetchone()
         if focus is None:
             raise HTTPException(status_code=404, detail="no log line with that id")
         before = list(

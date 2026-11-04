@@ -37,8 +37,7 @@ IMPORTED_KEEP_DAYS = 30
 PROBLEM_MAX_PAIRS = 5
 
 _INSERT = (
-    f"INSERT INTO log_lines ({', '.join(COLUMNS)}) "
-    f"VALUES ({', '.join(':' + c for c in COLUMNS)})"
+    f"INSERT INTO log_lines ({', '.join(COLUMNS)}) VALUES ({', '.join(':' + c for c in COLUMNS)})"
 )
 
 
@@ -77,9 +76,7 @@ class LogStore:
         self._broken = False
         self._next_probe = 0.0
         self._last_dropped_report = time.monotonic()
-        self._writer = threading.Thread(
-            target=self._run, name="log-writer", daemon=True
-        )
+        self._writer = threading.Thread(target=self._run, name="log-writer", daemon=True)
         self._started = False
 
     # ------------------------------------------------------------- lifecycle
@@ -240,8 +237,7 @@ class LogStore:
         self.queue.dropped["INFO"] = 0
         self._last_dropped_report = now
         logging.getLogger("app.logstore").warning(
-            "log queue full: dropped %d DEBUG, %d INFO lines "
-            "(WARNING and up are never dropped)",
+            "log queue full: dropped %d DEBUG, %d INFO lines (WARNING and up are never dropped)",
             counts["DEBUG"],
             counts["INFO"],
             extra={"event": "logs.dropped", "data": counts},
@@ -255,9 +251,7 @@ class LogStore:
         every use sits under ``_conn_lock``."""
         if self._conn is None:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
-            conn = sqlite3.connect(
-                str(self.db_path), timeout=5.0, check_same_thread=False
-            )
+            conn = sqlite3.connect(str(self.db_path), timeout=5.0, check_same_thread=False)
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             conn.execute("PRAGMA busy_timeout=5000")
@@ -350,9 +344,7 @@ class LogStore:
                             try:
                                 line = json.loads(raw)
                             except json.JSONDecodeError:
-                                self._stderr(
-                                    f"logs: unparseable fallback line skipped: {raw[:80]}"
-                                )
+                                self._stderr(f"logs: unparseable fallback line skipped: {raw[:80]}")
                                 continue
                             conn.execute(_INSERT, {c: line.get(c) for c in COLUMNS})
                             if line.get("fingerprint") is not None:
@@ -411,9 +403,7 @@ class LogStore:
     def count_unreviewed(self, min_levelno: int = logging.ERROR) -> int:
         return self.count_unreviewed_since(None, min_levelno)
 
-    def count_unreviewed_since(
-        self, since: str | None, min_levelno: int = logging.ERROR
-    ) -> int:
+    def count_unreviewed_since(self, since: str | None, min_levelno: int = logging.ERROR) -> int:
         try:
             with self.connect_readonly() as conn:
                 where = "state = 'unreviewed' AND levelno >= ?"
@@ -433,15 +423,11 @@ class LogStore:
     def connect_readonly(self) -> sqlite3.Connection:
         """A read-only connection for the API — WAL lets it read while the
         writer commits."""
-        conn = sqlite3.connect(
-            f"file:{self.db_path}?mode=ro", uri=True, timeout=5.0
-        )
+        conn = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, timeout=5.0)
         conn.row_factory = sqlite3.Row
         return conn
 
-    def review_problem(
-        self, fingerprint: str, state: str, note: str, now: datetime
-    ) -> bool:
+    def review_problem(self, fingerprint: str, state: str, note: str, now: datetime) -> bool:
         """Mark a problem expected or fixed; a note is required."""
         if state not in ("expected", "fixed"):
             raise ValueError(f"state must be expected or fixed, got {state!r}")
@@ -514,9 +500,7 @@ class LogStore:
         imported_cutoff = now - timedelta(days=IMPORTED_KEEP_DAYS)
         for path in self.log_dir.glob("fallback-*.imported"):
             try:
-                day = datetime.strptime(path.stem, "fallback-%Y-%m-%d").replace(
-                    tzinfo=UTC
-                )
+                day = datetime.strptime(path.stem, "fallback-%Y-%m-%d").replace(tzinfo=UTC)
             except ValueError:
                 continue
             if day < imported_cutoff:

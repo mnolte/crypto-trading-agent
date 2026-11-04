@@ -213,9 +213,7 @@ def test_permanently_unavailable_outcome_stops_retrying(tmp_path: Path, migrated
     assert all(failure.terminal for failure in failures)
 
 
-def test_terminal_outcome_records_one_error_per_horizon(
-    tmp_path: Path, migrated_db: Path
-) -> None:
+def test_terminal_outcome_records_one_error_per_horizon(tmp_path: Path, migrated_db: Path) -> None:
     """When a horizon turns terminal, the user sees it: one aggregated error,
     flagged as affecting a decision, carrying the decision id and reason."""
     session = _session(tmp_path / "agent.db", migrated_db)
@@ -230,14 +228,10 @@ def test_terminal_outcome_records_one_error_per_horizon(
             run_outcomes(session, now)
 
     calls = [
-        c
-        for c in mock_log.exception.call_args_list
-        if "outcome unavailable at" in str(c.args[0])
+        c for c in mock_log.exception.call_args_list if "outcome unavailable at" in str(c.args[0])
     ]
     assert len(calls) == 3
-    assert all(
-        c.kwargs["extra"]["decision_id"] == str(decision.id) for c in calls
-    )
+    assert all(c.kwargs["extra"]["decision_id"] == str(decision.id) for c in calls)
     assert {c.args[1] for c in calls} == {4, 24, 72}
 
 

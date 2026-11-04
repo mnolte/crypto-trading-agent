@@ -78,9 +78,7 @@ _TOAST_SEVERITY = {
 }
 
 
-def _send_email(
-    settings: NotificationSettings, subject: str, body: str, timeout_s: float
-) -> None:
+def _send_email(settings: NotificationSettings, subject: str, body: str, timeout_s: float) -> None:
     smtp = settings.smtp
     message = EmailMessage()
     message["Subject"] = subject

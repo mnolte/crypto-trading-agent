@@ -123,9 +123,7 @@ def test_problems_review_flow(client: TestClient) -> None:
     assert len(problems) == 1 and problems[0]["count"] == 2
     fp = problems[0]["fingerprint"]
     # Reviewing requires the local token.
-    denied = client.post(
-        f"/api/logs/problems/{fp}/review", json={"state": "fixed"}
-    )
+    denied = client.post(f"/api/logs/problems/{fp}/review", json={"state": "fixed"})
     assert denied.status_code == 403
     reviewed = client.post(
         f"/api/logs/problems/{fp}/review",

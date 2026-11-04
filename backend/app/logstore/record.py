@@ -157,25 +157,17 @@ def build_line(
         line["error_id"] = new_error_id()
     if record.exc_info and record.exc_info[0] is not None:
         exc = record.exc_info[1]
-        line["exc_type"] = (
-            f"{record.exc_info[0].__module__}.{record.exc_info[0].__qualname__}"
-        )
+        line["exc_type"] = f"{record.exc_info[0].__module__}.{record.exc_info[0].__qualname__}"
         line["exc_message"] = scrub_text(str(exc))
-        line["traceback"] = scrub_text(
-            "".join(tb_module.format_exception(*record.exc_info))
-        )
+        line["traceback"] = scrub_text("".join(tb_module.format_exception(*record.exc_info)))
     data = getattr(record, "data", None)
     if data is not None:
         import json
 
         try:
-            line["data"] = scrub_text(
-                json.dumps(data, default=str, separators=(",", ":"))
-            )
+            line["data"] = scrub_text(json.dumps(data, default=str, separators=(",", ":")))
         except (TypeError, ValueError):
             line["data"] = scrub_text(str(data))
     if levelno >= logging.WARNING:
-        line["fingerprint"] = fingerprint(
-            str(line["logger"]), line["event"], str(line["message"])
-        )
+        line["fingerprint"] = fingerprint(str(line["logger"]), line["event"], str(line["message"]))
     return line

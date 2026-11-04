@@ -75,18 +75,14 @@ def error_body(
 
 
 def api_error(status: int, message: str, **kw: Any) -> JSONResponse:
-    return JSONResponse(
-        error_body(status, message, **kw), status_code=status
-    )
+    return JSONResponse(error_body(status, message, **kw), status_code=status)
 
 
 def new_error_id() -> str:
     return "e-" + secrets.token_hex(4)
 
 
-async def http_exception_handler(
-    request: Request, exc: StarletteHTTPException
-) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     """HTTPException -> the stable shape; keeps Retry-After on 429."""
     detail = exc.detail if isinstance(exc.detail, str) else None
     message = detail or _DEFAULT_MESSAGES.get(exc.status_code, "Request failed.")
@@ -105,9 +101,7 @@ async def http_exception_handler(
     return JSONResponse(body, status_code=exc.status_code, headers=headers)
 
 
-async def validation_handler(
-    request: Request, exc: RequestValidationError
-) -> JSONResponse:
+async def validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """422 with the fields that failed."""
     fields: dict[str, str] = {}
     for err in exc.errors():
@@ -138,9 +132,7 @@ async def unhandled_handler(request: Request, exc: Exception) -> JSONResponse:
         },
     )
     return JSONResponse(
-        error_body(
-            500, "Something went wrong on our side.", error_id=error_id
-        ),
+        error_body(500, "Something went wrong on our side.", error_id=error_id),
         status_code=500,
     )
 

@@ -593,9 +593,7 @@ class Engine:
         """One watcher pass inside its trace context (``w-`` id)."""
         self._watch_passes += 1
         with logstore.log_context(job=f"w-{self._watch_passes:04d}"):
-            log.debug(
-                "watcher pass %d", self._watch_passes, extra={"event": "watcher.pass"}
-            )
+            log.debug("watcher pass %d", self._watch_passes, extra={"event": "watcher.pass"})
             await self.tick()
 
     async def _note_watch_error(self, exc: Exception) -> None:
@@ -652,9 +650,7 @@ class Engine:
             context = await self._load_context(session, settings, now)
             session.commit()
             pairs = [
-                m
-                for m in settings.active_markets
-                if not warming_up(session, m, settings.market)
+                m for m in settings.active_markets if not warming_up(session, m, settings.market)
             ]
             # A held position keeps its cycle on a deactivated or
             # failing market — the model still manages it until it
@@ -709,9 +705,7 @@ class Engine:
         # cycle id shows the whole cycle, from schedule to fill.
         summary_session = self._sessions()
         try:
-            counts = repo.cycle_summary_counts(
-                summary_session, self.broker.account_id, cycle_no
-            )
+            counts = repo.cycle_summary_counts(summary_session, self.broker.account_id, cycle_no)
         except SQLAlchemyError:
             counts = {}
         finally:
@@ -1655,9 +1649,7 @@ class Engine:
             # session-bound may leave this block.
             entry_pairs = {
                 order.pair
-                for order in repo.open_paper_orders(
-                    probe, self.broker.account_id, leg="entry"
-                )
+                for order in repo.open_paper_orders(probe, self.broker.account_id, leg="entry")
             }
             pending = [
                 (row.id, row.pair, row.plan, row.execute_at)
@@ -2264,9 +2256,7 @@ class Engine:
         trade = repo.last_exit_for_pair(session, self.broker.account_id, pair, "stop")
         return trade.closed_at if trade else None
 
-    def _correlated_open(
-        self, session: Session, pair: str, candles_1h: list[Candle]
-    ) -> list[str]:
+    def _correlated_open(self, session: Session, pair: str, candles_1h: list[Candle]) -> list[str]:
         """Open positions whose 30-day 1h correlation with this pair exceeds
         the configured threshold."""
         settings = self._settings()

@@ -135,17 +135,21 @@ async def _resolve_source_error_after_recovery(
 def _loop_of(coro: Awaitable[None]) -> Callable[[], Awaitable[None]]:
     """spawn() takes a coroutine function; job loops are built per
     restart so a crashed loop starts fresh."""
+
     async def run() -> None:
         await coro
+
     return run
 
 
 def _heartbeat_loop(lock: EngineLock) -> Callable[[], Awaitable[None]]:
     """Touches the lock file every 30 s so a stale lock is obvious."""
+
     async def run() -> None:
         while True:
             await asyncio.sleep(30)
             lock.heartbeat()
+
     return run
 
 
@@ -313,9 +317,7 @@ async def _final_checkpoint(eng: DbEngine) -> None:
         await asyncio.sleep(0.2)
 
 
-async def _drain_tasks(
-    tasks: list[asyncio.Task[Any]], forced: Callable[[], bool]
-) -> None:
+async def _drain_tasks(tasks: list[asyncio.Task[Any]], forced: Callable[[], bool]) -> None:
     """Cancel every tracked task. In-flight email sends get a short
     window to finish first; a second Ctrl+C cancels them too."""
     emails = [t for t in tasks if t.get_name() == "notify-email"]
@@ -604,6 +606,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
             def forced() -> bool:
                 return bool(getattr(app.state, "sigint_skip_wait", False))
+
             while (
                 agent is not None
                 and agent.cycle_in_progress
@@ -650,10 +653,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     app = FastAPI(title="Trading Agent", version="0.1.0", lifespan=lifespan)
     app.add_exception_handler(
-        StarletteHTTPException, errors.http_exception_handler  # type: ignore[arg-type]
+        StarletteHTTPException,
+        errors.http_exception_handler,  # type: ignore[arg-type]
     )
     app.add_exception_handler(
-        RequestValidationError, errors.validation_handler  # type: ignore[arg-type]
+        RequestValidationError,
+        errors.validation_handler,  # type: ignore[arg-type]
     )
     app.add_exception_handler(Exception, errors.unhandled_handler)
     app.add_middleware(LocalOnlyMiddleware)

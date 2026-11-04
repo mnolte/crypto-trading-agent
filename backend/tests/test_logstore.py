@@ -95,9 +95,7 @@ def test_lines_land_with_every_column(store: LogStore) -> None:
 
 def test_fts_finds_words_in_message_and_exc(store: LogStore) -> None:
     store.submit(make_line(message="BTC-EUR: newest candle missing"))
-    store.submit(
-        make_line(message="unrelated", exc_message="zerodivision in sizing math")
-    )
+    store.submit(make_line(message="unrelated", exc_message="zerodivision in sizing math"))
     wait_for(lambda: len(rows(store)) == 2)
     with store.connect_readonly() as conn:
         hits = list(
@@ -163,9 +161,7 @@ def test_unwritable_db_uses_fallback_then_imports(store: LogStore) -> None:
     store.submit(make_line(level="ERROR", levelno=40, message="during outage"))
     wait_for(lambda: store._broken, timeout=3.0)
     store.submit(make_line(level="INFO", levelno=20, message="while broken"))
-    wait_for(
-        lambda: any(store.log_dir.glob("fallback-*.jsonl")), timeout=3.0
-    )
+    wait_for(lambda: any(store.log_dir.glob("fallback-*.jsonl")), timeout=3.0)
     for suffix in ("", "-wal", "-shm"):
         path = Path(str(db) + suffix)
         if path.exists():
@@ -182,7 +178,11 @@ def test_unwritable_db_uses_fallback_then_imports(store: LogStore) -> None:
 def test_retention_by_level_and_age(store: LogStore) -> None:
     now = datetime.now(UTC)
     for level, days in (
-        ("DEBUG", 40), ("INFO", 40), ("WARNING", 400), ("WARNING", 100), ("ERROR", 300)
+        ("DEBUG", 40),
+        ("INFO", 40),
+        ("WARNING", 400),
+        ("WARNING", 100),
+        ("ERROR", 300),
     ):
         store.submit(
             make_line(
@@ -207,9 +207,7 @@ def test_size_cap_drops_debug_first(store: LogStore) -> None:
     for i in range(40):
         store.submit(make_line(level="DEBUG", levelno=10, message=f"debug {i}", data=blob))
         store.submit(make_line(level="INFO", levelno=20, message=f"info {i}", data=blob))
-        store.submit(
-            make_line(level="WARNING", levelno=30, message=f"warn {i}", data=blob)
-        )
+        store.submit(make_line(level="WARNING", levelno=30, message=f"warn {i}", data=blob))
     wait_for(lambda: len(rows(store)) == 120)
     # ~0.2 MB cap forces the cap path; DEBUG goes first, then INFO,
     # until the file is under the limit. WARNING and up keep their age.
@@ -289,9 +287,7 @@ def test_scrubbing_covers_stored_keys_and_headers(tmp_path: Path) -> None:
         scrub.register_secret("smtp-passw0rd!")
         secret_msg = "key sk-livekey-abcdef123456 and pass smtp-passw0rd!"
         store.submit(
-            make_line(
-                level="ERROR", levelno=40, message=secret_msg, exc_message="smtp-passw0rd!"
-            )
+            make_line(level="ERROR", levelno=40, message=secret_msg, exc_message="smtp-passw0rd!")
         )
         store.submit(
             make_line(

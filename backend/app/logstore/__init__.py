@@ -120,9 +120,7 @@ def import_legacy_errors(store: LogStore, rows: list[Any]) -> int:
     lines = []
     for row in rows:
         first = (
-            row.first_at.isoformat()
-            if hasattr(row.first_at, "isoformat")
-            else str(row.first_at)
+            row.first_at.isoformat() if hasattr(row.first_at, "isoformat") else str(row.first_at)
         )
         resolved = getattr(row, "resolved_at", None) is not None
         line = {
@@ -172,9 +170,7 @@ def import_legacy_errors(store: LogStore, rows: list[Any]) -> int:
                 line["fingerprint"] or "",
                 "fixed",
                 f"legacy resolution: {getattr(row, 'resolution_note', '') or 'resolved'}",
-                row.resolved_at
-                if hasattr(row.resolved_at, "isoformat")
-                else datetime.now(UTC),
+                row.resolved_at if hasattr(row.resolved_at, "isoformat") else datetime.now(UTC),
             )
     store.meta_set("errors_legacy_imported", "1")
     return count
@@ -196,9 +192,7 @@ def unreviewed_error_count(min_levelno: int = logging.ERROR) -> int:
     return store.count_unreviewed(min_levelno)
 
 
-def unreviewed_error_count_since(
-    since: str | None, min_levelno: int = logging.ERROR
-) -> int:
+def unreviewed_error_count_since(since: str | None, min_levelno: int = logging.ERROR) -> int:
     store = _store
     if store is None:
         return 0

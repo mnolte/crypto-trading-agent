@@ -58,9 +58,7 @@ def test_source_recovery_requires_a_continuous_hour(
             "message": "data source failing: bitvavo",
             "process": "app",
             "pid": 1,
-            "fingerprint": fingerprint(
-                "app", "source.failing", "data source failing: bitvavo"
-            ),
+            "fingerprint": fingerprint("app", "source.failing", "data source failing: bitvavo"),
             "version": "test",
         }
     )
