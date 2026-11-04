@@ -114,6 +114,11 @@ export type PriceLine = {
   title: string;
 };
 
+export type OverlaySeries = {
+  data: { time: UTCTimestamp; value: number }[];
+  color: "ema20" | "ema50" | "ema200" | "vwap";
+};
+
 /**
  * Dashboard chart: candles plus agent buy/sell/decision markers and the open
  * position's entry/stop/target as horizontal lines.
@@ -122,11 +127,13 @@ export function PriceChart({
   candles,
   markers = [],
   lines = [],
+  overlays = [],
   height = 300,
 }: {
   candles: Candle[];
   markers?: PriceMarker[];
   lines?: PriceLine[];
+  overlays?: OverlaySeries[];
   height?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -184,6 +191,25 @@ export function PriceChart({
       })),
     );
 
+    const OVERLAY_COLOR: Record<OverlaySeries["color"], string> = {
+      ema20: css("--ta-chart-ema20"),
+      ema50: css("--ta-chart-ema50"),
+      ema200: css("--ta-chart-ema200"),
+      vwap: css("--ta-chart-vwap"),
+    };
+    for (const overlay of overlays) {
+      const s = chart.addSeries(LineSeries, {
+        color: OVERLAY_COLOR[overlay.color],
+        lineWidth: 1,
+        lineStyle:
+          overlay.color === "vwap" ? LineStyle.Dashed : LineStyle.Solid,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+      s.setData(overlay.data);
+    }
+
     const LINE_COLOR: Record<PriceLine["color"], string> = {
       up: css("--ta-positive"),
       down: css("--ta-negative-text"),
@@ -213,7 +239,7 @@ export function PriceChart({
       observer.disconnect();
       chart.remove();
     };
-  }, [candles, markers, lines, height]);
+  }, [candles, markers, lines, overlays, height]);
 
   return <div ref={ref} className="chart-box" style={{ height }} />;
 }
