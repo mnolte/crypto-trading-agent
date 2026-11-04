@@ -1142,7 +1142,36 @@ Above `logging.max_db_mb` (2,000) the oldest DEBUG lines go first, then the olde
 | Frontend error | Reported to `POST /api/logs/client` | ERROR | `frontend.error` |
 | `logs.db` can't be written | Fallback file and stderr (above) | ERROR on stderr | `logs.store_failed` |
 
-**API errors.** Every API error uses one shape, `{"error": {"code", "message", "error_id"}}`, with `X-Request-Id` on every response. This PR introduces the shape; PR 20 adds 401.
+**Error pages and API errors.** Every failure the browser can see has a defined page or message, and none of them shows a traceback, a file path, SQL or a secret. Built in PR 15 (moved from PR 20); PR 20 adds sign-in and its 401 and 403 handling.
+
+- **One shape** for every error from `/api`: `{"error": {"code": "<stable code>", "message": "<one sentence for people>", "error_id": "e-…"}}`, with `X-Request-Id` on every response. `error_id` is present on 500 responses and matches the log line. Validation errors (422) add `fields`: each field name with its message.
+
+| Status | Codes | What the frontend does |
+| --- | --- | --- |
+| 400 | `bad_request`, `bad_host` | Message in the card or dialog that sent it; `bad_host` names the expected address |
+| 403 | `local_token_missing`, `origin_refused` | Never seen in normal use; message only, never retried |
+| 404 | `not_found` | The record's not-found page (below) |
+| 409 | `conflict`, `settings_changed` | Says what changed and offers to reload; never overwrites |
+| 413, 415 | `too_large`, `unsupported_media_type` | Message in the card or dialog that sent it |
+| 422 | `invalid` | Messages next to the fields |
+| 429 | `rate_limited` | Says when to try again, from `Retry-After` |
+| 500 | `internal` | Toast or card error with the `error_id` and "Open in Logs" |
+| 503 | `shutting_down`, `starting_up` | The backend banner, retried every 15 s |
+| From PR 20: 401, 403 | `not_signed_in`, `session_expired`, `confirm_required`, `locked_out` | Sign-in and back to the same page; "Confirm it is you" and the request repeated once |
+
+- **In the app** (frontend, inside the normal sidebar and header; texts as in `design/screens/Errors.dc.html`):
+    - **Not found, a page.** Unknown routes: the backend answers every non-`/api` path with the frontend, so the router decides. "There is no page here" and Go to Dashboard.
+    - **Not found, a record.** A decision, model call, trade, fill, shadow, What-if run or backtest id that doesn't exist. The page names it ("Decision 98213 doesn't exist"), gives the likely reason (a reset paper account or a mistyped link), and offers Go to Dashboard plus a search that fits the record (for example "Search the LLM inspector").
+    - **Something went wrong.** Each screen has its own error boundary, so one broken screen doesn't take down the sidebar or other screens. It shows the `error_id` from `POST /api/logs/client`, Reload page, Copy error id and Open in Logs, and says the agent itself is not affected.
+    - **The app isn't answering.** When the first load of a screen can't reach the API. It retries every 15 s with Try now, and says that positions are paper only and that stops and targets are checked only while the app runs, against the current price as soon as it is back. After a successful load the backend banner is used instead.
+    - **Offline.** When the browser reports no network, a banner says so and requests pause until it is back.
+- **Static pages** in `deploy/errors/`: `app-down.html` (502 and 504) and `updating.html` (503). PR 15 writes and tests them; the reverse proxy serves them once the app runs on the VPS (its setup is a later step).
+    - Plain HTML with inline CSS and an inline SVG icon, in system fonts. They load nothing from the app and work without JavaScript; a small inline script only adds the automatic reload.
+    - No data, no version, no host details and no server commands, because anyone can see them without signing in.
+    - Each says that positions are paper only and that stops and targets are checked only while the app runs.
+    - **App down:** "Trading Agent isn't responding"; reloads every 30 s; once the app is back it starts paused and the Logs screen shows what happened.
+    - **Updating:** while the update script's maintenance flag exists, the proxy answers 503 with `Retry-After: 15`. "Updating": about a minute, waiting until no cycle is running, starting paused afterwards; reloads every 15 s.
+    - API requests during an outage get the same JSON error shape from the proxy (`app_unavailable` or `updating`), so the frontend's banner logic needs no special case.
 
 **Frontend errors.**
 
@@ -1272,7 +1301,7 @@ A backtest is evidence about the past, never a forecast, and it never changes se
 
 API: `POST /api/backtests` (validates the cutoff and the cap, returns the estimate with `dry_run=true`), `GET /api/backtests`, `GET /api/backtests/{id}` with results, `POST /api/backtests/{id}/cancel`, `DELETE /api/backtests/{id}` (removes its folder), and exports.
 
-### Sign-in, access and error pages
+### Sign-in and access
 
 The app gets a sign-in before it runs anywhere but on Marc's own computer. Built and tested locally first; the VPS section that follows the v0.1 measurement run depends on it.
 
@@ -1301,23 +1330,19 @@ The app gets a sign-in before it runs anywhere but on Marc's own computer. Built
 - Settings → Access: change password, authenticator and recovery codes, idle sign-out, and the signed-in devices (browser, masked address, last seen) with Sign out per device and Sign out everywhere.
 - Notifications: "New sign-in" (info, browser and email on) and "Failed sign-ins" (warning, email on) when a lockout starts.
 
-**Error pages.**
-
-- In the app, inside a simplified shell: not found for a record ("This decision doesn't exist" with a link back), not found for a page, something went wrong (with the `error_id` and Reload), and the API not answering on first load (retrying every 15 s).
-- Static pages served by the reverse proxy on the VPS, without sidebar or data: app down (502 and 504) and updating (503).
-- API errors use the shape from PR 15, `{"error": {"code", "message", "error_id"}}`; 401 sends the browser to sign-in, keeping the page it was on.
+**Errors.** The error pages and the API error shape come from PR 15 (v0.3 → Logging, errors and the Logs screen → Error pages and API errors). PR 20 adds the 401 and 403 rows: 401 sends the browser to sign-in and back to the page it was on; `confirm_required` opens "Confirm it is you" and repeats the request once.
 
 ### Build order (v0.3)
 
 v0.3 starts after PR 13 and the fix PR are merged; PR 10 and 11 stay paused. None of these PRs changes decisions, gates or exits, so they don't fall under the pause on strategy features. Each UI PR attaches Playwright screenshots at 1440 × 900 and 390 × 844 next to the reference PNGs, and waits until its screens are on the design canvas; the design for PR 14 is there now.
 
 - **PR 14, Shell and Dashboard:** the token rename, the header, Needs you (`GET /api/needs`), the phone top bar and 390 px layouts on every screen, the Dashboard in the new order, card states and toasts.
-- **PR 15, Error handling, logging and the Logs screen:** the audit report first; then the log store in `data/logs/logs.db` with its writer, retention and scrubbing; the event registry; tracing; the exception classes, isolation boundaries, `spawn()`, global hooks, timeouts and retries; every row of the failure catalogue; the API error shape and frontend error reporting; graceful shutdown; the logs endpoints and the Logs screen; the Readiness error criterion; the `errors` table imported.
+- **PR 15, Error handling, logging and the Logs screen:** the audit report first; then the log store in `data/logs/logs.db` with its writer, retention and scrubbing; the event registry; tracing; the exception classes, isolation boundaries, `spawn()`, global hooks, timeouts and retries; every row of the failure catalogue; the API error shape, the error pages (in the app and the static pages in `deploy/errors/`) and frontend error reporting; graceful shutdown; the logs endpoints and the Logs screen; the Readiness error criterion; the `errors` table imported.
 - **PR 16, Positions & orders:** the screen, the fills endpoints and export.
 - **PR 17, Markets screen:** the screen, the markets endpoints; Settings keeps the thresholds.
 - **PR 18, Strategies screen:** the comparison with both BTC benchmarks, equity curves, disagreements; Settings → Shadow strategies replaced by a link.
 - **PR 19, Backtest:** the engine on an injected clock, the child process, the candle store, the model cache and cutoff check, the estimate and cap, results with training and test, the screen.
-- **PR 20, Sign-in and error pages:** `TA_AUTH`, the account, sessions, limits, confirm-it-is-you, Settings → Access, the sign-in page and the error pages. Required before the VPS.
+- **PR 20, Sign-in and access:** `TA_AUTH`, the account, sessions, limits, confirm-it-is-you, Settings → Access, the sign-in page, and the 401 and 403 handling. Required before the VPS.
 
 ## After v0.1: sentiment and external market context
 

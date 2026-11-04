@@ -2,7 +2,7 @@
 
 Newest first. Each entry names the screens it touches.
 
-## 2026-11-04 — Logs screen
+## 2026-11-04 — Logs screen and error pages
 
 - New `Logs.dc.html`, adapted from Stock Trading Agent's Logs screen to crypto (pairs instead of symbols, UTC on hover, the crypto components, the same scenario as the Dashboard: the two OpenAI timeouts at 09:15 and 09:30, the sleep 23:15–23:45):
   - filters: level toggles with counts, "Show debug and info", period, search, component, pair, "Cycle, error or request id", Clear filters, Download .jsonl; at 390 px the text filters sit behind "More filters";
@@ -14,6 +14,7 @@ Newest first. Each entry names the screens it touches.
 - Changes from the stock design: event meaning and what to do in the opened line; Copy error id; the trace view; error and request ids as a filter; at phone width the message runs full width under the time and level, and tracebacks scroll sideways.
 - Sidebar: a Logs item under Control after Readiness (drawn in `Logs.dc.html`; every screen's sidebar gets it in PR 15).
 - Screenshots `Logs.png`, `Logs-390.png`, `Logs-trace.png`.
+- New `Errors.dc.html`, from Stock Trading Agent's error pages: in the app, not found (a record, a page), something went wrong (Reload page, Copy error id, Open in Logs) and the app isn't answering (Try now); served by the reverse proxy, app down (502/504) and updating (503). Changes for crypto: no broker holds the stops, so the pages say that positions are paper only and that stops and targets are checked only while the app runs, against the current price as soon as it is back; updates wait until no cycle is running and the app starts paused; local addresses for the in-app pages; at 390 px the mock sidebar is hidden as in the app. Screenshots `Errors.png`, `Errors-390.png`.
 
 ## 2026-11-04 — Cycles for a 24/7 market
 

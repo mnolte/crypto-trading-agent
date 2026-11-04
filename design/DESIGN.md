@@ -13,7 +13,7 @@ How Trading Agent looks and what it says. It uses the same visual language as St
 | Path | Contents |
 | --- | --- |
 | `tokens.css` | Every colour, font, size, spacing and radius, in the same structure as Stock Trading Agent with the `--ta-` prefix. Copy it into `frontend/src/styles/`; use only these variables. |
-| `screens/` | The 13 screens as HTML: the exact source for styles, layout and wording. |
+| `screens/` | The 14 screens as HTML: the exact source for styles, layout and wording. |
 | `screenshots/` | One PNG per screen at 1440 px wide (Decision at 560 px), plus `<Screen>-390.png` at phone width for every screen with the shell. |
 | `CHANGES.md` | Design change log, newest first. |
 
@@ -41,6 +41,7 @@ How Trading Agent looks and what it says. It uses the same visual language as St
 | `Ask.dc.html` | Ask the agent panel, 520 px over the dimmed screen | User features → Ask the agent |
 | `Reviews.dc.html` | Reviews | User features → Weekly review, Daily briefing |
 | `Readiness.dc.html` | Readiness | User features → Live-readiness checklist |
+| `Errors.dc.html` | Error pages, a catalogue like States: in the app (not found for a record and a page, something went wrong, the app isn't answering) and the static pages for the reverse proxy (app down, updating). The texts are final | v0.3 → Logging, errors and the Logs screen → Error pages and API errors |
 | `Logs.dc.html` | Logs: filters, warnings and errors per day, recurring problems with review state, the log grouped per day with one error opened (meaning, what to do, exception, stored line, surrounding lines); clicking "Every line of cycle c-0716" shows the trace view (`Logs-trace.png`) | v0.3 → Logging, errors and the Logs screen |
 
 The States board is a catalogue, not a page: each banner, dialog and card on it belongs to the screen named in its label.
@@ -138,7 +139,7 @@ Follows the spec's build order. A PR builds only the screens listed for it.
 | 10 Sentiment block | Decision drawer: Market positioning section and News flag gate row; Dashboard: News flag row in the risk budget, banner and quiet-line text; Settings → risk limits: Event flags (news flag); Insights: Positioning slice; States: news flag banner and set-flag dialog |
 | 11 Macro calendar | Settings → risk limits: Event flags (macro event gate); Decision drawer: Macro event gate row; What-if: macro event gate option; States: macro event banner |
 | 12 Limit entries | Settings → market data & paper account: taker and maker fee, Entry orders (Market / Limit); Settings → shadow strategies: Shadow B row with fill rate; States: Decision drawer footer for a limit entry (waiting, filled, unfilled) |
-| 15 Error handling, logging and Logs screen | Logs (all of it, both widths, and the trace view); the Logs item in every sidebar under Control after Readiness; States: the error boundary ("Something went wrong" with the error id, Copy and Reload) and card errors showing the error id; Needs you: the degraded item; Cycles card: an error slot links to the cycle's trace; Decision drawer: "Logs for this decision" |
+| 15 Error handling, logging and Logs screen | Logs (all of it, both widths, and the trace view); the Logs item in every sidebar under Control after Readiness; Errors: every page in `Errors.dc.html` (the static pages as files in `deploy/errors/`); card errors showing the error id; Needs you: the degraded item; Cycles card: an error slot links to the cycle's trace; Decision drawer: "Logs for this decision" |
 
 Blue **v0.2** tags in the screens and screenshots mark what v0.2 adds. They are for the
 handoff only: do not render them in the app.
