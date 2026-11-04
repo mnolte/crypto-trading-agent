@@ -76,7 +76,7 @@ for (const { path, name } of PAGES) {
     // No screen scrolls sideways at phone width.
     if ((page.viewportSize()?.width ?? 0) <= 400) {
       const scrollWidth = await page.evaluate(
-        () => document.documentElement.scrollWidth,
+        "document.documentElement.scrollWidth",
       );
       expect(scrollWidth).toBeLessThanOrEqual(391);
     }

@@ -3824,6 +3824,12 @@ select.input--sm {
 /* ------------------------------------------------------------ Phone width -- */
 
 @media (max-width: 820px) {
+  /* tokens.css declares these but .shell__aside/.ta-phonebar/.needs-chip
+     rules below it win by source order — restate them inside app.css. */
+  .ta-aside { display: none; }
+  .ta-phonebar { display: flex; }
+  .ta-needs-chip { display: none; }
+
   .shell {
     flex-wrap: wrap;
   }
@@ -3854,12 +3860,44 @@ select.input--sm {
     width: auto;
   }
 
-  .row,
+  /* .row and .risk-grid are flex-wrap:wrap; in column direction items
+     would wrap into a second column, so unwrap and give children
+     automatic height. */
+  .row {
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
   .row__main,
   .row__side,
+  .row__half {
+    flex: 0 0 auto;
+    width: 100%;
+  }
   .risk-grid {
     flex-direction: column;
-    flex: 1 1 100%;
+  }
+  .risk-col {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .insights-layout {
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+  .insights-slices,
+  .insights-cal {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .seg {
+    flex-wrap: wrap;
+  }
+
+  .page > * {
+    min-width: 0;
   }
 
   .markets-table {
