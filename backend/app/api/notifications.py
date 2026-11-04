@@ -62,6 +62,20 @@ def put_notifications(
     return settings
 
 
+# In-app toast severity per notification event (PR 14): critical toasts
+# stay until dismissed, warning and info close after 10 s.
+_TOAST_SEVERITY = {
+    "kill_switch": "critical",
+    "daily_loss": "warning",
+    "pair_stale": "warning",
+    "source_failing": "warning",
+    "model_failing": "warning",
+    "risk_control": "warning",
+    "trade": "info",
+    "review": "info",
+}
+
+
 def _send_email(settings: NotificationSettings, subject: str, body: str) -> None:
     smtp = settings.smtp
     message = EmailMessage()
@@ -104,7 +118,7 @@ class NotificationDispatcher:
         if settings.browser_enabled and channels.browser:
             key = (event, title, "browser")
             rendered, repeats = self._render_or_suppress(key, body, now)
-            if rendered is not None and await self._deliver_browser(title, rendered):
+            if rendered is not None and await self._deliver_browser(event, title, rendered):
                 self._last_sent[key] = now
                 self._record(key, now, repeats)
         if settings.email_enabled and channels.email:
@@ -155,10 +169,19 @@ class NotificationDispatcher:
         finally:
             session.close()
 
-    async def _deliver_browser(self, title: str, body: str) -> bool:
+    async def _deliver_browser(self, event: str, title: str, body: str) -> bool:
         delivered = False
+        severity = _TOAST_SEVERITY.get(event, "info")
         payload = json.dumps(
-            {"type": "alert", "data": {"title": title, "body": body}},
+            {
+                "type": "alert",
+                "data": {
+                    "event": event,
+                    "severity": severity,
+                    "title": title,
+                    "body": body,
+                },
+            },
             separators=(",", ":"),
         )
         for websocket in list(self.state.ws_clients):

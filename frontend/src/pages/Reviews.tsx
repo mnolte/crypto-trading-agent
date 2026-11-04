@@ -107,12 +107,7 @@ export function Reviews() {
   return (
     <AppShell
       title="Reviews"
-      actions={
-        <span className="card__meta">
-          Weekly review every {weeklyLabel} · morning briefing daily{" "}
-          {settings?.learning.briefing_time ?? "08:00"}
-        </span>
-      }
+      sub={`Weekly review every ${weeklyLabel} · morning briefing daily ${settings?.learning.briefing_time ?? "08:00"}`}
     >
       <div className="reviews-layout">
         <Card label="Reviews" className="reviews-list">
@@ -148,8 +143,8 @@ export function Reviews() {
                 type="button"
                 className={
                   it.id === selected
-                    ? "reviews-item reviews-item--on"
-                    : "reviews-item"
+                    ? "reviews-item ta-row reviews-item--on"
+                    : "reviews-item ta-row"
                 }
                 onClick={() => setOpenId(it.id)}
               >

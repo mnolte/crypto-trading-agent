@@ -61,8 +61,8 @@ export function AskPanel() {
               type="button"
               className={
                 c.id === conversationId
-                  ? "ask-convo ask-convo--on"
-                  : "ask-convo"
+                  ? "ask-convo ta-row ask-convo--on"
+                  : "ask-convo ta-row"
               }
               onClick={() => setConversationId(c.id)}
             >

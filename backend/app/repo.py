@@ -35,6 +35,8 @@ from app.db import (
     SettingsHistoryRow,
     SettingsRow,
     ShadowRow,
+    SkippedSlotRow,
+    StopMoveRow,
     TradeRow,
     WhatifRow,
     utcnow,
@@ -488,6 +490,38 @@ def trades_today(session: Session, account_id: int, now: datetime | None = None)
     now = now or utcnow()
     midnight_ams = now.astimezone(AMSTERDAM).replace(hour=0, minute=0, second=0, microsecond=0)
     return list_trade_rows(session, account_id, start=midnight_ams, end=now, limit=500)
+
+
+def trades_in_window(
+    session: Session, account_id: int, after: datetime, before: datetime
+) -> list[TradeRow]:
+    """Trades overlapping [after, before]: opened at or before ``before``
+    and closed at or after ``after``, oldest close first — the cycles
+    card's entry/exit bucketing source."""
+    return list(
+        session.scalars(
+            select(TradeRow)
+            .where(
+                TradeRow.account_id == account_id,
+                TradeRow.opened_at <= _utc_naive(before),
+                TradeRow.closed_at >= _utc_naive(after),
+            )
+            .order_by(TradeRow.closed_at.asc(), TradeRow.id.asc())
+        ).all()
+    )
+
+
+def positions_opened_since(session: Session, account_id: int, after: datetime) -> list[PositionRow]:
+    """Open positions whose entry falls at or after ``after`` — entries
+    that have no trade row yet because the position is still open."""
+    return list(
+        session.scalars(
+            select(PositionRow).where(
+                PositionRow.account_id == account_id,
+                PositionRow.opened_at >= _utc_naive(after),
+            )
+        ).all()
+    )
 
 
 # ------------------------------------------------------------- paper orders --
@@ -1017,6 +1051,15 @@ def unresolved_error_count(session: Session) -> int:
     )
 
 
+def list_errors_unresolved(session: Session) -> list[ErrorRow]:
+    """Every unresolved error row, oldest first — the Needs you items."""
+    return list(
+        session.scalars(
+            select(ErrorRow).where(ErrorRow.resolved_at.is_(None)).order_by(ErrorRow.first_at)
+        ).all()
+    )
+
+
 def resolve_matching_errors(session: Session, text: str, note: str) -> int:
     rows = session.scalars(
         select(ErrorRow).where(ErrorRow.resolved_at.is_(None), ErrorRow.text == text)
@@ -1093,6 +1136,8 @@ def delete_all_data(session: Session) -> None:
         WhatifRow,
         AskConversationRow,
         PaperOrderRow,
+        SkippedSlotRow,
+        StopMoveRow,
     ):
         session.execute(delete(table))
     session.commit()
@@ -1117,6 +1162,92 @@ def add_equity_snapshot(
             equity=str(equity),
             cash=str(cash),
         )
+    )
+
+
+def latest_equity_snapshot(session: Session, account_id: int) -> EquitySnapshotRow | None:
+    return session.scalar(
+        select(EquitySnapshotRow)
+        .where(EquitySnapshotRow.account_id == account_id)
+        .order_by(EquitySnapshotRow.at.desc(), EquitySnapshotRow.id.desc())
+        .limit(1)
+    )
+
+
+# ------------------------------------------------------------ skipped slots --
+
+
+def add_skipped_slot(
+    session: Session, slot_at: datetime, reason: str, at: datetime | None = None
+) -> SkippedSlotRow:
+    """Record a quarter-hour slot whose cycle never ran. The slot boundary
+    is the primary key, so a slot already recorded is left untouched."""
+    key = _utc_naive(slot_at)
+    row = session.get(SkippedSlotRow, key)
+    if row is None:
+        row = SkippedSlotRow(
+            slot_at=key,
+            reason=reason,
+            recorded_at=_utc_naive(at or utcnow()),
+        )
+        session.add(row)
+    return row
+
+
+def list_skipped_slots(
+    session: Session,
+    after: datetime | None = None,
+    before: datetime | None = None,
+) -> list[SkippedSlotRow]:
+    conds = []
+    if after is not None:
+        conds.append(SkippedSlotRow.slot_at >= _utc_naive(after))
+    if before is not None:
+        conds.append(SkippedSlotRow.slot_at <= _utc_naive(before))
+    return list(
+        session.scalars(select(SkippedSlotRow).where(*conds).order_by(SkippedSlotRow.slot_at)).all()
+    )
+
+
+# ---------------------------------------------------------------- stop moves --
+
+
+def add_stop_move(
+    session: Session,
+    account_id: int,
+    pair: str,
+    at: datetime,
+    old_stop: Decimal,
+    new_stop: Decimal,
+    reason: str,
+) -> StopMoveRow:
+    row = StopMoveRow(
+        account_id=account_id,
+        pair=pair,
+        at=_utc_naive(at),
+        old_stop=str(old_stop),
+        new_stop=str(new_stop),
+        reason=reason,
+    )
+    session.add(row)
+    return row
+
+
+def list_stop_moves(
+    session: Session,
+    account_id: int,
+    after: datetime | None = None,
+    before: datetime | None = None,
+) -> list[StopMoveRow]:
+    conds = [StopMoveRow.account_id == account_id]
+    if after is not None:
+        conds.append(StopMoveRow.at >= _utc_naive(after))
+    if before is not None:
+        conds.append(StopMoveRow.at <= _utc_naive(before))
+    return list(
+        session.scalars(
+            select(StopMoveRow).where(*conds).order_by(StopMoveRow.at.asc(), StopMoveRow.id.asc())
+        ).all()
     )
 
 

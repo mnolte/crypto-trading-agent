@@ -77,6 +77,18 @@ export type AskConversationOut = components["schemas"]["AskConversationOut"];
 export type OutcomeStatsOut = components["schemas"]["OutcomeStatsOut"];
 export type OutcomeStatsRow = components["schemas"]["OutcomeStatsRow"];
 
+export type NeedsItem = components["schemas"]["NeedsItem"];
+export type HealthItem = components["schemas"]["HealthItem"];
+export type Needs = components["schemas"]["Needs"];
+export type CycleSlot = components["schemas"]["CycleSlot"];
+export type CycleSlotState = CycleSlot["state"];
+export type CycleSlotChange = components["schemas"]["CycleSlotChange"];
+export type CycleGroup = components["schemas"]["CycleGroup"];
+export type CycleDecisions = components["schemas"]["CycleDecisions"];
+export type MissedRange = components["schemas"]["MissedRange"];
+export type CyclesSummary = components["schemas"]["CyclesSummary"];
+export type CyclesRecent = components["schemas"]["CyclesRecent"];
+
 let localToken: string | null = null;
 
 async function fetchLocalToken(): Promise<string> {

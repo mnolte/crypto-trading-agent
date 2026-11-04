@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Literal, cast
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import repo
@@ -37,7 +38,7 @@ from app.agent.market.base import (
     drop_forming,
 )
 from app.agent.market.universe import entries_allowed, warming_up
-from app.agent.risk import BuyContext, check_buy, check_exit, update_trail
+from app.agent.risk import HUNDRED, BuyContext, check_buy, check_exit, update_trail
 from app.agent.signals import (
     PairSignals,
     aligned_correlation,
@@ -45,7 +46,7 @@ from app.agent.signals import (
     compute_tf_values,
     decision_signals,
 )
-from app.db import AccountRow, DecisionRow, PaperOrderRow, utcnow
+from app.db import AccountRow, DecisionRow, PaperOrderRow, SkippedSlotRow, utcnow
 from app.models import (
     Decision,
     Gate,
@@ -84,6 +85,11 @@ log = logging.getLogger(__name__)
 def _stale_limit_s(tf: str, settings: Settings) -> int:
     """Freshness limit: one interval plus the configured grace."""
     return TF_SECONDS[tf] + settings.market.stale_grace_s
+
+
+def slot_floor(dt: datetime) -> datetime:
+    """The quarter-hour boundary at or before ``dt`` (UTC by convention)."""
+    return dt.replace(second=0, microsecond=0, minute=(dt.minute // 15) * 15)
 
 
 def candle_age_s(candle: Candle, tf: str, now: datetime) -> float:
@@ -127,6 +133,15 @@ class Engine:
         self.cycle = 0
         self.last_cycle_at: datetime | None = None
         self.next_run_at: datetime | None = None
+        self.started_at: datetime | None = None  # last start(), "running since"
+        # Exchange clock skew, sampled once per cycle when the market client
+        # offers a time endpoint — informational only.
+        self.clock_offset_s: float | None = None
+        self.clock_offset_at: datetime | None = None
+        # The newest quarter-hour boundary already accounted for in
+        # skipped_slots, and the slot the last cycle ran in.
+        self._slot_cursor: datetime = slot_floor(self.clock())
+        self._last_ran_slot: datetime | None = None
         self.cycle_in_progress = False
         self.kill: KillInfo | None = None
         self.shock_brake_until: datetime | None = None
@@ -154,6 +169,7 @@ class Engine:
 
     async def start(self) -> None:
         """Restore kill state, then start the scheduler and the watcher."""
+        self.started_at = self.clock()
         session = self._sessions()
         try:
             self._recover_startup(session)
@@ -223,6 +239,35 @@ class Engine:
             close_at = candle.open_time + timedelta(seconds=TF_SECONDS["1h"])
             if self.clock() - close_at <= timedelta(seconds=SHOCK_WINDOW_S):
                 self._btc_window.append((close_at, candle.close))
+        self._backfill_stopped_slots(session, self.clock())
+
+    def _backfill_stopped_slots(self, session: Session, now: datetime) -> None:
+        """Mark every fully elapsed quarter-hour slot between the last
+        accounted-for boundary and now as "stopped": the app was down, so
+        those cycles were skipped, never replayed. A brand-new database
+        backfills nothing — there is no history before the first cycle."""
+        account_id = self.broker.account_id
+        latest_snap = repo.latest_equity_snapshot(session, account_id)
+        max_skipped = session.scalar(select(func.max(SkippedSlotRow.slot_at)))
+        accounted: list[datetime] = []
+        if latest_snap is not None:
+            accounted.append(slot_floor(repo.aware_utc(latest_snap.at)))
+        if max_skipped is not None:
+            accounted.append(repo.aware_utc(max_skipped))
+        if not accounted:
+            self._slot_cursor = slot_floor(now)
+            self._last_ran_slot = None
+            return
+        cursor = max(accounted)
+        offset = self._settings().cycle_offset_s
+        boundary = cursor + timedelta(seconds=CYCLE_S)
+        while boundary + timedelta(seconds=offset + CYCLE_S) <= now:
+            repo.add_skipped_slot(session, boundary, "stopped", now)
+            boundary += timedelta(seconds=CYCLE_S)
+        self._slot_cursor = slot_floor(now)
+        self._last_ran_slot = (
+            slot_floor(repo.aware_utc(latest_snap.at)) if latest_snap is not None else None
+        )
 
     async def refresh_prices(self) -> None:
         """One price pass over the active markets and held pairs.
@@ -413,11 +458,50 @@ class Engine:
         self._daily_loss_notified = False
         self._notified_throttle = ()
         self._throttle_dd = False
+        self.started_at = None
+        self.clock_offset_s = None
+        self.clock_offset_at = None
+        self._slot_cursor = slot_floor(self.clock())
+        self._last_ran_slot = None
 
     # ================================================================= loops ==
 
+    def _record_missed_slots(self, now: datetime) -> None:
+        """Record quarter-hour boundaries whose run window elapsed without
+        a cycle — "asleep" when the scheduler should have run them,
+        "paused" otherwise. Sync and best-effort: a session is opened only
+        when there is something to store, and it never raises."""
+        try:
+            offset = self._settings().cycle_offset_s
+            deadline = timedelta(seconds=offset + CYCLE_S)
+            missed: list[datetime] = []
+            boundary = self._slot_cursor + timedelta(seconds=CYCLE_S)
+            while now > boundary + deadline:
+                missed.append(boundary)
+                boundary += timedelta(seconds=CYCLE_S)
+            if not missed:
+                return
+            self._slot_cursor = missed[-1]
+            session = self._sessions()
+            try:
+                for boundary in missed:
+                    if boundary == self._last_ran_slot:
+                        continue  # the cycle ran in this slot
+                    repo.add_skipped_slot(
+                        session,
+                        boundary,
+                        "asleep" if self.status == "running" else "paused",
+                        now,
+                    )
+                session.commit()
+            finally:
+                session.close()
+        except Exception:
+            log.exception("recording missed slots failed")
+
     async def _scheduler_loop(self) -> None:
         while not self._stop.is_set():
+            self._record_missed_slots(self.clock())
             if self.status != "running":
                 await self._sleep(1)
                 continue
@@ -512,6 +596,7 @@ class Engine:
             cycle_no = self.cycle
             now = self.clock()
             self.last_cycle_at = now
+            self._last_ran_slot = slot_floor(now)
             session = self._sessions()
             try:
                 settings = self._settings()
@@ -568,6 +653,20 @@ class Engine:
                     else None
                 )
             await self._push()
+        await self._measure_clock_offset()
+
+    async def _measure_clock_offset(self) -> None:
+        """Sample the exchange clock once per cycle — information for the
+        health line only, never blocking and never raising. SimMarket has
+        no time endpoint; the guard skips it."""
+        try:
+            if getattr(self.client, "time", None) is None:
+                return
+            server_time = await self.client.time()  # type: ignore[attr-defined]
+            self.clock_offset_s = (server_time - self.clock()).total_seconds()
+            self.clock_offset_at = self.clock()
+        except Exception:
+            pass
 
     async def _record_pair_failure(self, session: Session, pair: str, exc: Exception) -> None:
         """A crashed pair still ends as a recorded HOLD — never a trade,
@@ -1471,11 +1570,30 @@ class Engine:
             if not limit_targets and target_order is not None:
                 self._cancel_order(session, target_order, now, "market position")
                 target_order = None
+            old_stop = pos.stop
             reason = check_exit(pos, price, atr, now, settings, target_is_limit=limit_targets)
             if reason is not None:
                 # Stops, time stops and every forced exit stay market.
                 await self._close_position(session, pair, price, now, reason)
                 continue
+            if pos.stop != old_stop:
+                # Breakeven and trailing move the stop without exiting —
+                # record the move so the cycles card can show it.
+                entry_fee = (
+                    settings.paper.maker_fee_pct
+                    if pos.entry_maker
+                    else settings.paper.taker_fee_pct
+                )
+                breakeven = pos.entry * (1 + (entry_fee + settings.paper.taker_fee_pct) / HUNDRED)
+                repo.add_stop_move(
+                    session,
+                    self.broker.account_id,
+                    pair,
+                    now,
+                    old_stop,
+                    pos.stop,
+                    "breakeven" if pos.stop == breakeven else "trailing",
+                )
             if limit_targets:
                 if sell_fills(price, pos.target, self._tick_size(pair)):
                     # The market traded through the resting target: it

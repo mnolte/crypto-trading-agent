@@ -118,9 +118,9 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
             <line x1="4" y1="6" x2="20" y2="6" />
             <line x1="4" y1="12" x2="20" y2="12" />
             <line x1="4" y1="18" x2="20" y2="18" />
-            <circle cx="9" cy="6" r="2" fill="var(--panel)" />
-            <circle cx="15" cy="12" r="2" fill="var(--panel)" />
-            <circle cx="7" cy="18" r="2" fill="var(--panel)" />
+            <circle cx="9" cy="6" r="2" fill="var(--ta-panel)" />
+            <circle cx="15" cy="12" r="2" fill="var(--ta-panel)" />
+            <circle cx="7" cy="18" r="2" fill="var(--ta-panel)" />
           </svg>
         ),
       },
@@ -129,22 +129,24 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
 ];
 
 /**
- * Logo, Ask button, screens grouped Monitor / Learn / Control, agent status
+ * Logo, screens grouped Monitor / Learn / Control, agent status
  * and collapse button at the bottom. Collapses to a 72 px icon rail; the
- * choice is remembered per browser.
+ * choice is remembered per browser. `ta-aside` hides it at phone width;
+ * `forceExpanded` is for the overlay menu there.
  */
 export function Sidebar({
   status,
   lastKnown,
-  onAsk,
+  forceExpanded = false,
 }: {
   status: DisplayStatus;
   lastKnown?: { status: AgentStatus; at: number };
-  onAsk?: () => void;
+  forceExpanded?: boolean;
 }) {
-  const [collapsed, setCollapsed] = useState(
+  const [storedCollapsed, setCollapsed] = useState(
     () => localStorage.getItem(COLLAPSED_KEY) === "1",
   );
+  const collapsed = storedCollapsed && !forceExpanded;
 
   useEffect(() => {
     localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
@@ -164,19 +166,6 @@ export function Sidebar({
           </div>
         )}
       </div>
-
-      <button
-        type="button"
-        aria-label="Ask the agent"
-        title="Ask the agent"
-        className="nav__item nav__item--ask"
-        onClick={onAsk}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "0 0 18px" }}>
-          <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
-        </svg>
-        {!collapsed && <span>Ask the agent</span>}
-      </button>
 
       <nav aria-label="Main" className="nav">
         {GROUPS.map((group) => (

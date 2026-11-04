@@ -1,11 +1,11 @@
 export type MeterColor = "accent" | "up" | "down" | "muted" | "info";
 
 const SEGMENT_VAR: Record<MeterColor, string> = {
-  accent: "var(--accent)",
-  up: "var(--up)",
-  down: "var(--down)",
-  muted: "var(--text-group)",
-  info: "var(--info-icon)",
+  accent: "var(--ta-accent)",
+  up: "var(--ta-positive)",
+  down: "var(--ta-negative)",
+  muted: "var(--ta-text-faint)",
+  info: "var(--ta-info)",
 };
 
 /** Progress bar for value-vs-limit displays (exposure, drawdown, risk). */

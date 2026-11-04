@@ -23,14 +23,14 @@ import { DataTable } from "./DataTable";
 const TFS: Tf[] = ["1h", "4h", "1d"];
 
 const READ_COLOR: Record<string, string> = {
-  bullish: "var(--up)",
-  trending: "var(--up)",
-  bearish: "var(--down-text)",
-  high: "var(--accent)",
-  neutral: "var(--text-soft)",
-  ranging: "var(--text-soft)",
-  low: "var(--text-soft)",
-  normal: "var(--text-soft)",
+  bullish: "var(--ta-positive)",
+  trending: "var(--ta-positive)",
+  bearish: "var(--ta-negative-text)",
+  high: "var(--ta-accent)",
+  neutral: "var(--ta-text-2)",
+  ranging: "var(--ta-text-2)",
+  low: "var(--ta-text-2)",
+  normal: "var(--ta-text-2)",
 };
 
 /**
@@ -184,7 +184,7 @@ export function DecisionDrawer({
               <div className="verdict__conf">
                 <span>confidence</span>
                 <Meter pct={decision.confidence * 100} color="up" />
-                <span className="num" style={{ color: "var(--text)" }}>
+                <span className="num" style={{ color: "var(--ta-text)" }}>
                   {decision.confidence.toFixed(2)}
                 </span>
               </div>
@@ -297,11 +297,11 @@ function PlanTile({
         style={{
           color:
             tone === "up"
-              ? "var(--up)"
+              ? "var(--ta-positive)"
               : tone === "down"
-                ? "var(--down-text)"
+                ? "var(--ta-negative-text)"
                 : tone === "warn"
-                  ? "var(--accent)"
+                  ? "var(--ta-accent)"
                   : undefined,
         }}
       >

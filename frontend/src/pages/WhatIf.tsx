@@ -103,11 +103,7 @@ export function WhatIf() {
   return (
     <AppShell
       title="What-if"
-      actions={
-        <span className="card__meta">
-          Re-runs stored history with different settings
-        </span>
-      }
+      sub="Re-runs stored history with different settings · never trades"
     >
       <div className="whatif-layout">
         <Card title="Scenario" heading="section" className="whatif-form">
@@ -396,17 +392,17 @@ function TwoLineChart({
       height: 300,
       layout: {
         background: { color: "transparent" },
-        textColor: css("--text-muted"),
-        fontFamily: css("--font-num"),
+        textColor: css("--ta-text-muted"),
+        fontFamily: css("--ta-font-mono"),
         fontSize: 11,
         attributionLogo: false,
       },
       grid: {
-        vertLines: { color: css("--series-grid") },
-        horzLines: { color: css("--series-grid") },
+        vertLines: { color: css("--ta-chart-grid") },
+        horzLines: { color: css("--ta-chart-grid") },
       },
-      rightPriceScale: { borderColor: css("--line") },
-      timeScale: { borderColor: css("--line"), timeVisible: true },
+      rightPriceScale: { borderColor: css("--ta-border") },
+      timeScale: { borderColor: css("--ta-border"), timeVisible: true },
     });
     const toData = (pts: { time: string; value: number | null }[]) =>
       pts
@@ -417,14 +413,14 @@ function TwoLineChart({
         }));
     chart
       .addSeries(LineSeries, {
-        color: css("--accent"),
+        color: css("--ta-accent"),
         lineWidth: 2,
         priceLineVisible: false,
       })
       .setData(toData(scenario));
     chart
       .addSeries(LineSeries, {
-        color: css("--text-muted"),
+        color: css("--ta-text-muted"),
         lineWidth: 1,
         priceLineVisible: false,
       })

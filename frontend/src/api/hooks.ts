@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { pushToast } from "../lib/toasts";
 import {
   api,
   post,
@@ -11,6 +12,7 @@ import {
   type BriefingListOut,
   type CandleFeed,
   type CostsOut,
+  type CyclesRecent,
   type DecisionDetail,
   type DecisionListOut,
   type EntryPause,
@@ -22,6 +24,7 @@ import {
   type LlmCallDetail,
   type LlmCallListOut,
   type MarketOut,
+  type Needs,
   type NotificationSettings,
   type OutcomeScorecardOut,
   type OutcomeStatsOut,
@@ -140,6 +143,24 @@ export function useTrades(from?: string, end?: string) {
     queryKey: ["trades", from ?? "", end ?? ""],
     queryFn: () => api<TradeListOut>(`/api/trades?${qs}`),
     staleTime: 30_000,
+  });
+}
+
+/** The Needs you list (items + health line); the snapshot carries it too. */
+export function useNeeds() {
+  return useQuery({
+    queryKey: ["needs"],
+    queryFn: () => api<Needs>("/api/needs"),
+    staleTime: 15_000,
+  });
+}
+
+/** Rolling quarter-hour slots, summary and grouped decisions (cycles card). */
+export function useCyclesRecent(hours = 24) {
+  return useQuery({
+    queryKey: ["cycles-recent", hours],
+    queryFn: () => api<CyclesRecent>(`/api/cycles/recent?hours=${hours}`),
+    staleTime: 15_000,
   });
 }
 
@@ -513,7 +534,14 @@ export function useSnapshotStream(): { connected: boolean } {
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data as string) as {
           type: string;
-          data?: Snapshot | { title: string; body: string };
+          data?:
+            | Snapshot
+            | {
+                title: string;
+                body: string;
+                event?: string;
+                severity?: "critical" | "warning" | "info";
+              };
         };
         if (message.type === "snapshot" && message.data) {
           setConnected(true);
@@ -526,11 +554,20 @@ export function useSnapshotStream(): { connected: boolean } {
         } else if (
           message.type === "alert" &&
           message.data &&
-          "title" in message.data &&
-          "Notification" in window &&
-          Notification.permission === "granted"
+          "title" in message.data
         ) {
-          new Notification(message.data.title, { body: message.data.body });
+          pushToast({
+            event: message.data.event ?? "alert",
+            severity: message.data.severity ?? "info",
+            title: message.data.title,
+            body: message.data.body,
+          });
+          if (
+            "Notification" in window &&
+            Notification.permission === "granted"
+          ) {
+            new Notification(message.data.title, { body: message.data.body });
+          }
         }
       };
       ws.onclose = () => {

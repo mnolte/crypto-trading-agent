@@ -170,8 +170,18 @@ export function Settings() {
     [snapshot],
   );
 
-  const actions = (
-    <>
+  const unsavedCount =
+    draft && original
+      ? JSON.stringify(draft) === JSON.stringify(original)
+        ? 0
+        : 1
+      : 0;
+
+  const unsavedBar = dirty && (
+    <div role="region" aria-label="Unsaved changes" className="unsaved-bar">
+      <span className="unsaved-bar__text">
+        {unsavedCount} unsaved change{unsavedCount === 1 ? "" : "s"}
+      </span>
       <Button variant="secondary" disabled={!dirty} onClick={discard}>
         Discard
       </Button>
@@ -193,11 +203,15 @@ export function Settings() {
       >
         {save.isPending ? "Saving…" : "Save · applies next cycle"}
       </Button>
-    </>
+    </div>
   );
 
   return (
-    <AppShell title="Settings" actions={actions} controls={false}>
+    <AppShell
+      title="Settings"
+      sub="Changes apply at the next cycle · every save is logged in History"
+      controls={false}
+    >
       <div className="settings-grid">
         {saveError && (
           <p className="settings-error" role="alert">
@@ -253,14 +267,14 @@ export function Settings() {
           <div className="kv-box">
             <div className="kv">
               <span>
-                <span className="num" style={{ color: "var(--text)" }}>
+                <span className="num" style={{ color: "var(--ta-text)" }}>
                   {draft?.active_markets.length ?? 0}
                 </span>{" "}
                 active
               </span>
               <span>
                 up to{" "}
-                <span className="num" style={{ color: "var(--text)" }}>
+                <span className="num" style={{ color: "var(--ta-text)" }}>
                   {draft?.model.daily_call_budget ?? "—"}
                 </span>{" "}
                 model calls/day
@@ -289,7 +303,7 @@ export function Settings() {
                   minHeight: 44,
                   display: "flex",
                   alignItems: "center",
-                  color: "var(--text-soft)",
+                  color: "var(--ta-text-2)",
                 }}
               >
                 Every 15 minutes, {draft?.cycle_offset_s ?? 45} s after the
@@ -452,7 +466,7 @@ export function Settings() {
                   ? `${formatEur(snapshot.usage.cost_month_eur)} of ${formatEur(snapshot.usage.cap_eur)}`
                   : ""}
               </span>
-              <span className="card__meta" style={{ fontSize: "var(--fs-caption)" }}>
+              <span className="card__meta" style={{ fontSize: "var(--ta-text-sm)" }}>
                 {costs && Object.keys(costs.by_feature).length > 0
                   ? `${Object.entries(costs.by_feature)
                       .map(
@@ -805,7 +819,7 @@ export function Settings() {
                     </Button>
                     <Button
                       size="sm"
-                      style={{ color: "var(--down-text)" }}
+                      style={{ color: "var(--ta-negative-text)" }}
                       onClick={() => stopShadow.mutate(s.id)}
                     >
                       Stop
@@ -865,6 +879,7 @@ export function Settings() {
             logged.
           </p>
         </Card>
+        {unsavedBar}
       </div>
 
       {resetOpen && (
@@ -1190,7 +1205,7 @@ function SourceRow({ source }: { source: SourceOut }) {
   return (
     <tr>
       <td className="text--strong">{source.name}</td>
-      <td style={{ color: "var(--text-soft)" }}>{source.purpose}</td>
+      <td style={{ color: "var(--ta-text-2)" }}>{source.purpose}</td>
       <td>
         {needsKey ? (
           editing || !source.key_set ? (

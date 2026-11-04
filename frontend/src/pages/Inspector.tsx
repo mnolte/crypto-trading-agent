@@ -160,7 +160,10 @@ export function Inspector() {
   };
 
   return (
-    <AppShell title="LLM inspector">
+    <AppShell
+      title="LLM inspector"
+      sub="Every model call since the start, with prompt and response"
+    >
       <Card title="Outcome scorecard" label="Outcome scorecard">
         {(scorecard?.items.length ?? 0) > 0 ? (
           <div className="scorecard-grid">
@@ -275,7 +278,7 @@ export function Inspector() {
                   <li key={item.id}>
                     <button
                       type="button"
-                      className="call-item call-item--skipped"
+                      className="call-item ta-row call-item--skipped"
                       onClick={() => select(item)}
                     >
                       <span>{item.pair} · no call, Rules pre-filter held</span>
@@ -286,7 +289,7 @@ export function Inspector() {
                   <li key={item.id}>
                     <button
                       type="button"
-                      className={`call-item${
+                      className={`call-item ta-row${
                         item.id === selectedId ? " call-item--selected" : ""
                       }`}
                       aria-current={item.id === selectedId}
@@ -314,9 +317,9 @@ export function Inspector() {
                           style={{
                             color:
                               item.verdict === "correct"
-                                ? "var(--up)"
+                                ? "var(--ta-positive)"
                                 : item.verdict === "wrong"
-                                  ? "var(--down-text)"
+                                  ? "var(--ta-negative-text)"
                                   : undefined,
                           }}
                         >
@@ -404,10 +407,10 @@ function CallDetail({
 
   const verdictColor =
     detail.verdict === "correct"
-      ? "var(--up)"
+      ? "var(--ta-positive)"
       : detail.verdict === "wrong"
-        ? "var(--down-text)"
-        : "var(--text-soft)";
+        ? "var(--ta-negative-text)"
+        : "var(--ta-text-2)";
 
   return (
     <section className="inspector__detail">
@@ -483,7 +486,7 @@ function CallDetail({
           </div>
         </div>
         {detail.verdict && (
-          <div className="num" style={{ color: verdictColor, fontSize: "var(--fs-small)" }}>
+          <div className="num" style={{ color: verdictColor, fontSize: "var(--ta-text-md)" }}>
             Marked {detail.verdict}
             {detail.verdict_at ? ` at ${formatTime(detail.verdict_at)}` : ""}
           </div>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { UTCTimestamp } from "lightweight-charts";
 import type { TradeOut } from "../api/client";
-import { usePerformance, useTrades } from "../api/hooks";
+import { usePerformance, useSnapshot, useTrades } from "../api/hooks";
 import { AppShell } from "../components/AppShell";
 import { Card } from "../components/Card";
 import { PerfChart, type LinePoint } from "../components/Charts";
@@ -13,6 +13,7 @@ import { KpiTile } from "../components/KpiTile";
 import { SegmentedControl } from "../components/SegmentedControl";
 import {
   formatDateTime,
+  formatDayLong,
   formatEur,
   formatPct,
   formatPrice,
@@ -53,6 +54,19 @@ export function Performance() {
 
   const { data: perf } = usePerformance(from, end);
   const { data: trades } = useTrades(from, end);
+  const { data: snapshot } = useSnapshot();
+  const accountDays = snapshot?.account_started_at
+    ? Math.max(
+        1,
+        Math.ceil(
+          (Date.now() - new Date(snapshot.account_started_at).getTime()) /
+            86_400_000,
+        ),
+      )
+    : null;
+  const sub = snapshot?.account_started_at
+    ? `Paper account #${snapshot.account_id} since ${formatDayLong(snapshot.account_started_at)} · ${accountDays} days`
+    : `Paper account #${snapshot?.account_id ?? 1}`;
 
   // Deep link: /performance?trade=<id> scrolls to and highlights the row.
   const focusTrade = useSearchParams()[0].get("trade");
@@ -80,9 +94,8 @@ export function Performance() {
   const t = perf?.totals;
 
   return (
-    <AppShell title="Performance">
-      <div className="chart-head">
-        <span className="card__meta">paper account</span>
+    <AppShell title="Performance" sub={sub}>
+      <div className="page-controls">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <SegmentedControl
             label="Period"
@@ -120,7 +133,7 @@ export function Performance() {
         <KpiTile
           label="Return"
           value={
-            <span style={{ color: t?.return_pct != null && t.return_pct < 0 ? "var(--down-text)" : "var(--up)" }}>
+            <span style={{ color: t?.return_pct != null && t.return_pct < 0 ? "var(--ta-negative-text)" : "var(--ta-positive)" }}>
               {t?.return_pct != null ? `${formatSigned(t.return_pct)}%` : "—"}
             </span>
           }
@@ -136,7 +149,7 @@ export function Performance() {
             t?.vs_btc_pct != null ? (
               <span
                 style={{
-                  color: t.vs_btc_pct >= 0 ? "var(--up)" : "var(--down-text)",
+                  color: t.vs_btc_pct >= 0 ? "var(--ta-positive)" : "var(--ta-negative-text)",
                 }}
               >
                 {formatSigned(t.vs_btc_pct)} pts
@@ -150,7 +163,7 @@ export function Performance() {
         <KpiTile
           label="Max drawdown"
           value={
-            <span style={{ color: "var(--down-text)" }}>
+            <span style={{ color: "var(--ta-negative-text)" }}>
               {t?.max_drawdown_pct != null
                 ? `−${Math.abs(t.max_drawdown_pct).toFixed(1)}%`
                 : "—"}
@@ -197,7 +210,7 @@ export function Performance() {
               style={{
                 width: 18,
                 height: 3,
-                background: "var(--accent)",
+                background: "var(--ta-accent)",
                 borderRadius: 2,
               }}
             />
@@ -205,7 +218,7 @@ export function Performance() {
           </span>
           <span className="chart-legend__item">
             <span
-              style={{ width: 18, borderTop: "2px dashed var(--text-muted)" }}
+              style={{ width: 18, borderTop: "2px dashed var(--ta-text-muted)" }}
             />
             same euros held in BTC
           </span>
@@ -230,7 +243,7 @@ export function Performance() {
               display: "flex",
               justifyContent: "space-between",
               fontSize: 12,
-              color: "var(--text-muted)",
+              color: "var(--ta-text-muted)",
             }}
           >
             <span>{formatDateTime(perf.start)}</span>
@@ -260,8 +273,8 @@ export function Performance() {
                     style={{
                       color:
                         Number(p.realised_eur) >= 0
-                          ? "var(--up)"
-                          : "var(--down-text)",
+                          ? "var(--ta-positive)"
+                          : "var(--ta-negative-text)",
                     }}
                   >
                     {formatSignedEur(p.realised_eur)}
@@ -320,7 +333,7 @@ function TradeRow({ trade, focus }: { trade: TradeOut; focus?: boolean }) {
   return (
     <tr id={`trade-${trade.id}`} className={focus ? "row--focus" : undefined}>
       <td className="text--strong">{trade.pair}</td>
-      <td className="num" style={{ color: "var(--text-soft)", fontFamily: "var(--font-num)" }}>
+      <td className="num" style={{ color: "var(--ta-text-2)", fontFamily: "var(--ta-font-mono)" }}>
         {formatDateTime(trade.opened_at)} → {formatDateTime(trade.closed_at)}
       </td>
       <td className="num">{formatPrice(trade.entry)}</td>
@@ -328,7 +341,7 @@ function TradeRow({ trade, focus }: { trade: TradeOut; focus?: boolean }) {
       <td className="num">{formatEur(trade.fee_eur)}</td>
       <td
         className="num"
-        style={{ color: pnl >= 0 ? "var(--up)" : "var(--down-text)" }}
+        style={{ color: pnl >= 0 ? "var(--ta-positive)" : "var(--ta-negative-text)" }}
       >
         {formatSignedEur(trade.realised_eur)} · {formatSigned(trade.realised_r)}R
       </td>

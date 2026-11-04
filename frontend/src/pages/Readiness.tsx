@@ -1,30 +1,24 @@
 import type { ReadinessRowOut } from "../api/client";
-import { useReadiness } from "../api/hooks";
+import { useReadiness, useSnapshot } from "../api/hooks";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { DataTable } from "../components/DataTable";
 import { EmptyState } from "../components/EmptyState";
 import { Meter } from "../components/Meter";
-import { formatDateTime } from "../lib/format";
+import { formatDayShort } from "../lib/format";
 
 /** The live-readiness checklist: nine criteria, all computed in code. The
  * Live switch stays visibly disabled in v0.1 either way. */
 export function Readiness() {
   const { data } = useReadiness();
+  const { data: snapshot } = useSnapshot();
+  const startedAt = snapshot?.account_started_at;
+  const sub = startedAt
+    ? `Paper account #${snapshot?.account_id ?? data?.account_id ?? 1} since ${formatDayShort(startedAt)} · checked every hour`
+    : "Checked every hour";
   return (
-    <AppShell
-      title="Live readiness"
-      actions={
-        data && (
-          <span className="card__meta">
-            Paper account #{data.account_id} since{" "}
-            {formatDateTime(data.account_started_at)} · checked{" "}
-            {formatDateTime(data.checked_at)}
-          </span>
-        )
-      }
-    >
+    <AppShell title="Live readiness" sub={sub}>
       {data ? (
         <>
           <div className="row">
@@ -107,13 +101,13 @@ function ProgressRing({ met, total }: { met: number; total: number }) {
       aria-label={`${met} of ${total} criteria met`}
       className="readiness-ring"
     >
-      <circle cx="56" cy="56" r={r} fill="none" stroke="var(--line)" strokeWidth="10" />
+      <circle cx="56" cy="56" r={r} fill="none" stroke="var(--ta-border)" strokeWidth="10" />
       <circle
         cx="56"
         cy="56"
         r={r}
         fill="none"
-        stroke="var(--accent)"
+        stroke="var(--ta-accent)"
         strokeWidth="10"
         strokeLinecap="round"
         strokeDasharray={`${(circ * met) / total} ${circ}`}
