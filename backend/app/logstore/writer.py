@@ -68,6 +68,9 @@ class LogStore:
         self.retry_s = retry_s
         self.queue = LogQueue(queue_size)
         self.clock = clock or (lambda: datetime.now(UTC))
+        # Called from the writer thread for every WARNING-or-higher line
+        # after a batch commits — the app wires it to the WS "logs" topic.
+        self.on_line: Callable[[dict[str, Any]], None] | None = None
         self._conn: sqlite3.Connection | None = None
         self._conn_lock = threading.Lock()  # conn is writer-only, but close() races
         self._fb_lock = threading.Lock()
@@ -184,6 +187,13 @@ class LogStore:
             with self._conn_lock:
                 conn = self._ensure_conn()
                 self._insert_batch(conn, batch)
+            if self.on_line is not None:
+                for line in batch:
+                    if int(line.get("levelno") or 0) >= logging.WARNING:
+                        try:
+                            self.on_line(line)
+                        except Exception:  # noqa: BLE001, S110 - a push must never kill the writer
+                            pass
         except sqlite3.Error as exc:
             self._broken = True
             self._next_probe = time.monotonic() + self.retry_s

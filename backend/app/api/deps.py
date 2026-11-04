@@ -18,7 +18,7 @@ import secrets
 from dataclasses import dataclass, field
 from datetime import timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlparse
 
 from fastapi import Header, HTTPException, Request, WebSocket
@@ -161,6 +161,7 @@ class AppState:
     broker: PaperBroker | None = None
     agent_engine: AgentEngine | None = None
     shutting_down: bool = False
+    log_store: Any = None
 
 
 def build_market_client(settings: Settings, sources: SourceRegistry) -> MarketClient:

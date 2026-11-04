@@ -8,6 +8,7 @@ later PRs; exactly one engine instance may run per database.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import signal
 import sqlite3
@@ -15,6 +16,7 @@ import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import timedelta
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -41,6 +43,7 @@ from app.agent.outcomes import outcome_loop
 from app.api import context as context_routes
 from app.api import dashboard as dashboard_routes
 from app.api import deps, errors, evidence, inspector, notifications, routes, screens, ws
+from app.api import logs as logs_routes
 from app.api import sources as source_routes
 from app.api import understanding as understanding_routes
 from app.api.deps import (
@@ -148,6 +151,28 @@ def _unclean_start(env: EnvConfig) -> None:
             )
     except SQLAlchemyError:
         pass  # a missing/legacy whatif table is not worth blocking startup
+
+
+def _wire_log_push(state: AppState, store: Any) -> None:
+    """WARNING-and-up lines go out live on the WS "logs" topic — the
+    writer thread hands them to the loop thread-safely."""
+    loop = asyncio.get_running_loop()
+
+    def push(line: dict[str, Any]) -> None:
+        if not state.ws_clients:
+            return
+
+        async def send() -> None:
+            payload = '{"type":"logs","data":' + json.dumps(line, default=str) + "}"
+            for client in list(state.ws_clients):
+                try:
+                    await client.send_text(payload)
+                except Exception:  # noqa: BLE001 - a closed socket shows as any error
+                    state.ws_clients.discard(client)
+
+        asyncio.run_coroutine_threadsafe(send(), loop)
+
+    store.on_line = push
 
 
 def _install_sigint(app: FastAPI) -> None:
@@ -297,6 +322,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             status="paused",
         )
         app.state.app_state = state
+        state.log_store = logstore.current()
+        if state.log_store is not None:
+            _wire_log_push(state, state.log_store)
         # Paper account + engine: positions are restored from the database,
         # pending decisions from before the restart are marked expired, and
         # an unacknowledged kill restores the Killed state. Always paused.
@@ -473,6 +501,7 @@ def create_app() -> FastAPI:
     app.include_router(understanding_routes.router)
     app.include_router(evidence.router)
     app.include_router(notifications.router)
+    app.include_router(logs_routes.router)
     app.include_router(ws.router)
     if FRONTEND_DIST.is_dir():
         app.mount("/", SpaStaticFiles(directory=FRONTEND_DIST, html=True), name="ui")

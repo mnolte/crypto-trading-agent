@@ -747,6 +747,47 @@
         "title": "CheckOut",
         "type": "object"
       },
+      "ClientReport": {
+        "properties": {
+          "component": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Component"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "level": {
+            "default": "error",
+            "title": "Level",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "ClientReport",
+        "type": "object"
+      },
       "ContextOut": {
         "properties": {
           "fetched_at": {
@@ -3170,6 +3211,59 @@
         "title": "LlmCallVerdictIn",
         "type": "object"
       },
+      "LoggingSettings": {
+        "description": "The log store's knobs \u2014 every value the spec makes configurable.",
+        "properties": {
+          "backtest_debug": {
+            "default": false,
+            "title": "Backtest Debug",
+            "type": "boolean"
+          },
+          "console_level": {
+            "default": "INFO",
+            "enum": [
+              "DEBUG",
+              "INFO",
+              "WARNING",
+              "ERROR",
+              "CRITICAL"
+            ],
+            "title": "Console Level",
+            "type": "string"
+          },
+          "keep_days": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "default": {
+              "CRITICAL": 365,
+              "DEBUG": 7,
+              "ERROR": 365,
+              "INFO": 30,
+              "WARNING": 180
+            },
+            "title": "Keep Days",
+            "type": "object"
+          },
+          "library_debug": {
+            "default": false,
+            "title": "Library Debug",
+            "type": "boolean"
+          },
+          "max_db_mb": {
+            "default": 2000,
+            "title": "Max Db Mb",
+            "type": "integer"
+          },
+          "queue_size": {
+            "default": 20000,
+            "title": "Queue Size",
+            "type": "integer"
+          }
+        },
+        "title": "LoggingSettings",
+        "type": "object"
+      },
       "MarketOut": {
         "properties": {
           "active": {
@@ -5178,6 +5272,24 @@
         "title": "ResolveErrorIn",
         "type": "object"
       },
+      "ReviewBody": {
+        "properties": {
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "ReviewBody",
+        "type": "object"
+      },
       "RiskBudget": {
         "properties": {
           "correlated_detail": {
@@ -5929,6 +6041,23 @@
               "weekly_review": "mon_08"
             }
           },
+          "logging": {
+            "$ref": "#/components/schemas/LoggingSettings",
+            "default": {
+              "backtest_debug": false,
+              "console_level": "INFO",
+              "keep_days": {
+                "CRITICAL": 365,
+                "DEBUG": 7,
+                "ERROR": 365,
+                "INFO": 30,
+                "WARNING": 180
+              },
+              "library_debug": false,
+              "max_db_mb": 2000,
+              "queue_size": 20000
+            }
+          },
           "market": {
             "$ref": "#/components/schemas/MarketSettings-Input",
             "default": {
@@ -6083,6 +6212,23 @@
             "title": "Schema Version",
             "type": "integer"
           },
+          "storage": {
+            "$ref": "#/components/schemas/StorageSettings",
+            "default": {
+              "shutdown_grace_seconds": 60
+            }
+          },
+          "timeouts": {
+            "$ref": "#/components/schemas/TimeoutSettings",
+            "default": {
+              "bitvavo_rest_s": 10.0,
+              "collector_s": 10.0,
+              "keyring_s": 5.0,
+              "openai_s": 30.0,
+              "smtp_s": 15.0,
+              "stream_read_s": 60.0
+            }
+          },
           "ui": {
             "$ref": "#/components/schemas/UiSettings-Input",
             "default": {
@@ -6160,6 +6306,23 @@
               "plain_language": true,
               "quiet_line": true,
               "weekly_review": "mon_08"
+            }
+          },
+          "logging": {
+            "$ref": "#/components/schemas/LoggingSettings",
+            "default": {
+              "backtest_debug": false,
+              "console_level": "INFO",
+              "keep_days": {
+                "CRITICAL": 365,
+                "DEBUG": 7,
+                "ERROR": 365,
+                "INFO": 30,
+                "WARNING": 180
+              },
+              "library_debug": false,
+              "max_db_mb": 2000,
+              "queue_size": 20000
             }
           },
           "market": {
@@ -6315,6 +6478,23 @@
             "default": 1,
             "title": "Schema Version",
             "type": "integer"
+          },
+          "storage": {
+            "$ref": "#/components/schemas/StorageSettings",
+            "default": {
+              "shutdown_grace_seconds": 60
+            }
+          },
+          "timeouts": {
+            "$ref": "#/components/schemas/TimeoutSettings",
+            "default": {
+              "bitvavo_rest_s": 10.0,
+              "collector_s": 10.0,
+              "keyring_s": 5.0,
+              "openai_s": 30.0,
+              "smtp_s": 15.0,
+              "stream_read_s": 60.0
+            }
           },
           "ui": {
             "$ref": "#/components/schemas/UiSettings-Output",
@@ -7089,6 +7269,17 @@
         "title": "SourceUpdateIn",
         "type": "object"
       },
+      "StorageSettings": {
+        "properties": {
+          "shutdown_grace_seconds": {
+            "default": 60,
+            "title": "Shutdown Grace Seconds",
+            "type": "integer"
+          }
+        },
+        "title": "StorageSettings",
+        "type": "object"
+      },
       "Throttle": {
         "properties": {
           "lifts_when": {
@@ -7112,6 +7303,43 @@
           "lifts_when"
         ],
         "title": "Throttle",
+        "type": "object"
+      },
+      "TimeoutSettings": {
+        "description": "One configured timeout per external call \u2014 never a literal at the\ncall site.",
+        "properties": {
+          "bitvavo_rest_s": {
+            "default": 10,
+            "title": "Bitvavo Rest S",
+            "type": "number"
+          },
+          "collector_s": {
+            "default": 10,
+            "title": "Collector S",
+            "type": "number"
+          },
+          "keyring_s": {
+            "default": 5,
+            "title": "Keyring S",
+            "type": "number"
+          },
+          "openai_s": {
+            "default": 30,
+            "title": "Openai S",
+            "type": "number"
+          },
+          "smtp_s": {
+            "default": 15,
+            "title": "Smtp S",
+            "type": "number"
+          },
+          "stream_read_s": {
+            "default": 60,
+            "title": "Stream Read S",
+            "type": "number"
+          }
+        },
+        "title": "TimeoutSettings",
         "type": "object"
       },
       "TradeListOut": {
@@ -9978,6 +10206,625 @@
           }
         },
         "summary": "Set Verdict"
+      }
+    },
+    "/api/logs": {
+      "get": {
+        "operationId": "list_logs_api_logs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "level",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Level"
+            }
+          },
+          {
+            "in": "query",
+            "name": "component",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Component"
+            }
+          },
+          {
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event"
+            }
+          },
+          {
+            "in": "query",
+            "name": "logger",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Logger"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pair",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pair"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cycle_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cycle Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "request_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Request Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "task",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Task"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Logs Api Logs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Logs",
+        "tags": [
+          "logs"
+        ]
+      }
+    },
+    "/api/logs/client": {
+      "post": {
+        "description": "The frontend reports errors and warnings here \u2014 at most ten a\nminute, then 429 with Retry-After.",
+        "operationId": "client_report_api_logs_client_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientReport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Client Report Api Logs Client Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Client Report",
+        "tags": [
+          "logs"
+        ]
+      }
+    },
+    "/api/logs/events": {
+      "get": {
+        "operationId": "events_api_logs_events_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Events Api Logs Events Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Events",
+        "tags": [
+          "logs"
+        ]
+      }
+    },
+    "/api/logs/export.jsonl": {
+      "get": {
+        "operationId": "export_jsonl_api_logs_export_jsonl_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "day",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Day"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Jsonl",
+        "tags": [
+          "logs"
+        ]
+      }
+    },
+    "/api/logs/problems": {
+      "get": {
+        "operationId": "problems_api_logs_problems_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Problems Api Logs Problems Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Problems",
+        "tags": [
+          "logs"
+        ]
+      }
+    },
+    "/api/logs/problems/{fingerprint}/review": {
+      "post": {
+        "operationId": "review_problem_api_logs_problems__fingerprint__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fingerprint",
+            "required": true,
+            "schema": {
+              "title": "Fingerprint",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Problem Api Logs Problems  Fingerprint  Review Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Problem",
+        "tags": [
+          "logs"
+        ]
+      }
+    },
+    "/api/logs/summary": {
+      "get": {
+        "operationId": "summary_api_logs_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Summary Api Logs Summary Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Summary",
+        "tags": [
+          "logs"
+        ]
+      }
+    },
+    "/api/logs/{line_id}": {
+      "get": {
+        "operationId": "get_line_api_logs__line_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "line_id",
+            "required": true,
+            "schema": {
+              "title": "Line Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Line Api Logs  Line Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Line",
+        "tags": [
+          "logs"
+        ]
+      }
+    },
+    "/api/logs/{line_id}/around": {
+      "get": {
+        "operationId": "around_line_api_logs__line_id__around_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "line_id",
+            "required": true,
+            "schema": {
+              "title": "Line Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Around Line Api Logs  Line Id  Around Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Around Line",
+        "tags": [
+          "logs"
+        ]
       }
     },
     "/api/markets": {
