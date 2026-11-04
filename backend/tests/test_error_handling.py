@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 import app.main
 from app import tasks as tasks_mod
+from app.api.deps import AppState
 from app.config import EnvConfig
 from app.db import make_engine, run_migrations
 
@@ -27,8 +28,8 @@ def _reset_crash_state() -> None:
     tasks_mod.crash_loops.clear()
 
 
-def _state(client: TestClient) -> object:
-    return cast(FastAPI, client.app).state.app_state
+def _state(client: TestClient) -> AppState:
+    return cast(AppState, cast(FastAPI, client.app).state.app_state)
 
 
 async def test_spawn_supervisor_restarts_a_crashed_task() -> None:
@@ -100,7 +101,7 @@ def test_global_hooks_log_uncaught(monkeypatch: pytest.MonkeyPatch) -> None:
     sys.excepthook(RuntimeError, exc, exc.__traceback__)
     threading.excepthook(
         threading.ExceptHookArgs(
-            (RuntimeError, exc, exc.__traceback__, None),  # type: ignore[arg-type]
+            (RuntimeError, exc, exc.__traceback__, None),
         )
     )
     events = [
