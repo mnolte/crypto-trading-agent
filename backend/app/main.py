@@ -8,19 +8,29 @@ later PRs; exactly one engine instance may run per database.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import signal
+import sqlite3
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
+from types import FrameType
+from typing import Any
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import select, text
 from sqlalchemy.engine import Engine as DbEngine
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 from starlette.types import Scope
 
-from app import repo
+from app import logstore, repo
+from app import tasks as tasks_mod
 from app.agent.broker.paper import PaperBroker
 from app.agent.deciders.openai_decider import OpenAIDecider
 from app.agent.deciders.rules import RulesDecider
@@ -33,7 +43,8 @@ from app.agent.market.universe import (
 from app.agent.outcomes import outcome_loop
 from app.api import context as context_routes
 from app.api import dashboard as dashboard_routes
-from app.api import evidence, inspector, notifications, routes, screens, ws
+from app.api import deps, errors, evidence, inspector, notifications, routes, screens, ws
+from app.api import logs as logs_routes
 from app.api import sources as source_routes
 from app.api import understanding as understanding_routes
 from app.api.deps import (
@@ -42,20 +53,52 @@ from app.api.deps import (
     build_market_client,
     generate_local_token,
 )
-from app.config import REPO_ROOT, get_env
+from app.config import REPO_ROOT, EnvConfig, get_env, get_secret
 from app.context.collector import ContextCollector
 from app.context.scheduler import context_loop
-from app.db import EngineLock, MarketRow, make_engine, make_session_factory, run_migrations, utcnow
+from app.db import (
+    EngineLock,
+    ErrorRow,
+    MarketRow,
+    make_engine,
+    make_session_factory,
+    run_migrations,
+    utcnow,
+)
 from app.features import briefings as briefings_mod
 from app.features.shadows import ShadowRunner
-from app.operations import backup_loop, configure_logging
-from app.sources import SourceRegistry
+from app.logstore.record import fingerprint
+from app.operations import backup_loop
+from app.sources import SOURCES, SourceRegistry
 
 log = logging.getLogger(__name__)
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 
 SOURCE_RECOVERY_RESOLVE_S = 3600
+EMAIL_SHUTDOWN_GRACE_S = 5.0
+CHECKPOINT_RETRY_S = 5.0
+# Strong refs for in-flight shutdown-announce sends; done callbacks drop them.
+_announce_tasks: set[asyncio.Task[None]] = set()
+
+
+def _interrupt_running_runs(eng: DbEngine) -> int:
+    """What-if runs still 'running' are marked interrupted — their work
+    cannot continue on a new process. A missing/legacy whatif table is
+    not worth blocking startup or shutdown."""
+    try:
+        with eng.begin() as conn:
+            return (
+                conn.execute(
+                    text(
+                        "UPDATE whatif_scenarios SET status = 'interrupted' "
+                        "WHERE status = 'running'"
+                    )
+                ).rowcount
+                or 0
+            )
+    except SQLAlchemyError:
+        return 0
 
 
 async def _resolve_source_error_after_recovery(
@@ -80,6 +123,217 @@ async def _resolve_source_error_after_recovery(
         session.commit()
     finally:
         session.close()
+    if state.log_store is not None:
+        state.log_store.review_problem(
+            fingerprint("app", "source.failing", f"data source failing: {source_id}"),
+            "fixed",
+            "source recovered for 1 hour",
+            datetime.now(UTC),
+        )
+
+
+def _loop_of(coro: Awaitable[None]) -> Callable[[], Awaitable[None]]:
+    """spawn() takes a coroutine function; job loops are built per
+    restart so a crashed loop starts fresh."""
+
+    async def run() -> None:
+        await coro
+
+    return run
+
+
+def _heartbeat_loop(lock: EngineLock) -> Callable[[], Awaitable[None]]:
+    """Touches the lock file every 30 s so a stale lock is obvious."""
+
+    async def run() -> None:
+        while True:
+            await asyncio.sleep(30)
+            lock.heartbeat()
+
+    return run
+
+
+def _unclean_start(env: EnvConfig) -> None:
+    """A leftover lock file means the last run did not shut down cleanly:
+    WARNING, a quick_check on the trading database, running cycles marked
+    interrupted, and the agent restarts paused (AppState defaults)."""
+    log.warning(
+        "previous run did not shut down cleanly",
+        extra={"event": "app.unclean_shutdown"},
+    )
+    try:
+        conn = sqlite3.connect(str(env.ta_db_path), timeout=5.0)
+        verdict = conn.execute("PRAGMA quick_check").fetchone()
+        conn.close()
+        if verdict and verdict[0] != "ok":
+            log.critical(
+                "trading database failed PRAGMA quick_check: %s",
+                verdict[0],
+                extra={"event": "db.unwritable"},
+            )
+    except (sqlite3.Error, OSError) as exc:
+        log.critical(
+            "trading database could not be opened for a clean-start check: %s",
+            exc,
+            extra={"event": "db.unwritable"},
+        )
+    eng = make_engine(env.ta_db_path)
+    marked = _interrupt_running_runs(eng)
+    eng.dispose()
+    if marked:
+        log.warning(
+            "%d interrupted run(s) marked after an unclean shutdown",
+            marked,
+            extra={"event": "app.unclean_shutdown"},
+        )
+
+
+def _wire_log_push(state: AppState, store: Any) -> None:
+    """WARNING-and-up lines go out live on the WS "logs" topic — the
+    writer thread hands them to the loop thread-safely."""
+    loop = asyncio.get_running_loop()
+
+    def push(line: dict[str, Any]) -> None:
+        if not state.ws_clients:
+            return
+
+        async def send() -> None:
+            payload = '{"type":"logs","data":' + json.dumps(line, default=str) + "}"
+            for client in list(state.ws_clients):
+                try:
+                    await client.send_text(payload)
+                except Exception:  # noqa: BLE001 - a closed socket shows as any error
+                    state.ws_clients.discard(client)
+
+        asyncio.run_coroutine_threadsafe(send(), loop)
+
+    store.on_line = push
+
+
+def _announce_shutdown(app: FastAPI) -> None:
+    """Push the shutdown notice to every tab over the snapshot stream.
+
+    Called from the signal handler because uvicorn has already closed the
+    sockets by the time the lifespan finally runs; also called there for
+    non-signal shutdowns. The flag makes it once-only.
+    """
+    if getattr(app.state, "shutdown_announced", False):
+        return
+    app.state.shutdown_announced = True
+    state = getattr(app.state, "app_state", None)
+    if state is None or not state.ws_clients:
+        return
+
+    async def send() -> None:
+        payload = (
+            '{"type":"alert","data":{"event":"shutdown","severity":"critical",'
+            '"title":"Trading Agent is shutting down",'
+            '"body":"Running work finishes first; the app exits when it is done."}}'
+        )
+        for client in list(state.ws_clients):
+            try:
+                await client.send_text(payload)
+            except Exception:  # noqa: BLE001 - a closed socket shows as any error
+                state.ws_clients.discard(client)
+
+    def schedule() -> None:
+        task = asyncio.ensure_future(send())
+        _announce_tasks.add(task)
+        task.add_done_callback(_announce_tasks.discard)
+
+    try:
+        asyncio.get_running_loop().call_soon_threadsafe(schedule)
+    except RuntimeError:
+        pass
+
+
+def _install_signal_handlers(app: FastAPI) -> None:
+    """The first Ctrl+C or SIGTERM is a normal request: the tabs are told
+    and the signal goes to uvicorn, which shuts down through the lifespan.
+
+    A second Ctrl+C skips the grace wait but keeps the final
+    commit/checkpoint/log steps — it is deliberately NOT handed on,
+    because uvicorn's force-exit would skip the whole lifespan shutdown.
+    A third one is handed over as a last-resort abort. Repeated SIGTERMs
+    always forward; uvicorn never force-exits on SIGTERM.
+    """
+    previous: dict[int, Any] = {}
+    for signo in (signal.SIGINT, signal.SIGTERM):
+        try:
+            previous[signo] = signal.getsignal(signo)
+        except (ValueError, OSError):
+            pass
+    if not previous:
+        return
+    counts: dict[int, int] = dict.fromkeys(previous, 0)
+
+    def _handler(signum: int, frame: FrameType | None) -> None:
+        counts[signum] += 1
+        if counts[signum] == 1:
+            if signum == signal.SIGINT:
+                app.state.sigint_requested = True
+            _announce_shutdown(app)
+        elif signum == signal.SIGINT and counts[signum] == 2:
+            logging.getLogger("app.main").warning(
+                "second interrupt: skipping the graceful wait",
+                extra={"event": "app.shutdown_forced"},
+            )
+            app.state.sigint_skip_wait = True
+            return
+        prev = previous[signum]
+        if callable(prev):
+            prev(signum, frame)
+
+    for installed_signo in previous:
+        try:
+            signal.signal(installed_signo, _handler)
+        except (ValueError, OSError):
+            pass  # not the main thread (tests)
+
+
+async def _final_checkpoint(eng: DbEngine) -> None:
+    """Spec step 4: by now every session is committed or rolled back; the
+    WAL checkpoint lands them in the main file. A connection can still be
+    open briefly (a backup finishing on its own thread), so the attempt
+    retries for a few seconds before warning."""
+    deadline = time.monotonic() + CHECKPOINT_RETRY_S
+    while True:
+        busy = True
+        try:
+            with eng.connect() as conn:
+                conn.execute(text("PRAGMA busy_timeout = 2000"))
+                row = conn.execute(text("PRAGMA wal_checkpoint(TRUNCATE)")).fetchone()
+                busy = bool(row and row[0])
+        except SQLAlchemyError:
+            pass
+        if not busy:
+            return
+        if time.monotonic() >= deadline:
+            log.warning(
+                "final WAL checkpoint did not finish",
+                extra={"event": "db.checkpoint_failed"},
+            )
+            return
+        await asyncio.sleep(0.2)
+
+
+async def _drain_tasks(tasks: list[asyncio.Task[Any]], forced: Callable[[], bool]) -> None:
+    """Cancel every tracked task. In-flight email sends get a short
+    window to finish first; a second Ctrl+C cancels them too."""
+    emails = [t for t in tasks if t.get_name() == "notify-email"]
+    others = [t for t in tasks if t.get_name() != "notify-email"]
+    for task in others:
+        task.cancel()
+    if others:
+        await asyncio.gather(*others, return_exceptions=True)
+    if emails:
+        _done, pending = await asyncio.wait(
+            emails, timeout=0.0 if forced() else EMAIL_SHUTDOWN_GRACE_S
+        )
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
 
 
 def _track_task(state: AppState, task: asyncio.Task[None]) -> None:
@@ -127,7 +381,7 @@ async def refresh_market_data(
             if warming_up(session, market, state.settings.market):
                 await backfill_market(state.market_client, session, market, state.settings.market)
         session.commit()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - boundary: the market-data job
         state.sources.record("bitvavo", exc)
     finally:
         session.close()
@@ -155,14 +409,34 @@ async def daily_market_loop(
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     env = get_env()
-    configure_logging(env.ta_data_dir)
+    # The log writer starts before anything else and stops last.
+    logstore.install(env.ta_data_dir)
+    # Every configured secret is registered for scrubbing before any line
+    # can mention one; the frontend only ever sees "set" and the last 4.
+    for source in SOURCES:
+        logstore.register_secret(get_secret(source.id))
+    logstore.register_secret(get_secret("smtp"))
     lock = EngineLock(env.ta_db_path)
     lock.acquire()  # raises EngineAlreadyRunningError if another instance holds it
     db_engine: DbEngine | None = None
     state: AppState | None = None
     try:
+        if lock.preexisted:
+            _unclean_start(env)
         run_migrations(env.ta_db_path)
         db_engine = make_engine(env.ta_db_path)
+        store = logstore.get_store()
+        if store is not None:
+            session_factory0 = make_session_factory(db_engine)
+            with session_factory0() as session:
+                legacy = list(session.scalars(select(ErrorRow)))
+            imported = logstore.import_legacy_errors(store, legacy)
+            if imported:
+                log.info(
+                    "imported %d legacy error row(s) into logs.db",
+                    imported,
+                    extra={"event": "legacy.error"},
+                )
         session_factory = make_session_factory(db_engine)
         session = session_factory()
         try:
@@ -174,6 +448,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings_version = repo.settings_version(session)
         finally:
             session.close()
+        logstore.configure(
+            console_level=settings.logging.console_level,
+            queue_size=settings.logging.queue_size,
+            library_debug=settings.logging.library_debug,
+            backtest_debug=settings.logging.backtest_debug,
+        )
         registry = SourceRegistry(settings.disabled_sources)
         market_client = build_market_client(settings, registry)
         state = AppState(
@@ -187,6 +467,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             status="paused",
         )
         app.state.app_state = state
+        state.log_store = logstore.get_store()
+        if state.log_store is not None:
+            _wire_log_push(state, state.log_store)
         # Paper account + engine: positions are restored from the database,
         # pending decisions from before the restart are marked expired, and
         # an unacknowledged kill restores the Killed state. Always paused.
@@ -206,16 +489,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             source_recovery_generations[source_id] = (
                 source_recovery_generations.get(source_id, 0) + 1
             )
-            session = state.session_factory()
-            try:
-                repo.add_activity(
-                    session,
-                    "error",
-                    f"data source failing: {source_id}",
-                )
-                session.commit()
-            finally:
-                session.close()
+            log.error(
+                "data source failing: %s",
+                source_id,
+                extra={"event": "source.failing", "data": {"source": source_id}},
+            )
             notification_dispatcher.schedule(
                 "source_failing",
                 f"Data source failing · {source_id}",
@@ -225,16 +503,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         def source_recovered(source_id: str) -> None:
             generation = source_recovery_generations.get(source_id, 0) + 1
             source_recovery_generations[source_id] = generation
-            _track_task(
+            tasks_mod.spawn(
+                _resolve_source_error_after_recovery,
                 state,
-                asyncio.create_task(
-                    _resolve_source_error_after_recovery(
-                        state,
-                        source_id,
-                        generation,
-                        source_recovery_generations,
-                    )
-                ),
+                source_id,
+                generation,
+                source_recovery_generations,
+                name=f"source-recovery-{source_id}",
+                restart=False,
+                track=lambda t: _track_task(state, t),
             )
 
         state.sources.on_failure_threshold = source_failed
@@ -277,44 +554,116 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         state.agent_engine = agent_engine
         await agent_engine.start()
         state.status = agent_engine.status
-        state.tasks.append(
-            asyncio.create_task(refresh_market_data(state, notification_dispatcher.notify))
+        tasks_mod.spawn(
+            refresh_market_data,
+            state,
+            notification_dispatcher.notify,
+            name="job-market-refresh",
+            restart=False,
+            track=lambda t: _track_task(state, t),
         )
-        state.tasks.append(
-            asyncio.create_task(daily_market_loop(state, notification_dispatcher.notify))
-        )
-        state.tasks.append(
-            asyncio.create_task(context_loop(ContextCollector(session_factory, registry)))
-        )
-        state.tasks.append(asyncio.create_task(outcome_loop(session_factory, asyncio.Event())))
-        state.tasks.append(asyncio.create_task(backup_loop(env.ta_db_path, env.ta_data_dir)))
-        state.tasks.append(
-            asyncio.create_task(
+        for coro, job in (
+            (daily_market_loop(state, notification_dispatcher.notify), "job-market-daily"),
+            (context_loop(ContextCollector(session_factory, registry)), "job-collector"),
+            (outcome_loop(session_factory, asyncio.Event()), "job-outcomes"),
+            (backup_loop(env.ta_db_path, env.ta_data_dir), "job-backup"),
+            (
                 briefings_mod.briefing_loop(
                     state, session_factory, notify=notification_dispatcher.notify
-                )
+                ),
+                "job-briefings",
+            ),
+        ):
+            tasks_mod.spawn(
+                _loop_of(coro),
+                name=job,
+                track=lambda t: _track_task(state, t),
             )
+        tasks_mod.spawn(
+            _heartbeat_loop(lock),
+            name="job-lock-heartbeat",
+            track=lambda t: _track_task(state, t),
         )
+        tasks_mod.install_global_hooks()
+        _install_signal_handlers(app)
         yield
     finally:
+        shutdown_started = time.monotonic()
         if state is not None:
-            if state.agent_engine is not None:
-                await state.agent_engine.stop()
+            state.shutting_down = True
+        app.state.shutting_down = True
+        log.info("Shutdown requested", extra={"event": "app.shutdown"})
+        _announce_shutdown(app)  # a no-op when a signal already announced
+        if state is not None:
+            agent = state.agent_engine
+            if agent is not None:
+                # No new cycles or watcher passes; in-flight work runs on.
+                agent.begin_shutdown()
+            # Running work gets its grace period; a fill and its position
+            # update are one transaction and are never cut off. A second
+            # Ctrl+C skips the wait, never the final steps.
+            grace = state.settings.storage.shutdown_grace_seconds
+
+            def forced() -> bool:
+                return bool(getattr(app.state, "sigint_skip_wait", False))
+
+            while (
+                agent is not None
+                and agent.cycle_in_progress
+                and not forced()
+                and time.monotonic() - shutdown_started < grace
+            ):
+                await asyncio.sleep(0.1)
+            if agent is not None:
+                await agent.stop()
             tasks = list(state.tasks)
             state.tasks.clear()
-            for task in tasks:
-                task.cancel()
-            if tasks:
-                await asyncio.gather(*tasks, return_exceptions=True)
+            await _drain_tasks(tasks, forced)
+            for ws_client in list(state.ws_clients):
+                state.ws_clients.discard(ws_client)
+                try:
+                    await ws_client.close(code=1012)
+                except Exception as exc:  # noqa: BLE001 - a dead socket shows as any error
+                    log.debug(
+                        "closing a WebSocket client at shutdown failed: %s",
+                        exc,
+                        extra={"event": "ws.client_lost"},
+                    )
             await state.market_client.aclose()
         if db_engine is not None:
+            interrupted = _interrupt_running_runs(db_engine)
+            if interrupted:
+                log.info(
+                    "%d interrupted run(s) marked at shutdown",
+                    interrupted,
+                    extra={"event": "app.interrupted_run"},
+                )
+            await _final_checkpoint(db_engine)
             db_engine.dispose()
         lock.release()
+        log.info(
+            "Shutdown complete in %.1f s",
+            time.monotonic() - shutdown_started,
+            extra={"event": "app.stop"},
+        )
+        # The log writer is flushed and closed last.
+        logstore.shutdown()
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Trading Agent", version="0.1.0", lifespan=lifespan)
+    app.add_exception_handler(
+        StarletteHTTPException,
+        errors.http_exception_handler,  # type: ignore[arg-type]
+    )
+    app.add_exception_handler(
+        RequestValidationError,
+        errors.validation_handler,  # type: ignore[arg-type]
+    )
+    app.add_exception_handler(Exception, errors.unhandled_handler)
     app.add_middleware(LocalOnlyMiddleware)
+    app.add_middleware(errors.ShutdownGuard)
+    app.add_middleware(deps.RequestIdMiddleware)
     app.include_router(routes.router)
     app.include_router(screens.router)
     app.include_router(dashboard_routes.router)
@@ -324,6 +673,7 @@ def create_app() -> FastAPI:
     app.include_router(understanding_routes.router)
     app.include_router(evidence.router)
     app.include_router(notifications.router)
+    app.include_router(logs_routes.router)
     app.include_router(ws.router)
     if FRONTEND_DIST.is_dir():
         app.mount("/", SpaStaticFiles(directory=FRONTEND_DIST, html=True), name="ui")
@@ -336,7 +686,7 @@ class SpaStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope: Scope) -> Response:
         # Unknown API paths must answer 404 JSON, not the SPA's index.html.
         if path.startswith("api/"):
-            return JSONResponse({"detail": "Not Found"}, status_code=404)
+            return errors.api_error(404, "That page or record does not exist.")
         try:
             return await super().get_response(path, scope)
         except StarletteHTTPException as exc:

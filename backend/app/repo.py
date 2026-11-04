@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import cast
@@ -82,8 +83,10 @@ def save_settings(session: Session, settings: Settings) -> int:
     if row.doc:
         try:
             record_settings_history(session, Settings.model_validate_json(row.doc), settings)
-        except Exception:
-            pass  # history must never block a settings save
+        except Exception as exc:  # noqa: BLE001 - history must never block a save
+            logging.getLogger(__name__).warning(
+                "settings history could not be written: %s", exc, extra={"event": "job.failed"}
+            )
     row.version += 1
     row.doc = settings.model_dump_json()
     row.updated_at = utcnow()
@@ -1001,34 +1004,40 @@ def add_activity(
         text=text,
         decision_id=decision_id,
     )
-    session.add(row)
     if kind == "error":
-        when = at or utcnow()
-        existing = session.scalar(
-            select(ErrorRow).where(
-                ErrorRow.resolved_at.is_(None),
-                ErrorRow.pair == pair,
-                ErrorRow.text == text,
-            )
-        )
-        if existing is None:
-            session.add(
-                ErrorRow(
-                    first_at=when,
-                    last_at=when,
-                    pair=pair,
-                    text=text,
-                    affected_decision_or_fill=decision_id is not None,
-                    resolved_at=None,
-                    resolution_note=None,
-                )
-            )
-        else:
-            existing.last_at = when
-            existing.affected_decision_or_fill = (
-                existing.affected_decision_or_fill or decision_id is not None
-            )
+        # The retired errors table is replaced by logs.db; the event was
+        # already logged by the caller, so nothing else is written.
+        return row
+    session.add(row)
     return row
+
+
+def cycle_summary_counts(session: Session, account_id: int, cycle: int) -> dict[str, int]:
+    """The counts for a cycle's INFO end line: pairs seen, model calls,
+    entries, exits and errors — from the stored decision rows."""
+    rows = session.execute(
+        select(DecisionRow.action, DecisionRow.decider, DecisionRow.error).where(
+            DecisionRow.account_id == account_id,
+            DecisionRow.cycle == cycle,
+        )
+    ).all()
+    actions = {"BUY": 0, "SELL": 0, "HOLD": 0, "SKIP": 0}
+    calls = errors = 0
+    for action, decider, error in rows:
+        actions[action] = actions.get(action, 0) + 1
+        if decider == "openai":
+            calls += 1
+        if error:
+            errors += 1
+    return {
+        "pairs": len(rows),
+        "model_calls": calls,
+        "entries": actions["BUY"],
+        "exits": actions["SELL"],
+        "holds": actions["HOLD"],
+        "skips": actions["SKIP"],
+        "errors": errors,
+    }
 
 
 def error_count_since(session: Session, since: datetime) -> int:

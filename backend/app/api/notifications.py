@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import smtplib
 from datetime import datetime, timedelta
 from email.message import EmailMessage
@@ -13,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app import repo
+from app import tasks as tasks_mod
 from app.api.deps import AppState, get_state, require_token
 from app.config import SecretStoreError, get_secret, secret_status, set_secret
 from app.db import utcnow
@@ -76,7 +78,7 @@ _TOAST_SEVERITY = {
 }
 
 
-def _send_email(settings: NotificationSettings, subject: str, body: str) -> None:
+def _send_email(settings: NotificationSettings, subject: str, body: str, timeout_s: float) -> None:
     smtp = settings.smtp
     message = EmailMessage()
     message["Subject"] = subject
@@ -84,7 +86,7 @@ def _send_email(settings: NotificationSettings, subject: str, body: str) -> None
     message["To"] = smtp.recipient
     message.set_content(body)
     client_class = smtplib.SMTP
-    with client_class(smtp.host, smtp.port, timeout=10) as client:
+    with client_class(smtp.host, smtp.port, timeout=timeout_s) as client:
         if smtp.tls:
             client.starttls()
         password = get_secret("smtp")
@@ -101,8 +103,15 @@ class NotificationDispatcher:
         self._inflight: set[tuple[str, str, str]] = set()
 
     def schedule(self, event: str, title: str, body: str) -> None:
-        task = asyncio.create_task(self.notify(event, title, body))
-        self.state.tasks.append(task)
+        task = tasks_mod.spawn(
+            self.notify,
+            event,
+            title,
+            body,
+            name=f"notify-{event}",
+            restart=False,
+            track=lambda t: self.state.tasks.append(t),
+        )
         task.add_done_callback(
             lambda completed: (
                 self.state.tasks.remove(completed) if completed in self.state.tasks else None
@@ -129,10 +138,17 @@ class NotificationDispatcher:
             rendered, repeats = self._render_or_suppress(key, body, now)
             if rendered is not None:
                 self._inflight.add(key)
-                task = asyncio.create_task(
-                    self._deliver_email(key, settings, title, rendered, repeats)
+                task = tasks_mod.spawn(
+                    self._deliver_email,
+                    key,
+                    settings,
+                    title,
+                    rendered,
+                    repeats,
+                    name="notify-email",
+                    restart=False,
+                    track=lambda t: self.state.tasks.append(t),
                 )
-                self.state.tasks.append(task)
                 task.add_done_callback(
                     lambda completed: (
                         self.state.tasks.remove(completed)
@@ -188,7 +204,7 @@ class NotificationDispatcher:
             try:
                 await websocket.send_text(payload)
                 delivered = True
-            except Exception:
+            except Exception:  # noqa: BLE001 - a closed socket shows as any error
                 self.state.ws_clients.discard(websocket)
         return delivered
 
@@ -201,7 +217,13 @@ class NotificationDispatcher:
         repeats: int,
     ) -> None:
         try:
-            await asyncio.to_thread(_send_email, settings, title, body)
+            await asyncio.to_thread(
+                _send_email,
+                settings,
+                title,
+                body,
+                self.state.settings.timeouts.smtp_s,
+            )
             self._last_sent[key] = utcnow()
             self._record(key, self._last_sent[key], repeats)
             session = self.state.session_factory()
@@ -214,13 +236,21 @@ class NotificationDispatcher:
                 session.commit()
             finally:
                 session.close()
-        except Exception:
-            session = self.state.session_factory()
-            try:
-                repo.add_activity(session, "error", "notification delivery failed")
-                session.commit()
-            finally:
-                session.close()
+            if self.state.log_store is not None:
+                for p in self.state.log_store.unreviewed_problems():
+                    if p.get("event") == "notify.email_failed":
+                        self.state.log_store.review_problem(
+                            p["fingerprint"],
+                            "fixed",
+                            "SMTP delivery recovered",
+                            utcnow(),
+                        )
+        except Exception as exc:
+            logging.getLogger("notify").exception(
+                "notification delivery failed: %s",
+                exc,
+                extra={"event": "notify.email_failed"},
+            )
         finally:
             self._inflight.discard(key)
 
@@ -240,7 +270,7 @@ async def test_notifications(
             try:
                 await websocket.send_text(payload)
                 browser_sent = True
-            except Exception:
+            except Exception:  # noqa: BLE001 - a closed socket shows as any error
                 state.ws_clients.discard(websocket)
     email_sent = False
     if settings.email_enabled:
@@ -254,6 +284,7 @@ async def test_notifications(
                 settings,
                 "Trading Agent · test notification",
                 "Notifications are configured correctly.",
+                state.settings.timeouts.smtp_s,
             )
             email_sent = True
         except (OSError, smtplib.SMTPException) as exc:

@@ -277,7 +277,10 @@ class OutcomeFailureRow(Base):
 
 
 class ErrorRow(Base):
-    __tablename__ = "errors"
+    """The retired errors table — renamed errors_legacy by migration
+    0013; rows are imported once into logs.db as problems."""
+
+    __tablename__ = "errors_legacy"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     first_at: Mapped[datetime]
@@ -561,13 +564,21 @@ class EngineLock:
     def __init__(self, db_path: Path) -> None:
         self._lock_path = db_path.with_suffix(db_path.suffix + ".lock")
         self._fh: IO[str] | None = None
+        self._preexisted = False
 
     @property
     def path(self) -> Path:
         return self._lock_path
 
+    @property
+    def preexisted(self) -> bool:
+        """A leftover lock file means the last run did not shut down
+        cleanly (a clean release deletes it)."""
+        return self._preexisted
+
     def acquire(self) -> None:
         self._lock_path.parent.mkdir(parents=True, exist_ok=True)
+        self._preexisted = self._lock_path.exists()
         fh = self._lock_path.open("w")
         try:
             fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -584,11 +595,24 @@ class EngineLock:
         fh.flush()
         self._fh = fh
 
+    def heartbeat(self) -> None:
+        """A heartbeat job touches the file so the next start can tell a
+        stale lock from a live one."""
+        if self._fh is not None:
+            try:
+                os.utime(self._lock_path, None)
+            except OSError:
+                pass
+
     def release(self) -> None:
         if self._fh is not None:
             fcntl.flock(self._fh.fileno(), fcntl.LOCK_UN)
             self._fh.close()
             self._fh = None
+            try:
+                self._lock_path.unlink()
+            except OSError:
+                pass
 
 
 def utcnow() -> datetime:

@@ -17,7 +17,7 @@ from typing import Literal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import repo
+from app import logstore, repo
 from app.db import AMSTERDAM, AccountRow, DecisionRow, OutcomeRow
 from app.models import ReadinessOut, ReadinessRowOut, Settings
 
@@ -343,18 +343,20 @@ def compute_readiness(
     )
 
     # 9. No unresolved errors -------------------------------------------------------
-    errors = repo.unresolved_errors_affecting(session, now - timedelta(days=ERROR_FREE_DAYS))
+    # Unreviewed ERROR-or-worse problems in logs.db replace the old
+    # errors table here.
+    errors = logstore.unreviewed_error_count()
     met = not errors
     rows.append(
         ReadinessRowOut(
             id="no_errors",
             name="No unresolved errors",
             why=f"Errors that affected a decision or fill, last {ERROR_FREE_DAYS} days",
-            value_text=f"{len(errors)} open" if errors else "0 open",
+            value_text=f"{errors} open" if errors else "0 open",
             target_text="0",
             progress=1.0 if met else 0.0,
             met=met,
-            hint=None if met else "resolve on Dashboard",
+            hint=None if met else "review on Logs",
         )
     )
 

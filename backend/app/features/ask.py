@@ -293,7 +293,7 @@ def _tool_indicators_at(
             settings=settings.market,
             now=at,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 - a broken tool never 500s the question
         return {"error": "signals could not be computed at that time"}, []
     return signals.model_dump(mode="json"), []
 
@@ -447,7 +447,7 @@ def run_tool(
         if name in ("get_performance", "get_snapshot", "get_readiness"):
             return fn(session, args, account_id, broker)
         return fn(session, args, account_id)
-    except Exception as exc:  # a broken tool never 500s the question
+    except Exception as exc:
         log.exception("ask tool %s failed", name)
         return {"error": f"tool error: {exc}"}, []
 
@@ -554,7 +554,7 @@ async def answer_question(
     else:
         try:
             prompt = load_prompt(ASK_PROMPT)
-        except Exception:
+        except Exception:  # noqa: BLE001 - a missing prompt file is an expected condition
             prompt = None
             reason = "ask prompt missing"
         if prompt is not None:
@@ -688,6 +688,9 @@ async def answer_question(
                                 text = cand2
                     break
             finally:
+                # Land the staged call rows and release the read snapshot
+                # before the await — no transaction spans a yield.
+                session.commit()
                 await client.aclose()
         if text is None and reason is None:
             reason = "the number check rejected the answer"

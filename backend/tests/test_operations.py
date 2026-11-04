@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -42,53 +43,89 @@ def test_backup_waits_until_0300_and_runs_once_per_date(tmp_path: Path) -> None:
 
 def test_error_badge_count_and_resolution(client: TestClient) -> None:
     state = cast(Any, client.app).state.app_state
-    session = state.session_factory()
-    try:
-        repo.add_activity(session, "error", "source failed", pair="BTC-EUR")
-        session.commit()
-    finally:
-        session.close()
-    assert client.get("/api/snapshot").json()["errors_24h"] == 1
-    error = client.get("/api/errors").json()[0]
+    state.log_store.submit(
+        _problem_line("source failed", "agent.scheduler", "candles.fetch_failed")
+    )
+    _wait_for(lambda: client.get("/api/snapshot").json()["errors_24h"] == 1)
+    problem = client.get("/api/logs/problems").json()["problems"][0]
     token = client.get("/api/session").json()["token"]
-    resolved = client.put(
-        f"/api/errors/{error['id']}/resolve",
+    resolved = client.post(
+        f"/api/logs/problems/{problem['fingerprint']}/review",
         headers={"X-Local-Token": token},
-        json={"note": "source recovered"},
+        json={"state": "fixed", "note": "source recovered"},
     )
     assert resolved.status_code == 200
-    assert resolved.json()["resolution_note"] == "source recovered"
     assert client.get("/api/snapshot").json()["errors_24h"] == 0
 
 
-def test_repeated_errors_update_one_open_error(client: TestClient) -> None:
+def test_error_activity_stays_out_of_the_legacy_table(client: TestClient) -> None:
+    """kind "error" writes nothing now — errors live in logs.db."""
     state = cast(Any, client.app).state.app_state
     session = state.session_factory()
     try:
         repo.add_activity(session, "error", "same failure", pair="BTC-EUR")
         session.commit()
-        repo.add_activity(session, "error", "same failure", pair="BTC-EUR")
-        session.commit()
     finally:
         session.close()
-    errors = client.get("/api/errors").json()
-    assert len(errors) == 1
-    assert errors[0]["text"] == "same failure"
+    assert client.get("/api/errors").json() == []
+    # The same failure logged twice is one problem with count 2.
+    for _ in range(2):
+        state.log_store.submit(
+            _problem_line("same failure", "agent.scheduler", "cycle.step_failed")
+        )
+    _wait_for(lambda: state.log_store.unreviewed_problems())
+    probs = state.log_store.unreviewed_problems()
+    assert len(probs) == 1 and probs[0]["count"] == 2 and probs[0]["example"] == "same failure"
 
 
 def test_open_error_count_includes_errors_older_than_24h(client: TestClient) -> None:
     state = cast(Any, client.app).state.app_state
-    session = state.session_factory()
-    try:
-        repo.add_activity(
-            session,
-            "error",
+    state.log_store.submit(
+        _problem_line(
             "old unresolved error",
-            at=datetime.now(UTC) - timedelta(days=2),
+            "agent.scheduler",
+            "cycle.step_failed",
+            ts=(datetime.now(UTC) - timedelta(days=2)).isoformat(),
         )
-        session.commit()
-    finally:
-        session.close()
+    )
+    _wait_for(lambda: state.log_store.unreviewed_problems())
     snapshot = client.get("/api/snapshot").json()
     assert snapshot["errors_24h"] == 0
     assert snapshot["errors_open"] == 1
+
+
+def _problem_line(
+    text: str,
+    logger: str,
+    event: str,
+    ts: str | None = None,
+) -> dict[str, Any]:
+    from app.logstore.record import COLUMNS, fingerprint
+
+    line: dict[str, Any] = dict.fromkeys(COLUMNS)
+    line.update(
+        {
+            "ts": ts or datetime.now(UTC).isoformat(),
+            "level": "ERROR",
+            "levelno": 40,
+            "logger": logger,
+            "event": event,
+            "message": text,
+            "process": "app",
+            "pid": 1,
+            "fingerprint": fingerprint(logger, event, text),
+            "version": "test",
+        }
+    )
+    return line
+
+
+def _wait_for(predicate: Callable[[], object], timeout: float = 5.0) -> None:
+    import time as _time
+
+    deadline = _time.monotonic() + timeout
+    while _time.monotonic() < deadline:
+        if predicate():
+            return
+        _time.sleep(0.02)
+    raise AssertionError("timed out waiting")

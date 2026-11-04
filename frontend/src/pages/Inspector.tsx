@@ -21,6 +21,7 @@ import { Card } from "../components/Card";
 import { Chip } from "../components/Chip";
 import { DecisionDrawer } from "../components/DecisionDrawer";
 import { Dialog } from "../components/Dialog";
+import { RecordNotFound } from "./Errors";
 import { EmptyState } from "../components/EmptyState";
 import { FormField, Input, Select } from "../components/FormField";
 import { formatDateTime, formatEur, formatTime } from "../lib/format";
@@ -144,9 +145,8 @@ export function Inspector() {
 
   const selectedId = params.get("call");
   const items = useMemo(() => calls?.items ?? [], [calls]);
-  const selected =
-    items.find((i) => i.id === selectedId && i.kind === "call") ?? null;
-  const { data: detail } = useLlmCall(selected?.id ?? null);
+  const detailQ = useLlmCall(selectedId);
+  const detail = detailQ.data;
 
   const select = (item: LlmCallListItem) => {
     if (item.kind === "skipped") {
@@ -343,6 +343,7 @@ export function Inspector() {
 
         <CallDetail
           detail={detail ?? null}
+          notFound={selectedId !== null && detailQ.isError ? selectedId : null}
           rerunOpen={rerunOpen}
           setRerunOpen={setRerunOpen}
           onOpenDecision={(id) => setDrawerId(id)}
@@ -362,17 +363,27 @@ export function Inspector() {
 
 function CallDetail({
   detail,
+  notFound,
   rerunOpen,
   setRerunOpen,
   onOpenDecision,
 }: {
   detail: LlmCallDetail | null;
+  notFound: string | null;
   rerunOpen: boolean;
   setRerunOpen: (open: boolean) => void;
   onOpenDecision: (id: string) => void;
 }) {
   const setVerdict = useSetVerdict();
   const [note, setNote] = useState("");
+
+  if (notFound !== null) {
+    return (
+      <section className="inspector__detail">
+        <RecordNotFound kind="Model call" id={notFound} />
+      </section>
+    );
+  }
 
   if (!detail) {
     return (

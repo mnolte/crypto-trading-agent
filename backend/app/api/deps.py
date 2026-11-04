@@ -18,7 +18,7 @@ import secrets
 from dataclasses import dataclass, field
 from datetime import timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlparse
 
 from fastapi import Header, HTTPException, Request, WebSocket
@@ -26,7 +26,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from app import repo
+from app import logstore, repo
 from app.agent import budget
 from app.agent.broker.paper import PaperBroker
 from app.agent.market import make_market_client
@@ -112,6 +112,44 @@ def _plain_403() -> ASGIApp:
     return app
 
 
+def new_request_id() -> str:
+    return "r-" + secrets.token_hex(6)
+
+
+class RequestIdMiddleware:
+    """Every request gets an id, stamped into the log context for its
+    duration and returned as ``X-Request-Id`` on the response. Pure ASGI,
+    so the context variable reaches the endpoint in the same task."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        # Honour a caller-supplied id so a client can correlate its log
+        # lines; otherwise mint one.
+        request_id = next(
+            (
+                v.decode("ascii", "replace")[:64]
+                for k, v in scope.get("headers", [])
+                if k.lower() == b"x-request-id" and v
+            ),
+            new_request_id(),
+        )
+
+        async def send_with_id(message: object) -> None:
+            if isinstance(message, dict) and message.get("type") == "http.response.start":
+                headers = list(message.get("headers") or [])
+                headers.append((b"x-request-id", request_id.encode()))
+                message["headers"] = headers
+            await send(message)  # type: ignore[arg-type]
+
+        with logstore.log_context(request_id=request_id):
+            await self.app(scope, receive, send_with_id)
+
+
 @dataclass
 class AppState:
     """Per-process state assembled by the lifespan."""
@@ -131,6 +169,8 @@ class AppState:
     ws_clients: set[WebSocket] = field(default_factory=set)
     broker: PaperBroker | None = None
     agent_engine: AgentEngine | None = None
+    shutting_down: bool = False
+    log_store: Any = None
 
 
 def build_market_client(settings: Settings, sources: SourceRegistry) -> MarketClient:
@@ -261,7 +301,7 @@ def build_snapshot(state: AppState) -> Snapshot:
             cost_month_eur=budget.month_spend_all(session, now),
             cap_eur=settings.model.monthly_cost_cap_eur,
         )
-        errors_24h = repo.error_count_since(session, now - timedelta(hours=24))
+        errors_24h = logstore.unreviewed_error_count_since((now - timedelta(hours=24)).isoformat())
         pauses = repo.list_entry_pauses(session, now)
         _agent_pct, btc_pct = since_start(session, broker.account, equity, now)
         return Snapshot(
@@ -303,7 +343,7 @@ def build_snapshot(state: AppState) -> Snapshot:
                 for p in pauses
             ],
             errors_24h=errors_24h,
-            errors_open=repo.unresolved_error_count(session),
+            errors_open=logstore.unreviewed_error_count(),
             kill=engine.kill,
             today_trades=len(today),
             today_won=sum(1 for t in today if Decimal(t.realised_eur) > 0),

@@ -699,6 +699,163 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Logs */
+        get: operations["list_logs_api_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/logs/client": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Client Report
+         * @description The frontend reports errors and warnings here — at most ten a
+         *     minute, then 429 with Retry-After.
+         */
+        post: operations["client_report_api_logs_client_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/logs/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Events */
+        get: operations["events_api_logs_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/logs/export.jsonl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Jsonl */
+        get: operations["export_jsonl_api_logs_export_jsonl_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/logs/problems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Problems */
+        get: operations["problems_api_logs_problems_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/logs/problems/{fingerprint}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review Problem */
+        post: operations["review_problem_api_logs_problems__fingerprint__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/logs/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Summary */
+        get: operations["summary_api_logs_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/logs/{line_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Line */
+        get: operations["get_line_api_logs__line_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/logs/{line_id}/around": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Around Line */
+        get: operations["around_line_api_logs__line_id__around_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/markets": {
         parameters: {
             query?: never;
@@ -1281,6 +1438,13 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** AroundOut */
+        AroundOut: {
+            /** Focus */
+            focus: number;
+            /** Lines */
+            lines: components["schemas"]["LogLineOut"][];
+        };
         /**
          * AskCitation
          * @description A record the answer used, as a link target.
@@ -1531,6 +1695,22 @@ export interface components {
              * @enum {string}
              */
             status: "pass" | "warn" | "fail";
+        };
+        /** ClientReport */
+        ClientReport: {
+            /** Component */
+            component?: string | null;
+            /** Data */
+            data?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Level
+             * @default error
+             */
+            level: string;
+            /** Message */
+            message: string;
         };
         /** ContextOut */
         ContextOut: {
@@ -1904,6 +2084,11 @@ export interface components {
             resolved_at: string | null;
             /** Text */
             text: string;
+        };
+        /** EventsOut */
+        EventsOut: {
+            /** Events */
+            events: components["schemas"]["LogEventOut"][];
         };
         /** FlattenPreview */
         FlattenPreview: {
@@ -2357,6 +2542,189 @@ export interface components {
             /** Verdict */
             verdict: ("correct" | "wrong") | null;
         };
+        /** LogEventOut */
+        LogEventOut: {
+            /** Code */
+            code: string;
+            /** Component */
+            component: string;
+            /** Level */
+            level: string;
+            /** Meaning */
+            meaning: string;
+            /** What To Do */
+            what_to_do?: string | null;
+        };
+        /** LogLineOut */
+        LogLineOut: {
+            /** Backtest Id */
+            backtest_id?: string | null;
+            /** Cycle Id */
+            cycle_id?: string | null;
+            /** Data */
+            data?: string | null;
+            /** Decision Id */
+            decision_id?: string | null;
+            /** Duration Ms */
+            duration_ms?: number | null;
+            /** Error Id */
+            error_id?: string | null;
+            /** Event */
+            event?: string | null;
+            /** Exc Message */
+            exc_message?: string | null;
+            /** Exc Type */
+            exc_type?: string | null;
+            /** Fingerprint */
+            fingerprint?: string | null;
+            /** Id */
+            id: number;
+            /** Job */
+            job?: string | null;
+            /** Level */
+            level?: string | null;
+            /** Levelno */
+            levelno?: number | null;
+            /** Logger */
+            logger?: string | null;
+            /** Meaning */
+            meaning?: string | null;
+            /** Message */
+            message?: string | null;
+            /** Order Id */
+            order_id?: string | null;
+            /** Pair */
+            pair?: string | null;
+            /** Pid */
+            pid?: number | null;
+            /** Process */
+            process?: string | null;
+            /** Request Id */
+            request_id?: string | null;
+            /** Shadow Id */
+            shadow_id?: string | null;
+            /** Task */
+            task?: string | null;
+            /** Traceback */
+            traceback?: string | null;
+            /** Trade Id */
+            trade_id?: string | null;
+            /** Ts */
+            ts?: string | null;
+            /** Version */
+            version?: string | null;
+            /** What To Do */
+            what_to_do?: string | null;
+        };
+        /** LogProblemOut */
+        LogProblemOut: {
+            /** Count */
+            count?: number | null;
+            /** Count At Review */
+            count_at_review?: number | null;
+            /** Event */
+            event?: string | null;
+            /** Example */
+            example?: string | null;
+            /** Fingerprint */
+            fingerprint: string;
+            /** First Seen */
+            first_seen?: string | null;
+            /** Last Seen */
+            last_seen?: string | null;
+            /** Level */
+            level?: string | null;
+            /** Levelno */
+            levelno?: number | null;
+            /** Logger */
+            logger?: string | null;
+            /** Meaning */
+            meaning?: string | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Pairs
+             * @default []
+             */
+            pairs: string[];
+            /** Reviewed At */
+            reviewed_at?: string | null;
+            /** State */
+            state?: string | null;
+            /** What To Do */
+            what_to_do?: string | null;
+        };
+        /** LogSummaryOut */
+        LogSummaryOut: {
+            /** Broken */
+            broken: boolean;
+            /** Counts 24H */
+            counts_24h: {
+                [key: string]: number;
+            };
+            /** Db Bytes */
+            db_bytes: number;
+            /** Dropped */
+            dropped: {
+                [key: string]: number;
+            };
+            /** Last Error At */
+            last_error_at?: string | null;
+            /** Total Lines */
+            total_lines: number;
+        };
+        /**
+         * LoggingSettings
+         * @description The log store's knobs — every value the spec makes configurable.
+         */
+        LoggingSettings: {
+            /**
+             * Backtest Debug
+             * @default false
+             */
+            backtest_debug: boolean;
+            /**
+             * Console Level
+             * @default INFO
+             * @enum {string}
+             */
+            console_level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+            /**
+             * Keep Days
+             * @default {
+             *       "CRITICAL": 365,
+             *       "DEBUG": 7,
+             *       "ERROR": 365,
+             *       "INFO": 30,
+             *       "WARNING": 180
+             *     }
+             */
+            keep_days: {
+                [key: string]: number;
+            };
+            /**
+             * Library Debug
+             * @default false
+             */
+            library_debug: boolean;
+            /**
+             * Max Db Mb
+             * @default 2000
+             */
+            max_db_mb: number;
+            /**
+             * Queue Size
+             * @default 20000
+             */
+            queue_size: number;
+        };
+        /** LogsListOut */
+        LogsListOut: {
+            /** Lines */
+            lines: components["schemas"]["LogLineOut"][];
+            /** Next */
+            next?: string | null;
+        };
         /** MarketOut */
         MarketOut: {
             /** Active */
@@ -2755,6 +3123,11 @@ export interface components {
              */
             smtp: components["schemas"]["SmtpSettings"];
         };
+        /** OkOut */
+        OkOut: {
+            /** Ok */
+            ok: boolean;
+        };
         /** OutcomeFailureOut */
         OutcomeFailureOut: {
             /** Horizon */
@@ -3101,6 +3474,11 @@ export interface components {
             /** Stale */
             stale: boolean;
         };
+        /** ProblemsOut */
+        ProblemsOut: {
+            /** Problems */
+            problems: components["schemas"]["LogProblemOut"][];
+        };
         /** PromptInfo */
         PromptInfo: {
             /** Id */
@@ -3259,6 +3637,16 @@ export interface components {
         ResolveErrorIn: {
             /** Note */
             note: string;
+        };
+        /** ReviewBody */
+        ReviewBody: {
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** State */
+            state: string;
         };
         /** RiskBudget */
         RiskBudget: {
@@ -3717,6 +4105,23 @@ export interface components {
             learning: components["schemas"]["LearningSettings"];
             /**
              * @default {
+             *       "backtest_debug": false,
+             *       "console_level": "INFO",
+             *       "keep_days": {
+             *         "CRITICAL": 365,
+             *         "DEBUG": 7,
+             *         "ERROR": 365,
+             *         "INFO": 30,
+             *         "WARNING": 180
+             *       },
+             *       "library_debug": false,
+             *       "max_db_mb": 2000,
+             *       "queue_size": 20000
+             *     }
+             */
+            logging: components["schemas"]["LoggingSettings"];
+            /**
+             * @default {
              *       "adx_threshold": "25",
              *       "eligibility_beyond_pct": "20",
              *       "eligibility_fail_days": 3,
@@ -3871,6 +4276,23 @@ export interface components {
             schema_version: number;
             /**
              * @default {
+             *       "shutdown_grace_seconds": 60
+             *     }
+             */
+            storage: components["schemas"]["StorageSettings"];
+            /**
+             * @default {
+             *       "bitvavo_rest_s": 10,
+             *       "collector_s": 10,
+             *       "keyring_s": 5,
+             *       "openai_s": 30,
+             *       "smtp_s": 15,
+             *       "stream_read_s": 60
+             *     }
+             */
+            timeouts: components["schemas"]["TimeoutSettings"];
+            /**
+             * @default {
              *       "stop_near_atr": "1.5"
              *     }
              */
@@ -3936,6 +4358,23 @@ export interface components {
              *     }
              */
             learning: components["schemas"]["LearningSettings"];
+            /**
+             * @default {
+             *       "backtest_debug": false,
+             *       "console_level": "INFO",
+             *       "keep_days": {
+             *         "CRITICAL": 365,
+             *         "DEBUG": 7,
+             *         "ERROR": 365,
+             *         "INFO": 30,
+             *         "WARNING": 180
+             *       },
+             *       "library_debug": false,
+             *       "max_db_mb": 2000,
+             *       "queue_size": 20000
+             *     }
+             */
+            logging: components["schemas"]["LoggingSettings"];
             /**
              * @default {
              *       "adx_threshold": "25",
@@ -4090,6 +4529,23 @@ export interface components {
              * @default 1
              */
             schema_version: number;
+            /**
+             * @default {
+             *       "shutdown_grace_seconds": 60
+             *     }
+             */
+            storage: components["schemas"]["StorageSettings"];
+            /**
+             * @default {
+             *       "bitvavo_rest_s": 10,
+             *       "collector_s": 10,
+             *       "keyring_s": 5,
+             *       "openai_s": 30,
+             *       "smtp_s": 15,
+             *       "stream_read_s": 60
+             *     }
+             */
+            timeouts: components["schemas"]["TimeoutSettings"];
             /**
              * @default {
              *       "stop_near_atr": "1.5"
@@ -4406,12 +4862,57 @@ export interface components {
             /** Enabled */
             enabled: boolean;
         };
+        /** StorageSettings */
+        StorageSettings: {
+            /**
+             * Shutdown Grace Seconds
+             * @default 60
+             */
+            shutdown_grace_seconds: number;
+        };
         /** Throttle */
         Throttle: {
             /** Lifts When */
             lifts_when: string;
             /** Reasons */
             reasons: ("streak" | "drawdown")[];
+        };
+        /**
+         * TimeoutSettings
+         * @description One configured timeout per external call — never a literal at the
+         *     call site.
+         */
+        TimeoutSettings: {
+            /**
+             * Bitvavo Rest S
+             * @default 10
+             */
+            bitvavo_rest_s: number;
+            /**
+             * Collector S
+             * @default 10
+             */
+            collector_s: number;
+            /**
+             * Keyring S
+             * @default 5
+             */
+            keyring_s: number;
+            /**
+             * Openai S
+             * @default 30
+             */
+            openai_s: number;
+            /**
+             * Smtp S
+             * @default 15
+             */
+            smtp_s: number;
+            /**
+             * Stream Read S
+             * @default 60
+             */
+            stream_read_s: number;
         };
         /** TradeListOut */
         TradeListOut: {
@@ -5874,6 +6375,285 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LlmCallDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_logs_api_logs_get: {
+        parameters: {
+            query?: {
+                level?: string | null;
+                component?: string | null;
+                event?: string | null;
+                pair?: string | null;
+                cycle_id?: string | null;
+                request_id?: string | null;
+                error_id?: string | null;
+                task?: string | null;
+                q?: string | null;
+                since?: string | null;
+                until?: string | null;
+                after?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogsListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    client_report_api_logs_client_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientReport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    events_api_logs_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventsOut"];
+                };
+            };
+        };
+    };
+    export_jsonl_api_logs_export_jsonl_get: {
+        parameters: {
+            query?: {
+                day?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    problems_api_logs_problems_get: {
+        parameters: {
+            query?: {
+                state?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_problem_api_logs_problems__fingerprint__review_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                fingerprint: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    summary_api_logs_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogSummaryOut"];
+                };
+            };
+        };
+    };
+    get_line_api_logs__line_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                line_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogLineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    around_line_api_logs__line_id__around_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                line_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AroundOut"];
                 };
             };
             /** @description Validation Error */

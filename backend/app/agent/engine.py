@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import uuid
 from collections import deque
 from collections.abc import Awaitable, Callable
@@ -24,9 +25,10 @@ from decimal import Decimal
 from typing import Any, Literal, cast
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
-from app import repo
+from app import logstore, repo
 from app.agent.broker.paper import BrokerState, HeldPosition, PaperBroker
 from app.agent.deciders.base import DecideContext, Decider, Draft, RiskView
 from app.agent.limit import buy_fills, post_only_limit, sell_fills
@@ -78,6 +80,10 @@ PRICE_FALLBACK_S = 300
 Clock = Callable[[], datetime]
 Sleeper = Callable[[float], Awaitable[None]]
 Notifier = Callable[[str, str, str], Awaitable[None]]
+# Notifications collected inside a transaction and sent after commit —
+# SQLite transactions may never span an await, so nothing async can run
+# between the first statement and the commit.
+Notes = list[tuple[str, str, str]]
 
 log = logging.getLogger(__name__)
 
@@ -154,6 +160,7 @@ class Engine:
         self._stale_cycles: dict[str, int] = {}
         self._price_fresh_at: dict[str, datetime] = {}
         self._watch_errors = 0
+        self._watch_passes = 0
         self._cycle_errors = 0
         # PR 8: set from main.py after construction — drives the shadow
         # strategies on the same cycle snapshot and watcher tick.
@@ -178,9 +185,11 @@ class Engine:
             session.close()
         await self.refresh_prices()
         self._stop.clear()
+        from app import tasks as tasks_mod
+
         self.tasks = [
-            asyncio.create_task(self._scheduler_loop()),
-            asyncio.create_task(self._watcher_loop()),
+            tasks_mod.spawn(self._scheduler_loop, name="agent-scheduler"),
+            tasks_mod.spawn(self._watcher_loop, name="agent-watcher"),
         ]
 
     def _recover_startup(self, session: Session) -> None:
@@ -286,6 +295,9 @@ class Engine:
                 for pair in pairs:
                     try:
                         candles = await self._fetch_closed(session, pair, "1h", now)
+                        # Commit before the next pair's fetch — an open
+                        # transaction may never span an await.
+                        session.commit()
                     except Exception:
                         # Stored candles still give the GUI a last price.
                         log.exception("startup price refresh failed for %s", pair)
@@ -305,6 +317,12 @@ class Engine:
                 session.close()
         except Exception:
             log.exception("startup price refresh failed")
+
+    def begin_shutdown(self) -> None:
+        """Stop new cycles and watcher passes without touching the loops:
+        in-flight work finishes inside the shutdown grace window and
+        ``stop`` cancels whatever is left afterwards."""
+        self._stop.set()
 
     async def stop(self) -> None:
         self._stop.set()
@@ -359,13 +377,17 @@ class Engine:
     async def flatten(self) -> list[str]:
         """Close every position at market and pause the agent."""
         async with self._execution_lock:
+            now = self.clock()
+            # Prices are fetched before the transaction opens — one
+            # synchronous transaction then holds every close atomically.
+            prices = {pair: await self._price(pair) for pair in list(self.broker.positions)}
             session = self._sessions()
             state = self._capture_execution_state()
             closed: list[str] = []
-            now = self.clock()
+            notes: Notes = []
             try:
                 for pair in list(self.broker.positions):
-                    price = await self._price(pair)
+                    price = prices[pair]
                     if price <= 0:
                         repo.add_activity(
                             session,
@@ -375,7 +397,7 @@ class Engine:
                             at=now,
                         )
                         continue
-                    await self._close_position(session, pair, price, now, "flatten")
+                    self._close_position(session, pair, price, now, "flatten", notes=notes)
                     closed.append(pair)
                 # Stop & flatten pauses the agent: open limit entries on
                 # the book can no longer be managed, so they cancel now.
@@ -392,6 +414,7 @@ class Engine:
                 raise
             finally:
                 session.close()
+            await self._send_notes(notes)
         await self._push()
         return closed
 
@@ -405,8 +428,9 @@ class Engine:
                 raise MarketDataError(f"no current price for {pair}")
             session = self._sessions()
             state = self._capture_execution_state()
+            notes: Notes = []
             try:
-                await self._close_position(session, pair, price, self.clock(), "manual")
+                self._close_position(session, pair, price, self.clock(), "manual", notes=notes)
                 self.broker.persist(session, self.clock())
                 session.commit()
             except Exception:
@@ -415,6 +439,7 @@ class Engine:
                 raise
             finally:
                 session.close()
+            await self._send_notes(notes)
         await self._push()
         return True
 
@@ -516,7 +541,7 @@ class Engine:
                 continue
             try:
                 await self.run_cycle()
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - boundary: one cycle
                 # A crashed cycle must never kill the scheduler.
                 await self._note_cycle_error(exc)
 
@@ -524,7 +549,12 @@ class Engine:
         """Best-effort error record for a crashed cycle; never raises.
         Repeated cycle crashes move the agent into the Error state — the
         pill shows it and cycles stop until Resume."""
-        log.exception("cycle %d failed", self.cycle)
+        log.error(
+            "cycle %d failed",
+            self.cycle,
+            exc_info=exc,
+            extra={"event": "cycle.step_failed"},
+        )
         self._cycle_errors += 1
         if self._cycle_errors >= 3 and self.status != "killed":
             self.status = "error"
@@ -547,7 +577,7 @@ class Engine:
     async def _watcher_loop(self) -> None:
         while not self._stop.is_set():
             try:
-                await self.tick()
+                await self._watched_tick()
                 self._watch_errors = 0
             except Exception as exc:
                 # The watcher must never die on a bad tick — but failures
@@ -558,6 +588,13 @@ class Engine:
                 if self._watch_errors == 1 or self._watch_errors % 10 == 0:
                     await self._note_watch_error(exc)
             await self._sleep(WATCH_S)
+
+    async def _watched_tick(self) -> None:
+        """One watcher pass inside its trace context (``w-`` id)."""
+        self._watch_passes += 1
+        with logstore.log_context(job=f"w-{self._watch_passes:04d}"):
+            log.debug("watcher pass %d", self._watch_passes, extra={"event": "watcher.pass"})
+            await self.tick()
 
     async def _note_watch_error(self, exc: Exception) -> None:
         """Best-effort error record for a failed watcher tick; never raises."""
@@ -595,65 +632,107 @@ class Engine:
             self.cycle += 1
             cycle_no = self.cycle
             now = self.clock()
+            cycle_id = f"c-{cycle_no:04d}"
+            started = time.monotonic()
             self.last_cycle_at = now
             self._last_ran_slot = slot_floor(now)
-            session = self._sessions()
-            try:
-                settings = self._settings()
-                repo.add_activity(session, "cycle", f"cycle {cycle_no} started", at=now)
-                session.commit()
-                context = await self._load_context(session, settings, now)
-                pairs = [
-                    m
-                    for m in settings.active_markets
-                    if not warming_up(session, m, settings.market)
-                ]
-                # A held position keeps its cycle on a deactivated or
-                # failing market — the model still manages it until it
-                # closes; "one position per pair" blocks any new entry.
-                for pair in self.broker.positions:
-                    if pair not in pairs:
-                        pairs.append(pair)
-                sem = asyncio.Semaphore(MAX_PARALLEL_PAIRS)
-
-                async def guarded(pair: str) -> None:
-                    async with sem:
-                        pair_session = self._sessions()
-                        try:
-                            await self._decide_pair(pair_session, pair, context, now)
-                        except Exception as exc:
-                            await self._record_pair_failure(pair_session, pair, exc)
-                        finally:
-                            pair_session.close()
-
-                await asyncio.gather(*(guarded(p) for p in pairs))
-                repo.add_equity_snapshot(
-                    session,
-                    self.broker.account_id,
-                    cycle_no,
-                    self.broker.equity(),
-                    self.broker.cash,
-                    at=now,
-                )
-                session.commit()
-                if self.shadows is not None:
-                    await self.shadows.run_cycle(now, cycle_no)
-                self.broker.persist(session, now)
-                session.commit()
-                # A clean cycle clears the crash streak and the Error state.
-                self._cycle_errors = 0
-                if self.status == "error":
-                    self.status = "running"
-            finally:
-                session.close()
-                self.cycle_in_progress = False
-                self.next_run_at = (
-                    self._next_due(self.clock() + timedelta(seconds=1))
-                    if self.status == "running"
-                    else None
-                )
-            await self._push()
+            with logstore.log_context(cycle_id=cycle_id):
+                await self._run_cycle_inner(cycle_no, now, started)
         await self._measure_clock_offset()
+
+    async def _run_cycle_inner(self, cycle_no: int, now: datetime, started: float) -> None:
+        log.info("cycle %d started", cycle_no, extra={"event": "cycle.start"})
+        session = self._sessions()
+        try:
+            settings = self._settings()
+            repo.add_activity(session, "cycle", f"cycle {cycle_no} started", at=now)
+            session.commit()
+            context = await self._load_context(session, settings, now)
+            session.commit()
+            pairs = [
+                m for m in settings.active_markets if not warming_up(session, m, settings.market)
+            ]
+            # A held position keeps its cycle on a deactivated or
+            # failing market — the model still manages it until it
+            # closes; "one position per pair" blocks any new entry.
+            for pair in self.broker.positions:
+                if pair not in pairs:
+                    pairs.append(pair)
+            # The read snapshot ends here: the gather below must not run
+            # inside a transaction — a write after it would fail on a
+            # stale snapshot (SQLITE_BUSY_SNAPSHOT, "database is locked").
+            session.rollback()
+            sem = asyncio.Semaphore(MAX_PARALLEL_PAIRS)
+
+            async def guarded(pair: str) -> None:
+                async with sem:
+                    pair_session = self._sessions()
+                    try:
+                        await self._decide_pair(pair_session, pair, context, now)
+                    except Exception as exc:  # noqa: BLE001 - boundary: one pair
+                        await self._record_pair_failure(pair_session, pair, exc)
+                    finally:
+                        pair_session.close()
+
+            await asyncio.gather(*(guarded(p) for p in pairs))
+            repo.add_equity_snapshot(
+                session,
+                self.broker.account_id,
+                cycle_no,
+                self.broker.equity(),
+                self.broker.cash,
+                at=now,
+            )
+            session.commit()
+            if self.shadows is not None:
+                await self.shadows.run_cycle(now, cycle_no)
+            self.broker.persist(session, now)
+            session.commit()
+            # A clean cycle clears the crash streak and the Error state.
+            self._cycle_errors = 0
+            if self.status == "error":
+                self.status = "running"
+        finally:
+            session.close()
+            self.cycle_in_progress = False
+            self.next_run_at = (
+                self._next_due(self.clock() + timedelta(seconds=1))
+                if self.status == "running"
+                else None
+            )
+        await self._push()
+        # The cycle's last line is the INFO summary — filtering on its
+        # cycle id shows the whole cycle, from schedule to fill.
+        summary_session = self._sessions()
+        try:
+            counts = repo.cycle_summary_counts(summary_session, self.broker.account_id, cycle_no)
+        except SQLAlchemyError:
+            counts = {}
+        finally:
+            summary_session.close()
+        duration_ms = (time.monotonic() - started) * 1000
+        log.info(
+            "cycle %d ended in %.1f s · %d pairs · %d model calls · "
+            "%d entries · %d exits · %d errors",
+            cycle_no,
+            duration_ms / 1000,
+            counts.get("pairs", 0),
+            counts.get("model_calls", 0),
+            counts.get("entries", 0),
+            counts.get("exits", 0),
+            counts.get("errors", 0),
+            extra={
+                "event": "cycle.end",
+                "duration_ms": round(duration_ms, 1),
+                "data": counts,
+            },
+        )
+        if duration_ms > 300_000:
+            log.warning(
+                "cycle %d took over 5 minutes",
+                cycle_no,
+                extra={"event": "cycle.slow", "duration_ms": round(duration_ms, 1)},
+            )
 
     async def _measure_clock_offset(self) -> None:
         """Sample the exchange clock once per cycle — information for the
@@ -665,13 +744,30 @@ class Engine:
             server_time = await self.client.time()  # type: ignore[attr-defined]
             self.clock_offset_s = (server_time - self.clock()).total_seconds()
             self.clock_offset_at = self.clock()
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - clock is information-only, never raises
+            log.warning(
+                "clock offset unreadable: %s",
+                exc,
+                extra={"event": "clock.offset_failed"},
+            )
+            return
+        if abs(self.clock_offset_s) > 2:
+            log.warning(
+                "clock offset %+.1f s against the exchange",
+                self.clock_offset_s,
+                extra={"event": "clock.offset_high"},
+            )
 
     async def _record_pair_failure(self, session: Session, pair: str, exc: Exception) -> None:
         """A crashed pair still ends as a recorded HOLD — never a trade,
         never silent — and the other pairs' work is untouched."""
-        log.exception("cycle %d: deciding %s failed", self.cycle, pair)
+        log.error(
+            "cycle %d: deciding %s failed",
+            self.cycle,
+            pair,
+            exc_info=exc,
+            extra={"event": "cycle.pair_failed", "pair": pair},
+        )
         try:
             session.rollback()
             now = self.clock()
@@ -699,7 +795,7 @@ class Engine:
                 error=f"cycle error: {exc}",
                 decision_id=decision_id,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - the error record may fail too
             session.rollback()
 
     async def _load_context(
@@ -736,14 +832,25 @@ class Engine:
                 now=now,
             )
             ctx["btc_regime"] = btc_sig.regime
-        except MarketDataError:
-            pass
+            # Land the BTC upserts before the next await — no transaction
+            # may stay open across a network call.
+            session.commit()
+        except MarketDataError as exc:
+            log.warning(
+                "BTC-EUR market context fetch failed: %s",
+                exc,
+                extra={"event": "candles.fetch_failed", "pair": "BTC-EUR"},
+            )
         try:
             usdc = drop_forming(await self.client.candles("USDC-EUR", "1h", 48), "1h", now)
             repo.upsert_candles(session, "USDC-EUR", "1h", usdc)
             ctx["usdc_1h"] = usdc
-        except MarketDataError:
-            pass
+        except MarketDataError as exc:
+            log.warning(
+                "USDC-EUR market context fetch failed: %s",
+                exc,
+                extra={"event": "candles.fetch_failed", "pair": "USDC-EUR"},
+            )
         return ctx
 
     # ------------------------------------------------------------- per pair ==
@@ -778,20 +885,39 @@ class Engine:
             # rebuild BTC's regime from stored candles so the brief keeps
             # its regime.btc block.
             btc_regime = self._stored_btc_regime(session, settings, now)
+        # Everything staged so far lands before the first fetch — a
+        # transaction must never stay open across an await.
+        session.commit()
 
         candles: dict[str, list[Candle]] = {}
+        notes: Notes = []
         try:
             candles["1h"] = await self._fresh_1h(
                 session, pair, now, retries=STALE_RETRIES if allow_stale_retry else 0
             )
+            session.commit()
             candles["4h"] = await self._fetch_closed(session, pair, "4h", now)
+            session.commit()
             candles["1d"] = await self._fetch_closed(session, pair, "1d", now)
-        except MarketDataError:
+            session.commit()
+        except MarketDataError as exc:
+            session.rollback()
             candles = {}
+            log.warning(
+                "%s: candles fetch failed: %s; pair held and marked stale",
+                pair,
+                exc,
+                extra={"event": "candles.fetch_failed", "pair": pair},
+            )
 
         if not candles.get("1h") or not candles.get("4h") or not candles.get("1d"):
-            await self._note_stale_pair(pair)
-            return self._record_decision(
+            self._note_stale_pair(pair, notes)
+            log.warning(
+                "%s: newest candles missing or stale; pair held and marked stale",
+                pair,
+                extra={"event": "candles.stale", "pair": pair},
+            )
+            decision = self._record_decision(
                 session,
                 pair,
                 now,
@@ -806,6 +932,8 @@ class Engine:
                 btc_regime=btc_regime,
                 error="stale data",
             )
+            await self._send_notes(notes)
+            return decision
         stale_tf = next(
             (
                 tf
@@ -816,8 +944,8 @@ class Engine:
         )
         if stale_tf is not None:
             self._mark_stale(pair, candles["1h"][-1].close)
-            await self._note_stale_pair(pair)
-            return self._record_decision(
+            self._note_stale_pair(pair, notes)
+            decision = self._record_decision(
                 session,
                 pair,
                 now,
@@ -832,6 +960,8 @@ class Engine:
                 btc_regime=btc_regime,
                 error=f"{stale_tf} stale",
             )
+            await self._send_notes(notes)
+            return decision
 
         self._stale_cycles.pop(pair, None)
         price = candles["1h"][-1].close
@@ -846,12 +976,13 @@ class Engine:
             settings=settings.market,
             now=now,
         )
-        await self._check_pair_shock(
+        self._check_pair_shock(
             session,
             pair,
             candles["1h"][-1],
             Decimal(str(signals.tf["1h"].atr14)) if signals.tf["1h"].atr14 else None,
             now,
+            notes,
         )
 
         pos = self.broker.positions.get(pair)
@@ -887,7 +1018,7 @@ class Engine:
                 entries_paused=pause is not None or not entries_open,
             )
         )
-        return await self._execute_draft(
+        decision = await self._execute_draft(
             session,
             pair,
             draft,
@@ -896,7 +1027,10 @@ class Engine:
             price,
             now,
             btc_regime=btc_regime,
+            notes=notes,
         )
+        await self._send_notes(notes)
+        return decision
 
     async def _fresh_1h(
         self, session: Session, pair: str, now: datetime, *, retries: int = STALE_RETRIES
@@ -909,6 +1043,9 @@ class Engine:
         candles: list[Candle] = []
         for attempt in range(retries + 1):
             candles = await self._fetch_closed(session, pair, "1h", self.clock())
+            # The upserts land now — the write lock is never held across
+            # the retry sleep below.
+            session.commit()
             if candles:
                 # The newest bar that should be closed opened one interval
                 # before the current hour boundary.
@@ -932,6 +1069,7 @@ class Engine:
         now: datetime,
         *,
         btc_regime: Regime | None = None,
+        notes: Notes,
     ) -> Decision:
         if (
             draft.action == "SELL"
@@ -956,6 +1094,7 @@ class Engine:
                         price,
                         now,
                         btc_regime=btc_regime,
+                        notes=notes,
                     )
                 except Exception:
                     session.rollback()
@@ -973,6 +1112,7 @@ class Engine:
                 price,
                 now,
                 btc_regime=btc_regime,
+                notes=notes,
             )
         except Exception:
             session.rollback()
@@ -990,6 +1130,7 @@ class Engine:
         now: datetime,
         *,
         btc_regime: Regime | None = None,
+        notes: Notes,
     ) -> Decision:
         settings = self._settings()
         gates: list[Gate] = []
@@ -1025,10 +1166,12 @@ class Engine:
                 # fails or re-sizes instead of filling at a stale price.
                 entry_ref = draft.entry or price
                 if limit_price is None and settings.execution_mode == "auto":
+                    # The transaction is still closed here — the session was
+                    # committed before decide() and nothing has read since.
                     ticker = await self._price(pair)
                     if ticker > 0:
                         entry_ref = ticker
-                ctx = await self._buy_ctx(
+                ctx = self._buy_ctx(
                     session,
                     pair,
                     now,
@@ -1060,7 +1203,7 @@ class Engine:
                             self._place_entry_order(session, pair, decision_id, verdict.plan, now)
                             status = "none"
                         else:
-                            await self._fill_buy(session, pair, plan, draft, now, decision_id)
+                            self._fill_buy(session, pair, plan, draft, now, decision_id, notes)
                             status = "executed"
                     else:
                         status = "pending"
@@ -1069,8 +1212,13 @@ class Engine:
                 # Market exits fill at the last ticker, not the closed
                 # candle's close.
                 fill_px = await self._price(pair)
-                await self._close_position(
-                    session, pair, fill_px if fill_px > 0 else price, now, "model_sell"
+                self._close_position(
+                    session,
+                    pair,
+                    fill_px if fill_px > 0 else price,
+                    now,
+                    "model_sell",
+                    notes=notes,
                 )
                 status = "executed"
         # A non-BUY decision on a held pair arms the invalidation re-eval
@@ -1102,7 +1250,7 @@ class Engine:
             btc_regime=btc_regime,
         )
 
-    async def _fill_buy(
+    def _fill_buy(
         self,
         session: Session,
         pair: str,
@@ -1110,6 +1258,7 @@ class Engine:
         draft: Draft,
         now: datetime,
         decision_id: str,
+        notes: Notes,
     ) -> None:
         # Fill at the plan's entry: the broker applies the same slippage
         # step the gates sized on, so the real fill equals fill_entry —
@@ -1134,7 +1283,7 @@ class Engine:
             pair=pair,
             at=now,
         )
-        await self._notify("trade", f"Trade opened · {pair}", f"BUY {plan.qty} @ {pos.entry}")
+        notes.append(("trade", f"Trade opened · {pair}", f"BUY {plan.qty} @ {pos.entry}"))
 
     # ------------------------------------------------------ limit orders ==
 
@@ -1144,7 +1293,13 @@ class Engine:
         book can't be read: any failure means no order is placed."""
         try:
             book = await self.client.order_book(pair, 1)
-        except Exception:
+        except MarketDataError as exc:
+            log.warning(
+                "%s: order book unreadable (%s); no limit order placed",
+                pair,
+                exc,
+                extra={"event": "book.unavailable", "pair": pair},
+            )
             return None
         if book.best_bid is None or book.best_ask is None:
             return None
@@ -1261,7 +1416,7 @@ class Engine:
             return "daily loss limit"
         return None
 
-    async def _buy_ctx(
+    def _buy_ctx(
         self,
         session: Session,
         pair: str,
@@ -1276,7 +1431,7 @@ class Engine:
     ) -> BuyContext:
         """One pair's gate context — shared by the cycle, the approval
         path and the fill-time recheck of a resting limit order."""
-        correlated = await self._correlated_open(session, pair, candles_1h)
+        correlated = self._correlated_open(session, pair, candles_1h)
         pause = repo.active_entry_pause(session, pair, now)
         return BuyContext(
             pair=pair,
@@ -1298,13 +1453,14 @@ class Engine:
             entries_allowed=entries_allowed(session, pair),
         )
 
-    async def _fill_entry_order(
+    def _fill_entry_order(
         self,
         session: Session,
         order: PaperOrderRow,
         price: Decimal,
         now: datetime,
         settings: Settings,
+        notes: Notes,
     ) -> bool:
         """The market traded through the limit: recheck every gate at the
         fill — sizing and risk are computed again — then open at the exact
@@ -1321,7 +1477,7 @@ class Engine:
             update={"paper": settings.paper.model_copy(update={"entry_orders": "limit"})}
         )
         verdict = check_buy(
-            await self._buy_ctx(
+            self._buy_ctx(
                 session,
                 order.pair,
                 now,
@@ -1370,16 +1526,19 @@ class Engine:
             decision_id=order.decision_id,
             at=now,
         )
-        await self._notify(
-            "trade",
-            f"Trade opened · {order.pair}",
-            f"BUY {fill_plan.qty} @ {pos.entry}",
+        notes.append(
+            ("trade", f"Trade opened · {order.pair}", f"BUY {fill_plan.qty} @ {pos.entry}")
         )
         self.latest[order.pair] = decision_from_row(row)
         return True
 
-    async def _tick_entry_orders(
-        self, session: Session, now: datetime, settings: Settings
+    def _tick_entry_orders(
+        self,
+        session: Session,
+        now: datetime,
+        settings: Settings,
+        prices: dict[str, tuple[Decimal, bool]],
+        notes: Notes,
     ) -> set[str]:
         """Drive open limit entries on the 30 s ticker: cancel at once when
         a gate starts blocking entries, fill on a trade-through. Returns
@@ -1394,7 +1553,7 @@ class Engine:
                 self._cancel_order(session, order, now, "switched to market")
             return filled
         for order in orders:
-            price, fresh = await self._priced(order.pair)
+            price, fresh = prices.get(order.pair, (Decimal("0"), False))
             if price <= 0:
                 continue
             self._store_price(order.pair, price, stale=not fresh)
@@ -1408,11 +1567,11 @@ class Engine:
                 continue
             if not buy_fills(price, Decimal(order.limit_price), self._tick_size(order.pair)):
                 continue
-            if await self._fill_entry_order(session, order, price, now, settings):
+            if self._fill_entry_order(session, order, price, now, settings, notes):
                 filled.add(order.pair)
         return filled
 
-    async def _close_position(
+    def _close_position(
         self,
         session: Session,
         pair: str,
@@ -1420,6 +1579,7 @@ class Engine:
         now: datetime,
         reason: str,
         *,
+        notes: Notes,
         order_type: Literal["market", "limit"] = "market",
         filled_order: PaperOrderRow | None = None,
     ) -> None:
@@ -1442,10 +1602,12 @@ class Engine:
                 pair=pair,
                 at=now,
             )
-            await self._notify(
-                "trade",
-                f"Trade closed · {pair}",
-                f"{reason} @ {trade.exit}; realised {trade.realised_eur} EUR",
+            notes.append(
+                (
+                    "trade",
+                    f"Trade closed · {pair}",
+                    f"{reason} @ {trade.exit}; realised {trade.realised_eur} EUR",
+                )
             )
 
     # --------------------------------------------------------------- watcher ==
@@ -1462,7 +1624,7 @@ class Engine:
             session = self._sessions()
             try:
                 await self._decide_pair(session, pair, {}, self.clock(), allow_stale_retry=False)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - boundary: one pair
                 await self._record_pair_failure(session, pair, exc)
             finally:
                 session.close()
@@ -1475,21 +1637,55 @@ class Engine:
         await self._push()
 
     async def _tick_locked(self) -> tuple[list[str], Any]:
+        """One watcher pass in three phases: read-only probe, network
+        prefetch with no transaction open, then one synchronous
+        transaction. Notifications go out after the commit — a SQLite
+        transaction may never span an await."""
         now = self.clock()
+        settings = self._settings()
+        probe = self._sessions()
+        try:
+            # Plain values only — rollback expires ORM rows, so nothing
+            # session-bound may leave this block.
+            entry_pairs = {
+                order.pair
+                for order in repo.open_paper_orders(probe, self.broker.account_id, leg="entry")
+            }
+            pending = [
+                (row.id, row.pair, row.plan, row.execute_at)
+                for row in repo.pending_decisions(probe, self.broker.account_id)
+            ]
+        finally:
+            probe.rollback()
+            probe.close()
+        pairs = {"BTC-EUR", *self.broker.positions}
+        pairs.update(entry_pairs)
+        pairs.update(pair for _, pair, _, _ in pending)
+        prices: dict[str, tuple[Decimal, bool]] = {}
+        for pair in sorted(pairs):
+            prices[pair] = await self._priced(pair)
+        # A supervised approval whose veto window elapsed places a
+        # post-only order — its book is fetched here, outside the txn.
+        limit_prices: dict[str, Decimal | None] = {}
+        if settings.execution_mode == "supervised" and settings.paper.entry_orders == "limit":
+            for row_id, pair, plan_json, execute_at in pending:
+                if plan_json and execute_at is not None and repo.aware_utc(execute_at) <= now:
+                    plan = Plan.model_validate_json(plan_json)
+                    limit_prices[row_id] = await self._post_only_price(pair, plan.entry)
+        # Shadows run on their own sessions — under the execution lock but
+        # outside this transaction, so their fetches never stall it.
+        shadow_re_eval: Any = await self.shadows.tick(now) if self.shadows is not None else []
         session = self._sessions()
         state = self._capture_execution_state()
         re_eval: list[str] = []
-        shadow_re_eval: Any = []
+        notes: Notes = []
         try:
-            settings = self._settings()
-            await self._tick_shock_btc(session, now, settings)
-            filled = await self._tick_entry_orders(session, now, settings)
-            await self._tick_positions(session, now, settings, filled, re_eval)
-            if self.shadows is not None:
-                shadow_re_eval = await self.shadows.tick(now)
-            await self._tick_pending(session, now)
-            await self._tick_kill(session, now, settings)
-            await self._tick_risk_notifications(session, now, settings)
+            self._tick_shock_btc(session, now, settings, prices, notes)
+            filled = self._tick_entry_orders(session, now, settings, prices, notes)
+            self._tick_positions(session, now, settings, prices, filled, re_eval, notes)
+            self._tick_pending(session, now, prices, limit_prices, notes)
+            self._tick_kill(session, now, settings, prices, notes)
+            self._tick_risk_notifications(session, now, settings, notes)
             self.broker.persist(session, now)
             session.commit()
         except Exception:
@@ -1498,6 +1694,7 @@ class Engine:
             raise
         finally:
             session.close()
+        await self._send_notes(notes)
         return re_eval, shadow_re_eval
 
     async def _priced(self, pair: str) -> tuple[Decimal, bool]:
@@ -1527,22 +1724,25 @@ class Engine:
     async def _price(self, pair: str) -> Decimal:
         return (await self._priced(pair))[0]
 
-    async def _tick_positions(
+    def _tick_positions(
         self,
         session: Session,
         now: datetime,
         settings: Settings,
+        prices: dict[str, tuple[Decimal, bool]],
         filled: set[str] | None = None,
         re_eval: list[str] | None = None,
+        notes: Notes | None = None,
     ) -> None:
         filled = filled or set()
         re_eval = re_eval if re_eval is not None else []
+        notes = notes if notes is not None else []
         for pair, pos in list(self.broker.positions.items()):
             if pair in filled:
                 # A limit entry filled this tick is never stopped or
                 # targetted out in the same check — exits start next tick.
                 continue
-            price, fresh = await self._priced(pair)
+            price, fresh = prices.get(pair, (Decimal("0"), False))
             if price <= 0:
                 continue
             self.broker.mark(pair, price, now)
@@ -1574,7 +1774,7 @@ class Engine:
             reason = check_exit(pos, price, atr, now, settings, target_is_limit=limit_targets)
             if reason is not None:
                 # Stops, time stops and every forced exit stay market.
-                await self._close_position(session, pair, price, now, reason)
+                self._close_position(session, pair, price, now, reason, notes=notes)
                 continue
             if pos.stop != old_stop:
                 # Breakeven and trailing move the stop without exiting —
@@ -1598,12 +1798,13 @@ class Engine:
                 if sell_fills(price, pos.target, self._tick_size(pair)):
                     # The market traded through the resting target: it
                     # fills at the exact limit price (maker fee, no slip).
-                    await self._close_position(
+                    self._close_position(
                         session,
                         pair,
                         pos.target,
                         now,
                         "target",
+                        notes=notes,
                         order_type="limit",
                         filled_order=target_order,
                     )
@@ -1670,14 +1871,21 @@ class Engine:
             "BTC-EUR", btc_1h, btc_4h, btc_1d, settings=settings.market, now=now
         ).regime
 
-    async def _tick_pending(self, session: Session, now: datetime) -> None:
+    def _tick_pending(
+        self,
+        session: Session,
+        now: datetime,
+        prices: dict[str, tuple[Decimal, bool]],
+        limit_prices: dict[str, Decimal | None],
+        notes: Notes,
+    ) -> None:
         """Expire drifted approvals and execute elapsed supervised veto windows."""
         settings = self._settings()
         for row in repo.pending_decisions(session, self.broker.account_id):
             if row.plan is None:
                 continue
             plan = Plan.model_validate_json(row.plan)
-            price = await self._price(row.pair)
+            price = prices.get(row.pair, (Decimal("0"), False))[0]
             if price <= 0 or plan.entry <= 0:
                 continue
             drift = abs(price - plan.entry) / plan.entry * 100
@@ -1696,14 +1904,52 @@ class Engine:
                 and row.execute_at is not None
                 and repo.aware_utc(row.execute_at) <= now
             ):
-                await self._approve_pending(session, row.id, now)
+                self._approve_pending(
+                    session,
+                    row.id,
+                    now,
+                    price=price,
+                    limit_price=limit_prices.get(row.id),
+                    notes=notes,
+                )
 
     async def approve_pending(self, decision_id: str) -> Decision:
         async with self._execution_lock:
+            # Probe first: the ticker and order-book fetches run with no
+            # transaction open; the row is re-read inside the txn.
+            probe = self._sessions()
+            try:
+                probe_row = repo.get_decision_row(probe, decision_id)
+                if (
+                    probe_row is None
+                    or probe_row.account_id != self.broker.account_id
+                    or probe_row.status != "pending"
+                    or probe_row.plan is None
+                ):
+                    raise PendingRefusal("decision is not pending")
+                pair = probe_row.pair
+                entry = Plan.model_validate_json(probe_row.plan).entry
+            finally:
+                probe.rollback()
+                probe.close()
+            price = await self._price(pair)
+            limit_price = (
+                await self._post_only_price(pair, entry)
+                if self._settings().paper.entry_orders == "limit"
+                else None
+            )
             session = self._sessions()
             state = self._capture_execution_state()
+            notes: Notes = []
             try:
-                decision = await self._approve_pending(session, decision_id, self.clock())
+                decision = self._approve_pending(
+                    session,
+                    decision_id,
+                    self.clock(),
+                    price=price,
+                    limit_price=limit_price,
+                    notes=notes,
+                )
                 self.broker.persist(session, self.clock())
                 session.commit()
             except Exception:
@@ -1712,11 +1958,19 @@ class Engine:
                 raise
             finally:
                 session.close()
+            await self._send_notes(notes)
         await self._push()
         return decision
 
-    async def _approve_pending(
-        self, session: Session, decision_id: str, now: datetime, price: Decimal | None = None
+    def _approve_pending(
+        self,
+        session: Session,
+        decision_id: str,
+        now: datetime,
+        *,
+        price: Decimal,
+        limit_price: Decimal | None,
+        notes: Notes,
     ) -> Decision:
         row = repo.get_decision_row(session, decision_id)
         if row is not None:
@@ -1726,7 +1980,6 @@ class Engine:
         if row.plan is None:
             raise PendingRefusal("pending decision has no plan")
         old_plan = Plan.model_validate_json(row.plan)
-        price = price if price is not None else await self._price(row.pair)
         if price <= 0:
             raise PendingRefusal("no current price")
         settings = self._settings()
@@ -1738,19 +1991,19 @@ class Engine:
             raise PendingRefusal("pending decision expired because price moved too far")
         # Approving a limit-mode decision places the post-only order at the
         # decision's entry (post-only adjusted); gates rerun at the limit.
-        limit_price: Decimal | None = None
         if settings.paper.entry_orders == "limit":
-            limit_price = await self._post_only_price(row.pair, old_plan.entry)
             if limit_price is None:
                 row.status = "expired"
                 row.error = "order book unavailable"
                 self.pending.pop(row.id, None)
                 session.commit()
                 raise PendingRefusal("no order book to place the limit order")
+        else:
+            limit_price = None
         candles = drop_forming(repo.load_candles(session, row.pair, "1h", CORR_BARS), "1h", now)
         atr_1h = self._atr_1h(session, row.pair, now)
         verdict = check_buy(
-            await self._buy_ctx(
+            self._buy_ctx(
                 session,
                 row.pair,
                 now,
@@ -1788,7 +2041,7 @@ class Engine:
                     if row.invalidation_price
                     else None,
                 )
-                await self._fill_buy(session, row.pair, verdict.plan, draft, now, row.id)
+                self._fill_buy(session, row.pair, verdict.plan, draft, now, row.id, notes)
             row.plan = verdict.plan.model_dump_json()
             row.status = "approved"
             row.execute_at = now.replace(tzinfo=None)
@@ -1831,41 +2084,54 @@ class Engine:
         await self._push()
         return decision
 
-    async def _tick_risk_notifications(
-        self, session: Session, now: datetime, settings: Settings
+    def _tick_risk_notifications(
+        self, session: Session, now: datetime, settings: Settings, notes: Notes
     ) -> None:
         daily_loss_hit = self.broker.today_loss_pct(now) >= settings.risk.daily_loss_limit_pct
         if daily_loss_hit and not self._daily_loss_notified:
-            await self._notify(
-                "daily_loss",
-                "Daily loss limit reached",
-                f"Today loss reached {self.broker.today_loss_pct(now):.2f}%",
+            notes.append(
+                (
+                    "daily_loss",
+                    "Daily loss limit reached",
+                    f"Today loss reached {self.broker.today_loss_pct(now):.2f}%",
+                )
             )
         self._daily_loss_notified = daily_loss_hit
         reasons = tuple(self._risk_state(session)[1])
         if reasons != self._notified_throttle:
             if reasons:
-                await self._notify(
-                    "risk_control",
-                    "Risk throttle on",
-                    f"Active reasons: {', '.join(reasons)}",
+                notes.append(
+                    ("risk_control", "Risk throttle on", f"Active reasons: {', '.join(reasons)}")
                 )
             elif self._notified_throttle:
-                await self._notify("risk_control", "Risk throttle lifted", "Full risk restored")
+                notes.append(("risk_control", "Risk throttle lifted", "Full risk restored"))
             self._notified_throttle = reasons
 
-    async def _tick_kill(self, session: Session, now: datetime, settings: Settings) -> None:
+    def _tick_kill(
+        self,
+        session: Session,
+        now: datetime,
+        settings: Settings,
+        prices: dict[str, tuple[Decimal, bool]],
+        notes: Notes,
+    ) -> None:
         if self.status == "killed":
             return
         if self.broker.drawdown_pct() >= settings.risk.kill_drawdown_pct:
-            await self._fire_kill(session, now)
+            self._fire_kill(session, now, prices, notes)
 
-    async def _fire_kill(self, session: Session, now: datetime) -> None:
+    def _fire_kill(
+        self,
+        session: Session,
+        now: datetime,
+        prices: dict[str, tuple[Decimal, bool]],
+        notes: Notes,
+    ) -> None:
         """Kill drawdown: flatten all, Killed state, alert. Exits keep being
         watched; no new trades are possible until acknowledged."""
         closed: list[str] = []
         for pair in list(self.broker.positions):
-            price = await self._price(pair)
+            price = prices.get(pair, (Decimal("0"), False))[0]
             if price <= 0:
                 repo.add_activity(
                     session,
@@ -1875,7 +2141,7 @@ class Engine:
                     at=now,
                 )
                 continue
-            await self._close_position(session, pair, price, now, "kill")
+            self._close_position(session, pair, price, now, "kill", notes=notes)
             closed.append(pair)
         # A gate that blocks entries cancels resting limit orders at once.
         self._cancel_entry_orders(session, now, "kill switch")
@@ -1896,30 +2162,37 @@ class Engine:
         )
         message = f"Drawdown hit; flattened {len(closed)} position(s)"
         repo.add_activity(session, "alert", f"KILL SWITCH: {message}", at=now)
-        await self._notify("kill_switch", "Kill switch fired", message)
-        await self._push()
+        notes.append(("kill_switch", "Kill switch fired", message))
 
-    async def _tick_shock_btc(self, session: Session, now: datetime, settings: Settings) -> None:
+    def _tick_shock_btc(
+        self,
+        session: Session,
+        now: datetime,
+        settings: Settings,
+        prices: dict[str, tuple[Decimal, bool]],
+        notes: Notes,
+    ) -> None:
         """BTC ± move over any 60-minute window on the 30 s ticker."""
-        price, fresh = await self._priced("BTC-EUR")
+        price, fresh = prices.get("BTC-EUR", (Decimal("0"), False))
         if price > 0 and fresh:
             self._btc_window.append((now, price))
             cutoff = now - timedelta(seconds=SHOCK_WINDOW_S)
             while self._btc_window and self._btc_window[0][0] < cutoff:
                 self._btc_window.popleft()
             if len(self._btc_window) >= 2:
-                prices = [p for _, p in self._btc_window]
-                lo, hi = min(prices), max(prices)
+                window = [p for _, p in self._btc_window]
+                lo, hi = min(window), max(window)
                 if lo > 0 and (hi - lo) / lo * 100 > settings.risk.shock_brake_btc_move_pct:
-                    await self._trigger_shock(session, now, settings, "BTC move")
+                    self._trigger_shock(session, now, settings, "BTC move", notes)
 
-    async def _check_pair_shock(
+    def _check_pair_shock(
         self,
         session: Session,
         pair: str,
         last_1h: Candle,
         atr_1h: Decimal | None,
         now: datetime,
+        notes: Notes,
     ) -> None:
         """Any active pair's last closed 1h candle range above 3 x ATR(1h)."""
         settings = self._settings()
@@ -1927,10 +2200,10 @@ class Engine:
             return
         rng = last_1h.high - last_1h.low
         if rng > SHOCK_RANGE_ATR_MULT * atr_1h:
-            await self._trigger_shock(session, now, settings, f"{pair} candle range")
+            self._trigger_shock(session, now, settings, f"{pair} candle range", notes)
 
-    async def _trigger_shock(
-        self, session: Session, now: datetime, settings: Settings, source: str
+    def _trigger_shock(
+        self, session: Session, now: datetime, settings: Settings, source: str, notes: Notes
     ) -> None:
         active = self.shock_brake_until is not None and self.shock_brake_until > now
         # Entries stay blocked for the full window from the LAST trigger —
@@ -1946,7 +2219,7 @@ class Engine:
             return
         message = f"{source}; entries paused until {until.isoformat()}"
         repo.add_activity(session, "alert", f"shock brake ON ({message})", at=now)
-        await self._notify("risk_control", "Shock brake on", message)
+        notes.append(("risk_control", "Shock brake on", message))
 
     # ---------------------------------------------------------------- helpers
 
@@ -1983,9 +2256,7 @@ class Engine:
         trade = repo.last_exit_for_pair(session, self.broker.account_id, pair, "stop")
         return trade.closed_at if trade else None
 
-    async def _correlated_open(
-        self, session: Session, pair: str, candles_1h: list[Candle]
-    ) -> list[str]:
+    def _correlated_open(self, session: Session, pair: str, candles_1h: list[Candle]) -> list[str]:
         """Open positions whose 30-day 1h correlation with this pair exceeds
         the configured threshold."""
         settings = self._settings()
@@ -2034,14 +2305,16 @@ class Engine:
             stale=stale,
         )
 
-    async def _note_stale_pair(self, pair: str) -> None:
+    def _note_stale_pair(self, pair: str, notes: Notes) -> None:
         count = self._stale_cycles.get(pair, 0) + 1
         self._stale_cycles[pair] = count
         if count == 2:
-            await self._notify(
-                "pair_stale",
-                f"Pair stale · {pair}",
-                "Market data was stale for 2 cycles in a row",
+            notes.append(
+                (
+                    "pair_stale",
+                    f"Pair stale · {pair}",
+                    "Market data was stale for 2 cycles in a row",
+                )
             )
 
     def _mark_stale(self, pair: str, last: Decimal) -> None:
@@ -2213,8 +2486,19 @@ class Engine:
             return
         try:
             await self._notify_event(event, title, body)
-        except Exception:
-            return
+        except Exception as exc:  # noqa: BLE001 - boundary
+            log.warning(
+                "notification dispatch failed for %s: %s",
+                event,
+                exc,
+                extra={"event": "notify.email_failed"},
+            )
+
+    async def _send_notes(self, notes: Notes) -> None:
+        """Flush notifications collected inside a transaction — always
+        after commit, never with one open."""
+        for event, title, body in notes:
+            await self._notify(event, title, body)
 
     async def _push(self) -> None:
         if self._broadcast is not None:

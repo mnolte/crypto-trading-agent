@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import type { UTCTimestamp } from "lightweight-charts";
 import type { TradeOut } from "../api/client";
 import { usePerformance, useSnapshot, useTrades } from "../api/hooks";
+import { RecordNotFound } from "./Errors";
 import { AppShell } from "../components/AppShell";
 import { Card } from "../components/Card";
 import { PerfChart, type LinePoint } from "../components/Charts";
@@ -70,6 +71,10 @@ export function Performance() {
 
   // Deep link: /performance?trade=<id> scrolls to and highlights the row.
   const focusTrade = useSearchParams()[0].get("trade");
+  const tradeMissing =
+    !!focusTrade &&
+    trades !== undefined &&
+    !trades.items.some((t) => String(t.id) === focusTrade);
   useEffect(() => {
     if (focusTrade) {
       document
@@ -93,6 +98,13 @@ export function Performance() {
 
   const t = perf?.totals;
 
+  if (tradeMissing) {
+    return (
+      <AppShell title="Performance" sub={sub}>
+        <RecordNotFound kind="Trade" id={focusTrade ?? ""} />
+      </AppShell>
+    );
+  }
   return (
     <AppShell title="Performance" sub={sub}>
       <div className="page-controls">

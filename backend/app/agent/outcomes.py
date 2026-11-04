@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -23,6 +24,8 @@ from app.db import (
     utcnow,
 )
 from app.models import Plan
+
+log = logging.getLogger(__name__)
 
 HORIZONS = (4, 24, 72)
 METHOD_VERSION = "outcome.v1"
@@ -286,13 +289,16 @@ def run_outcomes(session: Session, now: datetime) -> int:
                 became_terminal = failure.attempts == MAX_OUTCOME_ATTEMPTS
                 failure.terminal = failure.attempts >= MAX_OUTCOME_ATTEMPTS
                 if became_terminal:
-                    repo.add_activity(
-                        session,
-                        "error",
-                        f"outcome unavailable at {horizon}h: {exc}",
-                        pair=decision.pair,
-                        decision_id=decision.id,
-                        at=now,
+                    log.exception(
+                        "outcome unavailable at %sh: %s",
+                        horizon,
+                        exc,
+                        extra={
+                            "event": "job.failed",
+                            "pair": decision.pair,
+                            "decision_id": str(decision.id),
+                            "data": {"job": "outcomes", "horizon": horizon},
+                        },
                     )
                 continue
             failure = session.get(OutcomeFailureRow, (decision.id, horizon))

@@ -12,6 +12,7 @@ import {
 import { ActionBadge } from "./ActionBadge";
 import { Chip } from "./Chip";
 import { EmptyState } from "./EmptyState";
+import { RecordNotFound } from "../pages/Errors";
 import { GateList } from "./GateList";
 import { Meter } from "./Meter";
 import { RegimeChip } from "./RegimeChip";
@@ -142,6 +143,15 @@ export function DecisionDrawer({
             Open in Indicators
           </Link>
         )}
+        {decision && (
+          <Link
+            to={`/logs?cycle_id=c-${String(decision.cycle).padStart(4, "0")}&pair=${decision.pair}`}
+            className="btn btn--secondary drawer-actions__grow"
+            onClick={onClose}
+          >
+            Logs for this decision
+          </Link>
+        )}
         <Button
           variant="secondary"
           disabled={!data?.next_id}
@@ -162,7 +172,7 @@ export function DecisionDrawer({
       footer={footer}
     >
       {isLoading && <EmptyState title="Loading…" />}
-      {isError && <EmptyState title="Decision not found" />}
+      {isError && id && <RecordNotFound kind="Decision" id={id} />}
       {decision && (
         <div className="drawer-stack">
           <div className="chip-row">

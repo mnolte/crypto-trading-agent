@@ -35,7 +35,14 @@ from app.agent.deciders.base import DecideContext, Draft, RiskView
 from app.agent.deciders.openai_decider import OpenAIDecider
 from app.agent.engine import CYCLE_S
 from app.agent.limit import buy_fills, post_only_limit, sell_fills
-from app.agent.market.base import TF_SECONDS, Candle, MarketClient, MarketInfo, drop_forming
+from app.agent.market.base import (
+    TF_SECONDS,
+    Candle,
+    MarketClient,
+    MarketDataError,
+    MarketInfo,
+    drop_forming,
+)
 from app.agent.market.universe import entries_allowed, warming_up
 from app.agent.risk import BuyContext, check_buy, check_exit, update_trail
 from app.agent.signals import (
@@ -221,9 +228,14 @@ class ShadowRunner:
                         for pair in shadow.settings.active_markets:
                             if warming_up(session, pair, shadow.settings.market):
                                 continue
+                            # Staged work lands before the await — no
+                            # transaction may stay open across it.
+                            session.commit()
                             try:
                                 await self._decide_pair(session, shadow, pair, now, cycle)
+                                session.commit()
                             except Exception:
+                                session.rollback()
                                 log.exception("shadow %s: %s decide failed", shadow.row.id, pair)
                         repo.add_equity_snapshot(
                             session,
@@ -352,8 +364,12 @@ class ShadowRunner:
                 settings=settings.market,
                 now=now,
             ).regime
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - missing BTC context is not fatal
+            log.debug(
+                "shadow: BTC regime unavailable: %s",
+                exc,
+                extra={"event": "candles.fetch_failed"},
+            )
         prev_4h = compute_tf_values(candles["4h"][:-1], "4h") if len(candles["4h"]) > 1 else None
         pos = shadow.broker.positions.get(pair)
         pause = repo.active_entry_pause(session, pair, now)
@@ -382,6 +398,9 @@ class ShadowRunner:
         # The shadow's own daily call cap — beyond it the Rules baseline
         # answers, like the live daily budget.
         used = repo.shadow_calls_today(session, shadow.account.id, shadow.row.id, now)
+        # The read snapshot ends here — the model call must not run
+        # inside a transaction.
+        session.commit()
         if used >= shadow.row.daily_call_limit:
             draft = await shadow.decider.rules.decide(ctx)
             draft.reasoning = (
@@ -427,16 +446,18 @@ class ShadowRunner:
                     action = "SKIP"
                     error = "order book unavailable"
             if action != "SKIP":
-                correlated = self._correlated(session, shadow, pair, candles["1h"], now)
-                pause = repo.active_entry_pause(session, pair, now)
-                atr = Decimal(str(signals.tf["1h"].atr14)) if signals.tf["1h"].atr14 else None
                 # Same fill basis as live: market entries gate and fill at
                 # the last ticker price, not the closed candle's close.
+                # The fetch runs before any session read — the transaction
+                # stays closed across the await.
                 entry_ref = draft.entry or price
                 if limit_price is None:
                     ticker = await self._price_fn(pair)
                     if ticker > 0:
                         entry_ref = ticker
+                correlated = self._correlated(session, shadow, pair, candles["1h"], now)
+                pause = repo.active_entry_pause(session, pair, now)
+                atr = Decimal(str(signals.tf["1h"].atr14)) if signals.tf["1h"].atr14 else None
                 verdict = check_buy(
                     BuyContext(
                         pair=pair,
@@ -501,7 +522,7 @@ class ShadowRunner:
         elif draft.action == "SELL":
             if pair in broker.positions:
                 fill_px = await self._price_fn(pair)
-                await self._close_shadow_position(
+                self._close_shadow_position(
                     session, shadow, pair, fill_px if fill_px > 0 else price, now, "model_sell"
                 )
                 filled_sell = pair not in broker.positions
@@ -592,7 +613,13 @@ class ShadowRunner:
         be read: any failure means no order is placed."""
         try:
             book = await self.client.order_book(pair, 1)
-        except Exception:
+        except MarketDataError as exc:
+            log.warning(
+                "%s: order book unreadable (%s); no limit order placed",
+                pair,
+                exc,
+                extra={"event": "book.unavailable", "pair": pair},
+            )
             return None
         if book.best_bid is None or book.best_ask is None:
             return None
@@ -700,7 +727,7 @@ class ShadowRunner:
             return "daily loss limit"
         return None
 
-    async def _fill_entry_order(
+    def _fill_entry_order(
         self, session: Session, shadow: _Shadow, order: PaperOrderRow, price: Decimal, now: datetime
     ) -> bool:
         """Trade-through: recheck every gate at the limit price, then fill
@@ -779,8 +806,12 @@ class ShadowRunner:
         )
         return True
 
-    async def _tick_entry_orders(
-        self, session: Session, shadow: _Shadow, now: datetime
+    def _tick_entry_orders(
+        self,
+        session: Session,
+        shadow: _Shadow,
+        now: datetime,
+        prices: dict[str, Decimal],
     ) -> set[str]:
         filled: set[str] = set()
         orders = repo.open_paper_orders(session, shadow.broker.account_id, leg="entry")
@@ -789,7 +820,7 @@ class ShadowRunner:
                 self._cancel_order(session, shadow, order, now, "switched to market")
             return filled
         for order in orders:
-            price = await self._price_fn(order.pair)
+            price = prices.get(order.pair, Decimal("0"))
             if price <= 0:
                 continue
             if order.min_price is None or price < Decimal(order.min_price):
@@ -802,11 +833,11 @@ class ShadowRunner:
                 continue
             if not buy_fills(price, Decimal(order.limit_price), self._tick_size(order.pair)):
                 continue
-            if await self._fill_entry_order(session, shadow, order, price, now):
+            if self._fill_entry_order(session, shadow, order, price, now):
                 filled.add(order.pair)
         return filled
 
-    async def _close_shadow_position(
+    def _close_shadow_position(
         self,
         session: Session,
         shadow: _Shadow,
@@ -848,14 +879,28 @@ class ShadowRunner:
         re_eval: list[tuple[str, str]] = []
         session = self._sessions()
         try:
-            for shadow in self._shadows(session):
+            shadows = self._shadows(session)
+            # Prices for every pair this pass can touch — fetched with no
+            # transaction open; the work below is synchronous per shadow.
+            pairs: set[str] = set()
+            for sh in shadows:
+                pairs.update(sh.broker.positions)
+                pairs.update(
+                    o.pair
+                    for o in repo.open_paper_orders(session, sh.broker.account_id, leg="entry")
+                )
+            session.commit()
+            prices: dict[str, Decimal] = {}
+            for pair in sorted(pairs):
+                prices[pair] = await self._price_fn(pair)
+            for shadow in shadows:
                 try:
-                    filled = await self._tick_entry_orders(session, shadow, now)
+                    filled = self._tick_entry_orders(session, shadow, now, prices)
                     for pair, pos in list(shadow.broker.positions.items()):
                         if pair in filled:
                             # A just-filled entry's exits start next tick.
                             continue
-                        price = await self._price_fn(pair)
+                        price = prices.get(pair, Decimal("0"))
                         if price <= 0:
                             continue
                         shadow.broker.mark(pair, price, now)
@@ -885,13 +930,11 @@ class ShadowRunner:
                         )
                         if reason is not None:
                             # Stops, time stops and forced exits stay market.
-                            await self._close_shadow_position(
-                                session, shadow, pair, price, now, reason
-                            )
+                            self._close_shadow_position(session, shadow, pair, price, now, reason)
                             continue
                         if limit_targets:
                             if sell_fills(price, pos.target, self._tick_size(pair)):
-                                await self._close_shadow_position(
+                                self._close_shadow_position(
                                     session,
                                     shadow,
                                     pair,
@@ -951,6 +994,9 @@ class ShadowRunner:
         session = self._sessions()
         try:
             live = {s.row.id: s for s in self._shadows(session)}
+            # The load's read snapshot ends here — _decide_pair awaits the
+            # model and may not hold a transaction across it.
+            session.commit()
             for shadow_id, pair in items:
                 shadow = live.get(shadow_id)
                 if shadow is None:

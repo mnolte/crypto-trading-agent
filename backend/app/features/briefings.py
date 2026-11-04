@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import uuid
 from collections.abc import Awaitable, Callable, Iterator
@@ -33,6 +34,8 @@ from app.agent.prompts import load_prompt
 from app.config import get_secret
 from app.db import AMSTERDAM, AccountRow, BriefingRow, LlmCallRow, TradeRow, utcnow
 from app.models import CheckOut, Settings
+
+log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from app.api.deps import AppState
@@ -626,7 +629,7 @@ async def generate_briefing(
     if reason is None:
         try:
             prompt = load_prompt(REVIEW_PROMPT if type == "weekly" else BRIEFING_PROMPT)
-        except Exception:
+        except Exception:  # noqa: BLE001 - a missing prompt file is an expected condition
             prompt = None
             reason = "review prompt missing" if type == "weekly" else "briefing prompt missing"
     if reason is None and prompt is not None:
@@ -645,9 +648,12 @@ async def generate_briefing(
                 feature=feature,
             )
             call_rows.append(call_row)
+            # No transaction may stay open across the model call — the
+            # rate read below would otherwise upgrade a stale snapshot.
+            session.commit()
             try:
                 result = await client.call(payload)
-            except Exception as exc:  # the transport itself blew up
+            except Exception as exc:  # noqa: BLE001 - the transport itself blew up
                 result = CallResult(status="api_error", request_bytes=b"", error=str(exc))
             _record_result(call_row, result, prices, budget.usdc_eur_rate(session, now))
             if result.status != "ok" or not result.output_text:
@@ -683,6 +689,9 @@ async def generate_briefing(
                 prompt,
             )
         await client.aclose()
+        # The last rate read's transaction ends here — the briefing row
+        # and call rows write in a fresh one.
+        session.commit()
         if text is None and reason is None:
             reason = "the number check rejected the model's text"
 
@@ -790,7 +799,7 @@ async def briefing_loop(
             finally:
                 session.close()
         except Exception:
-            pass  # a briefing miss must never kill the loop; logged next tick
+            log.exception("briefing loop tick failed", extra={"event": "job.failed"})
         await asyncio.sleep(LOOP_TICK_S)
 
 

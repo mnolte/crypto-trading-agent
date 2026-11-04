@@ -409,6 +409,46 @@ class UiSettings(BaseModel):
     stop_near_atr: Decimal = Decimal("1.5")
 
 
+class LoggingSettings(BaseModel):
+    """The log store's knobs — every value the spec makes configurable."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    console_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    queue_size: int = 20000
+    # Days kept per level: debug 7, info 30, warning 180, error/critical 365.
+    keep_days: dict[str, int] = {
+        "DEBUG": 7,
+        "INFO": 30,
+        "WARNING": 180,
+        "ERROR": 365,
+        "CRITICAL": 365,
+    }
+    max_db_mb: int = 2000
+    backtest_debug: bool = False  # backtest children log INFO+ unless this is on
+    library_debug: bool = False  # library loggers otherwise land at WARNING+
+
+
+class StorageSettings(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    shutdown_grace_seconds: int = 60
+
+
+class TimeoutSettings(BaseModel):
+    """One configured timeout per external call — never a literal at the
+    call site."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    bitvavo_rest_s: float = 10
+    stream_read_s: float = 60
+    openai_s: float = 30
+    collector_s: float = 10
+    smtp_s: float = 15
+    keyring_s: float = 5
+
+
 class Settings(BaseModel):
     """The one validated JSON document stored in the settings table.
 
@@ -432,6 +472,9 @@ class Settings(BaseModel):
     learning: LearningSettings = LearningSettings()
     readiness: ReadinessSettings = ReadinessSettings()
     ui: UiSettings = UiSettings()
+    logging: LoggingSettings = LoggingSettings()
+    storage: StorageSettings = StorageSettings()
+    timeouts: TimeoutSettings = TimeoutSettings()
     # Source ids the user disabled on the Sources page; the registry keeps
     # the runtime status.
     disabled_sources: list[str] = []

@@ -412,7 +412,12 @@ function CyclesCard({
               {summary.errors > 0 && (
                 <>
                   {" · "}
-                  <span className="num">{summary.errors}</span> errors
+                  <Link
+                    to={`/logs?cycle_id=${encodeURIComponent(String(summary.cycle_id))}`}
+                    className="cycles-card__errors"
+                  >
+                    <span className="num">{summary.errors}</span> errors
+                  </Link>
                 </>
               )}
               {" · cycle #"}

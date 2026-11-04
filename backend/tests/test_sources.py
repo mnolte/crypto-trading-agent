@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import httpx
 import keyring
@@ -13,13 +13,12 @@ import pytest
 import respx
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import select
 
 import app.main
-from app import repo
 from app.api.deps import AppState
 from app.config import get_env
-from app.db import ErrorRow, MarketRow, make_engine, make_session_factory, utcnow
+from app.db import MarketRow, make_engine, make_session_factory, utcnow
+from app.logstore.record import COLUMNS, fingerprint
 from app.repo import load_settings
 from app.sources import SourceRegistry
 
@@ -46,22 +45,28 @@ def test_source_recovery_requires_a_continuous_hour(
     and never while the source is failing again."""
     monkeypatch.setattr(app.main, "SOURCE_RECOVERY_RESOLVE_S", 0)
     state = cast(AppState, cast(FastAPI, client.app).state.app_state)
-    session = state.session_factory()
-    try:
-        repo.add_activity(session, "error", "data source failing: bitvavo", at=utcnow())
-        session.commit()
-    finally:
-        session.close()
+    # The failure is a problem in logs.db now — write the line the
+    # source-failure path writes.
+    line: dict[str, Any] = dict.fromkeys(COLUMNS)
+    line.update(
+        {
+            "ts": utcnow().isoformat(),
+            "level": "ERROR",
+            "levelno": 40,
+            "logger": "app",
+            "event": "source.failing",
+            "message": "data source failing: bitvavo",
+            "process": "app",
+            "pid": 1,
+            "fingerprint": fingerprint("app", "source.failing", "data source failing: bitvavo"),
+            "version": "test",
+        }
+    )
+    state.log_store.write_lines([line])
 
     def unresolved() -> bool:
-        s = state.session_factory()
-        try:
-            row = s.scalars(
-                select(ErrorRow).where(ErrorRow.text == "data source failing: bitvavo")
-            ).one()
-            return row.resolved_at is None
-        finally:
-            s.close()
+        problems = state.log_store.unreviewed_problems()
+        return any(p.get("event") == "source.failing" for p in problems)
 
     # Generation 3 is the latest recovery; a stale timer must not resolve.
     generations = {"bitvavo": 3}
@@ -217,7 +222,7 @@ def test_market_activation_and_listing(sim_client: TestClient) -> None:
         "/api/markets/THIN-EUR", json={"active": True}, headers={"X-Local-Token": token}
     )
     assert resp.status_code == 409
-    assert resp.json()["detail"] == "volume"
+    assert resp.json()["error"]["message"] == "volume"
 
     resp = sim_client.put(
         "/api/markets/NEW-EUR", json={"active": True}, headers={"X-Local-Token": token}
@@ -275,7 +280,7 @@ def test_secret_write_reports_missing_keyring_backend(
         "/api/secrets/openai", json={"key": "sk-test-0000"}, headers={"X-Local-Token": token}
     )
     assert resp.status_code == 503
-    assert "keyring" in resp.json()["detail"].lower()
+    assert "keyring" in resp.json()["error"]["message"].lower()
     resp = client.delete("/api/secrets/openai", headers={"X-Local-Token": token})
     assert resp.status_code == 503
 

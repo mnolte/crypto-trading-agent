@@ -1811,7 +1811,7 @@ def main() -> None:
             h4 = fetch_candles(m, "4h", warm_h4, args.cache or None)
             need_h1 = args.lab or not (args.no_ranges and args.no_trend)
             h1 = fetch_candles(m, "1h", warm_h1, args.cache or None) if need_h1 else []
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - boundary: one market's fetch must not kill the batch; reported to stderr
             print(f"\n{m}: could not fetch candles ({e})", file=sys.stderr)
             continue
         if args.portfolio or args.families:

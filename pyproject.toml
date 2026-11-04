@@ -48,7 +48,7 @@ src = ["backend"]
 exclude = ["docs", "design", "backend/prompts"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "C4", "RUF"]
+select = ["E", "F", "I", "UP", "B", "C4", "RUF", "E722", "BLE001", "S110", "TRY400", "TRY203", "LOG"]
 
 [tool.mypy]
 mypy_path = "backend"
@@ -70,4 +70,6 @@ markers = [
 addopts = "--disable-socket --allow-hosts=127.0.0.1,localhost"
 filterwarnings = [
     'error:A test tried to use socket\.socket',
+    # Warnings raised from app.* are errors, so a new one fails CI.
+    'error:::app\..*',
 ]

@@ -229,8 +229,8 @@ def _proposed_levels(
         try:
             plan = Plan.model_validate_json(row.plan)
             return plan.entry, plan.stop, plan.target
-        except Exception:
-            pass
+        except (ValueError, TypeError, KeyError):
+            pass  # decisions without a plan fall back to the raw response
     levels = _levels_from_raw(row.raw_response)
     if levels is not None:
         return levels
@@ -562,7 +562,7 @@ class _Sim:
                 if row.plan:
                     try:
                         target = Plan.model_validate_json(row.plan).target
-                    except Exception:
+                    except (ValueError, TypeError, KeyError):
                         target = None
                 if target is None and r_unit > 0:
                     target = Decimal(real_trade.entry) + 2 * r_unit
