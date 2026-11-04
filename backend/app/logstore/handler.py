@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
+from app import logevents
 from app.logstore.record import build_line, component_name
 from app.logstore.scrub import scrub_text
 from app.logstore.writer import LogStore
@@ -39,6 +40,7 @@ class StoreHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
+            logevents.check(getattr(record, "event", None))
             line = build_line(record, process=self.store.process, version=self.store.version)
             self.store.submit(line)
         except Exception:

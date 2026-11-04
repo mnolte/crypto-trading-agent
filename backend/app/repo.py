@@ -1031,6 +1031,34 @@ def add_activity(
     return row
 
 
+def cycle_summary_counts(session: Session, account_id: int, cycle: int) -> dict[str, int]:
+    """The counts for a cycle's INFO end line: pairs seen, model calls,
+    entries, exits and errors — from the stored decision rows."""
+    rows = session.execute(
+        select(DecisionRow.action, DecisionRow.decider, DecisionRow.error).where(
+            DecisionRow.account_id == account_id,
+            DecisionRow.cycle == cycle,
+        )
+    ).all()
+    actions = {"BUY": 0, "SELL": 0, "HOLD": 0, "SKIP": 0}
+    calls = errors = 0
+    for action, decider, error in rows:
+        actions[action] = actions.get(action, 0) + 1
+        if decider == "openai":
+            calls += 1
+        if error:
+            errors += 1
+    return {
+        "pairs": len(rows),
+        "model_calls": calls,
+        "entries": actions["BUY"],
+        "exits": actions["SELL"],
+        "holds": actions["HOLD"],
+        "skips": actions["SKIP"],
+        "errors": errors,
+    }
+
+
 def error_count_since(session: Session, since: datetime) -> int:
     return int(
         session.scalar(

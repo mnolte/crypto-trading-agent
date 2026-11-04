@@ -26,7 +26,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from app import repo
+from app import logstore, repo
 from app.agent import budget
 from app.agent.broker.paper import PaperBroker
 from app.agent.market import make_market_client
@@ -110,6 +110,35 @@ def _plain_403() -> ASGIApp:
         await send({"type": "http.response.body", "body": b"Forbidden: bad Host header"})
 
     return app
+
+
+def new_request_id() -> str:
+    return "r-" + secrets.token_hex(6)
+
+
+class RequestIdMiddleware:
+    """Every request gets an id, stamped into the log context for its
+    duration and returned as ``X-Request-Id`` on the response. Pure ASGI,
+    so the context variable reaches the endpoint in the same task."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request_id = new_request_id()
+
+        async def send_with_id(message: object) -> None:
+            if isinstance(message, dict) and message.get("type") == "http.response.start":
+                headers = list(message.get("headers") or [])
+                headers.append((b"x-request-id", request_id.encode()))
+                message["headers"] = headers
+            await send(message)  # type: ignore[arg-type]
+
+        with logstore.log_context(request_id=request_id):
+            await self.app(scope, receive, send_with_id)
 
 
 @dataclass

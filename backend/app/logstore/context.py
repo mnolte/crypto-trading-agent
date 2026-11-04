@@ -26,20 +26,20 @@ CONTEXT_FIELDS = (
     "request_id",
 )
 
-_ctx: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar(
-    "ta_log_context", default={}
+_ctx: contextvars.ContextVar[dict[str, str] | None] = contextvars.ContextVar(
+    "ta_log_context", default=None
 )
 
 
 def current() -> dict[str, str]:
     """The live trace context (a copy; never mutated in place)."""
-    return dict(_ctx.get())
+    return dict(_ctx.get() or {})
 
 
 @contextmanager
 def log_context(**fields: str | None) -> Iterator[None]:
     """Add trace fields for the duration of the block, then restore."""
-    merged = _ctx.get().copy()
+    merged = (_ctx.get() or {}).copy()
     for key, value in fields.items():
         if key not in CONTEXT_FIELDS:
             raise KeyError(f"unknown log-context field {key!r}")

@@ -20,7 +20,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse, Response
 from starlette.types import Scope
 
-from app import repo
+from app import logstore, repo
 from app.agent.broker.paper import PaperBroker
 from app.agent.deciders.openai_decider import OpenAIDecider
 from app.agent.deciders.rules import RulesDecider
@@ -33,7 +33,7 @@ from app.agent.market.universe import (
 from app.agent.outcomes import outcome_loop
 from app.api import context as context_routes
 from app.api import dashboard as dashboard_routes
-from app.api import evidence, inspector, notifications, routes, screens, ws
+from app.api import deps, evidence, inspector, notifications, routes, screens, ws
 from app.api import sources as source_routes
 from app.api import understanding as understanding_routes
 from app.api.deps import (
@@ -42,7 +42,6 @@ from app.api.deps import (
     build_market_client,
     generate_local_token,
 )
-from app import logstore
 from app.config import REPO_ROOT, get_env, get_secret
 from app.context.collector import ContextCollector
 from app.context.scheduler import context_loop
@@ -329,6 +328,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Trading Agent", version="0.1.0", lifespan=lifespan)
+    app.add_middleware(deps.RequestIdMiddleware)
     app.add_middleware(LocalOnlyMiddleware)
     app.include_router(routes.router)
     app.include_router(screens.router)

@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import uuid
 from collections import deque
 from collections.abc import Awaitable, Callable
@@ -24,9 +25,10 @@ from decimal import Decimal
 from typing import Any, Literal, cast
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
-from app import repo
+from app import logstore, repo
 from app.agent.broker.paper import BrokerState, HeldPosition, PaperBroker
 from app.agent.deciders.base import DecideContext, Decider, Draft, RiskView
 from app.agent.limit import buy_fills, post_only_limit, sell_fills
@@ -154,6 +156,7 @@ class Engine:
         self._stale_cycles: dict[str, int] = {}
         self._price_fresh_at: dict[str, datetime] = {}
         self._watch_errors = 0
+        self._watch_passes = 0
         self._cycle_errors = 0
         # PR 8: set from main.py after construction — drives the shadow
         # strategies on the same cycle snapshot and watcher tick.
@@ -547,7 +550,7 @@ class Engine:
     async def _watcher_loop(self) -> None:
         while not self._stop.is_set():
             try:
-                await self.tick()
+                await self._watched_tick()
                 self._watch_errors = 0
             except Exception as exc:
                 # The watcher must never die on a bad tick — but failures
@@ -558,6 +561,15 @@ class Engine:
                 if self._watch_errors == 1 or self._watch_errors % 10 == 0:
                     await self._note_watch_error(exc)
             await self._sleep(WATCH_S)
+
+    async def _watched_tick(self) -> None:
+        """One watcher pass inside its trace context (``w-`` id)."""
+        self._watch_passes += 1
+        with logstore.log_context(job=f"w-{self._watch_passes:04d}"):
+            log.debug(
+                "watcher pass %d", self._watch_passes, extra={"event": "watcher.pass"}
+            )
+            await self.tick()
 
     async def _note_watch_error(self, exc: Exception) -> None:
         """Best-effort error record for a failed watcher tick; never raises."""
@@ -595,65 +607,106 @@ class Engine:
             self.cycle += 1
             cycle_no = self.cycle
             now = self.clock()
+            cycle_id = f"c-{cycle_no:04d}"
+            started = time.monotonic()
             self.last_cycle_at = now
             self._last_ran_slot = slot_floor(now)
-            session = self._sessions()
-            try:
-                settings = self._settings()
-                repo.add_activity(session, "cycle", f"cycle {cycle_no} started", at=now)
-                session.commit()
-                context = await self._load_context(session, settings, now)
-                pairs = [
-                    m
-                    for m in settings.active_markets
-                    if not warming_up(session, m, settings.market)
-                ]
-                # A held position keeps its cycle on a deactivated or
-                # failing market — the model still manages it until it
-                # closes; "one position per pair" blocks any new entry.
-                for pair in self.broker.positions:
-                    if pair not in pairs:
-                        pairs.append(pair)
-                sem = asyncio.Semaphore(MAX_PARALLEL_PAIRS)
-
-                async def guarded(pair: str) -> None:
-                    async with sem:
-                        pair_session = self._sessions()
-                        try:
-                            await self._decide_pair(pair_session, pair, context, now)
-                        except Exception as exc:
-                            await self._record_pair_failure(pair_session, pair, exc)
-                        finally:
-                            pair_session.close()
-
-                await asyncio.gather(*(guarded(p) for p in pairs))
-                repo.add_equity_snapshot(
-                    session,
-                    self.broker.account_id,
-                    cycle_no,
-                    self.broker.equity(),
-                    self.broker.cash,
-                    at=now,
-                )
-                session.commit()
-                if self.shadows is not None:
-                    await self.shadows.run_cycle(now, cycle_no)
-                self.broker.persist(session, now)
-                session.commit()
-                # A clean cycle clears the crash streak and the Error state.
-                self._cycle_errors = 0
-                if self.status == "error":
-                    self.status = "running"
-            finally:
-                session.close()
-                self.cycle_in_progress = False
-                self.next_run_at = (
-                    self._next_due(self.clock() + timedelta(seconds=1))
-                    if self.status == "running"
-                    else None
-                )
-            await self._push()
+            with logstore.log_context(cycle_id=cycle_id):
+                await self._run_cycle_inner(cycle_no, now, started)
         await self._measure_clock_offset()
+
+    async def _run_cycle_inner(self, cycle_no: int, now: datetime, started: float) -> None:
+        log.info("cycle %d started", cycle_no, extra={"event": "cycle.start"})
+        session = self._sessions()
+        try:
+            settings = self._settings()
+            repo.add_activity(session, "cycle", f"cycle {cycle_no} started", at=now)
+            session.commit()
+            context = await self._load_context(session, settings, now)
+            pairs = [
+                m
+                for m in settings.active_markets
+                if not warming_up(session, m, settings.market)
+            ]
+            # A held position keeps its cycle on a deactivated or
+            # failing market — the model still manages it until it
+            # closes; "one position per pair" blocks any new entry.
+            for pair in self.broker.positions:
+                if pair not in pairs:
+                    pairs.append(pair)
+            sem = asyncio.Semaphore(MAX_PARALLEL_PAIRS)
+
+            async def guarded(pair: str) -> None:
+                async with sem:
+                    pair_session = self._sessions()
+                    try:
+                        await self._decide_pair(pair_session, pair, context, now)
+                    except Exception as exc:
+                        await self._record_pair_failure(pair_session, pair, exc)
+                    finally:
+                        pair_session.close()
+
+            await asyncio.gather(*(guarded(p) for p in pairs))
+            repo.add_equity_snapshot(
+                session,
+                self.broker.account_id,
+                cycle_no,
+                self.broker.equity(),
+                self.broker.cash,
+                at=now,
+            )
+            session.commit()
+            if self.shadows is not None:
+                await self.shadows.run_cycle(now, cycle_no)
+            self.broker.persist(session, now)
+            session.commit()
+            # A clean cycle clears the crash streak and the Error state.
+            self._cycle_errors = 0
+            if self.status == "error":
+                self.status = "running"
+        finally:
+            session.close()
+            self.cycle_in_progress = False
+            self.next_run_at = (
+                self._next_due(self.clock() + timedelta(seconds=1))
+                if self.status == "running"
+                else None
+            )
+        await self._push()
+        # The cycle's last line is the INFO summary — filtering on its
+        # cycle id shows the whole cycle, from schedule to fill.
+        summary_session = self._sessions()
+        try:
+            counts = repo.cycle_summary_counts(
+                summary_session, self.broker.account_id, cycle_no
+            )
+        except SQLAlchemyError:
+            counts = {}
+        finally:
+            summary_session.close()
+        duration_ms = (time.monotonic() - started) * 1000
+        log.info(
+            "cycle %d ended in %.1f s · %d pairs · %d model calls · "
+            "%d entries · %d exits · %d errors",
+            cycle_no,
+            duration_ms / 1000,
+            counts.get("pairs", 0),
+            counts.get("model_calls", 0),
+            counts.get("entries", 0),
+            counts.get("exits", 0),
+            counts.get("errors", 0),
+            extra={
+                "event": "cycle.end",
+                "duration_ms": round(duration_ms, 1),
+                "data": counts,
+            },
+        )
+        if duration_ms > 300_000:
+            log.warning(
+                "cycle %d took over 5 minutes",
+                cycle_no,
+                extra={"event": "cycle.slow", "duration_ms": round(duration_ms, 1)},
+            )
 
     async def _measure_clock_offset(self) -> None:
         """Sample the exchange clock once per cycle — information for the
