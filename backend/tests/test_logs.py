@@ -6,11 +6,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, cast
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app import repo
 from app.api import logs as logs_api
 from app.logstore.record import COLUMNS, fingerprint
 
@@ -69,15 +67,15 @@ def test_list_and_level_filter(client: TestClient) -> None:
         _line("an error line", level="ERROR"),
     )
     body = client.get("/api/logs").json()
-    assert {l["message"] for l in body["lines"]} >= {
+    assert {ln["message"] for ln in body["lines"]} >= {
         "an info line",
         "a warning line",
         "an error line",
     }
     errors = client.get("/api/logs?level=ERROR").json()["lines"]
-    assert {l["message"] for l in errors} == {"an error line"}
+    assert {ln["message"] for ln in errors} == {"an error line"}
     warned = client.get("/api/logs?level=WARNING,ERROR").json()["lines"]
-    assert all(l["levelno"] >= 30 for l in warned) and len(warned) == 2
+    assert all(ln["levelno"] >= 30 for ln in warned) and len(warned) == 2
 
 
 def test_full_text_search(client: TestClient) -> None:
@@ -87,7 +85,7 @@ def test_full_text_search(client: TestClient) -> None:
         _line("cycle finished quietly"),
     )
     hits = client.get("/api/logs?q=rejected").json()["lines"]
-    assert [l["message"] for l in hits] == ["the broker rejected the order price"]
+    assert [ln["message"] for ln in hits] == ["the broker rejected the order price"]
 
 
 def test_cycle_trace_filter(client: TestClient) -> None:
@@ -98,7 +96,7 @@ def test_cycle_trace_filter(client: TestClient) -> None:
         _line("unrelated line", cycle_id="c-0008"),
     )
     hits = client.get("/api/logs?cycle_id=c-0007").json()["lines"]
-    assert {l["message"] for l in hits} == {
+    assert {ln["message"] for ln in hits} == {
         "cycle c-0007 start",
         "cycle c-0007 pair decided",
     }
@@ -166,7 +164,7 @@ def test_client_report_rate_limit(client: TestClient) -> None:
     assert over.headers["Retry-After"] == "60"
     # Reports land as lines with the frontend.client logger.
     hits = client.get("/api/logs?q=browser").json()["lines"]
-    assert all(l["logger"] == "frontend.client" for l in hits)
+    assert all(ln["logger"] == "frontend.client" for ln in hits)
 
 
 def test_summary_counts(client: TestClient) -> None:
