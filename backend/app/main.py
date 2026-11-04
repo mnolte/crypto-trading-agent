@@ -16,6 +16,7 @@ import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import timedelta
+from types import FrameType
 from typing import Any
 
 from fastapi import FastAPI
@@ -143,8 +144,8 @@ def _unclean_start(env: EnvConfig) -> None:
         )
     try:
         eng = make_engine(env.ta_db_path)
-        with eng.begin() as conn:
-            marked = conn.execute(
+        with eng.begin() as db_conn:
+            marked = db_conn.execute(
                 text(
                     "UPDATE whatif_scenarios SET status = 'interrupted' "
                     "WHERE status = 'running'"
@@ -193,7 +194,7 @@ def _install_sigint(app: FastAPI) -> None:
 
     count = 0
 
-    def _handler(signum: int, frame: object) -> None:
+    def _handler(signum: int, frame: FrameType | None) -> None:
         nonlocal count
         count += 1
         if count > 1:
@@ -506,8 +507,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Trading Agent", version="0.1.0", lifespan=lifespan)
-    app.add_exception_handler(StarletteHTTPException, errors.http_exception_handler)
-    app.add_exception_handler(RequestValidationError, errors.validation_handler)
+    app.add_exception_handler(
+        StarletteHTTPException, errors.http_exception_handler  # type: ignore[arg-type]
+    )
+    app.add_exception_handler(
+        RequestValidationError, errors.validation_handler  # type: ignore[arg-type]
+    )
     app.add_exception_handler(Exception, errors.unhandled_handler)
     app.add_middleware(LocalOnlyMiddleware)
     app.add_middleware(errors.ShutdownGuard)

@@ -24,6 +24,7 @@ import logging
 import sqlite3
 import time
 from collections import deque
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -312,7 +313,7 @@ def export_jsonl(request: Request, day: str | None = None) -> StreamingResponse:
         day = datetime.now(UTC).date().isoformat()
     start, end = day + "T00:00:00", day + "T23:59:59.999999"
 
-    def gen():
+    def gen() -> Iterator[str]:
         conn = store.connect_readonly()
         try:
             for row in conn.execute(

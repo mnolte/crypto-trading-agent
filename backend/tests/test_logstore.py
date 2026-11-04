@@ -7,6 +7,7 @@ import logging
 import os
 import sqlite3
 import time
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -39,14 +40,14 @@ def make_line(**kw: Any) -> dict[str, Any]:
 
 
 @pytest.fixture()
-def store(tmp_path: Path) -> LogStore:
+def store(tmp_path: Path) -> Iterator[LogStore]:
     s = LogStore(tmp_path / "data", retry_s=0.05)
     s.start()
-    yield s  # type: ignore[misc]
+    yield s
     s.stop()
 
 
-def wait_for(predicate, timeout: float = 5.0) -> None:
+def wait_for(predicate: Callable[[], object], timeout: float = 5.0) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if predicate():

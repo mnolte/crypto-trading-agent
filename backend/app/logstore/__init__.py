@@ -37,7 +37,7 @@ __all__ = [
 _store: LogStore | None = None
 _handler: StoreHandler | None = None
 _library_filter = None
-_console: logging.StreamHandler | None = None
+_console: logging.StreamHandler[Any] | None = None
 _VERSION = ""
 
 

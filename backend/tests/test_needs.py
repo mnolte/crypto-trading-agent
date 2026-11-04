@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import cast
+from typing import Any, cast
 
 from fastapi.testclient import TestClient
 
-from app import repo
 from app.api.deps import AppState
 from app.db import DecisionRow, LlmCallRow, MarketRow
-from app.logstore.record import COLUMNS, fingerprint
 from app.features.needs import load_needs
+from app.logstore.record import COLUMNS, fingerprint
 from app.models import KillInfo, Needs, NotificationEventSettings
 
 NOW = datetime(2026, 10, 13, 12, 34, tzinfo=UTC)
@@ -75,7 +74,7 @@ def _log_problem(
 ) -> str:
     """Write an ERROR line into the test app's logs.db — an unreviewed
     problem, which is what the Needs items read now."""
-    line = {c: None for c in COLUMNS}
+    line: dict[str, Any] = dict.fromkeys(COLUMNS)
     line.update(
         {
             "ts": NOW.isoformat(),
@@ -92,7 +91,7 @@ def _log_problem(
         }
     )
     state.log_store.write_lines([line])  # type: ignore[attr-defined]
-    return line["fingerprint"]
+    return str(line["fingerprint"])
 
 
 def _no_email(state: AppState) -> None:

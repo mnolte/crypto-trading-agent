@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -98,10 +99,10 @@ def _problem_line(
     logger: str,
     event: str,
     ts: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     from app.logstore.record import COLUMNS, fingerprint
 
-    line = {c: None for c in COLUMNS}
+    line: dict[str, Any] = dict.fromkeys(COLUMNS)
     line.update(
         {
             "ts": ts or datetime.now(UTC).isoformat(),
@@ -119,7 +120,7 @@ def _problem_line(
     return line
 
 
-def _wait_for(predicate, timeout: float = 5.0) -> None:
+def _wait_for(predicate: Callable[[], object], timeout: float = 5.0) -> None:
     import time as _time
 
     deadline = _time.monotonic() + timeout

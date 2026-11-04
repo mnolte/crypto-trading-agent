@@ -50,13 +50,13 @@ def record_crash(name: str) -> bool:
     return False
 
 
-def spawn(  # noqa: UP047
-    fn: Callable[P, Awaitable[T]],
-    *args: P.args,
+def spawn(
+    fn: Callable[..., Awaitable[Any]],
+    *args: Any,
     name: str | None = None,
     restart: bool = True,
     track: Callable[[asyncio.Task[Any]], None] | None = None,
-    **kwargs: P.kwargs,
+    **kwargs: Any,
 ) -> asyncio.Task[Any]:
     """Start ``fn(*args, **kwargs)`` as a supervised task.
 
@@ -64,7 +64,7 @@ def spawn(  # noqa: UP047
     it is restarted with exponential backoff. The caller's log context is
     copied into the task.
     """
-    task_name = name or getattr(fn, "__qualname__", "task")
+    task_name = str(name or getattr(fn, "__qualname__", "task"))
     ctx = contextvars.copy_context()
 
     async def run_once() -> None:
@@ -147,7 +147,7 @@ def install_global_hooks(loop: asyncio.AbstractEventLoop | None = None) -> None:
                 args.exc_value,
                 args.exc_traceback,
             )
-            if args.exc_type is not None
+            if isinstance(args.exc_value, BaseException) and args.exc_type is not None
             else None,
             extra={"event": "task.crashed"},
         )

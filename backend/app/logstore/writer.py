@@ -468,7 +468,7 @@ class LogStore:
     def run_retention(
         self,
         keep_days: dict[str, int],
-        max_db_mb: int,
+        max_db_mb: float,
         now: datetime,
     ) -> dict[str, int]:
         """Daily retention: per-level age limits in batches, the size cap

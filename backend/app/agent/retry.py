@@ -93,4 +93,4 @@ async def retry_call(  # noqa: UP047
             await sleep(wait)
     if last_exc is not None:
         raise last_exc
-    return result  # type: ignore[possibly-undefined]
+    raise AssertionError("retry_call: exhausted without result")
