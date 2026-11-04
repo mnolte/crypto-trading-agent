@@ -45,22 +45,110 @@ _EXPORT_LIMIT = 100_000
 _CLIENT_LIMIT_PER_MIN = 10
 
 
+class LogLineOut(BaseModel):
+    model_config = {"extra": "ignore"}
+    id: int
+    ts: str | None = None
+    level: str | None = None
+    levelno: int | None = None
+    logger: str | None = None
+    event: str | None = None
+    message: str | None = None
+    process: str | None = None
+    pid: int | None = None
+    task: str | None = None
+    cycle_id: str | None = None
+    job: str | None = None
+    pair: str | None = None
+    decision_id: str | None = None
+    trade_id: str | None = None
+    order_id: str | None = None
+    shadow_id: str | None = None
+    backtest_id: str | None = None
+    request_id: str | None = None
+    duration_ms: float | None = None
+    error_id: str | None = None
+    exc_type: str | None = None
+    exc_message: str | None = None
+    traceback: str | None = None
+    data: str | None = None
+    fingerprint: str | None = None
+    version: str | None = None
+    meaning: str | None = None
+    what_to_do: str | None = None
+
+
+class LogsListOut(BaseModel):
+    lines: list[LogLineOut]
+    next: str | None = None
+
+
+class LogProblemOut(BaseModel):
+    model_config = {"extra": "ignore"}
+    fingerprint: str
+    level: str | None = None
+    levelno: int | None = None
+    logger: str | None = None
+    event: str | None = None
+    example: str | None = None
+    count: int | None = None
+    first_seen: str | None = None
+    last_seen: str | None = None
+    pairs: list[str] = []
+    state: str | None = None
+    note: str | None = None
+    reviewed_at: str | None = None
+    count_at_review: int | None = None
+    meaning: str | None = None
+    what_to_do: str | None = None
+
+
+class ProblemsOut(BaseModel):
+    problems: list[LogProblemOut]
+
+
+class LogSummaryOut(BaseModel):
+    counts_24h: dict[str, int]
+    last_error_at: str | None = None
+    total_lines: int
+    db_bytes: int
+    broken: bool
+    dropped: dict[str, int]
+
+
+class LogEventOut(BaseModel):
+    code: str
+    level: str
+    component: str
+    meaning: str
+    what_to_do: str | None = None
+
+
+class EventsOut(BaseModel):
+    events: list[LogEventOut]
+
+
+class AroundOut(BaseModel):
+    lines: list[LogLineOut]
+    focus: int
+
+
+class OkOut(BaseModel):
+    ok: bool
+
+
 def _store(request: Request) -> Any:
     state: AppState = request.app.state.app_state
     return state.log_store
 
 
-def _row_dict(row: sqlite3.Row) -> dict[str, Any]:
+def _row_dict(row: sqlite3.Row) -> LogLineOut:
     line = {c: row[c] for c in (*COLUMNS, "id")}
     event = logevents.EVENTS.get(line.get("event") or "")
     if event is not None:
         line["meaning"] = event.meaning
         line["what_to_do"] = event.what_to_do
-    return line
-
-
-def _filters(query: str, params: list[Any]) -> str:
-    return " AND ".join([f for f in [query] if f])
+    return LogLineOut(**line)
 
 
 @router.get("")
@@ -69,7 +157,6 @@ def list_logs(
     level: str | None = None,
     component: str | None = None,
     event: str | None = None,
-    logger_name: str | None = Query(default=None, alias="logger"),
     pair: str | None = None,
     cycle_id: str | None = None,
     request_id: str | None = None,
@@ -80,7 +167,7 @@ def list_logs(
     until: str | None = None,
     after: str | None = None,
     limit: int = Query(default=_PAGE, ge=1, le=1000),
-) -> dict[str, Any]:
+) -> LogsListOut:
     store = _store(request)
     clauses: list[str] = []
     params: list[Any] = []
@@ -90,9 +177,9 @@ def list_logs(
             clauses.append("level IN (" + ",".join("?" * len(names)) + ")")
             params.extend(names)
     for col, val in (
-        ("component", component),
+        # The logger column holds the component name (agent.scheduler, ...).
+        ("logger", component),
         ("event", event),
-        ("logger", logger_name),
         ("pair", pair),
         ("cycle_id", cycle_id),
         ("request_id", request_id),
@@ -137,14 +224,11 @@ def list_logs(
         rows = rows[:limit]
         last = rows[-1]
         next_cursor = f"{last['ts']}|{last['id']}"
-    return {
-        "lines": [_row_dict(r) for r in rows],
-        "next": next_cursor,
-    }
+    return LogsListOut(lines=[_row_dict(r) for r in rows], next=next_cursor)
 
 
 @router.get("/summary")
-def summary(request: Request) -> dict[str, Any]:
+def summary(request: Request) -> LogSummaryOut:
     store = _store(request)
     since = (datetime.now(UTC) - timedelta(hours=24)).isoformat()
     with store.connect_readonly() as conn:
@@ -159,18 +243,18 @@ def summary(request: Request) -> dict[str, Any]:
             "SELECT MAX(ts) FROM log_lines WHERE levelno >= ?", (logging.ERROR,)
         ).fetchone()[0]
         total = conn.execute("SELECT COUNT(*) FROM log_lines").fetchone()[0]
-    return {
-        "counts_24h": counts,
-        "last_error_at": last_error,
-        "total_lines": total,
-        "db_bytes": store._file_size(),
-        "broken": store._broken,
-        "dropped": dict(store.queue.dropped),
-    }
+    return LogSummaryOut(
+        counts_24h=counts,
+        last_error_at=last_error,
+        total_lines=total,
+        db_bytes=store._file_size(),
+        broken=store._broken,
+        dropped=dict(store.queue.dropped),
+    )
 
 
 @router.get("/problems")
-def problems(request: Request, state: str | None = None) -> dict[str, Any]:
+def problems(request: Request, state: str | None = None) -> ProblemsOut:
     store = _store(request)
     where = "WHERE state = ?" if state else ""
     params = (state,) if state else ()
@@ -189,8 +273,8 @@ def problems(request: Request, state: str | None = None) -> dict[str, Any]:
         if event is not None:
             p["meaning"] = event.meaning
             p["what_to_do"] = event.what_to_do
-        out.append(p)
-    return {"problems": out}
+        out.append(LogProblemOut(**p))
+    return ProblemsOut(problems=out)
 
 
 class ReviewBody(BaseModel):
@@ -201,7 +285,7 @@ class ReviewBody(BaseModel):
 @router.post("/problems/{fingerprint}/review", dependencies=[Depends(require_token)])
 def review_problem(
     fingerprint: str, body: ReviewBody, request: Request
-) -> dict[str, Any]:
+) -> OkOut:
     store = _store(request)
     try:
         ok = store.review_problem(
@@ -211,12 +295,14 @@ def review_problem(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if not ok:
         raise HTTPException(status_code=404, detail="no problem with that fingerprint")
-    return {"ok": True}
+    return OkOut(ok=True)
 
 
 @router.get("/events")
-def events() -> dict[str, Any]:
-    return {"events": [e.as_dict() for e in logevents.EVENTS.values()]}
+def events() -> EventsOut:
+    return EventsOut(
+        events=[LogEventOut(**e.as_dict()) for e in logevents.EVENTS.values()]
+    )
 
 
 @router.get("/export.jsonl")
@@ -258,7 +344,7 @@ _client_hits: deque[float] = deque(maxlen=_CLIENT_LIMIT_PER_MIN)
 
 
 @router.post("/client", dependencies=[Depends(require_token)])
-def client_report(body: ClientReport, request: Request) -> dict[str, Any]:
+def client_report(body: ClientReport, request: Request) -> OkOut:
     """The frontend reports errors and warnings here — at most ten a
     minute, then 429 with Retry-After."""
     now = time.monotonic()
@@ -281,11 +367,11 @@ def client_report(body: ClientReport, request: Request) -> dict[str, Any]:
             "data": {"component": body.component, **(body.data or {})},
         },
     )
-    return {"ok": True}
+    return OkOut(ok=True)
 
 
 @router.get("/{line_id}")
-def get_line(line_id: int, request: Request) -> dict[str, Any]:
+def get_line(line_id: int, request: Request) -> LogLineOut:
     store = _store(request)
     with store.connect_readonly() as conn:
         row = conn.execute(
@@ -297,7 +383,7 @@ def get_line(line_id: int, request: Request) -> dict[str, Any]:
 
 
 @router.get("/{line_id}/around")
-def around_line(line_id: int, request: Request) -> dict[str, Any]:
+def around_line(line_id: int, request: Request) -> AroundOut:
     store = _store(request)
     with store.connect_readonly() as conn:
         focus = conn.execute(
@@ -318,4 +404,4 @@ def around_line(line_id: int, request: Request) -> dict[str, Any]:
             )
         )
     rows = [*list(reversed(before)), focus, *after]
-    return {"lines": [_row_dict(r) for r in rows], "focus": line_id}
+    return AroundOut(lines=[_row_dict(r) for r in rows], focus=line_id)

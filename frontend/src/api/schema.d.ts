@@ -1438,6 +1438,13 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** AroundOut */
+        AroundOut: {
+            /** Focus */
+            focus: number;
+            /** Lines */
+            lines: components["schemas"]["LogLineOut"][];
+        };
         /**
          * AskCitation
          * @description A record the answer used, as a link target.
@@ -2078,6 +2085,11 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** EventsOut */
+        EventsOut: {
+            /** Events */
+            events: components["schemas"]["LogEventOut"][];
+        };
         /** FlattenPreview */
         FlattenPreview: {
             /** Count */
@@ -2530,6 +2542,137 @@ export interface components {
             /** Verdict */
             verdict: ("correct" | "wrong") | null;
         };
+        /** LogEventOut */
+        LogEventOut: {
+            /** Code */
+            code: string;
+            /** Component */
+            component: string;
+            /** Level */
+            level: string;
+            /** Meaning */
+            meaning: string;
+            /** What To Do */
+            what_to_do?: string | null;
+        };
+        /** LogLineOut */
+        LogLineOut: {
+            /** Backtest Id */
+            backtest_id?: string | null;
+            /** Cycle Id */
+            cycle_id?: string | null;
+            /** Data */
+            data?: string | null;
+            /** Decision Id */
+            decision_id?: string | null;
+            /** Duration Ms */
+            duration_ms?: number | null;
+            /** Error Id */
+            error_id?: string | null;
+            /** Event */
+            event?: string | null;
+            /** Exc Message */
+            exc_message?: string | null;
+            /** Exc Type */
+            exc_type?: string | null;
+            /** Fingerprint */
+            fingerprint?: string | null;
+            /** Id */
+            id: number;
+            /** Job */
+            job?: string | null;
+            /** Level */
+            level?: string | null;
+            /** Levelno */
+            levelno?: number | null;
+            /** Logger */
+            logger?: string | null;
+            /** Meaning */
+            meaning?: string | null;
+            /** Message */
+            message?: string | null;
+            /** Order Id */
+            order_id?: string | null;
+            /** Pair */
+            pair?: string | null;
+            /** Pid */
+            pid?: number | null;
+            /** Process */
+            process?: string | null;
+            /** Request Id */
+            request_id?: string | null;
+            /** Shadow Id */
+            shadow_id?: string | null;
+            /** Task */
+            task?: string | null;
+            /** Traceback */
+            traceback?: string | null;
+            /** Trade Id */
+            trade_id?: string | null;
+            /** Ts */
+            ts?: string | null;
+            /** Version */
+            version?: string | null;
+            /** What To Do */
+            what_to_do?: string | null;
+        };
+        /** LogProblemOut */
+        LogProblemOut: {
+            /** Count */
+            count?: number | null;
+            /** Count At Review */
+            count_at_review?: number | null;
+            /** Event */
+            event?: string | null;
+            /** Example */
+            example?: string | null;
+            /** Fingerprint */
+            fingerprint: string;
+            /** First Seen */
+            first_seen?: string | null;
+            /** Last Seen */
+            last_seen?: string | null;
+            /** Level */
+            level?: string | null;
+            /** Levelno */
+            levelno?: number | null;
+            /** Logger */
+            logger?: string | null;
+            /** Meaning */
+            meaning?: string | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Pairs
+             * @default []
+             */
+            pairs: string[];
+            /** Reviewed At */
+            reviewed_at?: string | null;
+            /** State */
+            state?: string | null;
+            /** What To Do */
+            what_to_do?: string | null;
+        };
+        /** LogSummaryOut */
+        LogSummaryOut: {
+            /** Broken */
+            broken: boolean;
+            /** Counts 24H */
+            counts_24h: {
+                [key: string]: number;
+            };
+            /** Db Bytes */
+            db_bytes: number;
+            /** Dropped */
+            dropped: {
+                [key: string]: number;
+            };
+            /** Last Error At */
+            last_error_at?: string | null;
+            /** Total Lines */
+            total_lines: number;
+        };
         /**
          * LoggingSettings
          * @description The log store's knobs — every value the spec makes configurable.
@@ -2574,6 +2717,13 @@ export interface components {
              * @default 20000
              */
             queue_size: number;
+        };
+        /** LogsListOut */
+        LogsListOut: {
+            /** Lines */
+            lines: components["schemas"]["LogLineOut"][];
+            /** Next */
+            next?: string | null;
         };
         /** MarketOut */
         MarketOut: {
@@ -2973,6 +3123,11 @@ export interface components {
              */
             smtp: components["schemas"]["SmtpSettings"];
         };
+        /** OkOut */
+        OkOut: {
+            /** Ok */
+            ok: boolean;
+        };
         /** OutcomeFailureOut */
         OutcomeFailureOut: {
             /** Horizon */
@@ -3318,6 +3473,11 @@ export interface components {
             last: string;
             /** Stale */
             stale: boolean;
+        };
+        /** ProblemsOut */
+        ProblemsOut: {
+            /** Problems */
+            problems: components["schemas"]["LogProblemOut"][];
         };
         /** PromptInfo */
         PromptInfo: {
@@ -6234,7 +6394,6 @@ export interface operations {
                 level?: string | null;
                 component?: string | null;
                 event?: string | null;
-                logger?: string | null;
                 pair?: string | null;
                 cycle_id?: string | null;
                 request_id?: string | null;
@@ -6258,9 +6417,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["LogsListOut"];
                 };
             };
             /** @description Validation Error */
@@ -6295,9 +6452,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OkOut"];
                 };
             };
             /** @description Validation Error */
@@ -6326,9 +6481,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["EventsOut"];
                 };
             };
         };
@@ -6381,9 +6534,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ProblemsOut"];
                 };
             };
             /** @description Validation Error */
@@ -6420,9 +6571,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OkOut"];
                 };
             };
             /** @description Validation Error */
@@ -6451,9 +6600,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["LogSummaryOut"];
                 };
             };
         };
@@ -6475,9 +6622,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["LogLineOut"];
                 };
             };
             /** @description Validation Error */
@@ -6508,9 +6653,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["AroundOut"];
                 };
             };
             /** @description Validation Error */

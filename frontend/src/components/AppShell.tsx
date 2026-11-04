@@ -23,6 +23,7 @@ import { displayStatus } from "../lib/status";
 import { ToastStack } from "../lib/toasts";
 import { AskPanel } from "./AskPanel";
 import { Banner } from "./Banner";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { Button } from "./Button";
 import { Dialog } from "./Dialog";
 import { Header, PhoneBar } from "./Header";
@@ -158,6 +159,7 @@ export function AppShell({
         />
         <ToastStack />
         <main className="page">
+          <ErrorBoundary>
           {unreachable && (
             <div role="status" className="unreachable">
               <WarnIcon />
@@ -211,6 +213,7 @@ export function AppShell({
             </Banner>
           )}
           {children}
+          </ErrorBoundary>
         </main>
       </div>
 

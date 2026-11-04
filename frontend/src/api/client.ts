@@ -106,6 +106,35 @@ export async function getLocalToken(): Promise<string> {
   return localToken;
 }
 
+/** A failed API call in the stable error shape — code, message and,
+ * on 500s, the error id that matches its line on the Logs screen. */
+export class ApiError extends Error {
+  status: number;
+  code: string;
+  errorId?: string;
+  requestId?: string;
+  retryAfter?: string;
+
+  constructor(opts: {
+    status: number;
+    code: string;
+    message: string;
+    errorId?: string;
+    requestId?: string;
+    retryAfter?: string;
+  }) {
+    super(opts.message);
+    this.name = "ApiError";
+    this.status = opts.status;
+    this.code = opts.code;
+    this.errorId = opts.errorId;
+    this.requestId = opts.requestId;
+    this.retryAfter = opts.retryAfter;
+  }
+}
+
+const API_TIMEOUT_MS = 15_000;
+
 async function send(path: string, init: RequestInit | undefined, write: boolean): Promise<Response> {
   const headers = new Headers(init?.headers);
   if (write) {
@@ -114,7 +143,9 @@ async function send(path: string, init: RequestInit | undefined, write: boolean)
   if (init?.body !== undefined) {
     headers.set("Content-Type", "application/json");
   }
-  return fetch(path, { ...init, headers });
+  // A hung request fails after 15 s unless the caller sets its own signal.
+  const signal = init?.signal ?? AbortSignal.timeout(API_TIMEOUT_MS);
+  return fetch(path, { ...init, headers, signal });
 }
 
 /** Fetch wrapper. Every write (non-GET) carries the X-Local-Token header. */
@@ -127,14 +158,26 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     response = await send(path, init, write);
   }
   if (!response.ok) {
-    let detail = "";
+    const requestId = response.headers.get("x-request-id") ?? undefined;
+    const retryAfter = response.headers.get("retry-after") ?? undefined;
+    let body: { error?: { code?: string; message?: string; error_id?: string }; detail?: string } = {};
     try {
-      const body = (await response.json()) as { detail?: string };
-      if (body.detail) detail = ` — ${body.detail}`;
+      body = (await response.json()) as typeof body;
     } catch {
       /* non-JSON error body */
     }
-    throw new Error(`${init?.method ?? "GET"} ${path}: ${response.status}${detail}`);
+    const err = body.error;
+    throw new ApiError({
+      status: response.status,
+      code: err?.code ?? `http_${response.status}`,
+      message:
+        err?.message ??
+        body.detail ??
+        `${init?.method ?? "GET"} ${path}: ${response.status}`,
+      errorId: err?.error_id,
+      requestId,
+      retryAfter,
+    });
   }
   return (await response.json()) as T;
 }

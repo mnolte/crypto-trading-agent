@@ -142,6 +142,15 @@ export function DecisionDrawer({
             Open in Indicators
           </Link>
         )}
+        {decision && (
+          <Link
+            to={`/logs?cycle_id=c-${String(decision.cycle).padStart(4, "0")}&pair=${decision.pair}`}
+            className="btn btn--secondary drawer-actions__grow"
+            onClick={onClose}
+          >
+            Logs for this decision
+          </Link>
+        )}
         <Button
           variant="secondary"
           disabled={!data?.next_id}
