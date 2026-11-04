@@ -89,6 +89,18 @@ def install(data_dir: Path, *, process: str = "app") -> LogStore:
     warnings.simplefilter("default")
     for noisy in ("uvicorn.access", "httpx", "httpcore", "sqlalchemy.engine"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
+    # uvicorn's dictConfig runs with disable_existing_loggers=true and
+    # kills every logger created at import time — without this, app.*
+    # lines never reach the store and logs.db stays empty.
+    for name, existing in logging.root.manager.loggerDict.items():
+        if not isinstance(existing, logging.Logger):
+            continue
+        if (
+            existing.disabled
+            and name != "root"
+            and not name.startswith(("uvicorn", "sqlalchemy", "alembic"))
+        ):
+            existing.disabled = False
     _store = store
     return store
 

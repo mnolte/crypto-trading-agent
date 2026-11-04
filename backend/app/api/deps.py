@@ -128,7 +128,16 @@ class RequestIdMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        request_id = new_request_id()
+        # Honour a caller-supplied id so a client can correlate its log
+        # lines; otherwise mint one.
+        request_id = next(
+            (
+                v.decode("ascii", "replace")[:64]
+                for k, v in scope.get("headers", [])
+                if k.lower() == b"x-request-id" and v
+            ),
+            new_request_id(),
+        )
 
         async def send_with_id(message: object) -> None:
             if isinstance(message, dict) and message.get("type") == "http.response.start":
