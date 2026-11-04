@@ -24,6 +24,12 @@ export default defineConfig({
   projects: [
     { name: "w1440", use: { viewport: { width: 1440, height: 900 } } },
     { name: "w1100", use: { viewport: { width: 1100, height: 900 } } },
-    { name: "w390", use: { viewport: { width: 390, height: 844 } } },
+    {
+      name: "w390",
+      // Phone-width coverage is for the screenshots spec; the other specs
+      // assert behaviour, not layout.
+      testMatch: "screenshots.spec.ts",
+      use: { viewport: { width: 390, height: 844 } },
+    },
   ],
 });

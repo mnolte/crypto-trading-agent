@@ -52,11 +52,15 @@ test.beforeAll(async ({ request }) => {
     entry_orders: "limit",
   };
   await request.put("/api/settings", { headers, data: updated });
-  execFileSync("uv", ["run", "python", "e2e/seed-limit-orders.py"], {
+  seed();
+});
+
+function seed(...ids: string[]) {
+  execFileSync("uv", ["run", "python", "e2e/seed-limit-orders.py", ...ids], {
     cwd: path.resolve(REPO, "frontend"),
     env: { ...process.env, TA_DB_PATH: DB, PYTHONPATH: "../backend" },
   });
-});
+}
 
 test.afterAll(async ({ request }) => {
   if (headers && originalSettings !== undefined) {
@@ -77,11 +81,17 @@ const STATES = [
 
 for (const { id, name, limit, text } of STATES) {
   test(`decision drawer limit order: ${name}`, async ({ page }, testInfo) => {
-    await page.goto(`/?decision=${id}`);
     const drawer = page.locator(".slide-panel--drawer");
-    await expect(drawer).toBeVisible({ timeout: 10_000 });
-    await expect(drawer).toContainText(limit);
-    await expect(drawer).toContainText(text);
+    // A resting limit order dies at its pair's next cycle, and the parallel
+    // screenshot spec fires run-now cycles: re-seed and retry until the
+    // drawer catches the order while it is still open.
+    await expect(async () => {
+      if (id === "e2e-limit-wait") seed(id);
+      await page.goto(`/?decision=${id}`);
+      await expect(drawer).toBeVisible({ timeout: 10_000 });
+      await expect(drawer).toContainText(limit);
+      await expect(drawer).toContainText(text);
+    }).toPass({ timeout: 55_000 });
     await page.screenshot({
       path: `screenshots/${name}-${testInfo.project.name}.png`,
     });

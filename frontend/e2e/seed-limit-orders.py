@@ -6,6 +6,7 @@ database.
 
 import os
 import sqlite3
+import sys
 from datetime import UTC, datetime, timedelta
 
 NOW = datetime(2026, 10, 24, 19, 0, tzinfo=UTC)
@@ -104,68 +105,76 @@ def _order(
     )
 
 
+DECISIONS = {
+    "e2e-limit-wait": _decision(
+        "e2e-limit-wait",
+        15,
+        "none",
+        None,
+        plan=WAIT_PLAN,
+    ),
+    "e2e-limit-fill": _decision(
+        "e2e-limit-fill",
+        12,
+        "executed",
+        NOW - timedelta(minutes=9),
+    ),
+    "e2e-limit-unf": _decision("e2e-limit-unf", 6, "unfilled", None),
+}
+ORDERS = {
+    "e2e-limit-wait": _order(
+        "e2e-limit-wait",
+        NOW - timedelta(minutes=15),
+        NOW + timedelta(minutes=10),
+        "open",
+        limit="30000",
+        qty="0.0885",
+    ),
+    "e2e-limit-fill": _order(
+        "e2e-limit-fill",
+        NOW - timedelta(minutes=15),
+        NOW - timedelta(minutes=2),
+        "filled",
+        filled_at=NOW - timedelta(minutes=9),
+        fill_price="75170",
+    ),
+    "e2e-limit-unf": _order(
+        "e2e-limit-unf",
+        NOW - timedelta(minutes=16),
+        NOW - timedelta(minutes=1),
+        "cancelled",
+        cancelled_at=NOW - timedelta(minutes=1),
+        cancel_reason="next cycle",
+        min_price="75176",
+    ),
+}
+
+
 def main() -> None:
     db = os.environ["TA_DB_PATH"]
+    # Optional ids re-seed only a subset — the waiting-order test calls this
+    # to restore an order a racing cycle cancelled (a resting limit entry
+    # dies at its pair's next cycle, whatever spec fired it).
+    ids = [i for i in DECISIONS if not sys.argv[1:] or i in sys.argv[1:]]
+    placeholders = ",".join("?" * len(ids))
     conn = sqlite3.connect(db)
     try:
         conn.execute("BEGIN")
-        ids = ("e2e-limit-wait", "e2e-limit-fill", "e2e-limit-unf")
-        conn.execute(f"DELETE FROM decisions WHERE id IN ({','.join('?' * 3)})", ids)
+        conn.execute(f"DELETE FROM decisions WHERE id IN ({placeholders})", ids)
         conn.execute(
-            f"DELETE FROM paper_orders WHERE decision_id IN ({','.join('?' * 3)})",
+            f"DELETE FROM paper_orders WHERE decision_id IN ({placeholders})",
             ids,
         )
         conn.executemany(
             f"INSERT INTO decisions ({COLUMNS}) VALUES ({','.join('?' * 28)})",
-            [
-                _decision(
-                    "e2e-limit-wait",
-                    15,
-                    "none",
-                    None,
-                    plan=WAIT_PLAN,
-                ),
-                _decision(
-                    "e2e-limit-fill",
-                    12,
-                    "executed",
-                    NOW - timedelta(minutes=9),
-                ),
-                _decision("e2e-limit-unf", 6, "unfilled", None),
-            ],
+            [DECISIONS[i] for i in ids],
         )
         conn.executemany(
             "INSERT INTO paper_orders (decision_id, account_id, pair, side, leg,"
             " limit_price, qty, placed_at, expires_at, status, filled_at,"
             " fill_price, cancelled_at, cancel_reason, min_price) VALUES "
             f"({','.join('?' * 15)})",
-            [
-                _order(
-                    "e2e-limit-wait",
-                    NOW - timedelta(minutes=15),
-                    NOW + timedelta(minutes=10),
-                    "open",
-                    limit="30000",
-                    qty="0.0885",
-                ),
-                _order(
-                    "e2e-limit-fill",
-                    NOW - timedelta(minutes=15),
-                    NOW - timedelta(minutes=2),
-                    "filled",
-                    filled_at=NOW - timedelta(minutes=9),
-                    fill_price="75170",
-                ),
-                _order(
-                    "e2e-limit-unf",
-                    NOW - timedelta(minutes=16),
-                    NOW - timedelta(minutes=1),
-                    "cancelled",
-                    cancelled_at=NOW - timedelta(minutes=1),
-                    cancel_reason="next cycle",
-                    min_price="75176",
-                ),
-            ],
+            [ORDERS[i] for i in ids],
         )
         conn.commit()
     finally:
