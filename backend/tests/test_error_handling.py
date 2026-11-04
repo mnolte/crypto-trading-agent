@@ -153,10 +153,11 @@ def test_api_error_shape_and_request_id(client: TestClient) -> None:
     assert body["code"] == "not_found" and body["message"]
     assert res.headers["x-request-id"] == "r-test-1"
     # A method mismatch lands on the API catch-all: still the shaped
-    # error, never the SPA's index.html.
+    # error, never the SPA's index.html. 404 when the SPA mount shadows
+    # it locally, 405 in CI where dist/ is absent — both are the shape.
     res = client.post("/api/needs", headers={"X-Local-Token": "x"})
-    assert res.status_code == 404
-    assert res.json()["error"]["code"] == "not_found"
+    assert res.status_code in (404, 405)
+    assert res.json()["error"]["code"] in ("not_found", "method_not_allowed")
     # Validation errors share the shape.
     res = client.post(
         "/api/logs/client",
