@@ -3821,3 +3821,52 @@ select.input--sm {
 .markets-act--none { color: var(--ta-text-disabled); }
 .markets-act--warn { color: var(--ta-accent); }
 
+/* ------------------------------------------------------------ Phone width -- */
+
+@media (max-width: 820px) {
+  .shell {
+    flex-wrap: wrap;
+  }
+
+  .page {
+    padding: var(--ta-space-4) var(--ta-space-3);
+    gap: var(--ta-space-4);
+  }
+
+  .shell-header {
+    padding: 10px var(--ta-space-3);
+    gap: var(--ta-space-2) var(--ta-space-3);
+  }
+
+  .shell-header__right {
+    gap: var(--ta-space-2) var(--ta-space-3);
+  }
+
+  .shell-header__stat .regime-chip,
+  .shell-header__stat:first-of-type {
+    display: none;
+  }
+
+  .toast-stack {
+    top: calc(var(--ta-phonebar-height) + 8px);
+    right: var(--ta-space-3);
+    left: var(--ta-space-3);
+    width: auto;
+  }
+
+  .row,
+  .row__main,
+  .row__side,
+  .risk-grid {
+    flex-direction: column;
+    flex: 1 1 100%;
+  }
+
+  .markets-table {
+    min-width: 800px;
+  }
+
+  .dec-row {
+    grid-template-columns: 72px minmax(0, 1fr) auto;
+  }
+}
