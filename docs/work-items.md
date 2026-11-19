@@ -1,6 +1,8 @@
 # Work items
 
-Every piece of work that gets a kickoff — a feature, a fix, an analysis, an ops change — is a **work item** with a number and a name. This file is the register: one row per item, in number order. Claude adds the row when the spec PR is opened; whoever opens or merges a PR for the item updates its PR and status columns. This file is not spec-owned (it is not a protected path in CI), so Devin can update it without the `spec-change` label.
+Every piece of work that gets a kickoff — a feature, a fix, an analysis, an ops change — is a **work item** with a number and a name. This file defines the name, how a number is claimed, where kickoffs go and how they are laid out, and holds the register up to item 023.
+
+**One file per work item** (decided 19 Nov, item 024). From item 024 on, an item's register fields and change notes are in its own file, `docs/changes/NNN-type-slug.md`, with its design notes in `design/changes/` under the same name (format: `docs/changes/README.md`). The table below is not extended; rows up to 023 are still updated here until those items are done. `python3 scripts/work_items.py` prints the table together with the newer items. The reason: every PR added its row at the same place in this file and its entry at the top of the change logs, so two open PRs always conflicted.
 
 ## The name
 
@@ -10,7 +12,7 @@ NNN-type-slug        for example   099-fix-stop-retry
 
 The examples use 099 as a made-up number.
 
-- **NNN.** Three digits, one sequence for all types, never reused or renumbered. It continues the build plan: items 001–020 are build plan items 1–20 (`docs/SPEC.md` → Build order, Build order (v0.2), Build order (v0.3)). The next free number is the row after the last one below.
+- **NNN.** Three digits, one sequence for all types, never reused. Items 001–020 are build plan items 1–20 (`docs/SPEC.md` → Build order, Build order (v0.2), Build order (v0.3)).
 - **type:**
   - `feat`: new behaviour or a new screen;
   - `fix`: behaviour that is wrong against the spec, or a bug;
@@ -18,32 +20,81 @@ The examples use 099 as a made-up number.
   - `ops`: deployment, CI, tooling, dependencies, performance of the build or tests;
   - `spec`: a spec or design change that needs no build (a clarification, a rule decided in review).
 - **slug.** Kebab-case, 2–5 words: what the item does, never when it was made. No dates. A version number only when the thing itself is versioned (`decision-v3`).
-- **Title.** The same words in plain English, for PR titles and changelog headings: "099 · fix · Stop retry".
-- **Build plan items with an old kickoff name** (`pr-15.md`) or no kickoff yet take their slug from the register title, for example `feat/015-error-handling-logs`. A new kickoff for items 016–020 uses the new file name.
+- **Title.** The same words in plain English, for the issue and PR titles: "099 · fix · Stop retry".
+- **Build plan items with an old kickoff name** (`pr-15.md`) or no kickoff yet take their slug from the register title, for example `feat/015-error-handling-logs`.
+
+## Claiming a number
+
+A number is claimed by **opening its issue first** (decided 19 Nov, item 024), before the branch, the kickoff or the item file. The issue title is `[NNN] Title`; NNN is one above the highest `[NNN]` at the start of any issue or PR title, open or closed:
+
+```bash
+gh api "repos/mnolte/trading-agent/issues?state=all&per_page=100" --jq '.[].title' \
+  | grep -oE '^\[[0-9]{3}\]' | sort | tail -1
+```
+
+GitHub lists pull requests among issues, so this covers both. The issue lists what must be true to close it and names its kickoff. If two items still end up with the same number, the one whose issue was opened later takes the next free number and says so in its issue; that is the only renumbering.
 
 ## Where the name goes
 
 | Thing | Format | Example |
 | --- | --- | --- |
-| Kickoff | `docs/kickoffs/NNN-type-slug.md`, first line `# NNN · type · Title` | `docs/kickoffs/099-fix-stop-retry.md` |
+| Issue | `[NNN] Title`, opened first | `[099] Stop retry` |
+| Kickoff | `docs/kickoffs/NNN-type-slug.md`, first line `# NNN · type · Title`; `docs/kickoffs/archive/` from the first build PR | `docs/kickoffs/099-fix-stop-retry.md` |
 | Spec branch (Claude) | `spec/NNN-slug` | `spec/099-stop-retry` |
 | Build branch (Devin) | `type/NNN-slug` | `fix/099-stop-retry` |
 | PR title | `[NNN] type: Title` | `[099] fix: Stop retry` |
 | Spec PR title | `[NNN] spec: Title` | `[099] spec: Stop retry` |
 | Follow-up PR | same item number, "(follow-up)" | `[099] fix: Stop retry (follow-up)` |
 | Commits | start with `[NNN]` | `[099] Retry the stop check once after a stream gap` |
+| Change file | `docs/changes/NNN-type-slug.md`, design notes in `design/changes/` | `docs/changes/099-fix-stop-retry.md` |
+| Section in the change file | `## YYYY-MM-DD · spec PR` or `· build PR #n` | `## 2026-11-20 · build PR #60` |
 | Screenshots | `docs/screenshots/NNN/` | `docs/screenshots/099/` |
 | Analysis report | `docs/analysis/NNN-slug.md`, date in its first line | `docs/analysis/099-stop-retry.md` |
-| Changelog heading | `## YYYY-MM-DD — [NNN] Title` | `## 2026-11-05 — [099] Stop retry` |
 | Build plan (SPEC) | item number = work item number | `99. **Stop retry.**` |
 | Start Devin | one line | "Build docs/kickoffs/099-fix-stop-retry.md." |
 
 - **Item numbers and GitHub PR numbers never mix.** An item is always written with three digits (`099`, `[099]`, "item 099"), a GitHub PR always with `#` (`#19`).
 - The spec and older docs say "PR 14" for build plan item 14. That means item 014, not GitHub #14 (item 014 was built in #19).
-- Screenshots of build plan items up to 020 stay in `docs/screenshots/pr-<n>/`, as their kickoffs say; from item 021 they go in `docs/screenshots/NNN/`.
+- Screenshots of build plan items up to 020 go in `docs/screenshots/pr-<n>/`, as their kickoffs say; from item 021 in `docs/screenshots/NNN/`.
 - **One item, one build PR where possible.** An urgent part can be split off as its own item.
 - **Small fixes found during a review** of item NNN go into a follow-up PR of that item. They get their own number only when they need their own kickoff.
 - **Dependabot and other automatic PRs** keep their own names and get no number.
+- **Issues close themselves.** The (last) build PR says `Closes #<issue>`, earlier ones `Part of #<issue>`, a spec PR `Refs #<issue>` (or `Closes` when the spec PR completes a spec-only item). A PR closes only issues it resolves: `AGENTS.md` → How to work.
+
+## Statuses
+
+`planned` (spec PR open), `ready` (spec merged, not started), `building` (build PR open or more PRs to come; kickoff in `archive/`), `merged` (kickoff in `archive/`), `dropped` (with the reason in the item's file; kickoff in `archive/`). The table up to 023 also uses `paused` (held by a decision in `docs/SPEC.md` → Decisions).
+
+## Kickoffs move to the archive with the build
+
+`docs/kickoffs/` holds only kickoffs nobody has started building. The PR that builds a kickoff moves it to `docs/kickoffs/archive/` in the same PR as the code, with `git mv`, same file name, content unchanged:
+
+- one build PR: that PR moves it and sets the item's status to `merged` in its file (the file reaches `main` only with the merge, so `main` is right);
+- several build PRs: the first one moves it and sets `building`; the later ones read it from `archive/`, and the last sets `merged`;
+- a `spec` or `analysis` item without a build: the PR that completes it;
+- a `dropped` item's kickoff moves too, with the reason in its file.
+
+An unchanged move into `archive/` needs no `spec change` label (the gate checks that the file is identical and keeps its name); a move with any edit, or out of the archive, does. If a kickoff must change before it is built, change it in a spec PR first; once merged and started, it is never edited. Old paths in `docs/CHANGES.md`, the table below and code comments are not rewritten: a kickoff that isn't in `docs/kickoffs/` is in `docs/kickoffs/archive/`. `archive/DEVIN_KICKOFF.md` holds items 001–013.
+
+## Kickoff layout
+
+A kickoff is written for Devin to follow without asking. In this order:
+
+1. **The first line** `# NNN · type · Title`, then "Kickoff for Devin. Start the session with: "Build docs/kickoffs/NNN-type-slug.md."".
+2. **Scope paragraph:** what the item is for, the spec sections and design files it builds, and its issue.
+3. **A fenced `text` block** Devin follows:
+   - the goal, and "Start from the latest main" (with any PRs that must be merged first);
+   - names: branch, PR title, commits, screenshots folder, the item's file to update;
+   - **Read first:** the item's change files, the spec sections, the design files, the `AGENTS.md` hard rules that apply;
+   - **PRs:** how many, and which says `Part of #n` and which `Closes #n`; the first moves this kickoff to `docs/kickoffs/archive/`;
+   - **Steps,** numbered and concrete: file, function, field, exact text, config key with its default and range; one commit per step where that helps;
+   - **Tests** per case, each rule or gate with a pass and a fail case; no network, each test its own database, injected time; "proven in CI, not on the laptop";
+   - **Screenshots:** which screens, 1440 × 900 and 390 × 844, in `docs/screenshots/NNN/`;
+   - **Rules:** what not to do (the hard rules that matter here, files not to touch);
+   - **Done when:** CI green on the last push, the PR merges cleanly, every point of the issue met and listed under "Issues closed", the item's file updated, the kickoff archived.
+4. **Why:** the reason for the item, in a few sentences.
+5. **Assumptions** made while writing it, each named.
+6. **Open questions** for Marc. An answer Marc gives goes into the kickoff before it is merged.
 
 ## Register
 
