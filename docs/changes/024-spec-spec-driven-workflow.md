@@ -5,7 +5,7 @@ title: Spec-driven workflow
 status: merged
 issue: 41
 kickoff: —
-spec_prs: []
+spec_prs: [42]
 build_prs: []
 ---
 
