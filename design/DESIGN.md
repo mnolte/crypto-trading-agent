@@ -15,7 +15,7 @@ How Trading Agent looks and what it says. It uses the same visual language as St
 | `tokens.css` | Every colour, font, size, spacing and radius, in the same structure as Stock Trading Agent with the `--ta-` prefix. Copy it into `frontend/src/styles/`; use only these variables. |
 | `screens/` | The 14 screens as HTML: the exact source for styles, layout and wording. |
 | `screenshots/` | One PNG per screen at 1440 px wide (Decision at 560 px), plus `<Screen>-390.png` at phone width for every screen with the shell. |
-| `CHANGES.md` | Design change log, newest first. |
+| `changes/` | Design notes per work item from 024 (`NNN-type-slug.md`); `CHANGES.md` holds the log up to item 023. |
 
 ## How to read the screen files
 
@@ -163,4 +163,4 @@ handoff only: do not render them in the app.
 
 ## When the design changes
 
-The files in `screens/` and `screenshots/` are updated together and `CHANGES.md` gets an entry. Treat each entry as a small task and mention it in the PR.
+The files in `screens/` and `screenshots/` are updated together, and the item's file in `changes/` gets a dated section (`docs/changes/README.md` → Design notes; `CHANGES.md` up to item 023). Treat each section as a small task and mention it in the PR.

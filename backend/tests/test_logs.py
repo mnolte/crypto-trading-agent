@@ -166,10 +166,13 @@ def test_client_report_rate_limit(client: TestClient) -> None:
 
 
 def test_summary_counts(client: TestClient) -> None:
+    # The summary counts the last 24 hours on the real clock, so these lines
+    # carry the current time; a fixed NOW made the test fail from 5 Nov on.
+    now = datetime.now(UTC).isoformat()
     _write(
         client,
-        _line("w1", level="WARNING"),
-        _line("e1", level="ERROR"),
+        _line("w1", level="WARNING", ts=now),
+        _line("e1", level="ERROR", ts=now),
     )
     body = client.get("/api/logs/summary").json()
     assert body["counts_24h"]["ERROR"] >= 1

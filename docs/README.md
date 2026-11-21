@@ -4,42 +4,65 @@
 docs/
   README.md           this file: how to use the spec
   SPEC.md             the build spec, the single source of truth for behaviour
-  DEVIN_KICKOFF.md    kickoff messages for items 001–013 (archive)
-  CHANGES.md          what changed in the spec, newest first
   RESEARCH.md         the strategy research findings
-  kickoffs/           the kickoff for each work item from 014 (pr-<n>.md up to 015, then NNN-type-slug.md)
-  work-items.md       the naming convention and the register of work items
+  work-items.md       work item names, claiming a number, the kickoff layout, the register up to 023
+  changes/            one file per work item from 024: register fields and change notes
+  CHANGES.md          what changed in the spec up to item 023, newest first (not extended)
+  kickoffs/           kickoffs not yet started (NNN-type-slug.md)
+  kickoffs/archive/   kickoffs being built or done (DEVIN_KICKOFF.md for 001–013, pr-14.md, pr-15.md, …)
 backend/prompts/
   decision.v1.md      the system prompt from the spec, ready to use
-design/               the visual reference (see design/DESIGN.md)
+design/               the visual reference (see design/DESIGN.md); design notes per item in design/changes/
 ```
 
 ## Rules
 
-1. **SPEC.md wins on behaviour, the design wins on look and wording.** If they
-   disagree, follow the spec and list the difference in the PR under
-   "Design differences".
-2. **Do not guess.** When the spec is silent or ambiguous on something that changes
-   behaviour (a threshold, an order of checks, a default), stop and ask in the PR or
-   session instead of inventing a rule. Small implementation details (file names inside
-   a module, helper functions) are yours to decide.
-3. **Numbers in the spec are defaults.** Every threshold lives in config or Settings, as
-   the spec says; never hard-code them in logic.
-4. **Money is computed in Python with Decimal.** The model never computes money, and the
-   frontend never does arithmetic on money.
-5. **One work item per PR.** Build plan items go in the build order; each PR builds only
-   what its item lists, with its tests passing. Do not start the next item in the same PR.
-   Use the map below for which spec sections a build plan item needs; newer items name
-   their sections in the kickoff.
-6. **Tests come from the spec.** Every rule in "Risk gates", "Rules engine", "OpenAI
-   decision layer" (post-checks) and "Testing and acceptance criteria" gets a test.
-7. **Keep `backend/prompts/decision.v1.md` unchanged.** A prompt change is a new file
-   (`decision.v2.md`) and a new prompt version, never an edit.
-8. **Work items have a number and a name.** Every feature, fix, analysis or ops change
+1. **The spec wins on behaviour, the design on look and wording.** `design/DESIGN.md`
+   explains the design files. If they disagree, follow the spec on behaviour and the
+   design on look, and list the difference in the PR under "Design differences".
+2. **Ask, don't guess.** When the spec is silent or ambiguous on something that changes
+   behaviour (a threshold, an order of checks, a default, what happens on an error), it
+   is a question in the PR, not a decision in code. Small implementation details (file
+   names inside a module, helper functions) are yours to decide.
+3. **Thresholds live in config.** Every number in the spec is a default in the Settings
+   models (`backend/app/models.py`), changeable in Settings. Code reads settings; it
+   never repeats the number.
+4. **One work item per PR.** Build plan items go in the build order; each PR builds only
+   what its item lists. Use the map below for which spec sections a build plan item
+   needs; newer items name their sections in the kickoff.
+5. **Changes are logged in the item's own file.** Behaviour, spec and design changes get
+   a dated section in `docs/changes/NNN-type-slug.md`, and in `design/changes/` for
+   design (from item 024; `docs/changes/README.md`). `docs/CHANGES.md` and
+   `design/CHANGES.md` hold the history up to item 023. One file per item, so open pull
+   requests don't conflict over the log.
+6. **The defaults are the end state, but `main` starts at every commit.** A setting whose
+   code isn't merged yet goes in the kickoff, not in the Settings models: the app must
+   start from `main` with its own defaults at every commit.
+7. **Spec changes are labelled.** A pull request that touches a file in
+   `.github/spec-paths.txt` (the spec, the agent rules, kickoffs, prompts, the env
+   contract, the design) carries the label `spec change`, and CI fails without it. Spec,
+   rule, prompt and env changes also need a changed item file in `docs/changes/`; design
+   screen changes one in `design/changes/`.
+8. **Spec work arrives as pull requests.** Claude makes spec and design changes on a
+   `spec/NNN-slug` branch and opens a pull request with the `spec change` label; Marc
+   reviews and merges it. Each item's kickoff is a file in `docs/kickoffs/`, so Devin is
+   started with one line: "Build docs/kickoffs/NNN-type-slug.md." The build PR moves it to
+   `docs/kickoffs/archive/`, so `docs/kickoffs/` lists only work not yet started. The
+   root `README.md` is Devin's; spec PRs don't touch it.
+9. **Work items have a number and a name.** Every feature, fix, analysis or ops change
    with a kickoff is a work item `NNN-type-slug` (for example `099-fix-stop-retry`). The
-   number is used in branches, PR titles, commits, screenshots and changelog headings.
-   `docs/work-items.md` defines the format and holds the register. Items 001–020 are build
-   plan items 1–20; "PR n" in the spec means item n, not GitHub PR #n.
+   number is used in the issue, branches, PR titles, commits, the item's file and
+   screenshots. A number is claimed by opening its issue `[NNN] Title` first.
+   `docs/work-items.md` defines the format; `python3 scripts/work_items.py` prints the
+   register. Items 001–020 are build plan items 1–20; "PR n" in the spec means item n,
+   not GitHub PR #n.
+10. **Money is computed in Python with Decimal.** The model never computes money, and the
+    frontend never does arithmetic on money.
+11. **Tests come from the spec.** Every rule in "Risk gates", "Rules engine", "OpenAI
+    decision layer" (post-checks) and "Testing and acceptance criteria" gets a pass and a
+    fail test. CI runs them (`AGENTS.md` → Commands).
+12. **Prompts are versioned.** `backend/prompts/decision.v1.md` and any version in use
+    stay unchanged; a prompt change is a new file (`decision.v2.md`) and a new version.
 
 ## Which spec sections each PR needs
 
@@ -68,36 +91,17 @@ design/               the visual reference (see design/DESIGN.md)
 
 Every PR also checks the "Testing and acceptance criteria" items that belong to it.
 
-## PR description template
+## PR description
 
-```
-Title: [NNN] type: Title. Branch: type/NNN-slug (docs/work-items.md).
-
-## What this PR builds
-Work item: NNN-type-slug (kickoff docs/kickoffs/…)
-<what was built, in a few bullets>
-
-## Spec sections covered
-<section names>
-
-## Tests
-<what was added; all passing>
-
-## Screenshots (UI PRs)
-<1440 × 900 and 390 × 844, next to the matching design/screenshots/*.png>
-
-## Design differences
-<none, or each difference and why>
-
-## Open questions
-<anything the spec did not decide>
-```
+Use `.github/pull_request_template.md` (GitHub fills it in): Summary, Issues closed, Spec
+files changed, Test plan, Not tested, Deviations from the spec, Design differences. UI
+PRs add screenshots at 1440 × 900 and 390 × 844 next to the matching
+`design/screenshots/*.png`.
 
 ## When the spec changes
 
-Spec and design changes arrive as pull requests with the `spec-change` label (CI check
-`spec-label`; the spec-owned paths are listed in `.github/spec-paths.txt`), each with
-an entry in `docs/CHANGES.md` or `design/CHANGES.md`. Claude makes them on a
-`spec/NNN-slug` branch; Marc reviews and merges them. Each item's kickoff is a file in
-`docs/kickoffs/`, so Devin is started with one line: "Build
-docs/kickoffs/NNN-type-slug.md." Treat each entry as a task: update the code and tests it affects, and mention the entry in the PR.
+Spec and design changes arrive as pull requests with the `spec change` label (CI check
+`spec-label`; the spec-owned paths are in `.github/spec-paths.txt`), each with a dated
+section in the item's file in `docs/changes/` or `design/changes/`. Claude makes them on
+a `spec/NNN-slug` branch; Marc reviews and merges them. Treat each section as a task:
+update the code and tests it affects, and mention it in the PR.

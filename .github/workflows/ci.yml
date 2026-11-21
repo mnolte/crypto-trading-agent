@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
   schedule:
-    # Monday 05:17 UTC: a weekly full run, including the slow tests.
+    # Monday 05:17 UTC: a weekly full run.
     - cron: "17 5 * * 1"
   workflow_dispatch:
 
@@ -30,7 +30,7 @@ jobs:
       TA_DATA_DIR: /tmp/ta-data
       TA_DB_PATH: /tmp/ta-data/agent.db
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
         with:
           enable-cache: true
@@ -45,17 +45,17 @@ jobs:
       - run: uv run pytest -m "not slow" -n auto --dist load
 
   backend-slow:
-    # The 2000-cycle soak (marker "slow"): on pushes to main, the weekly run
-    # and manual runs, not on PRs, so PR feedback stays fast.
+    # The 2000-cycle soak (marker "slow", about 2 minutes): on every PR push as
+    # well, because CI runs every suite and the laptop never does (item 024,
+    # AGENTS.md → Commands). It runs beside the other jobs, so it adds no wait.
     name: backend-slow
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       TA_DATA_DIR: /tmp/ta-data
       TA_DB_PATH: /tmp/ta-data/agent.db
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
         with:
           enable-cache: true
@@ -70,7 +70,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-frontend
       - run: corepack pnpm lint
       - run: corepack pnpm typecheck
@@ -85,7 +85,7 @@ jobs:
       TA_DATA_DIR: /tmp/ta-data
       TA_DB_PATH: /tmp/ta-data/agent.db
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
         with:
           enable-cache: true
@@ -112,7 +112,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
         with:
           enable-cache: true
@@ -155,7 +155,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       # gitleaks-action needs token permissions beyond contents:read, so the
