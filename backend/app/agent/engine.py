@@ -161,6 +161,9 @@ class Engine:
         self._price_fresh_at: dict[str, datetime] = {}
         self._watch_errors = 0
         self._watch_passes = 0
+        # When the exit watcher last finished a pass; null after a restart
+        # until the first pass (the Positions screen shows that state).
+        self.watcher_checked_at: datetime | None = None
         self._cycle_errors = 0
         # PR 8: set from main.py after construction — drives the shadow
         # strategies on the same cycle snapshot and watcher tick.
@@ -1644,16 +1647,7 @@ class Engine:
         # Fills, exits and kills land between cycles — the snapshot push
         # keeps connected clients live instead of waiting for a cycle end.
         await self._push()
-        self._note_watch_pass()
-
-    def _note_watch_pass(self) -> None:
-        """Record when the exit watcher last finished a pass (016)."""
-        session = self._sessions()
-        try:
-            repo.set_watcher_last_pass(session, self.broker.account_id, self.clock())
-            session.commit()
-        finally:
-            session.close()
+        self.watcher_checked_at = self.clock()
 
     async def _tick_locked(self) -> tuple[list[str], Any]:
         """One watcher pass in three phases: read-only probe, network

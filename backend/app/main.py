@@ -43,7 +43,7 @@ from app.agent.market.universe import (
 from app.agent.outcomes import outcome_loop
 from app.api import context as context_routes
 from app.api import dashboard as dashboard_routes
-from app.api import deps, errors, evidence, inspector, notifications, routes, screens, ws
+from app.api import deps, errors, evidence, inspector, notifications, positions, routes, screens, ws
 from app.api import logs as logs_routes
 from app.api import sources as source_routes
 from app.api import understanding as understanding_routes
@@ -673,6 +673,7 @@ def create_app() -> FastAPI:
     app.add_middleware(errors.ShutdownGuard)
     app.add_middleware(deps.RequestIdMiddleware)
     app.include_router(routes.router)
+    app.include_router(positions.router)
     app.include_router(screens.router)
     app.include_router(dashboard_routes.router)
     app.include_router(source_routes.router)

@@ -272,7 +272,14 @@ def build_snapshot(state: AppState) -> Snapshot:
         stop_near_atr = settings.ui.stop_near_atr
         for model, held in zip(positions, broker.positions.values(), strict=True):
             atr = engine._atr_1h(session, held.pair, now) if held.last > 0 else None
-            positions_mod.position_facts(model, held, atr, stop_near_atr)
+            positions_mod.position_facts(
+                model,
+                held,
+                atr,
+                equity=equity,
+                stop_near_atr=stop_near_atr,
+                time_stop_days=settings.risk.time_stop_days,
+            )
         activity = [
             ActivityItem(
                 at=repo.aware_utc(row.at),

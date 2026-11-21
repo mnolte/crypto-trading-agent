@@ -1255,6 +1255,19 @@ def fills_totals(session: Session, account_id: int) -> tuple[Decimal, Decimal]:
     return Decimal(str(fees or 0)), Decimal(str(slip or 0))
 
 
+def account_trade_totals(session: Session, account_id: int) -> tuple[Decimal, int]:
+    """(realised P&L after fees, closed trade count) for one account."""
+    realised = session.scalar(
+        select(func.coalesce(func.sum(TradeRow.realised_eur.cast(Numeric)), 0)).where(
+            TradeRow.account_id == account_id
+        )
+    )
+    count = session.scalar(
+        select(func.count()).select_from(TradeRow).where(TradeRow.account_id == account_id)
+    )
+    return Decimal(str(realised or 0)), int(count or 0)
+
+
 def meta_get(session: Session, key: str) -> str | None:
     row = session.get(MetaRow, key)
     return row.value if row is not None else None
@@ -1266,25 +1279,6 @@ def meta_set(session: Session, key: str, value: str) -> None:
         session.add(MetaRow(key=key, value=value))
     else:
         row.value = value
-
-
-def watcher_last_pass_key(account_id: int) -> str:
-    return f"watcher_last_pass:{account_id}"
-
-
-def set_watcher_last_pass(session: Session, account_id: int, at: datetime) -> None:
-    meta_set(session, watcher_last_pass_key(account_id), at.isoformat())
-
-
-def watcher_last_pass(session: Session, account_id: int) -> datetime | None:
-    """When the exit watcher last finished a pass for this account."""
-    raw = meta_get(session, watcher_last_pass_key(account_id))
-    if raw is None:
-        return None
-    try:
-        return aware_utc(datetime.fromisoformat(raw))
-    except ValueError:
-        return None
 
 
 # ------------------------------------------------------------ equity snaps --

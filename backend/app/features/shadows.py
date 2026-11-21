@@ -122,6 +122,9 @@ class ShadowRunner:
         self._shock_brake_until = shock_brake_until or (lambda: None)
         self._cache: dict[str, _Shadow] = {}
         self._cycle = 0
+        # account_id -> when the watcher last finished a pass for it; null
+        # (absent) after a restart until the first pass.
+        self.watcher_checked_at: dict[int, datetime] = {}
 
     def set_client(self, client: MarketClient) -> None:
         """Swap the market client (data-source change) — live's client is
@@ -129,6 +132,11 @@ class ShadowRunner:
         self.client = client
         for shadow in self._cache.values():
             shadow.decider.client = client
+
+    def broker_for(self, shadow_id: str) -> PaperBroker | None:
+        """The running shadow's live broker, for read-only views (016)."""
+        shadow = self._cache.get(shadow_id)
+        return shadow.broker if shadow is not None else None
 
     # ------------------------------------------------------------- loading
 
@@ -986,8 +994,8 @@ class ShadowRunner:
                                 session, shadow.broker.account_id, pair, price, "watch", at=now
                             )
                     shadow.broker.persist(session, now)
-                    repo.set_watcher_last_pass(session, shadow.broker.account_id, now)
                     session.commit()
+                    self.watcher_checked_at[shadow.broker.account_id] = now
                 except Exception:
                     session.rollback()
                     log.exception("shadow %s watcher pass failed", shadow.row.id)
