@@ -63,6 +63,7 @@ export type SettingsMetaItem = components["schemas"]["SettingsMetaItem"];
 export type SettingsPreviewOut = components["schemas"]["SettingsPreviewOut"];
 export type SettingsSaveIn = components["schemas"]["SettingsSaveIn"];
 export type SettingsSaveOut = components["schemas"]["SettingsSaveOut"];
+export type SettingsChangeOut = components["schemas"]["SettingsChangeOut"];
 export type InsightsOut = components["schemas"]["InsightsOut"];
 export type InsightSliceOut = components["schemas"]["InsightSliceOut"];
 export type InsightFinding = components["schemas"]["InsightFinding"];
@@ -122,6 +123,8 @@ export class ApiError extends Error {
   errorId?: string;
   requestId?: string;
   retryAfter?: string;
+  /** Looser-change details on a 409 looser_needs_confirm. */
+  changes?: { key: string; old?: unknown; new?: unknown; direction?: string }[];
 
   constructor(opts: {
     status: number;
@@ -130,6 +133,7 @@ export class ApiError extends Error {
     errorId?: string;
     requestId?: string;
     retryAfter?: string;
+    changes?: { key: string; old?: unknown; new?: unknown; direction?: string }[];
   }) {
     super(opts.message);
     this.name = "ApiError";
@@ -138,6 +142,7 @@ export class ApiError extends Error {
     this.errorId = opts.errorId;
     this.requestId = opts.requestId;
     this.retryAfter = opts.retryAfter;
+    this.changes = opts.changes;
   }
 }
 
@@ -168,7 +173,15 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const requestId = response.headers.get("x-request-id") ?? undefined;
     const retryAfter = response.headers.get("retry-after") ?? undefined;
-    let body: { error?: { code?: string; message?: string; error_id?: string }; detail?: string } = {};
+    let body: {
+      error?: {
+        code?: string;
+        message?: string;
+        error_id?: string;
+        changes?: { key: string; old?: unknown; new?: unknown; direction?: string }[];
+      };
+      detail?: string;
+    } = {};
     try {
       body = (await response.json()) as typeof body;
     } catch {
@@ -185,6 +198,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
       errorId: err?.error_id,
       requestId,
       retryAfter,
+      changes: err?.changes,
     });
   }
   return (await response.json()) as T;

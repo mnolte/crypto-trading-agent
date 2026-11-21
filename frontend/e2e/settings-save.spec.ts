@@ -1,36 +1,53 @@
 import { test, expect } from "@playwright/test";
 
-// Regression: the Settings top bar must render Discard/Save even though the
-// page hides the trading controls — otherwise no setting can be persisted.
-// Item 025 replaces this screen; the sectioned save flow is covered by the
-// rewritten spec in the screen PR.
-test("settings save button persists changes across reload", async ({ page }) => {
-  test.fixme(true, "replaced by the sectioned Settings screen (item 025 PR 2)");
-  let putBody: { notifications?: { browser_enabled?: boolean } } | null = null;
+// Item 025: the sectioned Settings screen saves a draft as a numbered
+// version with a required reason.
+test("settings save persists a sectioned change", async ({ page }) => {
+  let putBody: {
+    settings?: { risk?: { risk_per_trade_pct?: unknown } };
+    reason?: string;
+    confirm_looser?: boolean;
+  } | null = null;
   page.on("request", (req) => {
     if (req.url().includes("/api/settings") && req.method() === "PUT") {
       putBody = req.postDataJSON() as typeof putBody;
     }
   });
-  await page.goto("/settings");
 
-  // Wait until the draft has loaded from GET /api/settings (an event checkbox
-  // that defaults on proves it) before reading the toggle state.
-  await expect(page.getByLabel("kill_switch browser")).toBeChecked();
-  const toggle = page.getByLabel("Browser notifications");
-  const wasChecked = await toggle.isChecked();
-  await toggle.click();
+  await page.goto("/settings/risk");
+  await expect(page.locator(".shell-header")).toBeVisible();
 
-  const save = page.getByRole("button", { name: /Save · applies next cycle/ });
+  // One row per setting: "Risk per trade" is a number input with its unit.
+  const risk = page.getByLabel("Risk per trade", { exact: true });
+  await expect(risk).toBeVisible();
+  const before = Number(await risk.inputValue());
+  // Always tighter (lower risk per trade) so no looser-confirm is needed.
+  const next = Math.max(0.1, before - 0.1).toFixed(1);
+  await risk.fill(next);
+
+  // The save bar appears with the unsaved change; the reason is required.
+  const save = page.getByRole("button", { name: /Save as v\d+/ });
+  await expect(save).toBeVisible();
+  await expect(save).toBeDisabled();
+  await page.getByLabel("Reason (shown in History)").fill("e2e: tighter risk");
   await expect(save).toBeEnabled();
   await save.click();
+
   await page.waitForResponse(
     (r) => r.url().includes("/api/settings") && r.request().method() === "PUT",
   );
-  const body = putBody as { notifications?: { browser_enabled?: boolean } } | null;
-  expect(body?.notifications?.browser_enabled).toBe(!wasChecked);
+  const body = putBody as {
+    settings?: { risk?: { risk_per_trade_pct?: unknown } };
+    reason?: string;
+    confirm_looser?: boolean;
+  } | null;
+  expect(Number(body?.settings?.risk?.risk_per_trade_pct)).toBe(Number(next));
+  expect(body?.reason).toBe("e2e: tighter risk");
+  expect(body?.confirm_looser).toBe(false);
 
+  // The change survives a reload.
   await page.reload();
-  await expect(page.getByLabel("kill_switch browser")).toBeChecked();
-  await expect(toggle).toBeChecked({ checked: !wasChecked });
+  await expect(page.getByLabel("Risk per trade", { exact: true })).toHaveValue(
+    next,
+  );
 });

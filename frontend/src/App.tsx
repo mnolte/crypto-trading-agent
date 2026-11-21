@@ -68,6 +68,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/settings/:section" element={<Settings />} />
                 <Route path="/dev/components" element={<DevComponents />} />
                 <Route path="/indicators" element={<Indicators />} />
                 <Route path="/performance" element={<Performance />} />

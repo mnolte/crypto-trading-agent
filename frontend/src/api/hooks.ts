@@ -32,7 +32,12 @@ import {
   type PromptInfo,
   type ReadinessOut,
   type Settings,
+  type SettingsHistoryPageOut,
+  type SettingsMetaOut,
   type SettingsOut,
+  type SettingsPreviewOut,
+  type SettingsSaveIn,
+  type SettingsSaveOut,
   type ShadowIn,
   type ShadowOut,
   type Snapshot,
@@ -427,22 +432,86 @@ export function useClosePosition() {
 export function useSaveSettings() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (settings: Settings) =>
-      api<SettingsOut>("/api/settings", {
+    mutationFn: (body: SettingsSaveIn) =>
+      api<SettingsSaveOut>("/api/settings", {
         method: "PUT",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: (data) => {
+      client.setQueryData(["settings"], data.settings);
+      void client.invalidateQueries({ queryKey: ["settings-meta"] });
+      void client.invalidateQueries({ queryKey: ["settings-history"] });
+    },
+  });
+}
+
+export function useSettingsMeta() {
+  return useQuery({
+    queryKey: ["settings-meta"],
+    queryFn: () => api<SettingsMetaOut>("/api/settings/meta"),
+    staleTime: 60_000,
+  });
+}
+
+/** POST /api/settings/preview: money, tags and errors; saves nothing. */
+export function useSettingsPreview() {
+  return useMutation({
+    mutationFn: (settings: Settings) =>
+      api<SettingsPreviewOut>("/api/settings/preview", {
+        method: "POST",
         body: JSON.stringify(settings),
       }),
-    onSuccess: (data) => client.setQueryData(["settings"], data),
+  });
+}
+
+/** Versioned settings history, newest first; "Show earlier" pages on. */
+export function useSettingsHistory() {
+  return useInfiniteQuery({
+    queryKey: ["settings-history"],
+    queryFn: ({ pageParam }) => {
+      const qs = new URLSearchParams();
+      if (pageParam) qs.set("cursor", String(pageParam));
+      const suffix = qs.size ? `?${qs}` : "";
+      return api<SettingsHistoryPageOut>(`/api/settings/history${suffix}`);
+    },
+    initialPageParam: "",
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
+  });
+}
+
+/** PUT /api/notifications: the SMTP block only, saved as a version. */
+export function useSaveSmtpSettings() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { smtp: NotificationSettings["smtp"]; confirm: boolean }) =>
+      api<NotificationSettings>("/api/notifications", {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["notifications"] });
+      void client.invalidateQueries({ queryKey: ["settings"] });
+      void client.invalidateQueries({ queryKey: ["settings-meta"] });
+      void client.invalidateQueries({ queryKey: ["settings-history"] });
+    },
   });
 }
 
 export function useUpdateMarket() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ market, active }: { market: string; active: boolean }) =>
+    mutationFn: ({
+      market,
+      active,
+      confirm = false,
+    }: {
+      market: string;
+      active: boolean;
+      confirm?: boolean;
+    }) =>
       api<MarketOut>(`/api/markets/${encodeURIComponent(market)}`, {
         method: "PUT",
-        body: JSON.stringify({ active }),
+        body: JSON.stringify({ active, confirm }),
       }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["markets"] }),
   });
@@ -451,10 +520,18 @@ export function useUpdateMarket() {
 export function useUpdateSource() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+    mutationFn: ({
+      id,
+      enabled,
+      confirm = false,
+    }: {
+      id: string;
+      enabled: boolean;
+      confirm?: boolean;
+    }) =>
       api<SourceOut>(`/api/sources/${id}`, {
         method: "PUT",
-        body: JSON.stringify({ enabled }),
+        body: JSON.stringify({ enabled, confirm }),
       }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["sources"] }),
   });
