@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trading Agent — Positions &amp; orders</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#F2B94B}a:hover{color:#FFD58A}
+button,input,select{font-family:inherit}
+:focus-visible{outline:2px solid #F2B94B;outline-offset:2px;border-radius:6px}.ta-row{cursor:pointer}.ta-row:hover{background:#1C222C}button:not([disabled]):hover{filter:brightness(1.15)}.ta-tile{text-decoration:none;color:inherit}.ta-tile:hover{border-color:#2E3643 !important;background:#171C24 !important}@keyframes ta-pulse{0%{opacity:.45}50%{opacity:.9}100%{opacity:.45}}.ta-skel{animation:ta-pulse 1.4s ease-in-out infinite}@media (prefers-reduced-motion: reduce){.ta-skel{animation:none}}@media (max-width: 820px){.ta-aside{display:none !important}.ta-phonebar{display:flex !important}.ta-needs-chip{display:none !important}.ta-hide-phone{display:none !important}.ta-only-phone{display:inline !important}}.ta-only-phone{display:none}
+
+.ta-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 20px}
+.ta-fill{display:grid;grid-template-columns:132px 80px 40px 64px 86px 86px 70px 104px 92px minmax(0,1fr);gap:4px 12px;align-items:center}
+.ta-fill-phone{display:none}
+.ta-order{display:grid;grid-template-columns:90px 44px 64px 76px 150px minmax(0,1fr) 150px;gap:4px 14px;align-items:center}
+.ta-totals{display:flex;flex-wrap:wrap;gap:8px 24px;align-items:baseline}
+@media (max-width: 900px){.ta-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width: 640px){
+  .ta-fill{display:none !important}
+  .ta-fill-phone{display:flex}
+  .ta-order{grid-template-columns:auto minmax(0,1fr)}
+  .ta-order .ta-wide{grid-column:1 / -1}
+  .ta-poshead{flex-direction:column;align-items:flex-start !important}
+  .ta-mid{display:none}
+}
+
+</style>
+</helmet>
+<div style="min-height: 1800px; background: #0B0E13; color: #E7EAEE; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <div class="ta-phonebar" style="display: none; flex: 1 1 100%; position: sticky; top: 0; z-index: 5; align-items: center; gap: 10px; height: 56px; padding: 0 12px 0 16px; background: #0F131A; border-bottom: 1px solid #232A35; box-sizing: border-box">
+    <div style="width: 32px; height: 32px; flex: 0 0 32px; border-radius: 8px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 13px">TA</div>
+    <span style="flex: 1; min-width: 0; font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Positions &amp; orders</span>
+    <a href="Main.dc.html#needs" aria-label="2 items need you" style="display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 10px; border-radius: 999px; background: #3A2A0E; border: 1px solid #6B4E17; color: #FFD58A; font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-decoration: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M12 3l10 18H2z"></path><line x1="12" y1="10" x2="12" y2="14"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg>2</a>
+    <a href="Ask.dc.html" aria-label="Ask the agent" style="width: 44px; height: 44px; flex: 0 0 44px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #4A3A16; background: #211C10; color: #F2B94B"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 20px"><path d="M4 5h16v11H9l-5 4z"></path><line x1="8" y1="9" x2="16" y2="9"></line><line x1="8" y1="12" x2="13" y2="12"></line></svg></a>
+    <button type="button" aria-label="Open menu" aria-expanded="false" style="width: 44px; height: 44px; flex: 0 0 44px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 20px"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg></button>
+  </div>
+  <aside class="ta-aside" aria-label="Sidebar" style="{{nav.aside}}">
+    <div style="{{nav.brandRow}}">
+      <div style="width: 36px; height: 36px; flex: 0 0 36px; border-radius: 8px; background: #F2B94B; color: #0B0E13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px">TA</div>
+      <sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+          <div style="font-weight: 600; font-size: 16px; white-space: nowrap">Trading Agent</div>
+          <div style="font-size: 12px; color: #98A2AF; white-space: nowrap">Paper · local · v0.1</div>
+        </div>
+      </sc-if>
+    </div>
+    <nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+      <div style="{{nav.group}}">Monitor</div>
+      <a href="Main.dc.html" aria-label="Dashboard" title="Dashboard" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Dashboard</span></sc-if></a>
+      <a href="Positions.dc.html" aria-current="page" aria-label="Positions &amp; orders" title="Positions &amp; orders" style="{{nav.active}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="9" y1="10" x2="9" y2="20"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Positions &amp; orders</span></sc-if></a>
+      <a href="Indicators.dc.html" aria-label="Indicators" title="Indicators" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><polyline points="3 17 9 11 13 15 21 7"></polyline><line x1="3" y1="21" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Indicators</span></sc-if></a>
+      <a href="Performance.dc.html" aria-label="Performance" title="Performance" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="6" y1="20" x2="6" y2="14"></line><line x1="12" y1="20" x2="12" y2="9"></line><line x1="18" y1="20" x2="18" y2="4"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Performance</span></sc-if></a>
+      <div style="{{nav.group}}">Learn</div>
+      <a href="Insights.dc.html" aria-label="Insights" title="Insights" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M9 18h6"></path><path d="M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Insights</span></sc-if></a>
+      <a href="WhatIf.dc.html" aria-label="What-if" title="What-if" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="9" r="2"></circle><path d="M6 8v8"></path><path d="M6 13c0-3 3-4 6-4h4"></path></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>What-if</span></sc-if></a>
+      <a href="Reviews.dc.html" aria-label="Reviews" title="Reviews" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Reviews</span></sc-if></a>
+      <a href="Inspector.dc.html" aria-label="LLM inspector" title="LLM inspector" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><circle cx="11" cy="11" r="6"></circle><line x1="16" y1="16" x2="21" y2="21"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>LLM inspector</span></sc-if></a>
+      <div style="{{nav.group}}">Control</div>
+      <a href="Readiness.dc.html" aria-label="Readiness" title="Readiness" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><polyline points="9 12 11 14 15 10"></polyline></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Readiness</span></sc-if></a>
+      <a href="Logs.dc.html" aria-label="Logs" title="Logs" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="14 3 14 9 20 9"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="13" y2="17"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Logs</span></sc-if></a>
+      <a href="Settings.dc.html" aria-label="Settings" title="Settings" style="{{nav.item}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line><circle cx="9" cy="6" r="2" fill="#0F131A"></circle><circle cx="15" cy="12" r="2" fill="#0F131A"></circle><circle cx="7" cy="18" r="2" fill="#0F131A"></circle></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Settings</span></sc-if></a>
+    </nav>
+    <div style="flex: 1"></div>
+    <div style="{{nav.status}}"><span style="{{nav.dot}}"></span><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>{{nav.statusText}}</span></sc-if></div>
+    <button type="button" onClick="{{nav.toggle}}" aria-label="{{nav.toggleLabel}}" aria-expanded="{{nav.expandedStr}}" title="{{nav.toggleLabel}}" style="{{nav.toggleStyle}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg><sc-if value="{{nav.expanded}}" hint-placeholder-val="{{ true }}"><span>Collapse</span></sc-if></button>
+  </aside>
+
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 14px 24px; border-bottom: 1px solid #232A35; background: #0F131A">
+    <div style="display: flex; align-items: center; gap: 12px; flex: 1 1 300px; min-width: 0; flex-wrap: wrap">
+      <div style="display: flex; flex-direction: column; gap: 2px"><h1 style="margin: 0; font-size: 18px; font-weight: 600">Positions &amp; orders</h1><div style="font-size: 13px; color: #98A2AF">What the paper broker holds and did · read only</div></div>
+      <span title="Orders are simulated against Bitvavo prices. Real-money trading is not built." style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 6px; background: #211C10; border: 1px solid #4A3A16; color: #F2B94B; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; letter-spacing: 0.08em">PAPER</span>
+      <div title="Cycles run every 15 minutes, day and night" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-radius: 999px; background: #171C24; border: 1px solid #232A35; font-size: 13px; white-space: nowrap">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #3DD68C"></span>
+        <span>Running</span>
+        <span style="color: #98A2AF">· next cycle 12:45 · in 11 min</span>
+      </div>
+      <a class="ta-needs-chip" href="Main.dc.html#needs" title="2 items need you: 2 errors not reviewed, email alerts not set up" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; background: #3A2A0E; border: 1px solid #6B4E17; color: #FFD58A; font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M12 3l10 18H2z"></path><line x1="12" y1="10" x2="12" y2="14"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg><span>Needs you · 2</span></a>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px">
+      <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Equity</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #E7EAEE; white-space: nowrap">€10,412.80</span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Today</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #3DD68C; white-space: nowrap">+€86.20 <span style="color: #98A2AF; font-size: 12px">+0.83%</span></span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <span title="BTC regime: 4h trend × volatility. Each pair also has its own." style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em; text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; align-self: flex-start">Regime</span>
+        <span style="display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; white-space: nowrap; background: #123A27; color: #3DD68C; border: 1px solid #1E5A3E">BTC up · normal vol</span>
+      </div>
+      <a href="Ask.dc.html" title="Ask the agent about this page (Ctrl+J)" aria-keyshortcuts="Control+J Meta+J" style="height: 44px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border-radius: 8px; border: 1px solid #4A3A16; background: #211C10; color: #F2B94B; font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 16px"><path d="M4 5h16v11H9l-5 4z"></path><line x1="8" y1="9" x2="16" y2="9"></line><line x1="8" y1="12" x2="13" y2="12"></line></svg><span>Ask</span></a>
+      <a href="States.dc.html" title="Pause new entries. Stops, targets and the exit watcher keep working." style="height: 44px; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 16px"><line x1="8" y1="5" x2="8" y2="19"></line><line x1="16" y1="5" x2="16" y2="19"></line></svg><span>Pause</span></a>
+      <a href="States.dc.html" title="Close every position at market and pause" style="height: 44px; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-radius: 8px; border: 1px solid #7A2A2E; background: #3A1416; color: #FFB3B6; font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 16px"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="7" x2="12" y2="13"></line><line x1="12" y1="17" x2="12" y2="17"></line></svg><span>Stop &amp; flatten</span></a>
+    </div>
+  </header>
+  <main style="max-width: 1440px; width: 100%; min-width: 0; margin: 0 auto; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+
+<section aria-label="Open positions" style="display: flex; flex-direction: column; gap: 12px; min-width: 0">
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px">
+    <h2 style="margin: 0; font-size: 13px; font-weight: 600; color: #C9CFD6; text-transform: uppercase; letter-spacing: 0.06em">Open positions · {{count}}</h2>
+    <div role="group" aria-label="Whose positions" title="Shadows run the same cycles on their own paper accounts" style="display: inline-flex; padding: 3px; gap: 2px; background: #171C24; border: 1px solid #232A35; border-radius: 8px">
+      <sc-for list="{{views}}" as="v" hint-placeholder-count="3"><button type="button" onClick="{{v.pick}}" aria-pressed="{{v.pressed}}" style="{{v.style}}">{{v.label}}</button></sc-for>
+    </div>
+  </div>
+  <div style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; box-sizing: border-box; padding: 12px 16px; gap: 8px">
+    <div class="ta-totals"><sc-for list="{{totals}}" as="t" hint-placeholder-count="6"><span style="font-size: 13px; color: #98A2AF; white-space: nowrap">{{t.label}} <span style="{{t.style}}">{{t.value}}</span></span></sc-for></div>
+    <div style="font-size: 12px; color: #98A2AF">{{closest}}</div>
+  </div>
+  <sc-for list="{{positions}}" as="p" hint-placeholder-count="3"><article style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; box-sizing: border-box">
+    <div class="ta-poshead" style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px">
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; min-width: 0">
+        <b style="font-size: 16px; font-weight: 600">{{p.pair}}</b>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #C9CFD6">{{p.head}}</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #98A2AF">{{p.last}}</span>
+        <span style="{{p.pnlStyle}}">{{p.pnl}} · {{p.pnlR}}</span>
+      </div>
+      <span style="font-size: 12px; color: #98A2AF">{{p.opened}}</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <div aria-hidden="true" style="position: relative; width: 100%; height: 22px">
+        <div style="position: absolute; left: 0; right: 0; top: 9px; height: 4px; border-radius: 2px; background: #232A35"></div>
+        <div style="{{p.fillStyle}}"></div>
+        <div title="Stop" style="position: absolute; left: -1px; top: 3px; width: 2px; height: 16px; background: #FF8A8F"></div>
+        <div title="Entry" style="{{p.entryStyle}}"></div>
+        <div title="Target" style="position: absolute; right: 0; top: 3px; width: 2px; height: 16px; background: #3DD68C"></div>
+        <div title="Last price" style="{{p.lastStyle}}"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #98A2AF"><span style="{{p.stopLblStyle}}">{{p.stopLbl}}</span><span class="ta-mid">{{p.midLbl}}</span><span style="color: #3DD68C">{{p.targetLbl}}</span></div>
+    </div>
+    <div class="ta-facts">
+      <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">If the stop hits</span><span style="{{p.hitStyle}}">{{p.hit}}</span><span style="font-size: 12px; color: #98A2AF; line-height: 1.45">{{p.hitSub}}</span></div>
+      <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">To the stop</span><span style="{{p.toStopStyle}}">{{p.toStop}}</span><span style="font-size: 12px; color: #98A2AF; line-height: 1.45">{{p.toStopSub}}</span></div>
+      <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">To the target</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px">{{p.toTarget}}</span><span style="font-size: 12px; color: #98A2AF; line-height: 1.45">{{p.toTargetSub}}</span></div>
+      <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><span title="Exit at market when a position is still open this long after entry (Settings → Exits)" style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em; text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; align-self: flex-start">Time stop</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px">{{p.timeStop}}</span><span style="font-size: 12px; color: #98A2AF; line-height: 1.45">{{p.timeStopSub}}</span></div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="font-size: 11px; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Stop history</span>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center"><sc-for list="{{p.hist}}" as="h" hint-placeholder-count="2"><span style="{{h.style}}">{{h.text}}</span></sc-for></div>
+      <span style="font-size: 12px; color: #98A2AF; line-height: 1.45">{{p.histNote}}</span>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding-top: 12px; border-top: 1px solid #232A35">
+      <span style="font-size: 13px; color: #C9CFD6"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #3DD68C; margin-right: 6px"></span>Exit watcher checked <span style="font-family: 'IBM Plex Mono', monospace">{{p.watcher}}</span> <span style="color: #98A2AF">· stop, target and time stop every 30 s, also while paused</span></span>
+      <a href="Decision.dc.html" style="font-size: 13px">{{p.decision}}</a>
+    </div>
+  </article></sc-for>
+</section>
+<section aria-label="Working orders" style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; box-sizing: border-box">
+  <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px">
+    <h2 style="margin: 0; font-size: 13px; font-weight: 600; color: #C9CFD6; text-transform: uppercase; letter-spacing: 0.06em">Working orders · {{ordersCount}}</h2>
+    <span style="font-size: 12px; color: #98A2AF">{{viewLabel}} · limit entries waiting for a fill</span>
+  </div>
+  <sc-if value="{{noOrders}}" hint-placeholder-val="{{ true }}"><p style="margin: 0; font-size: 13px; color: #98A2AF; line-height: 1.5">{{ordersEmpty}}</p></sc-if>
+  <sc-if value="{{hasOrders}}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-direction: column">
+    <div class="ta-order ta-hide-phone" style="padding: 0 0 8px; border-bottom: 1px solid #232A35; font-size: 12px; color: #98A2AF"><span>Pair</span><span>Side</span><span>Qty</span><span>Limit</span><span>Placed at</span><span>Cancels at</span><span>Last price</span></div>
+    <sc-for list="{{orders}}" as="o" hint-placeholder-count="1"><div class="ta-order" style="padding: 10px 0; border-bottom: 1px solid #1C222C; font-size: 13px">
+      <b style="font-weight: 600">{{o.pair}}</b>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #3DD68C">{{o.side}}</span>
+      <span style="font-family: 'IBM Plex Mono', monospace">{{o.qty}}</span>
+      <span style="font-family: 'IBM Plex Mono', monospace">{{o.limit}}</span>
+      <span class="ta-wide" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #C9CFD6">{{o.placed}}</span>
+      <span class="ta-wide" style="font-size: 12px; color: #C9CFD6">{{o.cancels}}</span>
+      <span class="ta-wide" style="display: flex; flex-direction: column; gap: 2px"><span style="font-family: 'IBM Plex Mono', monospace">{{o.last}}</span><span style="font-size: 12px; color: #98A2AF; line-height: 1.45">{{o.gap}}</span></span>
+    </div></sc-for>
+    <p style="margin: 10px 0 0; font-size: 12px; color: #98A2AF; line-height: 1.5">Post-only: it fills at the limit price exactly, with the maker fee, only when the price trades through it. It is cancelled at the pair's next cycle or when a gate blocks the entry; a cancelled entry is stored as unfilled, with its outcome tracked.</p>
+  </div></sc-if>
+</section>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section aria-label="Today" style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; box-sizing: border-box; flex: 1 1 420px">
+  <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px"><h2 style="margin: 0; font-size: 13px; font-weight: 600; color: #C9CFD6; text-transform: uppercase; letter-spacing: 0.06em">Today</h2><span style="font-size: 12px; color: #98A2AF">live · since 00:00 Amsterdam</span></div>
+  <div style="display: flex; flex-direction: column">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-height: 30px; padding: 4px 0; border-bottom: 1px solid #1C222C; font-size: 13px"><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span><span style="font-family: 'IBM Plex Mono', monospace; color: #98A2AF">12:30</span> <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #3DD68C">BUY</span> <b style="font-weight: 600">BTC-EUR</b> <span style="font-family: 'IBM Plex Mono', monospace; color: #C9CFD6">0.0807 @ 61,240.00</span></span><span style="font-size: 12px; color: #98A2AF; line-height: 1.45">decision · confidence 0.71 · R/R 2.1</span></span><span style="font-family: 'IBM Plex Mono', monospace; color: #98A2AF; white-space: nowrap">open</span></div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-height: 30px; padding: 4px 0; border-bottom: 1px solid #1C222C; font-size: 13px"><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span><span style="font-family: 'IBM Plex Mono', monospace; color: #98A2AF">12:00</span> <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #FF8A8F">SELL</span> <b style="font-weight: 600">XRP-EUR</b> <span style="font-family: 'IBM Plex Mono', monospace; color: #C9CFD6">1,850 @ 0.5412</span></span><span style="font-size: 12px; color: #98A2AF; line-height: 1.45">model exit · held 4 d 4 h · fees €4.96</span></span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C; white-space: nowrap">+€13.91 · +1.4R</span></div>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 13px; color: #98A2AF">
+    <span>Entries <span style="font-family: 'IBM Plex Mono', monospace; color: #E7EAEE">1</span></span><span>Exits <span style="font-family: 'IBM Plex Mono', monospace; color: #E7EAEE">1</span></span><span>Realised <span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">+€13.91</span></span><span>Fees <span style="font-family: 'IBM Plex Mono', monospace; color: #E7EAEE">€14.86</span></span>
+  </div>
+  <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.45">Reasons: decision, stop, target, model exit, time stop, Stop &amp; flatten, kill switch, or closed by you. The result is after both fees; R is against the stop at entry.</p>
+</section>
+<section aria-label="Account" style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; box-sizing: border-box; flex: 1 1 420px">
+  <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px"><h2 style="margin: 0; font-size: 13px; font-weight: 600; color: #C9CFD6; text-transform: uppercase; letter-spacing: 0.06em">Paper account</h2><span style="font-size: 12px; color: #98A2AF">live · #1 · since Fri 4 Sep · 40 days</span></div>
+  <div style="display: flex; flex-direction: column">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-height: 30px; padding: 4px 0; border-bottom: 1px solid #1C222C; font-size: 13px"><span style="color: #C9CFD6">Starting balance</span><span style="font-family: 'IBM Plex Mono', monospace">€10,000.00</span></div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-height: 30px; padding: 4px 0; border-bottom: 1px solid #1C222C; font-size: 13px"><span style="color: #C9CFD6">Cash</span><span style="font-family: 'IBM Plex Mono', monospace">€3,405.50</span></div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-height: 30px; padding: 4px 0; border-bottom: 1px solid #1C222C; font-size: 13px"><span style="color: #C9CFD6">Coins value</span><span style="font-family: 'IBM Plex Mono', monospace">€7,007.30</span></div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-height: 30px; padding: 4px 0; border-bottom: 1px solid #1C222C; font-size: 13px"><span style="color: #C9CFD6">Equity</span><span style="font-family: 'IBM Plex Mono', monospace">€10,412.80</span></div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-height: 30px; padding: 4px 0; border-bottom: 1px solid #1C222C; font-size: 13px"><span style="color: #C9CFD6">Realised P&amp;L <span style="color: #98A2AF">· 38 closed trades, after fees</span></span><span style="font-family: 'IBM Plex Mono', monospace; color: #3DD68C">+€394.82</span></div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-height: 30px; padding: 4px 0; border-bottom: 1px solid #1C222C; font-size: 13px"><span style="color: #C9CFD6">Fees paid</span><span style="font-family: 'IBM Plex Mono', monospace">€212.40</span></div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-height: 30px; padding: 4px 0; border-bottom: 1px solid #1C222C; font-size: 13px; border-bottom: 0"><span title="Market fills cost 0.05% against the reference price; limit fills cost nothing" style="color: #C9CFD6; text-decoration: underline dotted; text-underline-offset: 3px; cursor: help">Slippage paid</span><span style="font-family: 'IBM Plex Mono', monospace">€31.70</span></div>
+  </div>
+  <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.45">Simulated against Bitvavo prices: taker fee 0.25%, maker 0.15%, market slippage 0.05%. "Reset paper account" in Settings starts account #2; this one stays readable.</p>
+</section>
+</div>
+<section aria-label="Order history" style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; box-sizing: border-box">
+  <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px"><h2 style="margin: 0; font-size: 13px; font-weight: 600; color: #C9CFD6; text-transform: uppercase; letter-spacing: 0.06em">Order history</h2><span style="font-size: 12px; color: #98A2AF">live · every paper fill, newest first · times in Amsterdam, UTC on hover</span></div>
+  <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end">
+    <label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #98A2AF; min-width: 0; flex: 1 1 150px">Pair<select onChange="{{setPair}}" style="height: 40px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0B0E13; color: #E7EAEE; font-size: 14px; padding: 0 10px; width: 100%"><option value="any">Any pair</option><option>BTC-EUR</option><option>ETH-EUR</option><option>SOL-EUR</option><option>XRP-EUR</option><option>ADA-EUR</option><option>LINK-EUR</option><option>AVAX-EUR</option><option>DOGE-EUR</option><option>LTC-EUR</option></select></label>
+    <label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #98A2AF; min-width: 0; flex: 1 1 110px">Side<select onChange="{{setSide}}" style="height: 40px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0B0E13; color: #E7EAEE; font-size: 14px; padding: 0 10px; width: 100%"><option value="any">Buy and sell</option><option value="buy">Buy</option><option value="sell">Sell</option></select></label>
+    <label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #98A2AF; min-width: 0; flex: 1 1 170px">Reason<select onChange="{{setReason}}" style="height: 40px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0B0E13; color: #E7EAEE; font-size: 14px; padding: 0 10px; width: 100%"><option value="any">Any reason</option><option value="decision">decision</option><option value="stop">stop</option><option value="target">target</option><option value="model exit">model exit</option><option value="time stop">time stop</option><option value="Stop &amp; flatten">Stop &amp; flatten</option><option value="kill switch">kill switch</option><option value="closed by you">closed by you</option></select></label>
+    <label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #98A2AF; min-width: 0; flex: 1 1 130px">Period<select style="height: 40px; box-sizing: border-box; border-radius: 8px; border: 1px solid #2E3643; background: #0B0E13; color: #E7EAEE; font-size: 14px; padding: 0 10px; width: 100%"><option>30 days</option><option>7 days</option><option>Since start</option><option>Custom</option></select></label>
+    <button type="button" onClick="{{clear}}" style="height: 40px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; box-sizing: border-box; background: transparent; color: #C9CFD6; border-color: #232A35">Clear filters</button>
+    <a href="#" style="height: 40px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; box-sizing: border-box">Export CSV</a>
+  </div>
+  <div style="display: flex; flex-direction: column; min-width: 0">
+    <div class="ta-fill" style="padding: 0 0 8px; border-bottom: 1px solid #232A35; font-size: 12px; color: #98A2AF"><span>Time</span><span>Pair</span><span>Side</span><span>Qty</span><span>Reference</span><span>Fill</span><span>Slippage</span><span>Fee</span><span>Reason</span><span>Belongs to</span></div>
+    <sc-if value="{{noFills}}" hint-placeholder-val="{{ false }}"><p style="margin: 12px 0 0; font-size: 13px; color: #98A2AF">No fills match these filters.</p></sc-if>
+    <sc-for list="{{fills}}" as="f" hint-placeholder-count="8"><div>
+      <div class="ta-fill" style="padding: 9px 0; border-bottom: 1px solid #1C222C; font-size: 13px">
+        <span title="{{f.utc}}" style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #C9CFD6; white-space: nowrap">{{f.t}}</span>
+        <b style="font-weight: 600">{{f.pair}}</b>
+        <span style="{{f.sideStyle}}">{{f.side}}</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-align: right">{{f.qty}}</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-align: right; color: #98A2AF">{{f.ref}}</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-align: right">{{f.fill}}</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-align: right; color: #98A2AF">{{f.slip}}</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; white-space: nowrap">{{f.fee}} <span style="color: #98A2AF">{{f.feeKind}}</span></span>
+        <span><span style="{{f.reasonStyle}}">{{f.reason}}</span></span>
+        <a href="Decision.dc.html" style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{f.link}}</a>
+      </div>
+      <div class="ta-fill-phone" style="flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid #1C222C; font-size: 13px">
+        <span style="display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #98A2AF">{{f.t}}</span><b style="font-weight: 600">{{f.pair}}</b><span style="{{f.sideStyle}}">{{f.side}} {{f.qty}}</span><span style="{{f.reasonStyle}}">{{f.reason}}</span></span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #C9CFD6">fill {{f.fill}} · ref {{f.ref}} · slip {{f.slip}} · fee {{f.fee}} {{f.feeKind}}</span>
+        <a href="Decision.dc.html" style="font-size: 13px">{{f.link}}</a>
+      </div>
+    </div></sc-for>
+  </div>
+  <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.45">Reference is the price the fill was simulated from: the last trade when a market order was sent, the watcher's price that crossed a stop, or the limit for a limit fill. Slippage is the cost of fill against reference for the whole quantity; limit fills have none. Fills from before this screen existed were rebuilt from trades and positions, so they show — for reference and slippage.</p>
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-top: 12px; border-top: 1px solid #232A35">
+    <span style="font-size: 12px; color: #98A2AF">{{fillsFooter}} · 30 days</span>
+    <button type="button" style="height: 40px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; box-sizing: border-box">Load older</button>
+  </div>
+</section>
+
+  </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":3000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { view: 'live', side: 'any', reason: 'any', pair: 'any' };
+  }
+  renderVals() {
+    var self = this;
+    var st = this.state;
+    var paused = false;
+    var live = false;
+
+    var navCollapsed = !!(this.state && this.state.navCollapsed);
+    var navBase = 'height:44px;display:flex;align-items:center;gap:12px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500;box-sizing:border-box;white-space:nowrap;' + (navCollapsed ? 'justify-content:center;padding:0;' : 'padding:0 12px;');
+    var nav = {
+      expanded: !navCollapsed,
+      expandedStr: String(!navCollapsed),
+      toggle: function () { self.setState({ navCollapsed: !navCollapsed }); },
+      toggleLabel: navCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      aside: 'flex:0 0 ' + (navCollapsed ? '72px' : '232px') + ';box-sizing:border-box;display:flex;flex-direction:column;gap:16px;padding:16px ' + (navCollapsed ? '12px' : '16px') + ';background:#0F131A;border-right:1px solid #232A35',
+      brandRow: 'display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid #232A35;' + (navCollapsed ? 'justify-content:center' : ''),
+      item: navBase + 'color:#98A2AF',
+      active: navBase + 'background:#1C222C;color:#E7EAEE',
+      status: 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#171C24;border:1px solid #232A35;font-size:13px;' + (navCollapsed ? 'justify-content:center' : ''),
+      dot: 'width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:' + (paused ? '#98A2AF' : (live ? '#F2B94B' : '#3DD68C')),
+      statusText: paused ? 'Paused' : (live ? 'Running · live' : 'Running · paper'),
+      toggleStyle: navBase + 'width:100%;border:1px solid #232A35;background:transparent;color:#98A2AF;cursor:pointer;font-family:inherit'
+    };
+
+    nav.group = navCollapsed ? 'height:1px;background:#232A35;margin:8px 4px;overflow:hidden;color:transparent;font-size:0' : 'font-size:11px;font-weight:600;color:#8A94A1;text-transform:uppercase;letter-spacing:0.08em;padding:12px 12px 4px';
+
+    var MONO = 'font-family:IBM Plex Mono,monospace;';
+    var GREEN = '#3DD68C', RED = '#FF8A8F', AMBER = '#F2B94B', MUTED = '#98A2AF';
+
+    // ---- positions per view (live matches the Dashboard at 12:34) ----
+    var BTC = {
+      pair: 'BTC-EUR', qty: '0.0807', entry: 61240, last: 61250, stop: 59950, target: 63950, dp: 2,
+      pnl: '+€0.81', pnlR: '+0.01R', up: true, opened: 'opened today 12:30 · held 4 min',
+      hit: '−€104.10', hitSub: '−1.00R · 1.00% of equity · before fees', hitUp: false,
+      toStop: '2.12%', toStopSub: '3.1 ATR (1h)', amber: false,
+      toTarget: '4.41%', toTargetSub: '6.4 ATR (1h) · R/R 2.1 at entry',
+      timeStop: 'Sun 18 Oct 12:30', timeStopSub: '5 days after entry',
+      hist: [['initial 59,950.00 · Tue 12:30', 'plain']],
+      histNote: 'Breakeven + fees once +1R (63,190.00); trailing from +1.5R.',
+      decision: 'BUY · Tue 12:30 · confidence 0.71', watcher: '12:34:10'
+    };
+    var SOL = {
+      pair: 'SOL-EUR', qty: '7.500', entry: 138.40, last: 141.72, stop: 139.10, target: 148.00, dp: 2,
+      pnl: '+€24.90', pnlR: 'stop above entry', up: true, opened: 'opened Sun 16:45 · held 1 d 20 h',
+      hit: '+€5.25', hitSub: '+0.30R · covers both fees (€5.21)', hitUp: true,
+      toStop: '1.85%', toStopSub: '2.5 ATR (1h)', amber: false,
+      toTarget: '4.43%', toTargetSub: '6.0 ATR (1h)',
+      timeStop: 'Fri 16 Oct 16:45', timeStopSub: '5 days after entry',
+      hist: [['initial 136.10 · Sun 16:45', 'plain'], ['breakeven 139.10 · Tue 03:15', 'up']],
+      histNote: 'Moved to breakeven + fees after +1R. Trailing starts at +1.5R (141.85).',
+      decision: 'HOLD · Tue 12:30 · confidence 0.64', watcher: '12:34:10'
+    };
+    var ETH = {
+      pair: 'ETH-EUR', qty: '0.420', entry: 2402.50, last: 2384.10, stop: 2351.00, target: 2520.00, dp: 2,
+      pnl: '−€7.73', pnlR: '−0.36R', up: false, opened: 'opened Mon 13:15 · held 23 h',
+      hit: '−€21.63', hitSub: '−1.00R · 0.21% of equity · before fees', hitUp: false,
+      toStop: '1.39%', toStopSub: '1.4 ATR (1h) · under 1.5 ATR', amber: true,
+      toTarget: '5.70%', toTargetSub: '5.7 ATR (1h) · R/R 2.3 at entry',
+      timeStop: 'Sat 17 Oct 13:15', timeStopSub: '5 days after entry',
+      hist: [['initial 2,351.00 · Mon 13:15', 'plain']],
+      histNote: 'No moves yet. Breakeven + fees once +1R (2,454.00).',
+      decision: 'HOLD · Tue 12:30 · confidence 0.58', watcher: '12:34:10'
+    };
+    var ETH_A = {
+      pair: 'ETH-EUR', qty: '0.415', entry: 2398.00, last: 2384.10, stop: 2350.00, target: 2530.00, dp: 2,
+      pnl: '−€5.77', pnlR: '−0.29R', up: false, opened: 'opened Mon 13:00 · held 23 h',
+      hit: '−€19.92', hitSub: '−1.00R · 0.20% of equity · before fees', hitUp: false,
+      toStop: '1.43%', toStopSub: '1.4 ATR (1h) · under 1.5 ATR', amber: true,
+      toTarget: '6.12%', toTargetSub: '6.2 ATR (1h) · R/R 2.8 at entry',
+      timeStop: 'Sat 17 Oct 13:00', timeStopSub: '5 days after entry',
+      hist: [['initial 2,350.00 · Mon 13:00', 'plain']],
+      histNote: 'No moves yet.',
+      decision: 'HOLD · Tue 12:30 · confidence 0.55 · Shadow A', watcher: '12:34:10'
+    };
+    var BTC_B = {
+      pair: 'BTC-EUR', qty: '0.0809', entry: 61180, last: 61250, stop: 59950, target: 63950, dp: 2,
+      pnl: '+€5.66', pnlR: '+0.06R', up: true, opened: 'opened today 12:17 · held 17 min',
+      hit: '−€99.51', hitSub: '−1.00R · 0.97% of equity · before fees', hitUp: false,
+      toStop: '2.12%', toStopSub: '3.1 ATR (1h)', amber: false,
+      toTarget: '4.41%', toTargetSub: '6.4 ATR (1h) · R/R 2.3 at entry',
+      timeStop: 'Sun 18 Oct 12:17', timeStopSub: '5 days after entry',
+      hist: [['initial 59,950.00 · Tue 12:17', 'plain']],
+      histNote: 'Entered by a limit order: filled at 61,180.00 exactly, maker fee 0.15%.',
+      decision: 'BUY · Tue 12:00 · confidence 0.69 · limit 61,180.00', watcher: '12:34:10'
+    };
+
+    var VIEWS = {
+      live: {
+        label: 'Live', positions: [BTC, SOL, ETH],
+        totals: [['Unrealised', '+€17.98', GREEN], ['If every stop hits', '−€120.48', RED], ['Open risk', '1.21% of 2.5%', null],
+          ['Exposure', '€7,007.30 · 67%', null], ['Cash', '€3,405.50', null], ['Fees', '€14.86 today · €212.40 since start', null]],
+        closest: 'Closest to its stop: ETH-EUR 1.4 ATR · amber under 1.5 ATR',
+        orders: [], ordersEmpty: 'None. Live entries are market orders (Settings → Paper broker → Entry orders). Limit entries waiting for a fill show here.'
+      },
+      A: {
+        label: 'Shadow A', positions: [ETH_A],
+        totals: [['Unrealised', '−€5.77', RED], ['If every stop hits', '−€19.92', RED], ['Open risk', '0.20% of 2.5%', null],
+          ['Exposure', '€989.40 · 10%', null], ['Cash', '€9,148.22', null], ['Fees', '€0.00 today · €96.10 since start', null]],
+        closest: 'Shadow A · gpt-4o-mini · decision.v2-draft · its own paper account since Mon 5 Oct',
+        orders: [], ordersEmpty: 'None. Shadow A enters with market orders.'
+      },
+      B: {
+        label: 'Shadow B', positions: [BTC_B],
+        totals: [['Unrealised', '+€5.66', GREEN], ['If every stop hits', '−€99.51', RED], ['Open risk', '0.97% of 2.5%', null],
+          ['Exposure', '€4,955.13 · 48%', null], ['Cash', '€5,347.03', null], ['Fees', '€7.42 today · €71.80 since start', null]],
+        closest: 'Shadow B · decision.v1 + limit entries · its own paper account since Wed 21 Oct',
+        orders: [{ pair: 'LINK-EUR', side: 'buy', qty: '86.0', limit: '11.42', placed: 'Tue 12:30:05', cancels: '12:45:00 · next cycle, or when a gate blocks',
+          last: '11.47', gap: '0.44% above the limit · low since placed 11.44', reserved: '€982.12 + fee' }],
+        ordersEmpty: ''
+      }
+    };
+    var V = VIEWS[st.view];
+
+    function fmt(n, dp) { return n.toLocaleString('en-GB', { minimumFractionDigits: dp, maximumFractionDigits: dp }); }
+    function pct(p, x) { return Math.max(0, Math.min(100, (x - p.stop) / (p.target - p.stop) * 100)); }
+
+    var positions = V.positions.map(function (p) {
+      var e = pct(p, p.entry), l = pct(p, p.last);
+      var lo = Math.min(e, l), hi = Math.max(e, l);
+      var stopAbove = p.stop >= p.entry;
+      return {
+        pair: p.pair, head: p.qty + ' @ ' + fmt(p.entry, p.dp), last: 'last ' + fmt(p.last, p.dp),
+        pnl: p.pnl, pnlR: p.pnlR, pnlStyle: MONO + 'font-size:14px;color:' + (p.up ? GREEN : RED),
+        opened: p.opened,
+        fillStyle: 'position:absolute;top:9px;height:4px;border-radius:2px;left:' + lo.toFixed(1) + '%;width:' + Math.max(0.3, hi - lo).toFixed(1) + '%;background:' + (p.last >= p.entry ? GREEN : RED),
+        entryStyle: 'position:absolute;top:5px;width:2px;height:12px;background:#98A2AF;left:calc(' + e.toFixed(1) + '% - 1px)',
+        lastStyle: 'position:absolute;top:6px;width:10px;height:10px;border-radius:50%;background:#E7EAEE;box-shadow:0 0 0 2px #12161D;left:calc(' + l.toFixed(1) + '% - 5px)',
+        stopLbl: 'stop ' + fmt(p.stop, p.dp), targetLbl: 'target ' + fmt(p.target, p.dp),
+        midLbl: 'entry ' + fmt(p.entry, p.dp) + ' · last ' + fmt(p.last, p.dp),
+        stopLblStyle: MONO + 'color:' + (stopAbove ? GREEN : RED),
+        hit: p.hit, hitSub: p.hitSub, hitStyle: MONO + 'font-size:15px;color:' + (p.hitUp ? GREEN : RED),
+        toStop: p.toStop, toStopSub: p.toStopSub, toStopStyle: MONO + 'font-size:15px;color:' + (p.amber ? AMBER : '#E7EAEE'),
+        toTarget: p.toTarget, toTargetSub: p.toTargetSub,
+        timeStop: p.timeStop, timeStopSub: p.timeStopSub,
+        hist: p.hist.map(function (h, i) {
+          return {
+            text: (i ? '→ ' : '') + h[0],
+            style: 'display:inline-flex;align-items:center;min-height:26px;padding:2px 8px;border-radius:6px;' + MONO + 'font-size:12px;' +
+              (h[1] === 'up' ? 'background:#13202F;color:#7FB8FF;border:1px solid #24405F' : 'background:#171C24;color:#C9CFD6;border:1px solid #2E3643')
+          };
+        }),
+        histNote: p.histNote, decision: 'Latest decision: ' + p.decision + ' →', watcher: p.watcher
+      };
+    });
+
+    var views = [['live', 'Live'], ['A', 'Shadow A'], ['B', 'Shadow B']].map(function (v) {
+      var a = st.view === v[0];
+      return {
+        label: v[1], pressed: String(a), pick: function () { self.setState({ view: v[0] }); },
+        style: 'height:34px;padding:0 14px;border-radius:6px;border:0;font-size:13px;font-weight:600;cursor:pointer;' +
+          (a ? 'background:#2A3240;color:#E7EAEE' : 'background:transparent;color:#98A2AF')
+      };
+    });
+    var totals = V.totals.map(function (t) {
+      return { label: t[0], value: t[1], style: MONO + 'font-size:13px;color:' + (t[2] || '#E7EAEE') };
+    });
+
+    // ---- order history (live account), newest first ----
+    var FILLS = [
+      ['13 Oct 12:30:41', '10:30:41 UTC', 'BTC-EUR', 'buy', '0.0807', '61,209.40', '61,240.00', '€2.47', '€12.36', 'taker', 'decision', 'decision Tue 12:30'],
+      ['13 Oct 12:00:41', '10:00:41 UTC', 'XRP-EUR', 'sell', '1,850', '0.5415', '0.5412', '€0.50', '€2.50', 'taker', 'model exit', 'trade #38'],
+      ['12 Oct 13:15:38', '11:15:38 UTC', 'ETH-EUR', 'buy', '0.420', '2,401.30', '2,402.50', '€0.50', '€2.52', 'taker', 'decision', 'decision Mon 13:15'],
+      ['12 Oct 09:47:12', '07:47:12 UTC', 'LINK-EUR', 'sell', '86.0', '11.21', '11.20', '€0.48', '€2.41', 'taker', 'stop', 'trade #37'],
+      ['11 Oct 16:45:20', '14:45:20 UTC', 'SOL-EUR', 'buy', '7.500', '138.33', '138.40', '€0.52', '€2.60', 'taker', 'decision', 'decision Sun 16:45'],
+      ['10 Oct 22:14:03', '20:14:03 UTC', 'AVAX-EUR', 'sell', '31.0', '24.86', '24.85', '€0.39', '€1.93', 'taker', 'time stop', 'trade #36'],
+      ['9 Oct 08:00:22', '06:00:22 UTC', 'XRP-EUR', 'buy', '1,850', '0.5307', '0.5310', '€0.49', '€2.46', 'taker', 'decision', 'trade #38'],
+      ['5 Oct 14:30:10', '12:30:10 UTC', 'ADA-EUR', 'sell', '2,400', '—', '0.3871', '—', '€2.32', 'taker', 'target', 'trade #31']
+    ];
+    var fills = FILLS.filter(function (f) {
+      return (st.side === 'any' || f[3] === st.side) && (st.reason === 'any' || f[10] === st.reason) && (st.pair === 'any' || f[2] === st.pair);
+    }).map(function (f) {
+      var buy = f[3] === 'buy';
+      return {
+        t: f[0], utc: f[1], pair: f[2], side: f[3], qty: f[4], ref: f[5], fill: f[6], slip: f[7], fee: f[8], feeKind: f[9], reason: f[10], link: f[11] + ' →',
+        sideStyle: MONO + 'font-size:12px;color:' + (buy ? GREEN : RED),
+        reasonStyle: 'display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:5px;font-size:12px;white-space:nowrap;' +
+          ({ stop: 'background:#3A1416;color:#FF8A8F;border:1px solid #7A2A2E', target: 'background:#0F2A1E;color:#3DD68C;border:1px solid #1E5A3E' }[f[10]] ||
+            'background:#171C24;color:#C9CFD6;border:1px solid #2E3643')
+      };
+    });
+
+    return {
+      nav: nav,
+      views: views, viewLabel: V.label, isShadow: st.view !== 'live',
+      count: String(V.positions.length), totals: totals, closest: V.closest,
+      positions: positions,
+      orders: V.orders, hasOrders: V.orders.length > 0, noOrders: V.orders.length === 0, ordersEmpty: V.ordersEmpty,
+      ordersCount: String(V.orders.length),
+      fills: fills, noFills: fills.length === 0, fillsFooter: fills.length + ' of 76 fills shown',
+      setSide: function (e) { self.setState({ side: e.target.value }); },
+      setReason: function (e) { self.setState({ reason: e.target.value }); },
+      setPair: function (e) { self.setState({ pair: e.target.value }); },
+      clear: function () { self.setState({ side: 'any', reason: 'any', pair: 'any' }); }
+    };
+  }
+}
+
+</script>
+</body>
+</html>

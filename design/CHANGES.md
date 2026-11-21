@@ -2,6 +2,16 @@
 
 Newest first. Each entry names the screens it touches.
 
+## 2026-11-04 — [016] Positions & orders design
+
+- New `Positions.dc.html` for build plan item 016, in Stock Trading Agent's layout and with the crypto spec's content (v0.3 → Positions & orders). Stock parts that don't apply to a paper broker are left out: reconciliation with the broker, bracket legs, sessions and the day-trade note. The scenario is the Dashboard's at Tue 13 Oct 12:34: BTC, SOL and ETH open, XRP sold at 12:00, SOL's stop at breakeven since 03:15.
+  - Live / Shadow A / Shadow B switch; totals line (unrealised, if every stop hits, open risk, exposure, cash, fees today and since start, closest to its stop);
+  - a card per position: the stop-to-target bar, If the stop hits, To the stop, To the target, Time stop, Stop history, the exit watcher's last check and the latest decision;
+  - Working orders (empty for live with the reason; Shadow B has a LINK-EUR limit entry, `Positions-shadow.png`);
+  - Today (since 00:00 Amsterdam), Paper account, and Order history with pair, side, reason and period filters, Export CSV, reference price, fill, slippage and fee per fill.
+- "Positions & orders" in every sidebar under Monitor after Dashboard; the Dashboard's Open positions title links to it.
+- Screenshots: `Positions.png`, `Positions-390.png`, `Positions-shadow.png`, and every screen with a sidebar again.
+
 ## 2026-11-04 — [023] Logs in every sidebar
 
 - **Logs in the sidebar** of every screen with one (Dashboard, Indicators, Performance, Insights, What-if, Reviews, LLM inspector, Ask, Readiness, Settings), under Control after Readiness, as in Stock Trading Agent. Until now only the Logs screen itself had the item, so the design had no way to reach it. Decision, States and Errors have no sidebar.

@@ -83,7 +83,7 @@ design/               the visual reference (see design/DESIGN.md); design notes 
 | 13 Decision quality (prompt v2) | v0.2 → Prompt v2: decision quality; OpenAI decision layer (brief, output schema, post-checks, logging); GUI screens → LLM inspector (Re-run); backend/prompts/decision.v2.md |
 | 14 Shell and Dashboard | v0.3 → Shell and Dashboard; GUI screens → Dashboard; design/DESIGN.md (The shell, Interaction rules, Phone width) and design/CHANGES.md entry "Aligned with Stock Trading Agent" |
 | 15 Error handling, logging and Logs screen | v0.3 → Logging, errors and the Logs screen (whole subsection, incl. the failure catalogue); v0.3 → Shell and Dashboard → Needs you; Settings, secrets and persistence (Operations); User features → Live-readiness checklist; The agent cycle and Market data and paper broker (the retry rules); design/DESIGN.md → Logs screen and Screens (`Logs.dc.html`, `Errors.dc.html`); docs/kickoffs/pr-15.md |
-| 16 Positions & orders | v0.3 → Positions & orders; Market data and paper broker (paper broker); Risk gates (exits) |
+| 16 Positions & orders | v0.3 → Positions & orders; Market data and paper broker (paper broker); Risk gates (exits); v0.2 → Limit entries; design/DESIGN.md → Positions & orders screen (`Positions.dc.html`); docs/kickoffs/016-feat-positions-orders.md |
 | 17 Markets screen | v0.3 → Markets screen; Market data and paper broker (supported markets) |
 | 18 Strategies screen | v0.3 → Strategies screen; User features → Shadow strategies; v0.2 → Step 3 (promotion); docs/RESEARCH.md (static BTC + cash benchmark) |
 | 19 Backtest | v0.3 → Backtest; The agent cycle; Risk gates; Outcome tracking; docs/RESEARCH.md (method) |

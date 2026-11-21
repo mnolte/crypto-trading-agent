@@ -469,6 +469,8 @@ A screen in the main navigation that judges the paper account as a whole, answer
 
 **Settings**
 
+From item 025 these settings are laid out and saved as in v0.3 → Settings screen.
+
 - Markets: a table of Bitvavo EUR markets with 30-day volume, spread, history, eligibility and an Active switch, plus search to add one; ineligible markets show the failed rule; a footer shows active count and estimated model calls per day; cycles run every 15 minutes (fixed in v0.1; only the start offset is a setting).
 - Execution: Automatic (default), Supervised (veto window 60 s), or Manual approval.
 - Risk limits from the Risk gates table, each with validation and its unit.
@@ -744,7 +746,7 @@ Outcome tracking adds an `outcomes` table, described in its own section.
 | `POST /api/llm-calls/{id}/replay` | Re-sends the stored brief with an optional model id and prompt version; returns the replay record, never trades |
 | `PUT /api/llm-calls/{id}/verdict` | Sets Correct or Wrong plus an optional note |
 | `GET /api/llm-calls/export.jsonl?verdict=&outcome=` | Labelled calls with outcomes as JSONL |
-| `GET /api/settings`, `PUT /api/settings` | Validated by Pydantic; invalid input returns 422 with field errors |
+| `GET /api/settings`, `PUT /api/settings` | Validated by Pydantic; invalid input returns 422 with field errors. From item 025 a save needs a reason and makes a settings version (v0.3 → Settings screen), with `GET /api/settings/meta` and `POST /api/settings/preview` |
 | `GET /api/notifications`, `PUT /api/notifications` | Channels, SMTP settings (password excluded) and per-event switches |
 | `POST /api/notifications/test` | Sends a test message to every enabled channel |
 | `GET /api/sources` | Every data source with purpose, key requirement, key set (last 4 only), enabled, last success, rate-limit usage |
@@ -762,7 +764,7 @@ Outcome tracking adds an `outcomes` table, described in its own section.
 | `GET /api/session` | The X-Local-Token for the served UI; no CORS headers, so other sites cannot read it |
 | `GET /api/errors, PUT /api/errors/{id}/resolve` | Open and resolved errors; dismiss one with a note |
 | `GET /api/costs?month=` | Model spend in € per feature (decisions, Ask, briefings, shadows, replays) against the monthly cap |
-| `GET /api/settings/history` | Every settings change with time, old and new value |
+| `GET /api/settings/history` | Every settings change with time, old and new value; from item 025 grouped in versions with their reason |
 | `GET /api/export/{decisions,trades}.csv` | CSV export, outcomes included |
 
 ## Settings, secrets and persistence
@@ -770,7 +772,7 @@ Outcome tracking adds an `outcomes` table, described in its own section.
 Everything the agent knows survives a restart, and it always restarts paused.
 
 - **Restart behaviour:** when the backend starts it loads state from SQLite, refreshes prices, re-checks stops and targets on open positions, and waits in Paused until Marc presses Resume. A pending decision from before the restart is marked expired.
-- **Settings** live in the `settings` table as one validated JSON document with a schema version. Defaults are in code; unknown keys are dropped on load.
+- **Settings** live in the `settings` table as one validated JSON document with a schema version. Defaults are in code; unknown keys are dropped on load. From item 025 every save is a settings version with a reason (v0.3 → Settings screen).
 - **API key:** read from the OS keyring via `keyring`, falling back to `OPENAI_API_KEY` in a git-ignored `.env`. Every external source's key is handled the same way: stored per source in the keyring, with a .env fallback named after the source (for example COINGECKO\_API\_KEY). The frontend only ever sees whether a key is set and its last 4 characters. Keys are never logged and never appear in decision records, LLM briefs or exports.
 - **Retention:** keep all decisions, trades and LLM calls. Raw briefs and responses older than 90 days may be pruned by a Settings button.
 - **Export:** CSV of decisions and trades via the export endpoints.
@@ -1332,6 +1334,63 @@ The app gets a sign-in before it runs anywhere but on Marc's own computer. Built
 
 **Errors.** The error pages and the API error shape come from PR 15 (v0.3 → Logging, errors and the Logs screen → Error pages and API errors). PR 20 adds the 401 and 403 rows: 401 sends the browser to sign-in and back to the page it was on; `confirm_required` opens "Confirm it is you" and repeats the request once.
 
+### Settings screen
+
+Decided 21 November 2026, item 025: Settings work as in Stock Trading Agent (its Settings screen and items 056, 069, 100 and 101). The settings themselves and what they do don't change; how they are shown, changed and saved does. This replaces the layout in GUI screens → Settings and the plain "Save and Discard" bar. Design: `design/screens/Settings.dc.html`.
+
+**One section at a time.** A section list on the left picks the section; on a phone it is a Section select. Each section has its own address, `/settings/<section>`; plain `/settings` opens the last section used, else Risk limits. Previous and next links end each section in list order. The list is grouped:
+
+| Group | Sections |
+| --- | --- |
+| Trading | Markets, Execution, Risk limits, Exits, Entry rules, Paper broker |
+| Model | Model and reviews, Shadows |
+| Alerts and display | Notifications, Display |
+| Connections | API keys and data (Access joins with PR 20) |
+| Records | Readiness, Schedule, History, Logs, Paper account |
+
+- **Markets:** the eligibility thresholds; the active markets with a link to the Markets screen (PR 17; until then the market table stays in this section, under the thresholds); stablecoins as a fixed value; an Advanced fold with history lengths, freshness grace, structure range, eligibility margin and recovery days, and the six timeouts.
+- **Execution:** mode, veto window, max price drift while waiting, the cycle (fixed), cycle start offset, live trading (locked).
+- **Risk limits:** the Risk gates table in three groups, Per trade, Portfolio and Brakes.
+- **Exits:** time stop and trailing stop; breakeven and market exits as fixed values.
+- **Entry rules:** the ADX threshold, the Rules thresholds, and the risk flags (v0.2).
+- **Paper broker:** taker and maker fee, slippage, entry orders.
+- **Model and reviews:** decider, model, prompt version, Rules pre-filter, daily call budget, monthly cost cap with this month's spend; briefing time and weekly review; Ask questions per day; Insights minimum decisions.
+- **Shadows:** each shadow with what it runs and its result. Start, Stop and Promote move to the Strategies screen with PR 18; until then they stay here.
+- **Notifications:** browser and email on or off, the event table folded behind its counts, the repeat rule as a fixed value, and SMTP.
+- **Display:** plain-language mode, the quiet line, the near-stop distance.
+- **API keys and data:** the price data source and the sources table with their keys.
+- **Readiness:** its four thresholds. **Schedule:** read only, when each job runs and which section sets it. **History:** see below. **Logs:** console level, days kept per level, max size. **Paper account:** starting balance, export, prune model records, reset, delete all data.
+
+Every setting the API accepts has a control in exactly one section, and a test compares the two lists. Not on the screen: `schema_version`, `logging.queue_size`, `logging.backtest_debug`, `logging.library_debug` and `storage.shutdown_grace_seconds`; `market.stablecoin_bases` is shown as a fixed value.
+
+**A row.** Each setting is one row: its name, one line of explanation ending in its default ("· default 2.5%"), and the control with its unit. A percentage of equity has its euro amount next to it ("= €260.32"), and so do max costs and the drawdown kill. Two or three related values share one row with a label before each field (stop distance from and to, the shock brake, the risk throttle). Values fixed by the spec are text with a lock ("Always market · fixed by the spec"), never a disabled control. A control that can't be used yet says why next to it.
+
+**Find a setting and Changed from default.** Find matches a setting's name, explanation and section. Changed from default lists every setting whose saved value differs from its default in the Settings models. Both show the matching rows from every section, grouped by section, and open an Advanced fold that holds a match. The section list shows how many unsaved changes each section has.
+
+**Unsaved changes.** A changed value is highlighted with "Changed from … · Reset". Changes are kept when switching sections. A bar at the bottom lists them all, old → new with their tag, and has a reason field, Discard and "Save as v<n>". The reason is required, 3 to 200 characters, and shown in History. Values are checked against their range as they are typed; Save is disabled while one is invalid, and the field says the allowed range. Leaving the page with unsaved changes asks first. Below 760 px the bar is one line, "2 unsaved changes · Review and save", that opens to the same content.
+
+**Tighter and looser.** One map in the backend, `backend/app/settings_directions.py`, gives every setting in `risk`, `rules`, `model`, `paper`, `market`, `readiness` and `notifications.events`, and `execution_mode`, `veto_window_s` and `cycle_offset_s`, its direction: which way is looser (up, down, on, off, a wider range) or neutral, with a one-line reason. Looser means the agent can lose more, enter more often, spend more, or judge its own results more kindly (lower fees or slippage, lower readiness thresholds). Each change in the bar is tagged **tighter** or **looser**; neutral changes have no tag.
+- **Fails closed:** a setting in those sections without an entry counts as looser, and a test fails until it has one.
+- **A save asks once more**, naming what loosens ("Raises risk per trade 1.0 → 1.2%. Save?"), when it has a looser change, moves the execution mode towards Automatic, takes a channel away from a notification event, or changes the live model or prompt version. From PR 20 that confirmation is "Confirm it is you" (v0.3 → Sign-in and access).
+
+**What these limits mean today.** Risk limits opens with three sentences computed from the values on screen, unsaved changes included: what a trade that hits its stop loses, and while the throttle is on; how many positions at full risk fit in the open-risk budget; where new entries stop for the day and where the kill switch turns on, in euros, with the peak it is measured from.
+
+**Money comes from the backend.** The euro amounts, the three sentences, the tags and the range errors for unsaved values come from `POST /api/settings/preview`, which the screen calls about 300 ms after typing stops. The frontend does no arithmetic on money.
+
+**Versions and History.** Every save makes a settings version: its number (continuing the current `settings.version`), the time, the reason, where it came from (screen, promote, What-if, action, migration), the whole document and its changes with their direction. Decisions keep storing the version they ran under. Saved settings apply from the next cycle. History lists versions newest first, each with its changes, tags and reason; changes from before item 025 follow, per setting, without a version or reason. Promote and What-if → Apply save a version through the same service with their own reason ("Promoted Shadow A"). Readiness keeps showing a loosened threshold with its date.
+
+**Saved straight away, outside the bar.** A few changes are one click and don't wait for the bar: email settings with Test and save (Send test is the secondary button), turning a data source on or off, and activating or deactivating a market. Each saves its own version with a reason written for it ("Email settings tested and saved", "Turned off CoinGecko", "Activated LINK-EUR"), unsaved changes in the bar stay as they are, and a looser one still asks once more. API keys and the SMTP password are secrets: saved per key with Test, Replace and Remove, never in a settings version, History or the preview.
+
+**API.**
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/settings` | The current settings, unchanged |
+| `GET /api/settings/meta` | The current version number, and per setting: section, default, range or choices, unit, direction and whether it is fixed |
+| `POST /api/settings/preview` | A draft in, nothing saved: euro amounts, the Risk limits sentences, the changes with their direction, and field errors |
+| `PUT /api/settings` | `{settings, reason, confirm_looser}`: 422 with field errors or a missing reason; 409 `looser_needs_confirm` listing the changes when a confirmation is needed and `confirm_looser` is false; else the new version |
+| `GET /api/settings/history` | Versions newest first with their changes and reason, then the older per-setting changes; paged |
+
 ### Build order (v0.3)
 
 v0.3 starts after PR 13 and the fix PR are merged; PR 10 and 11 stay paused. None of these PRs changes decisions, gates or exits, so they don't fall under the pause on strategy features. Each UI PR attaches Playwright screenshots at 1440 × 900 and 390 × 844 next to the reference PNGs, and waits until its screens are on the design canvas; the design for PR 14 is there now.
@@ -1343,6 +1402,7 @@ v0.3 starts after PR 13 and the fix PR are merged; PR 10 and 11 stay paused. Non
 - **PR 18, Strategies screen:** the comparison with both BTC benchmarks, equity curves, disagreements; Settings → Shadow strategies replaced by a link.
 - **PR 19, Backtest:** the engine on an injected clock, the child process, the candle store, the model cache and cutoff check, the estimate and cap, results with training and test, the screen.
 - **PR 20, Sign-in and access:** `TA_AUTH`, the account, sessions, limits, confirm-it-is-you, Settings → Access, the sign-in page, and the 401 and 403 handling. Required before the VPS.
+- **Item 025, Settings screen:** the sections, rows, search and filter, the save bar with reasons, the directions map, the preview, settings versions and History (kickoff `docs/kickoffs/025-feat-settings-sections.md`). It may come before PR 17, 18 and 20; each of those then moves its part of Settings as described above.
 
 ## After v0.1: sentiment and external market context
 
