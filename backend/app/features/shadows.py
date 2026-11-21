@@ -986,6 +986,7 @@ class ShadowRunner:
                                 session, shadow.broker.account_id, pair, price, "watch", at=now
                             )
                     shadow.broker.persist(session, now)
+                    repo.set_watcher_last_pass(session, shadow.broker.account_id, now)
                     session.commit()
                 except Exception:
                     session.rollback()

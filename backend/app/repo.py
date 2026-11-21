@@ -1268,6 +1268,25 @@ def meta_set(session: Session, key: str, value: str) -> None:
         row.value = value
 
 
+def watcher_last_pass_key(account_id: int) -> str:
+    return f"watcher_last_pass:{account_id}"
+
+
+def set_watcher_last_pass(session: Session, account_id: int, at: datetime) -> None:
+    meta_set(session, watcher_last_pass_key(account_id), at.isoformat())
+
+
+def watcher_last_pass(session: Session, account_id: int) -> datetime | None:
+    """When the exit watcher last finished a pass for this account."""
+    raw = meta_get(session, watcher_last_pass_key(account_id))
+    if raw is None:
+        return None
+    try:
+        return aware_utc(datetime.fromisoformat(raw))
+    except ValueError:
+        return None
+
+
 # ------------------------------------------------------------ equity snaps --
 
 

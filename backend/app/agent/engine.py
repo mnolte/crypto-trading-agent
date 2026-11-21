@@ -1644,6 +1644,16 @@ class Engine:
         # Fills, exits and kills land between cycles — the snapshot push
         # keeps connected clients live instead of waiting for a cycle end.
         await self._push()
+        self._note_watch_pass()
+
+    def _note_watch_pass(self) -> None:
+        """Record when the exit watcher last finished a pass (016)."""
+        session = self._sessions()
+        try:
+            repo.set_watcher_last_pass(session, self.broker.account_id, self.clock())
+            session.commit()
+        finally:
+            session.close()
 
     async def _tick_locked(self) -> tuple[list[str], Any]:
         """One watcher pass in three phases: read-only probe, network
