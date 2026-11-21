@@ -1,18 +1,22 @@
-# Spec-owned paths: a PR that changes any of them needs the "spec-change" label.
+# Spec-owned paths: a PR that changes any of them needs the "spec change" label.
 #
 # Read by .github/scripts/check-spec-label.sh (workflow: spec-label.yml).
 # One bash glob per line; '*' also crosses '/', so 'design/*' covers
 # design/screens/x.html. Blank lines and lines starting with '#' are skipped.
+# Some of these also need a change entry in docs/changes/ or design/changes/;
+# that shorter list is in the script (needs_spec_log, needs_design_log).
 #
-# Not here on purpose: docs/work-items.md (Devin updates the build columns),
-# docs/analysis/ (Devin writes audit reports), docs/screenshots/ (PR evidence).
+# Not here on purpose: docs/changes/ (Devin updates an item's file in build
+# PRs), docs/work-items.md (the register up to 023), docs/analysis/ (Devin
+# writes reports), docs/screenshots/ (PR evidence).
 
-# Behaviour spec, its changelog and the map
+# Behaviour spec, its map and the frozen changelog
 docs/SPEC.md
-docs/CHANGES.md
 docs/README.md
+docs/CHANGES.md
 docs/RESEARCH.md
-docs/DEVIN_KICKOFF.md
+# Kickoffs, including docs/kickoffs/archive/. An unchanged move into
+# archive/ needs no label (rule 4 in the script).
 docs/kickoffs/*
 
 # Agent rules

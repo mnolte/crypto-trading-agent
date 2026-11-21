@@ -1,7 +1,7 @@
 name: Workflow
 
 # Checks on the PR itself, not the code:
-#   spec-label  — spec-owned paths need the "spec-change" label and a changelog
+#   spec-label  — spec-owned paths need the "spec change" label and a change
 #                 entry (.github/scripts/check-spec-label.sh, paths in
 #                 .github/spec-paths.txt). Fails the PR.
 #   names       — title and branch follow docs/work-items.md. Warnings only.
@@ -32,7 +32,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'spec-change') }}
+          HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'spec change') }}
         run: bash .github/scripts/check-spec-label.sh
 
   names:

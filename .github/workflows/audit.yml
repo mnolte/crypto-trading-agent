@@ -4,15 +4,15 @@ name: Audit
 #   Runtime dependencies (what runs the app): a finding fails the job.
 #   Dev dependencies (tests, lint, build tools): findings are listed as
 #   warnings and never fail the job; Dependabot proposes the upgrades.
-# Runs when a dependency file changes, on main, weekly and by hand, so a new
-# advisory for an unchanged dependency doesn't block unrelated PRs.
+# Runs on every PR push, on main, weekly and by hand (item 024: CI runs every
+# suite and scan on every PR). A new advisory for a runtime dependency
+# therefore blocks every PR until the dependency is upgraded, as in Stock
+# Trading Agent.
 
 on:
   pull_request:
-    paths: [uv.lock, pyproject.toml, frontend/pnpm-lock.yaml, frontend/package.json, .github/workflows/audit.yml]
   push:
     branches: [main]
-    paths: [uv.lock, pyproject.toml, frontend/pnpm-lock.yaml, frontend/package.json, .github/workflows/audit.yml]
   schedule:
     # Monday 05:23 UTC.
     - cron: "23 5 * * 1"
