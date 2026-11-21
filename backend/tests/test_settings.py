@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi.testclient import TestClient
 
 from app.db import make_engine, make_session_factory
@@ -21,7 +23,7 @@ def test_settings_defaults(client: TestClient) -> None:
     assert body["risk"]["kill_drawdown_pct"] == "8"
 
 
-def _put_settings(client: TestClient, doc: dict, **extra: object):
+def _put_settings(client: TestClient, doc: dict[str, Any], **extra: object) -> Any:
     return client.put(
         "/api/settings",
         json={"settings": doc, "reason": "test save", **extra},

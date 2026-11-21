@@ -379,7 +379,7 @@ async def _set_market_active(
                 confirm_looser=confirm,
             )
         except settings_service.LooserNeedsConfirm as exc:
-            return api_errors.api_error(  # type: ignore[return-value]
+            return api_errors.api_error(
                 409,
                 "This change loosens a limit — confirm to save it.",
                 code="looser_needs_confirm",

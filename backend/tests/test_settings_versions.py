@@ -20,7 +20,7 @@ def _token(client: TestClient) -> dict[str, str]:
     return {"X-Local-Token": client.get("/api/session").json()["token"]}
 
 
-def _put(client: TestClient, doc: dict[str, Any], **extra: Any):
+def _put(client: TestClient, doc: dict[str, Any], **extra: Any) -> Any:
     return client.put(
         "/api/settings",
         json={"settings": doc, "reason": "test save", **extra},
@@ -29,11 +29,13 @@ def _put(client: TestClient, doc: dict[str, Any], **extra: Any):
 
 
 def _doc(client: TestClient) -> dict[str, Any]:
-    return client.get("/api/settings").json()
+    doc: dict[str, Any] = client.get("/api/settings").json()
+    return doc
 
 
 def _versions(client: TestClient) -> list[dict[str, Any]]:
-    return client.get("/api/settings/history").json()["versions"]
+    versions: list[dict[str, Any]] = client.get("/api/settings/history").json()["versions"]
+    return versions
 
 
 # ------------------------------------------------------------- directions --

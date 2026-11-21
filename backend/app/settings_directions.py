@@ -197,12 +197,12 @@ def tag_change(key: str, old: Any, new: Any) -> Tag:
             return "neutral"
         return "looser" if lb > la else "tighter"
     if kind == "toward_auto":
-        a, b = _EXEC_RANK.get(str(old)), _EXEC_RANK.get(str(new))
-        if a is None or b is None:
+        ea, eb = _EXEC_RANK.get(str(old)), _EXEC_RANK.get(str(new))
+        if ea is None or eb is None:
             return "neutral"
-        if b > a:
+        if eb > ea:
             return "looser"
-        if b < a:
+        if eb < ea:
             return "tighter"
         return "neutral"
     return "neutral"

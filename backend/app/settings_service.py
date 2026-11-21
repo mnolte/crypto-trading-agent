@@ -403,15 +403,15 @@ def history_page(
         remaining = limit
         row_mark = int(mark) if mark.isdigit() else None
 
-    query = (
+    row_query = (
         select(SettingsHistoryRow)
         .where(SettingsHistoryRow.version.is_(None))
         .order_by(SettingsHistoryRow.id.desc())
         .limit(remaining)
     )
     if row_mark is not None:
-        query = query.where(SettingsHistoryRow.id < row_mark)
-    batch_rows = list(session.scalars(query).all())
+        row_query = row_query.where(SettingsHistoryRow.id < row_mark)
+    batch_rows = list(session.scalars(row_query).all())
     rows = [
         SettingsHistoryRowOut(at=repo.aware_utc(r.at), key=r.key, old=r.old, new=r.new)
         for r in batch_rows

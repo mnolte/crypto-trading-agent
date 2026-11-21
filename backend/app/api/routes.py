@@ -7,7 +7,7 @@ endpoints for its own features.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -178,7 +178,7 @@ def settings_meta(request: Request) -> SettingsMetaOut:
 
 
 @router.post("/settings/preview", response_model=SettingsPreviewOut)
-def settings_preview(request: Request, draft: dict) -> SettingsPreviewOut:
+def settings_preview(request: Request, draft: dict[str, Any]) -> SettingsPreviewOut:
     """Money, tags and errors for an unsaved draft; saves nothing."""
     state = get_state(request)
     session = get_session(request)
