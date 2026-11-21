@@ -94,9 +94,10 @@ def test_market_buy_writes_a_decision_fill(session: Session) -> None:
     assert fill.side == "buy" and fill.reason == "decision" and fill.decision_id == "d1"
     assert fill.source == "live" and fill.order_type == "market"
     assert fill.fee_kind == "taker"
+    assert fill.reference_price is not None
     assert Decimal(fill.reference_price) == Decimal("100")
     assert Decimal(fill.fill_price) > Decimal("100")  # slippage against us
-    assert Decimal(fill.slippage_eur) > 0
+    assert fill.slippage_eur is not None and Decimal(fill.slippage_eur) > 0
     assert Decimal(fill.fee_eur) > 0
 
 
@@ -119,7 +120,7 @@ def test_limit_buy_writes_a_maker_fill_without_slippage(session: Session) -> Non
     assert fill is not None
     assert fill.order_type == "limit" and fill.fee_kind == "maker"
     assert Decimal(fill.fill_price) == Decimal("100")
-    assert Decimal(fill.slippage_eur) == 0
+    assert fill.slippage_eur == "0"
 
 
 def test_close_writes_exit_fill_and_links_both_to_the_trade(session: Session) -> None:

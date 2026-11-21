@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import repo
-from app.db import FillRow, PaperOrderRow, PositionRow, TradeRow
+from app.db import FillRow, PaperOrderRow, PositionRow, TradeRow, utcnow
 from app.models import PaperSettings
 
 log = logging.getLogger(__name__)
@@ -232,7 +232,7 @@ def rebuild_fills(session: Session, paper: PaperSettings) -> int:
         )
         count += 1
 
-    repo.meta_set(session, REBUILT_KEY, repo.utcnow().isoformat())
+    repo.meta_set(session, REBUILT_KEY, utcnow().isoformat())
     session.commit()
     log.info("rebuilt %d paper fill(s) from trades and positions", count)
     return count

@@ -44,7 +44,7 @@ def position_facts(
     atr: Decimal | None,
     *,
     equity: Decimal,
-    stop_near_atr: float,
+    stop_near_atr: Decimal,
     time_stop_days: Decimal,
 ) -> PositionFacts:
     """Fill ``model``'s dashboard extras and return the full fact set."""

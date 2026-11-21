@@ -435,7 +435,8 @@ def get_positions(
     session = state.session_factory()
     try:
         label, account_row, broker, watcher_at = _broker_for_account(state, session, account)
-        now = _engine(state).clock() if _engine(state) is not None else utcnow()
+        engine = _engine(state)
+        now = engine.clock() if engine is not None else utcnow()
         cards, totals = _position_cards(state, session, broker, account_row, watcher_at, now)
         orders = [
             out
