@@ -116,7 +116,7 @@ A kickoff is written for Devin to follow without asking. In this order:
 | 014 | feat | Shell and Dashboard | `pr-14.md` | #18 | #19 | merged |
 | 015 | feat | Error handling, logging and the Logs screen | `pr-15.md` | #18, #20 | #22 | merged |
 | 016 | feat | Positions & orders | `016-feat-positions-orders.md` | #18, #35 | — | planned |
-| 017 | feat | Markets screen | — | #18 | — | ready |
+| 017 | feat | Markets screen | — | #18 | — | dropped (replaced by item 026, Universe screen, 21 Nov) |
 | 018 | feat | Strategies screen | — | #18 | — | ready |
 | 019 | feat | Backtest | — | #18 | — | ready |
 | 020 | feat | Sign-in and access | — | #18, #20 | — | ready |

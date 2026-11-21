@@ -393,10 +393,11 @@ Any Bitvavo EUR market can be traded if it passes an eligibility check; Marc cho
 
 - The check runs at startup and daily at 01:00 UTC, using Bitvavo's `/markets` and `/ticker/24h` plus stored candles. Thresholds live in config. To stop markets flipping in and out, an active market fails only after 3 days in a row below a threshold, or at once when it is 20% beyond it (for example under €0.8M volume); a failed market needs 3 days back within the thresholds to pass again. One alert per change, not per day.
 - Default active set: BTC, ETH, SOL, XRP, ADA, LINK, AVAX, DOGE, LTC (all -EUR).
+- A check that sees bad data keeps the previous result, and the check and the loading jobs are stored and shown on the Universe screen (v0.3 → Universe screen, item 026).
 - Activating a market starts a history backfill; it shows Warming up and is not traded until 800 1h candles, 300 4h and 300 1d candles are loaded.
 - If an active market fails the check, it shows a warning and an alert is sent. It stays active until Marc acts, but takes no new entries while failing.
 - Deactivating a market stops new entries; an open position on it is still managed by its stop, target, time stop and the model until it closes.
-- Each extra active market adds up to 96 model calls a day before the pre-filter; Settings shows the estimate next to the daily budget.
+- Each extra active market adds up to 96 model calls a day before the pre-filter; the Universe screen shows the estimate next to the daily budget (Settings did until item 026).
 
 **Simulated market** (`agent/market/sim.py`)
 
@@ -471,7 +472,7 @@ A screen in the main navigation that judges the paper account as a whole, answer
 
 From item 025 these settings are laid out and saved as in v0.3 → Settings screen.
 
-- Markets: a table of Bitvavo EUR markets with 30-day volume, spread, history, eligibility and an Active switch, plus search to add one; ineligible markets show the failed rule; a footer shows active count and estimated model calls per day; cycles run every 15 minutes (fixed in v0.1; only the start offset is a setting).
+- Markets: a table of Bitvavo EUR markets with 30-day volume, spread, history, eligibility and an Active switch, plus search to add one; ineligible markets show the failed rule; a footer shows active count and estimated model calls per day; cycles run every 15 minutes (fixed in v0.1; only the start offset is a setting). From item 026 the table is on the Universe screen and Settings keeps the thresholds.
 - Execution: Automatic (default), Supervised (veto window 60 s), or Manual approval.
 - Risk limits from the Risk gates table, each with validation and its unit.
 - Decision model: decider, model id, prompt version, daily call budget, Rules pre-filter switch.
@@ -550,7 +551,7 @@ Eleven features that reduce confusion, anxiety and guesswork for the person runn
 **Trust and safety**
 
 5. **Live-readiness checklist.** A Readiness screen with criteria that must all pass before the Live switch can be unlocked (live trading itself is a later phase). Defaults, editable in Settings: at least 100 closed trades; at least 30 days of paper trading; return above BTC buy-and-hold after fees over the same period; max drawdown under 6%; average R above +0.2 after fees; profit factor above 1.3; confidence calibration within 10 percentage points (BUYs grouped by stated confidence into 0.5–0.6, 0.6–0.7, 0.7–0.8 and 0.8+; per bucket the gap between average stated confidence and actual win rate; gaps averaged weighted by bucket size, skipping buckets with fewer than 10 BUYs; cannot pass before 50 BUYs); no kill-switch event in the last 30 days; no unresolved errors in the last 7 days (only errors that affected a decision or a fill; see Operations; from PR 15 the criterion in v0.3 → Logging, errors and the Logs screen). Each criterion shows its current value, target, pass or fail, and for counts an estimated date at the current pace. Criteria count from the current paper account. Any threshold change is kept in the settings history; a loosened threshold is shown on the screen with its date.
-6. **Per-coin pause.** Pause new entries on one coin, or on all coins, for 1 hour, 24 hours, until a date and time, or until resumed. Exits and the model's SELL decisions keep working; pauses expire automatically, show a clock badge on the pair, and are logged. Set from the pair selector, the latest-decision card or the Settings markets table; Ask cannot set it. While a pair's entries are paused and it has no open position, the model is not called for it (shadows included): the Rules engine answers, any BUY ends as SKIP at the Entry pause gate, and no call budget is spent. With an open position the model is called as usual, so SELL decisions keep working. The Entry pause gate is checked again when a pending approval fills.
+6. **Per-coin pause.** Pause new entries on one coin, or on all coins, for 1 hour, 24 hours, until a date and time, or until resumed. Exits and the model's SELL decisions keep working; pauses expire automatically, show a clock badge on the pair, and are logged. Set from the pair selector, the latest-decision card or the Universe table (the Settings markets table until item 026); Ask cannot set it. While a pair's entries are paused and it has no open position, the model is not called for it (shadows included): the Rules engine answers, any BUY ends as SKIP at the Entry pause gate, and no call budget is spent. With an open position the model is called as usual, so SELL decisions keep working. The Entry pause gate is checked again when a pending approval fills.
 7. **Risk budget meter.** A Dashboard card that also shows, when active, the risk throttle (0.5% per trade and what lifts it), the shock brake (and when it ends) and the correlated slots left, plus three bars: open risk vs the 2.5% cap, today's loss vs the 3% daily limit, drawdown vs the 8% kill level; plus one line such as "Room for about 2 more full-size trades".
 
 **Improving with evidence**
@@ -699,7 +700,7 @@ The snapshot also carries `quiet` (the "Why so quiet?" line), `risk_budget` (ope
 
 Decimals are serialised as strings in JSON; the frontend formats them and never does arithmetic on money.
 
-**SQLite tables:** `settings`, `decisions` (with raw brief and raw response), `trades`, `positions`, `equity_snapshots` (one per cycle), `activity`, `llm_calls`, candles (every closed 1h, 4h and 1d candle per market, read by the Indicators replay, What-if and outcomes), exit\_ticks (prices at real fills and near-stop or near-target checks, for What-if), settings\_history (every change with time, old and new value; decisions store the settings version), accounts (one row per paper account; trades, decisions and outcomes carry account\_id), entry\_pauses, alerts (sent alerts, for the 30-minute repeat rule) and errors (with affected decision or fill, resolved\_at and note).
+**SQLite tables:** `settings`, `decisions` (with raw brief and raw response), `trades`, `positions`, `equity_snapshots` (one per cycle), `activity`, `llm_calls`, candles (every closed 1h, 4h and 1d candle per market, read by the Indicators replay, What-if and outcomes), exit\_ticks (prices at real fills and near-stop or near-target checks, for What-if), settings\_history (every change with time, old and new value; decisions store the settings version), accounts (one row per paper account; trades, decisions and outcomes carry account\_id), entry\_pauses, alerts (sent alerts, for the 30-minute repeat rule) and errors (with affected decision or fill, resolved\_at and note). Item 026 adds `market_checks` and `sync_runs` (v0.3 → Universe screen).
 
 Outcome tracking adds an `outcomes` table, described in its own section.
 
@@ -720,7 +721,8 @@ Outcome tracking adds an `outcomes` table, described in its own section.
 | `POST /api/positions/{pair}/close` | Close one position at market |
 | `POST /api/decisions/{id}/approve`, `/veto` | Resolve one pending decision; R/R, size and gates are recomputed at the fill price; 409 if it has expired |
 | `GET /api/markets` | Every Bitvavo EUR market with 30-day volume, spread, history, eligibility, the failed rule if any, active, warming-up and paused state |
-| `PUT /api/markets/{market}` | Activate or deactivate a market; activation is refused with the failed rule when ineligible |
+| `PUT /api/markets/{market}` | Activate or deactivate a market; activation is refused with the failed rule when ineligible. From item 026 the Universe screen uses it, with the looser confirmation of the Settings screen |
+| `GET /api/universe`, `GET /api/universe/check`, `GET /api/universe/sync`, `POST /api/universe/sync/{job}/retry` | The Universe screen, its check runs and its sync jobs (item 026; v0.3 → Universe screen) |
 | `PUT /api/markets/{market}/pause`, `DELETE /api/markets/{market}/pause` | Pause or resume new entries on one coin, with an optional `until` |
 | `GET /api/candles/{pair}?tf=1h` | Cached candles plus trade markers for the dashboard chart |
 | `GET /api/indicators/{pair}?tf=1h&bars=300&at=` | Candles plus every indicator series, current values and reads, levels, context and data health. With `at` (a decision or call id) it returns the stored state from that moment |
@@ -968,7 +970,7 @@ Fear & Greed, BTC dominance and market cap trend (the next group, once v0.2 has 
 
 ## v0.3: screens and tools from Stock Trading Agent
 
-v0.3 adds what Stock Trading Agent has and Trading Agent lacks: the aligned shell and Dashboard, a Logs screen, Positions & orders, a Markets screen, a Strategies screen, Backtest, and sign-in for the VPS. None of it changes how the agent decides, sizes or exits. Backtest and Strategies produce evidence; the rule for strategy changes in Decisions still decides what goes into this spec.
+v0.3 adds what Stock Trading Agent has and Trading Agent lacks: the aligned shell and Dashboard, a Logs screen, Positions & orders, a Universe screen, a Strategies screen, Backtest, and sign-in for the VPS. None of it changes how the agent decides, sizes or exits. Backtest and Strategies produce evidence; the rule for strategy changes in Decisions still decides what goes into this spec.
 
 ### Shell and Dashboard
 
@@ -995,7 +997,7 @@ Screen controls (filters, periods, export, save) sit at the top of the page, not
 | Errors not reviewed (from PR 15: ERROR and CRITICAL recurring problems; before it, open rows in `errors`) | Review |
 | An API key or data source failing (3 failures in a row) | Fix in Settings |
 | Email alerts not set up, or failing | Set up or fix in Settings |
-| An active market failing the eligibility check | Review in Markets |
+| An active market failing the eligibility check | Review in Universe |
 | Monthly cost cap at 80% or more | Raise the cap |
 
 The header chip shows the count and is hidden at 0; the Dashboard card is first on the page and, at 0, shrinks to its health line: Bitvavo candles (time of the last closed candle), price stream, clock offset, OpenAI key and the v0.2 collector. Items leave the list when their cause is gone. `GET /api/needs` returns the list; the snapshot carries it as `needs`.
@@ -1012,7 +1014,7 @@ The header chip shows the count and is hidden at 0; the Dashboard card is first 
 - **Risk budget:** open risk, exposure, today's loss and drawdown as meters; room for more trades, correlated slots, risk per trade and throttle, shock brake, cooldown and the News flag with its button.
 - **Price chart:** 1h, 4h or 1d candles, EMA 20, EMA 50, VWAP (day, from 00:00 UTC), and entry, stop and target lines for a held pair. Buttons for held pairs and Find pair replace the pair tabs.
 - **Decisions · last 24 hours** replaces the Activity card. A rolling 24 hours (not since midnight), grouped by cycle, newest first; within a cycle grouped by action and reason ("NO CALL · AVAX, ADA, LINK · pre-filter"). Changes (entries, exits, stop moves) always show; older cycles fold to their changes. The activity log stays in the API and in Ask; errors move to the Logs screen (PR 15).
-- **Markets card:** every active pair with price, 24h change, regime, the pre-filter result (passed, held, the failed condition, paused, warming up) and the last action. Filters All, Pass rules, Held, Paused, and search. Clicking a row charts it.
+- **Markets card:** every active pair with price, 24h change, regime, the pre-filter result (passed, held, the failed condition, paused, warming up) and the last action. Filters All, Pass rules, Held, Paused, and search. Clicking a row charts it. The card's title links to the Universe screen (item 026).
 
 **Phone width.** Every screen works from 390 px wide. Below 820 px a sticky top bar replaces the sidebar: app mark, screen title, Needs you count, Ask and a menu button that opens the sidebar as an overlay. Wide tables scroll inside their card; no screen scrolls sideways. This replaces "Layout works from 1100 px wide".
 
@@ -1232,17 +1234,47 @@ A screen in the Monitor group that shows everything the paper broker holds and d
 
 API: `GET /api/positions` adds the distances and stop history; `GET /api/fills?pair=&side=&reason=&from=&to=&cursor=` and `GET /api/fills/export.csv`. The Dashboard's "Open positions" title links here.
 
-### Markets screen
+### Universe screen
 
-The eligibility check and the active set move from Settings to a Markets screen in the Control group, the counterpart of Stock Trading Agent's Universe. The rules do not change: the daily check at 01:00 UTC, the thresholds, the 3-day hysteresis, warming up, and "Marc decides": nothing is activated or deactivated automatically.
+Decided 21 Nov (item 026, replacing build plan item 017, the Markets screen). The eligibility check and the active set move from Settings to a Universe screen in the Control group, after Readiness, the counterpart of Stock Trading Agent's Universe (its `docs/SPEC.md` → Larger universe → Universe screen, item 077). The rules in Market data and paper broker → Supported markets do not change: the check at startup and daily at 01:00 UTC, the thresholds, the 3-day buffer and 20% margin, warming up, and "Marc decides": nothing is activated or deactivated automatically. Two things are new: the check result and the sync jobs are stored, so the screen can show them, and a check that sees bad data keeps the previous result (below). What crypto doesn't need from stock: a pool to edit (every Bitvavo EUR market is in the universe), sectors and a rank.
 
-- **Counts:** Bitvavo EUR markets, eligible, active, warming up, failing, excluded.
-- **Today's check as a funnel:** all EUR markets → not a stablecoin → trading on Bitvavo → 300 daily candles → €1M average daily volume → spread at most 0.15% → eligible, with the count and the markets dropped at each step. If the check itself fails (data error), the previous result is kept and a banner says so.
-- **Table of every EUR market:** pair, status (active, eligible, failing day n of 3, warming up with %, excluded with the failed rule), price, 30-day average daily volume, 24h spread, 30-day return against BTC, 30-day correlation with BTC, regime, and the last action for active pairs. Filters by status, search, sort by any column.
-- **Actions per row:** Activate (starts the backfill), Deactivate (confirm; an open position is still managed), and the per-coin pause. Activating shows the extra model calls a day next to the daily budget, as Settings does today.
-- The 30-day return against BTC is information only: it doesn't rank, add or remove markets.
+Top to bottom: the check line, the tiles, Data sync and Today's check, the market table.
 
-Settings keeps the thresholds and links to the screen. API: `GET /api/markets` (every EUR market with the fields above), `GET /api/markets/check` (today's funnel), `POST /api/markets/{pair}/activate` and `/deactivate`.
+- **The check line.** A banner that says once how markets are chosen: "Every Bitvavo EUR market is checked at 01:00 UTC (03:00 Amsterdam) and at startup. You choose which eligible markets are active; nothing is activated or deactivated automatically. Open positions are always managed, even on a market that is deactivated or no longer eligible." The Amsterdam time follows summer time. "Check settings" opens Settings → Markets. When the last check failed, the banner is amber and says why and which result is in use: "The check at 03:00 failed: Bitvavo didn't answer. Using the result of Mon 12 Oct 03:00." How the check works is a fold inside Today's check, closed by default.
+- **Tiles.** EUR markets (the sub line: how many are excluded), Eligible, Active (the sub line: "up to 960 calls a day · budget 1,000": active markets × the cycles in a day, against `model.daily_call_budget`), Held (the pairs), Failing the check (active markets that failed a rule at the last check, eligible or not; the sub line names them and the day count), Warming up (active markets whose history isn't loaded; the sub line names the first and why it waits). A zero is in the normal text colour; amber and red are only for counts above zero.
+- **Data sync.** What the app loads and when it last succeeded, one row per job:
+
+  | Job | When | Row shows |
+  | --- | --- | --- |
+  | `exchange_rules` | 01:00 UTC and at startup | EUR markets listed, rules loaded |
+  | `daily_check` | 01:00 UTC, after the rules, and at startup | checked, eligible, failing, recovering |
+  | `candles` | each cycle (1h; 4h and 1d once an hour) | active markets loaded |
+  | `backfill` | when a market is activated; at startup and 01:00 UTC for active markets still warming up | per market and timeframe, candles loaded of needed |
+  | Prices for stops | every 30 s, the exit watcher | held markets and the last check; read from the watcher's own state, no stored rows |
+
+  Each row has its last run, its duration, done of total, and failures: the market or source, the error in plain words ("Bitvavo: too many requests (429)"), and the next retry. A failed job has Retry. A failed backfill retries by itself at the next cycle, once Bitvavo's ban time has passed. While a backfill runs, a progress bar: "Loading history · SUI-EUR · 1,100 of 1,400 candles · about 1 min left", the time left from the job's own pace (none in its first 5 seconds). The card is one line while every job ran on time and none is running ("All 5 jobs ran on time · last 12:34 · Show jobs"). It opens by itself when a job failed, is late (no good run for twice its interval; 26 hours for the daily jobs) or is running, and its header says why ("open: 1 failed"). On a phone a job row stacks: name and time, the result, then Retry.
+- **Today's check** as a funnel, one bar per rule in the order the check applies them, with the markets left after each and the ones dropped (names when 3 or fewer, else the first three and "…"): Bitvavo EUR markets → not a stablecoin or fiat token → trading, not halted or delisting → 30-day average daily volume ≥ €1M → average spread over 24h ≤ 0.15% → 300 daily candles → pass every rule today. The daily candles are counted only for markets that pass volume and spread (that is what the check fetches). The last line is "Eligible for the next day" with what the 3-day rule changed: "+ AVAX kept (fail 2 of 3) · − SHIB not yet (passing day 1 of 3)". The thresholds shown are the settings in use at that check.
+- **A check with bad data keeps the previous result.** When Bitvavo's `/markets` or `/ticker/24h` fails, or when volume or spread is missing for `market.check_data_error_pct` (50) percent or more of the markets that were eligible at the previous check, the check is a data error: no market's streak, eligibility or failed rule moves, the run is stored as failed with the error, the check line turns amber, and the log gets `eligibility.check_failed` (WARNING, once per run). The next scheduled check runs as usual; Retry on the `daily_check` row runs it now.
+- **The market table.** Every EUR market seen at the last check. Columns: Market (pair and name, from Bitvavo's `/assets`; "name pending" until loaded), Status, Price (the last price, refreshed at most once a minute while the screen is open), Volume €M (30-day average daily volume, at the check), Spread (24h average, at the check), vs BTC (the market's return over the last 30 closed daily candles minus BTC-EUR's over the same days), Corr. BTC (correlation of those 30 daily returns with BTC-EUR's), Regime (active markets only, from the last cycle; "—" for others), and the actions. BTC-EUR shows "—" for vs BTC and Corr. BTC. vs BTC and the correlation are information only: they don't rank, add or remove markets. Header hints give each definition.
+- **One status per market,** a chip and one line under it, never contradicting each other. For an active market, the first that applies:
+
+  | Status | When | The line says |
+  | --- | --- | --- |
+  | active · warming up | its history isn't loaded | a bar per timeframe ("1h 800 of 800 · 4h 0 of 300 · 1d 300 of 300"), what failed and the retry, "trades once loaded" |
+  | active · failing | it lost eligibility; no new entries | the failed rule with its numbers, since when, "no new entries · deactivate or wait for 3 passing days" |
+  | active · 1 of 3 fails, 2 of 3 fails | eligible, failed the last 1 or 2 checks | the rule and its numbers on which days, "loses its place after 1 more failing day · entries still allowed" |
+  | active · entries paused | a per-coin pause is on | until when, set when, "exits keep working" |
+  | active · held | an open live position | quantity and since when, the last decision |
+  | active | none of the above | the last decision and, for SKIP or HOLD from the Rules engine, the failed condition |
+
+  A held market with another status says "held" in its line. For a market that isn't active: eligible ("passing since 2 Sep"), recovering · n of 3 (passing again, not yet eligible: "eligible from Thu 03:00 if it passes 2 more days"), excluded (the first failed rule with its numbers: "volume €0.31M < €1M a day", "daily history 212 of 300 candles", "spread 0.23% > 0.15%", "stablecoin", "not trading on Bitvavo"), and held · not active (deactivated with an open position: "deactivated Tue 10:00 · the position is still managed").
+- **Filters and order.** All, Active, Held, Eligible, Failing, Warming up, Excluded, each with its count, and "Find a market" on pair and name. Default order: active, then eligible, recovering, excluded; active markets that need a look (failing, fails, warming up, paused, held) first, then each group by volume. All shows up to 6 active markets (never hiding one that needs a look), 2 eligible, every recovering one and 3 excluded, each group closed by a row that names what it hides ("4 more active: ADA, LINK, DOGE, LTC · show all"); a filter shows its group in full. Any column sorts.
+- **Actions.** Activate on an eligible market, Deactivate on an active one, and the per-coin pause (a clock: 1 hour, 24 hours, until a date and time, until resumed; Resume while paused) on an active one. Activate asks in the row, with the looser tag: what loads (800 1h, 300 4h and 300 1d candles), that it trades once loaded, and the calls a day before and after against the budget ("960 → 1,056 of the 1,000 budget; past the budget, decisions use Rules until 00:00"). Deactivate asks in the row: "Deactivate AVAX-EUR? No new entries; an open position is still managed by its stop, target, time stop and the model." Both save a settings version with the reason "Activated NEAR-EUR" or "Deactivated AVAX-EUR" (Settings screen → Saved straight away). Activating an ineligible market is refused with the failed rule, as today. The confirm stays inside the visible part of the table when it scrolls sideways. Excluded and recovering markets have no action.
+- **Elsewhere.** Settings → Markets keeps the thresholds, the stablecoin list and the Advanced fold, and shows the active markets in one row with "Open Universe"; the market table and its search leave Settings. The Needs you item for an active market failing the check opens the Universe screen on the Failing filter. The Dashboard's Markets card title links to the screen. Alerts stay one per change, as today.
+
+**Storage.** `market_checks`: one row per check run: started and finished at, trigger (startup, daily, retry), status (ok, failed), error in plain words, the thresholds used, and the funnel (per step: the count left and the markets dropped), plus the kept and held-back markets; 90 days kept. `sync_runs`, as in Stock Trading Agent: job, started and finished at, status (running, ok, partial, failed), done and total, failures (market or source, error in plain words, next retry); a job updates its row at most once a second; 30 days kept. The `markets` row gains `name`, `last_price` and `price_at`, `vs_btc_30d_pct`, `corr_btc_30d`, `eligible_since` and `failing_since`; `volume_30d_eur` and `spread_pct` become Decimals stored as text (hard rule 2), in a new migration.
+
+**API.** `GET /api/universe` (the check line, the tiles, the calls a day per market and the budget, and every market with its status and the fields of its line), `GET /api/universe/check` (the latest check run, and the one in use when the latest failed), `GET /api/universe/sync` (the latest run per job, and while a backfill runs, candles loaded of needed and the time left), `POST /api/universe/sync/{job}/retry` (reruns a failed job for its failed markets; 409 during a cycle or when the job didn't fail; 404 for an unknown job). `GET /api/markets` stays for the Dashboard; `PUT /api/markets/{market}` takes `{active, confirm_looser}` and answers 409 `looser_needs_confirm` for an activation without the confirm (Settings screen → API); the pause endpoints stay.
 
 ### Strategies screen
 
@@ -1348,7 +1380,7 @@ Decided 21 November 2026, item 025: Settings work as in Stock Trading Agent (its
 | Connections | API keys and data (Access joins with PR 20) |
 | Records | Readiness, Schedule, History, Logs, Paper account |
 
-- **Markets:** the eligibility thresholds; the active markets with a link to the Markets screen (PR 17; until then the market table stays in this section, under the thresholds); stablecoins as a fixed value; an Advanced fold with history lengths, freshness grace, structure range, eligibility margin and recovery days, and the six timeouts.
+- **Markets:** the eligibility thresholds; the active markets with a link to the Universe screen (item 026; until then the market table stays in this section, under the thresholds); stablecoins as a fixed value; an Advanced fold with history lengths, freshness grace, structure range, eligibility margin and recovery days, the data error share (item 026), and the six timeouts.
 - **Execution:** mode, veto window, max price drift while waiting, the cycle (fixed), cycle start offset, live trading (locked).
 - **Risk limits:** the Risk gates table in three groups, Per trade, Portfolio and Brakes.
 - **Exits:** time stop and trailing stop; breakeven and market exits as fixed values.
@@ -1398,11 +1430,12 @@ v0.3 starts after PR 13 and the fix PR are merged; PR 10 and 11 stay paused. Non
 - **PR 14, Shell and Dashboard:** the token rename, the header, Needs you (`GET /api/needs`), the phone top bar and 390 px layouts on every screen, the Dashboard in the new order, card states and toasts.
 - **PR 15, Error handling, logging and the Logs screen:** the audit report first; then the log store in `data/logs/logs.db` with its writer, retention and scrubbing; the event registry; tracing; the exception classes, isolation boundaries, `spawn()`, global hooks, timeouts and retries; every row of the failure catalogue; the API error shape, the error pages (in the app and the static pages in `deploy/errors/`) and frontend error reporting; graceful shutdown; the logs endpoints and the Logs screen; the Readiness error criterion; the `errors` table imported.
 - **PR 16, Positions & orders:** the screen, the fills endpoints and export.
-- **PR 17, Markets screen:** the screen, the markets endpoints; Settings keeps the thresholds.
+- **PR 17, Markets screen:** replaced by item 026, the Universe screen (21 Nov).
 - **PR 18, Strategies screen:** the comparison with both BTC benchmarks, equity curves, disagreements; Settings → Shadow strategies replaced by a link.
 - **PR 19, Backtest:** the engine on an injected clock, the child process, the candle store, the model cache and cutoff check, the estimate and cap, results with training and test, the screen.
 - **PR 20, Sign-in and access:** `TA_AUTH`, the account, sessions, limits, confirm-it-is-you, Settings → Access, the sign-in page, and the 401 and 403 handling. Required before the VPS.
-- **Item 025, Settings screen:** the sections, rows, search and filter, the save bar with reasons, the directions map, the preview, settings versions and History (kickoff `docs/kickoffs/025-feat-settings-sections.md`). It may come before PR 17, 18 and 20; each of those then moves its part of Settings as described above.
+- **Item 025, Settings screen:** the sections, rows, search and filter, the save bar with reasons, the directions map, the preview, settings versions and History (kickoff `docs/kickoffs/025-feat-settings-sections.md`). It may come before items 018, 020 and 026; each of those then moves its part of Settings as described above.
+- **Item 026, Universe screen:** the screen, `market_checks` and `sync_runs`, the data-error rule for the check, the universe endpoints, the Universe item in every sidebar, and Settings → Markets reduced to the thresholds and a link (kickoff `docs/kickoffs/026-feat-universe-screen.md`). After item 025's backend PR, whose settings versions and looser confirmation it uses.
 
 ## After v0.1: sentiment and external market context
 
@@ -1472,5 +1505,5 @@ Funding, open interest, the long/short ratio and options data are the first grou
 - [x] Rule for strategy changes: an idea goes into this spec only when, in the research script (`scripts/regime_history.py`), it beats the static BTC + cash mix at the same maximum drawdown in the training and the test period, and the sensitivity grid around its settings agrees.
 - [x] Strategy families (25 October 2026): daily breakout trend-following, relative-strength rotation and dip buying also failed the rule above. The search for price-based strategies stops; about 50 variations have been tested.
 - [ ] February 2027: test the v0.2 positioning data (funding, open interest, long/short ratio, DVOL, 25-delta skew) in the research script under the same rule, before PR 10 or Shadow A are reconsidered.
-- [x] Design and screens follow Stock Trading Agent (3 November 2026): the shell, Dashboard and interaction rules were aligned on the design canvas, and v0.3 adds its missing screens (Logs, Positions & orders, Markets, Strategies, Backtest, sign-in). No change to how the agent decides, sizes or exits.
+- [x] Design and screens follow Stock Trading Agent (3 November 2026): the shell, Dashboard and interaction rules were aligned on the design canvas, and v0.3 adds its missing screens (Logs, Positions & orders, Universe, Strategies, Backtest, sign-in). No change to how the agent decides, sizes or exits.
 - [x] Logs are stored in SQLite (4 November 2026): `data/logs/logs.db` is the log store, searched by the Logs screen; a JSON file is written only while the store can't be written. Every failure has a defined outcome in the failure catalogue, and every log call names a registered event.

@@ -13,7 +13,7 @@ How Trading Agent looks and what it says. It uses the same visual language as St
 | Path | Contents |
 | --- | --- |
 | `tokens.css` | Every colour, font, size, spacing and radius, in the same structure as Stock Trading Agent with the `--ta-` prefix. Copy it into `frontend/src/styles/`; use only these variables. |
-| `screens/` | The 14 screens as HTML: the exact source for styles, layout and wording. |
+| `screens/` | The 16 screens as HTML: the exact source for styles, layout and wording. |
 | `screenshots/` | One PNG per screen at 1440 px wide (Decision at 560 px), plus `<Screen>-390.png` at phone width for every screen with the shell. |
 | `changes/` | Design notes per work item from 024 (`NNN-type-slug.md`); `CHANGES.md` holds the log up to item 023. |
 
@@ -44,6 +44,7 @@ How Trading Agent looks and what it says. It uses the same visual language as St
 | `Readiness.dc.html` | Readiness | User features → Live-readiness checklist |
 | `Errors.dc.html` | Error pages, a catalogue like States: in the app (not found for a record and a page, something went wrong, the app isn't answering) and the static pages for the reverse proxy (app down, updating). The texts are final | v0.3 → Logging, errors and the Logs screen → Error pages and API errors |
 | `Logs.dc.html` | Logs: filters, warnings and errors per day, recurring problems with review state, the log grouped per day with one error opened (meaning, what to do, exception, stored line, surrounding lines); clicking "Every line of cycle c-0716" shows the trace view (`Logs-trace.png`) | v0.3 → Logging, errors and the Logs screen |
+| `Universe.dc.html` | Universe (026, as in Stock Trading Agent): the check line, tiles, Data sync (one failed job opened), Today's check as a funnel with How the check works, and the market table with one status per market, filters, search, Activate (with the in-row confirm), Deactivate and the entries pause | v0.3 → Universe screen |
 
 The States board is a catalogue, not a page: each banner, dialog and card on it belongs to the screen named in its label.
 
@@ -139,9 +140,26 @@ Item 025 follows Stock Trading Agent's Settings (its items 056, 069 and 100). Wh
 - **A row:** name; one line of explanation ending in "· default …" in the muted colour; the control with its unit on the right; "= €…" in mono to the left of every % of equity (and the € equivalents of max costs and the drawdown kill). Two or three related values share a row with a small label before each field (Stop distance from/to, Shock brake, Risk throttle).
 - **An unsaved change:** amber left edge and tint on the row, amber border on the field, "Changed from 1.0% · Reset" under it; the section list shows the count in an amber pill. A saved value that differs from its default has no highlight; Changed from default finds it.
 - **Fixed values** are text with a lock and "fixed by the spec", never a disabled control: Stablecoins, Cycle, Live trading, Breakeven, Stops and forced exits, Repeats.
-- **A control that can't be used yet says why** next to it, as text (Open Markets until item 017).
+- **A control that can't be used yet says why** next to it, as text.
+- **Markets** keeps the thresholds and links to the Universe screen with "Open Universe" (026); the market table is no longer in Settings.
 - **The save bar** sticks to the bottom of the content column: count, each change old → new with its tag (tighter green, looser amber), the reason field, Discard, "Save as v<n>". Below 760 px it is one line, "2 unsaved changes · Review and save", opening to the same content.
 - **Keys and email** are saved by their own buttons (Test, Replace, Test and save), so the header says "keys are saved separately".
+
+## Universe screen
+
+Item 026 follows Stock Trading Agent's Universe screen (its item 077). Crypto has no pool to edit and no sectors, so Add, Import, Remove and Pool by sector are left out; the table holds every Bitvavo EUR market and the actions are Activate, Deactivate and the entries pause.
+
+- **Sidebar:** "Universe" in Control, after Readiness and before Logs, with the grid icon, as in Stock Trading Agent.
+- **Order, top to bottom:** the check line (a blue "daily check" banner with Check settings), the tiles, Data sync and Today's check side by side (stacked on a phone), the Markets table.
+- **The check line** is the only place that explains how markets are chosen. When the check itself failed, the same banner turns amber and says which check result is in use ("The check at 03:00 failed: Bitvavo didn't answer. Using Mon 12 Oct's result.").
+- **Tiles:** EUR markets, Eligible, Active (with the calls a day against the budget), Held, Failing the check, Warming up. A zero is in the normal text colour; amber and red are only for counts above zero.
+- **Data sync** is one line while every job ran on time ("All 5 jobs ran on time · last 12:34 · Show jobs"); it opens by itself when a job failed, is late or is running, and its header says why. A running backfill shows a progress bar like Stock Trading Agent's. On a phone a job row stacks: name and time, then the result, then Retry.
+- **Today's check** draws one bar per rule with the markets left after it and the ones dropped in amber; the last line, "Eligible for the next day", names what the 3-day rule kept in or held back.
+- **Status per market:** one chip and one line under it that never contradict each other. Chips: active (green), active · held (blue), active · entries paused (grey, clock), active · 1 or 2 of 3 fails (amber), active · failing (red: no new entries), active · warming up (amber, with a bar per timeframe), eligible (green outline), recovering · n of 3 (blue), excluded (red, with the failed rule and its numbers in the line).
+- **Columns:** Market (pair and name), Status (second, so it shows on a phone), Price, Volume €M, Spread, vs BTC, Corr. BTC, Regime, actions. Header hints (`title`) give the full definitions. Values that don't exist yet show "—"; BTC shows "—" against itself.
+- **Fold rows** name what they hide ("4 more active: ADA, LINK, DOGE, LTC · show all"); they keep the order active, eligible, recovering, excluded.
+- **Activate** opens an in-row confirm with the looser tag: what loads, the calls a day before and after against the budget, and that it is saved as a settings version with its reason. **Deactivate** asks in the row too ("Deactivate AVAX-EUR? No new entries; an open position is still managed."). The confirm stays inside the visible part of the table when it scrolls sideways.
+- **Phone width:** tiles two per row, the table scrolls inside its card with Market and Status visible first.
 
 ## Which PR builds which screens
 
@@ -164,6 +182,7 @@ Follows the spec's build order. A PR builds only the screens listed for it.
 | 15 Error handling, logging and Logs screen | Logs (all of it, both widths, and the trace view); the Logs item in every sidebar under Control after Readiness; Errors: every page in `Errors.dc.html` (the static pages as files in `deploy/errors/`); card errors showing the error id; Needs you: the degraded item; Cycles card: an error slot links to the cycle's trace; Decision drawer: "Logs for this decision" |
 | 16 Positions & orders | Positions & orders (all of it, both widths, the shadow switch); the sidebar item in every sidebar under Monitor after Dashboard; Dashboard: the Open positions title links to the screen |
 | 025 Settings sections | Settings (all of it, both widths, the phone save bar); History |
+| 026 Universe screen | Universe (all of it, both widths); the Universe item in every sidebar under Control after Readiness; Settings → Markets: Open Universe, the market table removed; Needs you: the failing-market item opens Universe |
 
 Blue **v0.2** tags in the screens and screenshots mark what v0.2 adds. They are for the
 handoff only: do not render them in the app.

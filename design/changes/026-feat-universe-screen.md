@@ -1,0 +1,10 @@
+# 026 · feat · Universe screen
+
+## 2026-11-21 · spec PR
+
+- New `design/screens/Universe.dc.html`, after Stock Trading Agent's Universe screen (item 077): the check line, six tiles, Data sync (opened: the SUI-EUR 4h backfill failed with a 429), Today's check as a funnel (236 → 15) with How the check works, and the Markets table with every status the spec lists, filters, search, Activate with its in-row confirm (NEAR-EUR, looser, 960 → 1,056 calls a day of the 1,000 budget), Deactivate and the entries pause. Left out from stock, because crypto has no pool and no sectors: Add, Import CSV, Remove and Pool by sector.
+- The scenario follows the Dashboard (Tue 13 Oct 12:34, equity €10,412.80): 236 Bitvavo EUR markets, 15 pass every rule today, 15 eligible (AVAX kept with 2 of 3 fails, SHIB passing day 1 of 3), 10 active (the default 9 and SUI, warming up), BTC and SOL held, XRP entries paused until 18:00. Active markets that need a look come first (AVAX, SUI, XRP, then the held BTC and SOL); regime is shown for active markets only.
+- "Universe" added to the Control group of every screen's sidebar, after Readiness and before Logs (stock's order), with the grid icon. Files: `Ask`, `Indicators`, `Insights`, `Inspector`, `Logs`, `Main`, `Performance`, `Positions`, `Readiness`, `Reviews`, `Settings`, `WhatIf`.
+- `Settings.dc.html` → Markets: "Open Universe" replaces the unavailable "Open Markets" and its note about item 017; the scenario line now says 10 active of 15 eligible, and the daily call budget row about 960 calls with 10 markets, matching the Universe screen. The Advanced fold gains "Data error share" (50%), the new `market.check_data_error_pct` (15 settings).
+- Screenshots: `Universe.png` and `Universe-390.png` (new); the 1440 px screenshots of the twelve screens above re-rendered for the sidebar (`Positions-shadow.png` with Shadow B, as before). The 390 px screenshots are unchanged: the phone sidebar is an overlay and not in them.
+- `design/DESIGN.md`: the screen count, the Universe row, a new "Universe screen" section, the Settings rule for Markets, and a row in "Which PR builds which screens".
