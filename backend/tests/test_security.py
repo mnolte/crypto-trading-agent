@@ -33,7 +33,12 @@ def test_write_requires_local_token(client: TestClient) -> None:
 
 
 def test_write_with_local_token(client: TestClient) -> None:
-    response = client.put("/api/settings", json={}, headers={"X-Local-Token": _token(client)})
+    settings = client.get("/api/settings").json()
+    response = client.put(
+        "/api/settings",
+        json={"settings": settings, "reason": "token check"},
+        headers={"X-Local-Token": _token(client)},
+    )
     assert response.status_code == 200
 
 

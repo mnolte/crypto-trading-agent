@@ -54,7 +54,15 @@ export type ReadinessOut = components["schemas"]["ReadinessOut"];
 export type ReadinessRowOut = components["schemas"]["ReadinessRowOut"];
 export type BriefingOut = components["schemas"]["BriefingOut"];
 export type BriefingListOut = components["schemas"]["BriefingListOut"];
-export type SettingsHistoryOut = components["schemas"]["SettingsHistoryOut"];
+export type SettingsHistoryPageOut = components["schemas"]["SettingsHistoryPageOut"];
+export type SettingsHistoryVersionOut =
+  components["schemas"]["SettingsHistoryVersionOut"];
+export type SettingsHistoryRowOut = components["schemas"]["SettingsHistoryRowOut"];
+export type SettingsMetaOut = components["schemas"]["SettingsMetaOut"];
+export type SettingsMetaItem = components["schemas"]["SettingsMetaItem"];
+export type SettingsPreviewOut = components["schemas"]["SettingsPreviewOut"];
+export type SettingsSaveIn = components["schemas"]["SettingsSaveIn"];
+export type SettingsSaveOut = components["schemas"]["SettingsSaveOut"];
 export type InsightsOut = components["schemas"]["InsightsOut"];
 export type InsightSliceOut = components["schemas"]["InsightSliceOut"];
 export type InsightFinding = components["schemas"]["InsightFinding"];

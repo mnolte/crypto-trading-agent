@@ -1380,7 +1380,11 @@ def _flatten_doc(doc: dict[str, object], prefix: str = "") -> dict[str, object]:
 
 
 def record_settings_history(
-    session: Session, old: Settings, new: Settings, at: datetime | None = None
+    session: Session,
+    old: Settings,
+    new: Settings,
+    at: datetime | None = None,
+    version: int | None = None,
 ) -> int:
     """Log every leaf that changed between two settings documents."""
     at = at or utcnow()
@@ -1397,6 +1401,7 @@ def record_settings_history(
                 key=key,
                 old=json.dumps(old_v) if old_v is not None else None,
                 new=json.dumps(new_v) if new_v is not None else None,
+                version=version,
             )
         )
         count += 1

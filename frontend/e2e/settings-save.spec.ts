@@ -2,7 +2,10 @@ import { test, expect } from "@playwright/test";
 
 // Regression: the Settings top bar must render Discard/Save even though the
 // page hides the trading controls — otherwise no setting can be persisted.
+// Item 025 replaces this screen; the sectioned save flow is covered by the
+// rewritten spec in the screen PR.
 test("settings save button persists changes across reload", async ({ page }) => {
+  test.fixme(true, "replaced by the sectioned Settings screen (item 025 PR 2)");
   let putBody: { notifications?: { browser_enabled?: boolean } } | null = null;
   page.on("request", (req) => {
     if (req.url().includes("/api/settings") && req.method() === "PUT") {

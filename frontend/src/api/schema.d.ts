@@ -890,6 +890,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/markets/{market}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activate Market Route */
+        post: operations["activate_market_route_api_markets__market__activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/markets/{market}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deactivate Market Route */
+        post: operations["deactivate_market_route_api_markets__market__deactivate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/markets/{market}/pause": {
         parameters: {
             query?: never;
@@ -1194,10 +1228,51 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Settings History */
+        /**
+         * Get Settings History
+         * @description Numbered settings versions newest first, then the older
+         *     per-setting rows from before versions existed (item 025).
+         */
         get: operations["get_settings_history_api_settings_history_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Settings Meta */
+        get: operations["settings_meta_api_settings_meta_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Settings Preview
+         * @description Money, tags and errors for an unsaved draft; saves nothing.
+         */
+        post: operations["settings_preview_api_settings_preview_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2725,6 +2800,17 @@ export interface components {
             /** Next */
             next?: string | null;
         };
+        /**
+         * MarketActionIn
+         * @description POST /api/markets/{market}/activate|deactivate body (item 025).
+         */
+        MarketActionIn: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+        };
         /** MarketOut */
         MarketOut: {
             /** Active */
@@ -2935,6 +3021,11 @@ export interface components {
         MarketUpdateIn: {
             /** Active */
             active: boolean;
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
         };
         /** MissedRange */
         MissedRange: {
@@ -4558,8 +4649,35 @@ export interface components {
              */
             veto_window_s: number;
         };
-        /** SettingsHistoryItem */
-        SettingsHistoryItem: {
+        /**
+         * SettingsChangeOut
+         * @description One leaf that differs between two documents, tagged tighter /
+         *     looser / neutral by the directions map.
+         */
+        SettingsChangeOut: {
+            /** Direction */
+            direction: string;
+            /** Key */
+            key: string;
+            /** New */
+            new?: unknown | null;
+            /** Old */
+            old?: unknown | null;
+        };
+        /** SettingsHistoryPageOut */
+        SettingsHistoryPageOut: {
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Rows */
+            rows: components["schemas"]["SettingsHistoryRowOut"][];
+            /** Versions */
+            versions: components["schemas"]["SettingsHistoryVersionOut"][];
+        };
+        /**
+         * SettingsHistoryRowOut
+         * @description A per-setting change from before settings versions (item 025).
+         */
+        SettingsHistoryRowOut: {
             /**
              * At
              * Format: date-time
@@ -4572,10 +4690,122 @@ export interface components {
             /** Old */
             old: string | null;
         };
-        /** SettingsHistoryOut */
-        SettingsHistoryOut: {
+        /** SettingsHistoryVersionOut */
+        SettingsHistoryVersionOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Changes */
+            changes: components["schemas"]["SettingsChangeOut"][];
+            /** Reason */
+            reason: string;
+            /** Source */
+            source: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * SettingsMetaItem
+         * @description One leaf's description for the sectioned Settings screen.
+         */
+        SettingsMetaItem: {
+            /** Choices */
+            choices?: string[] | null;
+            /** Default */
+            default: unknown;
+            /** Direction */
+            direction?: string | null;
+            /**
+             * Fixed
+             * @default false
+             */
+            fixed: boolean;
+            /** Max */
+            max?: string | null;
+            /** Min */
+            min?: string | null;
+            /** Section */
+            section: string | null;
+            /** Step */
+            step?: string | null;
+            /** Unit */
+            unit?: string | null;
+        };
+        /** SettingsMetaOut */
+        SettingsMetaOut: {
             /** Items */
-            items: components["schemas"]["SettingsHistoryItem"][];
+            items: {
+                [key: string]: components["schemas"]["SettingsMetaItem"];
+            };
+            /** Version */
+            version: number;
+        };
+        /**
+         * SettingsPreviewOut
+         * @description POST /api/settings/preview: nothing is saved. ``equivalents`` maps a
+         *     dotted key to its euro amount ("€83.30"); ``errors`` maps a dotted key
+         *     to its range or cross-field message.
+         */
+        SettingsPreviewOut: {
+            /** Changes */
+            changes: components["schemas"]["SettingsChangeOut"][];
+            /** Equivalents */
+            equivalents: {
+                [key: string]: string;
+            };
+            /** Errors */
+            errors: {
+                [key: string]: string;
+            };
+            summary: components["schemas"]["SettingsPreviewSummary"];
+        };
+        /**
+         * SettingsPreviewSummary
+         * @description The "What these limits mean today" sentences, as data. Money is a
+         *     decimal string; the frontend only formats it.
+         */
+        SettingsPreviewSummary: {
+            /** Daily Stop Eur */
+            daily_stop_eur: string;
+            /** Day Start Equity */
+            day_start_equity: string;
+            /** Equity */
+            equity: string;
+            /** Kill Level Eur */
+            kill_level_eur: string;
+            /** Loss At Stop Eur */
+            loss_at_stop_eur: string;
+            /** Next Position Pct */
+            next_position_pct: string;
+            /** Peak Equity */
+            peak_equity: string;
+            /** Positions At Full Risk */
+            positions_at_full_risk: number;
+            /** Throttled Loss Eur */
+            throttled_loss_eur: string;
+        };
+        /**
+         * SettingsSaveIn
+         * @description PUT /api/settings body: the whole draft, a required reason and the
+         *     "it is me" flag for saves that loosen something.
+         */
+        SettingsSaveIn: {
+            /**
+             * Confirm Looser
+             * @default false
+             */
+            confirm_looser: boolean;
+            /** Reason */
+            reason: string;
+            settings: components["schemas"]["Settings-Input"];
+        };
+        /** SettingsSaveOut */
+        SettingsSaveOut: {
+            settings: components["schemas"]["Settings-Output"];
+            /** Version */
+            version: number;
         };
         /** ShadowIn */
         ShadowIn: {
@@ -4700,6 +4930,19 @@ export interface components {
         SmtpPasswordIn: {
             /** Password */
             password: string;
+        };
+        /**
+         * SmtpSaveIn
+         * @description PUT /api/notifications body (item 025): the SMTP block only — the
+         *     rest of the notification settings save through PUT /api/settings.
+         */
+        SmtpSaveIn: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            smtp: components["schemas"]["SmtpSettings"];
         };
         /** SmtpSettings */
         SmtpSettings: {
@@ -4859,6 +5102,11 @@ export interface components {
         };
         /** SourceUpdateIn */
         SourceUpdateIn: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
             /** Enabled */
             enabled: boolean;
         };
@@ -6724,6 +6972,80 @@ export interface operations {
             };
         };
     };
+    activate_market_route_api_markets__market__activate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                market: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarketActionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deactivate_market_route_api_markets__market__deactivate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                market: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarketActionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     pause_market_api_markets__market__pause_put: {
         parameters: {
             query?: never;
@@ -6847,7 +7169,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["NotificationSettings"];
+                "application/json": components["schemas"]["SmtpSaveIn"];
             };
         };
         responses: {
@@ -7310,7 +7632,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Settings-Input"];
+                "application/json": components["schemas"]["SettingsSaveIn"];
             };
         };
         responses: {
@@ -7320,7 +7642,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Settings-Output"];
+                    "application/json": components["schemas"]["SettingsSaveOut"];
                 };
             };
             /** @description Validation Error */
@@ -7337,6 +7659,7 @@ export interface operations {
     get_settings_history_api_settings_history_get: {
         parameters: {
             query?: {
+                cursor?: string | null;
                 limit?: number;
             };
             header?: never;
@@ -7351,7 +7674,62 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SettingsHistoryOut"];
+                    "application/json": components["schemas"]["SettingsHistoryPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    settings_meta_api_settings_meta_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsMetaOut"];
+                };
+            };
+        };
+    };
+    settings_preview_api_settings_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsPreviewOut"];
                 };
             };
             /** @description Validation Error */

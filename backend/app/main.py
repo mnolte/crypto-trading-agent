@@ -29,7 +29,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
-from app import logstore, repo
+from app import logstore, repo, settings_service
 from app import tasks as tasks_mod
 from app.agent.broker.paper import PaperBroker
 from app.agent.deciders.openai_decider import OpenAIDecider
@@ -441,10 +441,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         session = session_factory()
         try:
             settings = repo.load_settings(session)
+            settings_service.ensure_base_version(session, settings)
             if env.ta_data_source is not None and settings.data_source != env.ta_data_source:
                 # TA_DATA_SOURCE (tests, e2e, dev): stored like a manual change.
                 settings.data_source = env.ta_data_source
-                repo.save_settings(session, settings)
+                settings_service.save(
+                    session,
+                    settings,
+                    reason=f"TA_DATA_SOURCE={env.ta_data_source} at start",
+                    source="action",
+                    confirm_looser=True,
+                )
             settings_version = repo.settings_version(session)
         finally:
             session.close()

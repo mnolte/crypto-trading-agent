@@ -13,12 +13,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from app import repo
+from app import repo, settings_service
 from app.agent.broker.paper import PaperBroker
 from app.agent.engine import Engine, KilledRefusal, PendingRefusal
 from app.agent.market.base import MarketDataError
+from app.api import errors as api_errors
 from app.api.deps import (
     AppState,
+    broadcast_settings,
     build_market_client,
     build_snapshot,
     get_session,
@@ -26,7 +28,16 @@ from app.api.deps import (
     require_token,
 )
 from app.db import AMSTERDAM, ErrorRow, utcnow
-from app.models import ErrorOut, ResolveErrorIn, Settings, Snapshot
+from app.models import (
+    ErrorOut,
+    ResolveErrorIn,
+    Settings,
+    SettingsMetaOut,
+    SettingsPreviewOut,
+    SettingsSaveIn,
+    SettingsSaveOut,
+    Snapshot,
+)
 
 router = APIRouter(prefix="/api")
 
@@ -160,21 +171,68 @@ def read_settings(state: Annotated[AppState, Depends(get_state)]) -> Settings:
     return state.settings
 
 
-@router.put("/settings", dependencies=[Depends(require_token)])
-async def write_settings(request: Request, settings: Settings) -> Settings:
+@router.get("/settings/meta", response_model=SettingsMetaOut)
+def settings_meta(request: Request) -> SettingsMetaOut:
+    state = get_state(request)
+    return settings_service.settings_meta(state.settings_version)
+
+
+@router.post("/settings/preview", response_model=SettingsPreviewOut)
+def settings_preview(request: Request, draft: dict) -> SettingsPreviewOut:
+    """Money, tags and errors for an unsaved draft; saves nothing."""
     state = get_state(request)
     session = get_session(request)
     try:
-        version = repo.save_settings(session, settings)
+        broker = state.broker
+        if broker is not None:
+            equity = broker.equity()
+            day_start = broker.day_start_equity
+            peak = broker.peak_equity
+        else:
+            start = state.settings.paper.start_balance_eur
+            equity = day_start = peak = start
+        return settings_service.preview(
+            session,
+            draft,
+            equity=equity,
+            day_start_equity=day_start,
+            peak_equity=peak,
+        )
+    finally:
+        session.close()
+
+
+@router.put("/settings", dependencies=[Depends(require_token)])
+async def write_settings(request: Request, body: SettingsSaveIn) -> SettingsSaveOut:
+    state = get_state(request)
+    session = get_session(request)
+    try:
+        try:
+            version = settings_service.save(
+                session,
+                body.settings,
+                reason=body.reason,
+                source="screen",
+                confirm_looser=body.confirm_looser,
+            )
+        except settings_service.ReasonInvalid as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except settings_service.LooserNeedsConfirm as exc:
+            return api_errors.api_error(  # type: ignore[return-value]
+                409,
+                "This change loosens a limit — confirm to save it.",
+                code="looser_needs_confirm",
+                extra={"changes": exc.changes},
+            )
     finally:
         session.close()
     old_source = state.settings.data_source
-    state.settings = settings
+    state.settings = body.settings
     state.settings_version = version
-    state.sources.set_disabled(settings.disabled_sources)
-    if settings.data_source != old_source:
+    state.sources.set_disabled(body.settings.disabled_sources)
+    if body.settings.data_source != old_source:
         old_client = state.market_client
-        state.market_client = build_market_client(settings, state.sources)
+        state.market_client = build_market_client(body.settings, state.sources)
         if state.agent_engine is not None:
             state.agent_engine.client = state.market_client
             if state.agent_engine.openai_decider is not None:
@@ -183,7 +241,8 @@ async def write_settings(request: Request, settings: Settings) -> Settings:
                 state.agent_engine.shadows.set_client(state.market_client)
         await old_client.aclose()
     await broadcast_snapshot(state)
-    return state.settings
+    await broadcast_settings(state)
+    return SettingsSaveOut(version=version, settings=state.settings)
 
 
 # ------------------------------------------------------------------ engine --

@@ -3913,6 +3913,18 @@
         "title": "LogsListOut",
         "type": "object"
       },
+      "MarketActionIn": {
+        "description": "POST /api/markets/{market}/activate|deactivate body (item 025).",
+        "properties": {
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          }
+        },
+        "title": "MarketActionIn",
+        "type": "object"
+      },
       "MarketOut": {
         "properties": {
           "active": {
@@ -4301,6 +4313,11 @@
         "properties": {
           "active": {
             "title": "Active",
+            "type": "boolean"
+          },
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
             "type": "boolean"
           }
         },
@@ -7189,7 +7206,80 @@
         "title": "Settings",
         "type": "object"
       },
-      "SettingsHistoryItem": {
+      "SettingsChangeOut": {
+        "description": "One leaf that differs between two documents, tagged tighter /\nlooser / neutral by the directions map.",
+        "properties": {
+          "direction": {
+            "title": "Direction",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "new": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New"
+          },
+          "old": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old"
+          }
+        },
+        "required": [
+          "key",
+          "direction"
+        ],
+        "title": "SettingsChangeOut",
+        "type": "object"
+      },
+      "SettingsHistoryPageOut": {
+        "properties": {
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/SettingsHistoryRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/SettingsHistoryVersionOut"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "versions",
+          "rows"
+        ],
+        "title": "SettingsHistoryPageOut",
+        "type": "object"
+      },
+      "SettingsHistoryRowOut": {
+        "description": "A per-setting change from before settings versions (item 025).",
         "properties": {
           "at": {
             "format": "date-time",
@@ -7229,23 +7319,295 @@
           "old",
           "new"
         ],
-        "title": "SettingsHistoryItem",
+        "title": "SettingsHistoryRowOut",
         "type": "object"
       },
-      "SettingsHistoryOut": {
+      "SettingsHistoryVersionOut": {
         "properties": {
-          "items": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "changes": {
             "items": {
-              "$ref": "#/components/schemas/SettingsHistoryItem"
+              "$ref": "#/components/schemas/SettingsChangeOut"
             },
-            "title": "Items",
+            "title": "Changes",
             "type": "array"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
+          "version",
+          "at",
+          "reason",
+          "source",
+          "changes"
+        ],
+        "title": "SettingsHistoryVersionOut",
+        "type": "object"
+      },
+      "SettingsMetaItem": {
+        "description": "One leaf's description for the sectioned Settings screen.",
+        "properties": {
+          "choices": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choices"
+          },
+          "default": {
+            "title": "Default"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "fixed": {
+            "default": false,
+            "title": "Fixed",
+            "type": "boolean"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "section",
+          "default"
+        ],
+        "title": "SettingsMetaItem",
+        "type": "object"
+      },
+      "SettingsMetaOut": {
+        "properties": {
+          "items": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SettingsMetaItem"
+            },
+            "title": "Items",
+            "type": "object"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
           "items"
         ],
-        "title": "SettingsHistoryOut",
+        "title": "SettingsMetaOut",
+        "type": "object"
+      },
+      "SettingsPreviewOut": {
+        "description": "POST /api/settings/preview: nothing is saved. ``equivalents`` maps a\ndotted key to its euro amount (\"\u20ac83.30\"); ``errors`` maps a dotted key\nto its range or cross-field message.",
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/SettingsChangeOut"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "equivalents": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Equivalents",
+            "type": "object"
+          },
+          "errors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "object"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/SettingsPreviewSummary"
+          }
+        },
+        "required": [
+          "equivalents",
+          "summary",
+          "changes",
+          "errors"
+        ],
+        "title": "SettingsPreviewOut",
+        "type": "object"
+      },
+      "SettingsPreviewSummary": {
+        "description": "The \"What these limits mean today\" sentences, as data. Money is a\ndecimal string; the frontend only formats it.",
+        "properties": {
+          "daily_stop_eur": {
+            "title": "Daily Stop Eur",
+            "type": "string"
+          },
+          "day_start_equity": {
+            "title": "Day Start Equity",
+            "type": "string"
+          },
+          "equity": {
+            "title": "Equity",
+            "type": "string"
+          },
+          "kill_level_eur": {
+            "title": "Kill Level Eur",
+            "type": "string"
+          },
+          "loss_at_stop_eur": {
+            "title": "Loss At Stop Eur",
+            "type": "string"
+          },
+          "next_position_pct": {
+            "title": "Next Position Pct",
+            "type": "string"
+          },
+          "peak_equity": {
+            "title": "Peak Equity",
+            "type": "string"
+          },
+          "positions_at_full_risk": {
+            "title": "Positions At Full Risk",
+            "type": "integer"
+          },
+          "throttled_loss_eur": {
+            "title": "Throttled Loss Eur",
+            "type": "string"
+          }
+        },
+        "required": [
+          "equity",
+          "day_start_equity",
+          "peak_equity",
+          "loss_at_stop_eur",
+          "throttled_loss_eur",
+          "positions_at_full_risk",
+          "next_position_pct",
+          "daily_stop_eur",
+          "kill_level_eur"
+        ],
+        "title": "SettingsPreviewSummary",
+        "type": "object"
+      },
+      "SettingsSaveIn": {
+        "description": "PUT /api/settings body: the whole draft, a required reason and the\n\"it is me\" flag for saves that loosen something.",
+        "properties": {
+          "confirm_looser": {
+            "default": false,
+            "title": "Confirm Looser",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/Settings-Input"
+          }
+        },
+        "required": [
+          "settings",
+          "reason"
+        ],
+        "title": "SettingsSaveIn",
+        "type": "object"
+      },
+      "SettingsSaveOut": {
+        "properties": {
+          "settings": {
+            "$ref": "#/components/schemas/Settings-Output"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "settings"
+        ],
+        "title": "SettingsSaveOut",
         "type": "object"
       },
       "ShadowIn": {
@@ -7544,6 +7906,24 @@
           "password"
         ],
         "title": "SmtpPasswordIn",
+        "type": "object"
+      },
+      "SmtpSaveIn": {
+        "description": "PUT /api/notifications body (item 025): the SMTP block only \u2014 the\nrest of the notification settings save through PUT /api/settings.",
+        "properties": {
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "smtp": {
+            "$ref": "#/components/schemas/SmtpSettings"
+          }
+        },
+        "required": [
+          "smtp"
+        ],
+        "title": "SmtpSaveIn",
         "type": "object"
       },
       "SmtpSettings": {
@@ -7936,6 +8316,11 @@
       },
       "SourceUpdateIn": {
         "properties": {
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
           "enabled": {
             "title": "Enabled",
             "type": "boolean"
@@ -11560,6 +11945,136 @@
         "summary": "Update Market"
       }
     },
+    "/api/markets/{market}/activate": {
+      "post": {
+        "operationId": "activate_market_route_api_markets__market__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "market",
+            "required": true,
+            "schema": {
+              "title": "Market",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarketActionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Market Route"
+      }
+    },
+    "/api/markets/{market}/deactivate": {
+      "post": {
+        "operationId": "deactivate_market_route_api_markets__market__deactivate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "market",
+            "required": true,
+            "schema": {
+              "title": "Market",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarketActionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deactivate Market Route"
+      }
+    },
     "/api/markets/{market}/pause": {
       "delete": {
         "operationId": "resume_market_api_markets__market__pause_delete",
@@ -11742,7 +12257,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NotificationSettings"
+                "$ref": "#/components/schemas/SmtpSaveIn"
               }
             }
           },
@@ -12440,7 +12955,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Settings-Input"
+                "$ref": "#/components/schemas/SettingsSaveIn"
               }
             }
           },
@@ -12451,7 +12966,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Settings-Output"
+                  "$ref": "#/components/schemas/SettingsSaveOut"
                 }
               }
             },
@@ -12473,14 +12988,31 @@
     },
     "/api/settings/history": {
       "get": {
+        "description": "Numbered settings versions newest first, then the older\nper-setting rows from before versions existed (item 025).",
         "operationId": "get_settings_history_api_settings_history_get",
         "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
           {
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 200,
+              "default": 50,
               "title": "Limit",
               "type": "integer"
             }
@@ -12491,7 +13023,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SettingsHistoryOut"
+                  "$ref": "#/components/schemas/SettingsHistoryPageOut"
                 }
               }
             },
@@ -12509,6 +13041,65 @@
           }
         },
         "summary": "Get Settings History"
+      }
+    },
+    "/api/settings/meta": {
+      "get": {
+        "operationId": "settings_meta_api_settings_meta_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsMetaOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Settings Meta"
+      }
+    },
+    "/api/settings/preview": {
+      "post": {
+        "description": "Money, tags and errors for an unsaved draft; saves nothing.",
+        "operationId": "settings_preview_api_settings_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Draft",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsPreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Settings Preview"
       }
     },
     "/api/shadows": {

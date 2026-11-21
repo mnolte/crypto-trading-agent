@@ -2,7 +2,7 @@
 item: 025
 type: feat
 title: Settings sections
-status: ready
+status: building
 issue: 44
 kickoff: 025-feat-settings-sections.md
 spec_prs: [45]
