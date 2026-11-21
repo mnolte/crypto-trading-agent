@@ -1510,6 +1510,7 @@ class Engine:
             ),
             order_type="limit",
             last_price=price,
+            paper_order_id=order.id,
         )
         repo.fill_paper_order(session, order, now, fill_plan.qty)
         # The new position's target rests on the book from the fill tick.
@@ -1592,7 +1593,15 @@ class Engine:
                 repo.fill_paper_order(session, order, now)
             else:
                 repo.cancel_paper_order(session, order, now, f"exit: {reason}")
-        trade = self.broker.close(session, pair, price, now, reason, order_type=order_type)
+        trade = self.broker.close(
+            session,
+            pair,
+            price,
+            now,
+            reason,
+            order_type=order_type,
+            paper_order_id=filled_order.id if filled_order is not None else None,
+        )
         if trade is not None:
             repo.add_exit_tick(session, self.broker.account_id, pair, price, "fill", at=now)
             repo.add_activity(

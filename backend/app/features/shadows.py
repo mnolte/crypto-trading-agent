@@ -789,6 +789,7 @@ class ShadowRunner:
             ),
             order_type="limit",
             last_price=price,
+            paper_order_id=order.id,
         )
         repo.fill_paper_order(session, order, now, fill_plan.qty)
         self._place_target_order(session, shadow, order.pair, pos, now)
@@ -854,7 +855,15 @@ class ShadowRunner:
                 repo.fill_paper_order(session, order, now)
             else:
                 repo.cancel_paper_order(session, order, now, f"exit: {reason}")
-        trade = shadow.broker.close(session, pair, price, now, reason, order_type=order_type)
+        trade = shadow.broker.close(
+            session,
+            pair,
+            price,
+            now,
+            reason,
+            order_type=order_type,
+            paper_order_id=filled_order.id if filled_order is not None else None,
+        )
         if trade is not None:
             repo.add_exit_tick(session, shadow.broker.account_id, pair, price, "fill", at=now)
             repo.add_activity(

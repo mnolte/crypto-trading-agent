@@ -66,6 +66,7 @@ from app.db import (
     utcnow,
 )
 from app.features import briefings as briefings_mod
+from app.features import fills as fills_mod
 from app.features.shadows import ShadowRunner
 from app.logstore.record import fingerprint
 from app.operations import backup_loop
@@ -482,6 +483,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             session.close()
         state.broker = broker
         state.account_id = account.id
+        # One-time rebuild of paper fills from trades and positions; the
+        # meta marker makes it run once, on the first start after 0014.
+        session = session_factory()
+        try:
+            fills_mod.rebuild_fills(session, settings.paper)
+        finally:
+            session.close()
         notification_dispatcher = notifications.NotificationDispatcher(state)
         source_recovery_generations: dict[str, int] = {}
 
