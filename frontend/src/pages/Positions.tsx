@@ -236,7 +236,7 @@ export function Positions() {
       const amber = card?.stop_near
         ? ` · amber under ${formatQty(String(nearAtr))} ATR`
         : "";
-      return `Closest to its stop: ${t.closest_pair} ${formatQty(t.closest_atr)} ATR${amber}`;
+      return `Closest to its stop: ${t.closest_pair} ${formatQty(String(t.closest_atr))} ATR${amber}`;
     }
     if (!selectedShadow) return "";
     return `${selectedShadow.name} · ${selectedShadow.model} · ${selectedShadow.prompt_version} · its own paper account since ${formatDayShort(selectedShadow.started_at)}`;
@@ -279,7 +279,7 @@ export function Positions() {
                 <div className="posscreen__totalsrow">
                   <Total label="Unrealised" value={formatSignedEur(data.totals.unrealised)} tone={Number(data.totals.unrealised) >= 0 ? "up" : "down"} />
                   <Total label="If every stop hits" value={formatSignedEur(data.totals.stop_hit_total)} tone={Number(data.totals.stop_hit_total) >= 0 ? "up" : "down"} />
-                  <Total label="Open risk" value={`${formatQty(data.totals.open_risk_pct)}% of ${formatQty(data.totals.open_risk_cap_pct)}%`} />
+                  <Total label="Open risk" value={`${formatQty(String(data.totals.open_risk_pct))}% of ${formatQty(String(data.totals.open_risk_cap_pct))}%`} />
                   <Total label="Exposure" value={`${formatEur(data.totals.exposure)} · ${Math.round(data.totals.exposure_pct)}%`} />
                   <Total label="Cash" value={formatEur(data.totals.cash)} />
                   <Total label="Fees" value={`${formatEur(data.totals.fees_today)} today · ${formatEur(data.totals.fees_total)} since start`} />
