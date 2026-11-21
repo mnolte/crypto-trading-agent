@@ -31,6 +31,7 @@ from app.db import (
     AskConversationRow,
     DecisionRow,
     EquitySnapshotRow,
+    FillRow,
     LlmCallRow,
     MarketRow,
     PaperOrderRow,
@@ -728,6 +729,8 @@ def test_whatif_unchanged_settings_reproduce_reality(
         assert result["removed"] == []  # the real fill was kept
         assert result["trades"] == 1
         assert len(result["equity"]) >= 2
+        # What-if replays money math without touching the fills ledger.
+        assert session.scalar(select(func.count()).select_from(FillRow)) == 0
         # Real tables are untouched.
         assert session.scalar(select(func.count()).select_from(TradeRow)) == 1
     finally:

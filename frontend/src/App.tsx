@@ -37,6 +37,9 @@ const WhatIf = lazy(() =>
 const Reviews = lazy(() =>
   import("./pages/Reviews").then((m) => ({ default: m.Reviews })),
 );
+const Positions = lazy(() =>
+  import("./pages/Positions").then((m) => ({ default: m.Positions })),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -67,6 +70,7 @@ export default function App() {
             <Suspense fallback={null}>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/positions" element={<Positions />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/dev/components" element={<DevComponents />} />
                 <Route path="/indicators" element={<Indicators />} />

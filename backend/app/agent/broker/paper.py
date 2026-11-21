@@ -18,12 +18,14 @@ from typing import Literal
 
 from sqlalchemy.orm import Session
 
-from app.db import AMSTERDAM, AccountRow, TradeRow
+from app.db import AMSTERDAM, AccountRow, FillRow, TradeRow
 from app.models import PaperSettings, Position
 from app.repo import (
+    add_fill,
     add_trade,
     aware_utc,
     delete_position_row,
+    find_entry_fill,
     list_position_rows,
     save_position_row,
 )
@@ -263,6 +265,7 @@ class PaperBroker:
         invalidation_price: Decimal | None = None,
         order_type: Literal["market", "limit"] = "market",
         last_price: Decimal | None = None,
+        paper_order_id: int | None = None,
     ) -> HeldPosition:
         """Open a long position; a market fill slips, a limit fill is exact.
 
@@ -308,6 +311,27 @@ class PaperBroker:
             pos.original_stop,
             pos.entry_maker,
         )
+        add_fill(
+            session,
+            FillRow(
+                account_id=self.account_id,
+                at=now,
+                pair=pair,
+                side="buy",
+                qty=str(qty),
+                reference_price=str(price),
+                fill_price=str(fill),
+                order_type=order_type,
+                fee_eur=str(fee),
+                fee_kind="maker" if order_type == "limit" else "taker",
+                slippage_eur=(str(abs(fill - price) * qty) if order_type == "market" else "0"),
+                reason="decision",
+                decision_id=decision_id,
+                trade_id=None,
+                paper_order_id=paper_order_id,
+                source="live",
+            ),
+        )
         return pos
 
     def close(
@@ -318,6 +342,7 @@ class PaperBroker:
         now: datetime,
         reason: str,
         order_type: Literal["market", "limit"] = "market",
+        paper_order_id: int | None = None,
     ) -> TradeRow | None:
         """Close a position; a limit fill is exact at the limit price."""
         if price <= 0:
@@ -361,6 +386,31 @@ class PaperBroker:
                 decision_id=pos.decision_id,
             ),
         )
+        session.flush()  # the trade id the fills link to
+        add_fill(
+            session,
+            FillRow(
+                account_id=self.account_id,
+                at=now,
+                pair=pair,
+                side="sell",
+                qty=str(pos.qty),
+                reference_price=str(price),
+                fill_price=str(fill),
+                order_type=order_type,
+                fee_eur=str(sell_fee),
+                fee_kind="maker" if order_type == "limit" else "taker",
+                slippage_eur=(str(abs(fill - price) * pos.qty) if order_type == "market" else "0"),
+                reason=reason,
+                decision_id=pos.decision_id,
+                trade_id=trade.id,
+                paper_order_id=paper_order_id,
+                source="live",
+            ),
+        )
+        entry_fill = find_entry_fill(session, self.account_id, pair, pos.decision_id)
+        if entry_fill is not None:
+            entry_fill.trade_id = trade.id
         return trade
 
     # ---------------------------------------------------------------- persist

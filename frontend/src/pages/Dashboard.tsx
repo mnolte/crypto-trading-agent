@@ -579,7 +579,11 @@ function PositionsCard({
     <Card
       className="row__main"
       label={`Open positions · ${positions.length}`}
-      title={positions.length > 0 ? `Open positions · ${positions.length}` : "Open positions"}
+      title={
+        <Link to="/positions" className="card__link">
+          {positions.length > 0 ? `Open positions · ${positions.length}` : "Open positions"}
+        </Link>
+      }
       actions={
         <span className="card__meta" style={{ fontSize: "var(--ta-text-md)" }}>
           {positions.length > 0 && (

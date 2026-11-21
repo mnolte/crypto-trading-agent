@@ -1777,6 +1777,195 @@
         "title": "EventsOut",
         "type": "object"
       },
+      "FillOut": {
+        "description": "One paper fill for the order history (live account only).",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "decision_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Action"
+          },
+          "decision_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision At"
+          },
+          "decision_id": {
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "fee_eur": {
+            "title": "Fee Eur",
+            "type": "string"
+          },
+          "fee_kind": {
+            "enum": [
+              "maker",
+              "taker"
+            ],
+            "title": "Fee Kind",
+            "type": "string"
+          },
+          "fill_price": {
+            "title": "Fill Price",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "order_type": {
+            "enum": [
+              "market",
+              "limit"
+            ],
+            "title": "Order Type",
+            "type": "string"
+          },
+          "pair": {
+            "title": "Pair",
+            "type": "string"
+          },
+          "paper_order_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paper Order Id"
+          },
+          "qty": {
+            "title": "Qty",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "reference_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Price"
+          },
+          "side": {
+            "enum": [
+              "buy",
+              "sell"
+            ],
+            "title": "Side",
+            "type": "string"
+          },
+          "slippage_eur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slippage Eur"
+          },
+          "source": {
+            "enum": [
+              "live",
+              "rebuilt"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "trade_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trade Id"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "pair",
+          "side",
+          "qty",
+          "reference_price",
+          "fill_price",
+          "order_type",
+          "fee_eur",
+          "fee_kind",
+          "slippage_eur",
+          "reason",
+          "decision_id",
+          "trade_id",
+          "paper_order_id",
+          "source"
+        ],
+        "title": "FillOut",
+        "type": "object"
+      },
+      "FillsPageOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FillOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "FillsPageOut",
+        "type": "object"
+      },
       "FlattenPreview": {
         "properties": {
           "count": {
@@ -2467,6 +2656,47 @@
           "closed"
         ],
         "title": "KillInfo",
+        "type": "object"
+      },
+      "LatestDecisionOut": {
+        "description": "The pair's newest decision, for the card's \"Latest decision\" link.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "limit_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit Price"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "action",
+          "confidence"
+        ],
+        "title": "LatestDecisionOut",
         "type": "object"
       },
       "LearningSettings": {
@@ -4940,6 +5170,66 @@
         "title": "OutcomeStatsRow",
         "type": "object"
       },
+      "PaperAccountOut": {
+        "description": "The live paper account card (live only).",
+        "properties": {
+          "cash": {
+            "title": "Cash",
+            "type": "string"
+          },
+          "closed_trades": {
+            "title": "Closed Trades",
+            "type": "integer"
+          },
+          "coins_value": {
+            "title": "Coins Value",
+            "type": "string"
+          },
+          "equity": {
+            "title": "Equity",
+            "type": "string"
+          },
+          "fees_total": {
+            "title": "Fees Total",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "realised_pnl": {
+            "title": "Realised Pnl",
+            "type": "string"
+          },
+          "slippage_total": {
+            "title": "Slippage Total",
+            "type": "string"
+          },
+          "start_balance": {
+            "title": "Start Balance",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "started_at",
+          "start_balance",
+          "cash",
+          "coins_value",
+          "equity",
+          "realised_pnl",
+          "closed_trades",
+          "fees_total",
+          "slippage_total"
+        ],
+        "title": "PaperAccountOut",
+        "type": "object"
+      },
       "PaperOrderOut": {
         "description": "One simulated limit order (entry or target leg).",
         "properties": {
@@ -5551,6 +5841,231 @@
         "title": "Position",
         "type": "object"
       },
+      "PositionCardOut": {
+        "description": "One open position with every fact the card shows (016).",
+        "properties": {
+          "decision_id": {
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "entry": {
+            "title": "Entry",
+            "type": "string"
+          },
+          "entry_order_type": {
+            "enum": [
+              "market",
+              "limit"
+            ],
+            "title": "Entry Order Type",
+            "type": "string"
+          },
+          "last": {
+            "title": "Last",
+            "type": "string"
+          },
+          "latest_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LatestDecisionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "opened_at": {
+            "format": "date-time",
+            "title": "Opened At",
+            "type": "string"
+          },
+          "pair": {
+            "title": "Pair",
+            "type": "string"
+          },
+          "pnl_r": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pnl R"
+          },
+          "qty": {
+            "title": "Qty",
+            "type": "string"
+          },
+          "round_trip_fees_eur": {
+            "title": "Round Trip Fees Eur",
+            "type": "string"
+          },
+          "rr_at_entry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rr At Entry"
+          },
+          "stop": {
+            "title": "Stop",
+            "type": "string"
+          },
+          "stop_above_entry": {
+            "title": "Stop Above Entry",
+            "type": "boolean"
+          },
+          "stop_dist_atr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Dist Atr"
+          },
+          "stop_dist_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Dist Pct"
+          },
+          "stop_history": {
+            "items": {
+              "$ref": "#/components/schemas/StopHistoryItem"
+            },
+            "title": "Stop History",
+            "type": "array"
+          },
+          "stop_hit_eur": {
+            "title": "Stop Hit Eur",
+            "type": "string"
+          },
+          "stop_hit_pct_equity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Hit Pct Equity"
+          },
+          "stop_hit_r": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Hit R"
+          },
+          "stop_near": {
+            "title": "Stop Near",
+            "type": "boolean"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "target_dist_atr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Dist Atr"
+          },
+          "target_dist_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Dist Pct"
+          },
+          "time_stop_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Stop At"
+          },
+          "unrealised": {
+            "title": "Unrealised",
+            "type": "string"
+          },
+          "watcher_checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Watcher Checked At"
+          }
+        },
+        "required": [
+          "pair",
+          "qty",
+          "entry",
+          "stop",
+          "target",
+          "opened_at",
+          "decision_id",
+          "last",
+          "unrealised",
+          "stop_dist_pct",
+          "stop_dist_atr",
+          "target_dist_pct",
+          "target_dist_atr",
+          "pnl_r",
+          "stop_above_entry",
+          "stop_near",
+          "stop_hit_eur",
+          "stop_hit_r",
+          "stop_hit_pct_equity",
+          "rr_at_entry",
+          "time_stop_at",
+          "entry_order_type",
+          "round_trip_fees_eur",
+          "stop_history",
+          "latest_decision",
+          "watcher_checked_at"
+        ],
+        "title": "PositionCardOut",
+        "type": "object"
+      },
       "PositionLines": {
         "properties": {
           "entry": {
@@ -5572,6 +6087,150 @@
           "target"
         ],
         "title": "PositionLines",
+        "type": "object"
+      },
+      "PositionsOut": {
+        "description": "GET /api/positions: one account's positions, working orders and\ntotals; ``today`` and ``paper_account`` only for account=live.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "orders": {
+            "items": {
+              "$ref": "#/components/schemas/PaperOrderOut"
+            },
+            "title": "Orders",
+            "type": "array"
+          },
+          "paper_account": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaperAccountOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/PositionCardOut"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "shadows": {
+            "items": {
+              "$ref": "#/components/schemas/ShadowRefOut"
+            },
+            "title": "Shadows",
+            "type": "array"
+          },
+          "today": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TodayOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "totals": {
+            "$ref": "#/components/schemas/PositionsTotalsOut"
+          }
+        },
+        "required": [
+          "account",
+          "shadows",
+          "totals",
+          "positions",
+          "orders"
+        ],
+        "title": "PositionsOut",
+        "type": "object"
+      },
+      "PositionsTotalsOut": {
+        "properties": {
+          "cash": {
+            "title": "Cash",
+            "type": "string"
+          },
+          "closest_atr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closest Atr"
+          },
+          "closest_pair": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closest Pair"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "exposure": {
+            "title": "Exposure",
+            "type": "string"
+          },
+          "exposure_pct": {
+            "title": "Exposure Pct",
+            "type": "number"
+          },
+          "fees_today": {
+            "title": "Fees Today",
+            "type": "string"
+          },
+          "fees_total": {
+            "title": "Fees Total",
+            "type": "string"
+          },
+          "open_risk_cap_pct": {
+            "title": "Open Risk Cap Pct",
+            "type": "string"
+          },
+          "open_risk_pct": {
+            "title": "Open Risk Pct",
+            "type": "string"
+          },
+          "stop_hit_total": {
+            "title": "Stop Hit Total",
+            "type": "string"
+          },
+          "unrealised": {
+            "title": "Unrealised",
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "unrealised",
+          "stop_hit_total",
+          "open_risk_pct",
+          "open_risk_cap_pct",
+          "exposure",
+          "exposure_pct",
+          "cash",
+          "fees_today",
+          "fees_total",
+          "closest_pair",
+          "closest_atr"
+        ],
+        "title": "PositionsTotalsOut",
         "type": "object"
       },
       "PriceInfo": {
@@ -7495,6 +8154,51 @@
         "title": "ShadowPromoteIn",
         "type": "object"
       },
+      "ShadowRefOut": {
+        "description": "One shadow strategy for the Live / Shadow switch \u2014 running or\nstopped, by name.",
+        "properties": {
+          "entry_orders": {
+            "title": "Entry Orders",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "prompt_version": {
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "model",
+          "prompt_version",
+          "status",
+          "started_at",
+          "entry_orders"
+        ],
+        "title": "ShadowRefOut",
+        "type": "object"
+      },
       "Signal": {
         "properties": {
           "name": {
@@ -7947,6 +8651,36 @@
         "title": "SourceUpdateIn",
         "type": "object"
       },
+      "StopHistoryItem": {
+        "description": "One stop level on a position card: the initial stop at entry, then\neach breakeven/trailing move the watcher made.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "initial",
+              "breakeven",
+              "trailing"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "stop": {
+            "title": "Stop",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "stop",
+          "at"
+        ],
+        "title": "StopHistoryItem",
+        "type": "object"
+      },
       "StorageSettings": {
         "properties": {
           "shutdown_grace_seconds": {
@@ -8018,6 +8752,185 @@
           }
         },
         "title": "TimeoutSettings",
+        "type": "object"
+      },
+      "TodayItemOut": {
+        "description": "One fill since 00:00 Amsterdam (live account only).",
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "decision_id": {
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "fees_eur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fees Eur"
+          },
+          "held_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Held Seconds"
+          },
+          "pair": {
+            "title": "Pair",
+            "type": "string"
+          },
+          "price": {
+            "title": "Price",
+            "type": "string"
+          },
+          "qty": {
+            "title": "Qty",
+            "type": "string"
+          },
+          "realised_eur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realised Eur"
+          },
+          "realised_r": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realised R"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "rr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rr"
+          },
+          "side": {
+            "enum": [
+              "buy",
+              "sell"
+            ],
+            "title": "Side",
+            "type": "string"
+          },
+          "still_open": {
+            "default": false,
+            "title": "Still Open",
+            "type": "boolean"
+          },
+          "trade_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trade Id"
+          }
+        },
+        "required": [
+          "at",
+          "side",
+          "pair",
+          "qty",
+          "price",
+          "reason",
+          "decision_id",
+          "trade_id"
+        ],
+        "title": "TodayItemOut",
+        "type": "object"
+      },
+      "TodayOut": {
+        "properties": {
+          "entries": {
+            "title": "Entries",
+            "type": "integer"
+          },
+          "exits": {
+            "title": "Exits",
+            "type": "integer"
+          },
+          "fees": {
+            "title": "Fees",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TodayItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "realised": {
+            "title": "Realised",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "entries",
+          "exits",
+          "realised",
+          "fees"
+        ],
+        "title": "TodayOut",
         "type": "object"
       },
       "TradeListOut": {
@@ -10156,6 +11069,274 @@
         "summary": "Export Trades"
       }
     },
+    "/api/fills": {
+      "get": {
+        "description": "The live account's fills, newest first, 50 per page.",
+        "operationId": "get_fills_api_fills_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pair",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pair"
+            }
+          },
+          {
+            "in": "query",
+            "name": "side",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "buy",
+                    "sell"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Side"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reason",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "decision",
+                    "stop",
+                    "target",
+                    "time_stop",
+                    "model_sell",
+                    "flatten",
+                    "manual",
+                    "kill"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FillsPageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Fills"
+      }
+    },
+    "/api/fills/export.csv": {
+      "get": {
+        "description": "Every fill matching the current filters as CSV, for download.",
+        "operationId": "export_fills_api_fills_export_csv_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pair",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pair"
+            }
+          },
+          {
+            "in": "query",
+            "name": "side",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "buy",
+                    "sell"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Side"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reason",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "decision",
+                    "stop",
+                    "target",
+                    "time_stop",
+                    "model_sell",
+                    "flatten",
+                    "manual",
+                    "kill"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Fills"
+      }
+    },
     "/api/glossary": {
       "get": {
         "operationId": "get_glossary_api_glossary_get",
@@ -12102,6 +13283,47 @@
           }
         },
         "summary": "Get Performance"
+      }
+    },
+    "/api/positions": {
+      "get": {
+        "description": "One account's positions, working orders and totals; the Today and\nPaper account blocks only for the live account.",
+        "operationId": "get_positions_api_positions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "account",
+            "required": false,
+            "schema": {
+              "default": "live",
+              "title": "Account",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Positions"
       }
     },
     "/api/positions/{pair}/close": {
