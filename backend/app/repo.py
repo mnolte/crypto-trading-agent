@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import cast
 
-from sqlalchemy import Table, delete, func, select
+from sqlalchemy import Numeric, Table, delete, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
@@ -26,9 +26,11 @@ from app.db import (
     EquitySnapshotRow,
     ErrorRow,
     ExitTickRow,
+    FillRow,
     LlmCallRow,
     MarketContextRow,
     MarketRow,
+    MetaRow,
     OutcomeFailureRow,
     OutcomeRow,
     PaperOrderRow,
@@ -1147,9 +1149,161 @@ def delete_all_data(session: Session) -> None:
         PaperOrderRow,
         SkippedSlotRow,
         StopMoveRow,
+        FillRow,
+        MetaRow,
     ):
         session.execute(delete(table))
     session.commit()
+
+
+# -------------------------------------------------------------------- fills --
+
+
+def add_fill(session: Session, row: FillRow) -> FillRow:
+    session.add(row)
+    session.flush()  # assign the autoincrement id
+    return row
+
+
+def link_entry_fill(session: Session, fill: FillRow, trade_id: int) -> None:
+    """A position's entry fill learns its trade id once the trade closes."""
+    fill.trade_id = trade_id
+
+
+def find_entry_fill(
+    session: Session, account_id: int, pair: str, decision_id: str
+) -> FillRow | None:
+    """The unlinked buy fill a position's close should point at."""
+    return session.scalar(
+        select(FillRow)
+        .where(
+            FillRow.account_id == account_id,
+            FillRow.pair == pair,
+            FillRow.side == "buy",
+            FillRow.decision_id == decision_id,
+            FillRow.trade_id.is_(None),
+        )
+        .order_by(FillRow.at.desc(), FillRow.id.desc())
+        .limit(1)
+    )
+
+
+def list_fills(
+    session: Session,
+    account_id: int,
+    *,
+    pair: str | None = None,
+    side: str | None = None,
+    reason: str | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    before_id: int | None = None,
+    limit: int = 50,
+) -> list[FillRow]:
+    """Fills for one account, newest first; ``before_id`` is the opaque
+    cursor — the id of the last row of the previous page."""
+    conds = [FillRow.account_id == account_id]
+    if pair is not None:
+        conds.append(FillRow.pair == pair)
+    if side is not None:
+        conds.append(FillRow.side == side)
+    if reason is not None:
+        conds.append(FillRow.reason == reason)
+    if start is not None:
+        conds.append(FillRow.at >= _utc_naive(start))
+    if end is not None:
+        conds.append(FillRow.at <= _utc_naive(end))
+    if before_id is not None:
+        conds.append(FillRow.id < before_id)
+    return list(
+        session.scalars(
+            select(FillRow)
+            .where(*conds)
+            .order_by(FillRow.at.desc(), FillRow.id.desc())
+            .limit(limit)
+        ).all()
+    )
+
+
+def count_fills(
+    session: Session,
+    account_id: int,
+    *,
+    pair: str | None = None,
+    side: str | None = None,
+    reason: str | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> int:
+    """How many fills match the order-history filters (all pages)."""
+    conds = [FillRow.account_id == account_id]
+    if pair is not None:
+        conds.append(FillRow.pair == pair)
+    if side is not None:
+        conds.append(FillRow.side == side)
+    if reason is not None:
+        conds.append(FillRow.reason == reason)
+    if start is not None:
+        conds.append(FillRow.at >= _utc_naive(start))
+    if end is not None:
+        conds.append(FillRow.at <= _utc_naive(end))
+    return int(session.scalar(select(func.count()).select_from(FillRow).where(*conds)) or 0)
+
+
+def fills_between(
+    session: Session, account_id: int, start: datetime, end: datetime | None = None
+) -> list[FillRow]:
+    """Every fill at or after ``start`` (and before ``end``), oldest first."""
+    conds = [FillRow.account_id == account_id, FillRow.at >= _utc_naive(start)]
+    if end is not None:
+        conds.append(FillRow.at <= _utc_naive(end))
+    return list(
+        session.scalars(
+            select(FillRow).where(*conds).order_by(FillRow.at.asc(), FillRow.id.asc())
+        ).all()
+    )
+
+
+def fills_totals(session: Session, account_id: int) -> tuple[Decimal, Decimal]:
+    """(fees, slippage) summed over every fill of the account."""
+    fees = session.scalar(
+        select(func.coalesce(func.sum(FillRow.fee_eur.cast(Numeric)), 0)).where(
+            FillRow.account_id == account_id
+        )
+    )
+    slip = session.scalar(
+        select(func.coalesce(func.sum(FillRow.slippage_eur.cast(Numeric)), 0)).where(
+            FillRow.account_id == account_id,
+            FillRow.slippage_eur.is_not(None),
+        )
+    )
+    return Decimal(str(fees or 0)), Decimal(str(slip or 0))
+
+
+def account_trade_totals(session: Session, account_id: int) -> tuple[Decimal, int]:
+    """(realised P&L after fees, closed trade count) for one account."""
+    realised = session.scalar(
+        select(func.coalesce(func.sum(TradeRow.realised_eur.cast(Numeric)), 0)).where(
+            TradeRow.account_id == account_id
+        )
+    )
+    count = session.scalar(
+        select(func.count()).select_from(TradeRow).where(TradeRow.account_id == account_id)
+    )
+    return Decimal(str(realised or 0)), int(count or 0)
+
+
+def meta_get(session: Session, key: str) -> str | None:
+    row = session.get(MetaRow, key)
+    return row.value if row is not None else None
+
+
+def meta_set(session: Session, key: str, value: str) -> None:
+    row = session.get(MetaRow, key)
+    if row is None:
+        session.add(MetaRow(key=key, value=value))
+    else:
+        row.value = value
 
 
 # ------------------------------------------------------------ equity snaps --

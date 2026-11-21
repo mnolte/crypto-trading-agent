@@ -161,6 +161,9 @@ class Engine:
         self._price_fresh_at: dict[str, datetime] = {}
         self._watch_errors = 0
         self._watch_passes = 0
+        # When the exit watcher last finished a pass; null after a restart
+        # until the first pass (the Positions screen shows that state).
+        self.watcher_checked_at: datetime | None = None
         self._cycle_errors = 0
         # PR 8: set from main.py after construction — drives the shadow
         # strategies on the same cycle snapshot and watcher tick.
@@ -1510,6 +1513,7 @@ class Engine:
             ),
             order_type="limit",
             last_price=price,
+            paper_order_id=order.id,
         )
         repo.fill_paper_order(session, order, now, fill_plan.qty)
         # The new position's target rests on the book from the fill tick.
@@ -1592,7 +1596,15 @@ class Engine:
                 repo.fill_paper_order(session, order, now)
             else:
                 repo.cancel_paper_order(session, order, now, f"exit: {reason}")
-        trade = self.broker.close(session, pair, price, now, reason, order_type=order_type)
+        trade = self.broker.close(
+            session,
+            pair,
+            price,
+            now,
+            reason,
+            order_type=order_type,
+            paper_order_id=filled_order.id if filled_order is not None else None,
+        )
         if trade is not None:
             repo.add_exit_tick(session, self.broker.account_id, pair, price, "fill", at=now)
             repo.add_activity(
@@ -1635,6 +1647,7 @@ class Engine:
         # Fills, exits and kills land between cycles — the snapshot push
         # keeps connected clients live instead of waiting for a cycle end.
         await self._push()
+        self.watcher_checked_at = self.clock()
 
     async def _tick_locked(self) -> tuple[list[str], Any]:
         """One watcher pass in three phases: read-only probe, network

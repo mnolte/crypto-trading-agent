@@ -122,6 +122,9 @@ class ShadowRunner:
         self._shock_brake_until = shock_brake_until or (lambda: None)
         self._cache: dict[str, _Shadow] = {}
         self._cycle = 0
+        # account_id -> when the watcher last finished a pass for it; null
+        # (absent) after a restart until the first pass.
+        self.watcher_checked_at: dict[int, datetime] = {}
 
     def set_client(self, client: MarketClient) -> None:
         """Swap the market client (data-source change) — live's client is
@@ -129,6 +132,11 @@ class ShadowRunner:
         self.client = client
         for shadow in self._cache.values():
             shadow.decider.client = client
+
+    def broker_for(self, shadow_id: str) -> PaperBroker | None:
+        """The running shadow's live broker, for read-only views (016)."""
+        shadow = self._cache.get(shadow_id)
+        return shadow.broker if shadow is not None else None
 
     # ------------------------------------------------------------- loading
 
@@ -789,6 +797,7 @@ class ShadowRunner:
             ),
             order_type="limit",
             last_price=price,
+            paper_order_id=order.id,
         )
         repo.fill_paper_order(session, order, now, fill_plan.qty)
         self._place_target_order(session, shadow, order.pair, pos, now)
@@ -854,7 +863,15 @@ class ShadowRunner:
                 repo.fill_paper_order(session, order, now)
             else:
                 repo.cancel_paper_order(session, order, now, f"exit: {reason}")
-        trade = shadow.broker.close(session, pair, price, now, reason, order_type=order_type)
+        trade = shadow.broker.close(
+            session,
+            pair,
+            price,
+            now,
+            reason,
+            order_type=order_type,
+            paper_order_id=filled_order.id if filled_order is not None else None,
+        )
         if trade is not None:
             repo.add_exit_tick(session, shadow.broker.account_id, pair, price, "fill", at=now)
             repo.add_activity(
@@ -978,6 +995,7 @@ class ShadowRunner:
                             )
                     shadow.broker.persist(session, now)
                     session.commit()
+                    self.watcher_checked_at[shadow.broker.account_id] = now
                 except Exception:
                     session.rollback()
                     log.exception("shadow %s watcher pass failed", shadow.row.id)

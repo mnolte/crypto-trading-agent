@@ -776,6 +776,173 @@ class DecisionDetail(BaseModel):
     entry_order: PaperOrderOut | None = None
 
 
+# ------------------------------------------------------- Positions & orders --
+
+
+class StopHistoryItem(BaseModel):
+    """One stop level on a position card: the initial stop at entry, then
+    each breakeven/trailing move the watcher made."""
+
+    kind: Literal["initial", "breakeven", "trailing"]
+    stop: MoneyDecimal
+    at: datetime
+
+
+class LatestDecisionOut(BaseModel):
+    """The pair's newest decision, for the card's "Latest decision" link."""
+
+    id: str
+    at: datetime
+    action: str
+    confidence: float
+    limit_price: MoneyDecimal | None = None  # the entry order's limit, if any
+
+
+class PositionCardOut(BaseModel):
+    """One open position with every fact the card shows (016)."""
+
+    pair: str
+    qty: MoneyDecimal
+    entry: MoneyDecimal
+    stop: MoneyDecimal
+    target: MoneyDecimal
+    opened_at: datetime
+    decision_id: str
+    last: MoneyDecimal
+    unrealised: MoneyDecimal
+    stop_dist_pct: MoneyDecimal | None
+    stop_dist_atr: MoneyDecimal | None
+    target_dist_pct: MoneyDecimal | None
+    target_dist_atr: MoneyDecimal | None
+    pnl_r: MoneyDecimal | None
+    stop_above_entry: bool
+    stop_near: bool
+    stop_hit_eur: MoneyDecimal  # qty x (stop - entry), before fees
+    stop_hit_r: MoneyDecimal | None
+    stop_hit_pct_equity: MoneyDecimal | None
+    rr_at_entry: MoneyDecimal | None
+    time_stop_at: datetime | None
+    entry_order_type: Literal["market", "limit"]
+    round_trip_fees_eur: MoneyDecimal  # entry fee + estimated exit fee
+    stop_history: list[StopHistoryItem]
+    latest_decision: LatestDecisionOut | None
+    watcher_checked_at: datetime | None
+
+
+class PositionsTotalsOut(BaseModel):
+    count: int
+    unrealised: MoneyDecimal
+    stop_hit_total: MoneyDecimal  # sum of every position's stop-hit result
+    open_risk_pct: Decimal  # broker.open_risk() as % of equity
+    open_risk_cap_pct: Decimal
+    exposure: MoneyDecimal
+    exposure_pct: float
+    cash: MoneyDecimal
+    fees_today: MoneyDecimal
+    fees_total: MoneyDecimal  # every fill of this account, all time
+    closest_pair: str | None  # nearest stop in ATR(1h)
+    closest_atr: Decimal | None
+
+
+class ShadowRefOut(BaseModel):
+    """One shadow strategy for the Live / Shadow switch — running or
+    stopped, by name."""
+
+    id: str
+    name: str
+    model: str
+    prompt_version: str
+    status: str  # "running" | "stopped"
+    started_at: datetime  # its paper account's start
+    entry_orders: str  # "market" | "limit" — its paper entry order type
+
+
+class TodayItemOut(BaseModel):
+    """One fill since 00:00 Amsterdam (live account only)."""
+
+    at: datetime
+    side: Literal["buy", "sell"]
+    pair: str
+    qty: MoneyDecimal
+    price: MoneyDecimal
+    reason: str
+    decision_id: str
+    trade_id: int | None
+    still_open: bool = False  # a buy fill whose position is still open
+    action: str | None = None  # the decision's action (entries)
+    confidence: float | None = None
+    rr: MoneyDecimal | None = None
+    held_seconds: int | None = None  # exits: opened -> closed
+    realised_eur: MoneyDecimal | None = None
+    realised_r: MoneyDecimal | None = None
+    fees_eur: MoneyDecimal | None = None  # the closed trade's both-side fee
+
+
+class TodayOut(BaseModel):
+    items: list[TodayItemOut]
+    entries: int
+    exits: int
+    realised: MoneyDecimal
+    fees: MoneyDecimal
+
+
+class PaperAccountOut(BaseModel):
+    """The live paper account card (live only)."""
+
+    id: int
+    started_at: datetime
+    start_balance: MoneyDecimal
+    cash: MoneyDecimal
+    coins_value: MoneyDecimal  # equity - cash
+    equity: MoneyDecimal
+    realised_pnl: MoneyDecimal
+    closed_trades: int
+    fees_total: MoneyDecimal
+    slippage_total: MoneyDecimal
+
+
+class PositionsOut(BaseModel):
+    """GET /api/positions: one account's positions, working orders and
+    totals; ``today`` and ``paper_account`` only for account=live."""
+
+    account: str  # "live" or the shadow id
+    shadows: list[ShadowRefOut]
+    totals: PositionsTotalsOut
+    positions: list[PositionCardOut]
+    orders: list[PaperOrderOut]
+    today: TodayOut | None = None
+    paper_account: PaperAccountOut | None = None
+
+
+class FillOut(BaseModel):
+    """One paper fill for the order history (live account only)."""
+
+    id: int
+    at: datetime
+    pair: str
+    side: Literal["buy", "sell"]
+    qty: MoneyDecimal
+    reference_price: MoneyDecimal | None
+    fill_price: MoneyDecimal
+    order_type: Literal["market", "limit"]
+    fee_eur: MoneyDecimal
+    fee_kind: Literal["maker", "taker"]
+    slippage_eur: MoneyDecimal | None
+    reason: str
+    decision_id: str
+    decision_action: str | None = None  # the decision's action, for the link label
+    decision_at: datetime | None = None
+    trade_id: int | None
+    paper_order_id: int | None
+    source: Literal["live", "rebuilt"]
+
+
+class FillsPageOut(BaseModel):
+    items: list[FillOut]
+    next_cursor: str | None = None
+    total: int = 0  # every fill matching the filters, all pages
+
+
 class LevelOut(BaseModel):
     kind: Literal["support", "resistance", "prev_day_high", "prev_day_low"]
     price: float

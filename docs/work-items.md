@@ -115,7 +115,7 @@ A kickoff is written for Devin to follow without asking. In this order:
 | 013 | feat | Decision quality (prompt v2) | `DEVIN_KICKOFF.md` | — | #17 | merged |
 | 014 | feat | Shell and Dashboard | `pr-14.md` | #18 | #19 | merged |
 | 015 | feat | Error handling, logging and the Logs screen | `pr-15.md` | #18, #20 | #22 | merged |
-| 016 | feat | Positions & orders | `016-feat-positions-orders.md` | #18, #35 | — | planned |
+| 016 | feat | Positions & orders | `016-feat-positions-orders.md` | #18, #35 | #50 | building |
 | 017 | feat | Markets screen | — | #18 | — | ready |
 | 018 | feat | Strategies screen | — | #18 | — | ready |
 | 019 | feat | Backtest | — | #18 | — | ready |

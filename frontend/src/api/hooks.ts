@@ -29,6 +29,8 @@ import {
   type OutcomeScorecardOut,
   type OutcomeStatsOut,
   type PerformanceOut,
+  type PositionsOut,
+  type FillsPageOut,
   type PromptInfo,
   type ReadinessOut,
   type Settings,
@@ -841,5 +843,44 @@ export function useAsk() {
       void client.invalidateQueries({ queryKey: ["ask-conversations"] });
       void client.invalidateQueries({ queryKey: ["ask-conversation"] });
     },
+  });
+}
+
+/* --------------------------------------------------------------------------
+ * Positions & orders (016).
+ * ------------------------------------------------------------------------ */
+
+export function usePositions(account: string) {
+  return useQuery({
+    queryKey: ["positions", account],
+    queryFn: () =>
+      api<PositionsOut>(`/api/positions?account=${encodeURIComponent(account)}`),
+    staleTime: 10_000,
+  });
+}
+
+export type FillFilters = {
+  pair?: string;
+  side?: string;
+  reason?: string;
+  from?: string;
+  to?: string;
+};
+
+/** Order history, newest first; pages follow the opaque `next_cursor`. */
+export function useFills(filters: FillFilters) {
+  return useInfiniteQuery({
+    queryKey: ["fills", filters],
+    queryFn: ({ pageParam }) => {
+      const qs = new URLSearchParams();
+      for (const [key, value] of Object.entries(filters)) {
+        if (value) qs.set(key, value);
+      }
+      if (pageParam) qs.set("cursor", String(pageParam));
+      return api<FillsPageOut>(`/api/fills?${qs}`);
+    },
+    initialPageParam: "",
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
+    staleTime: 10_000,
   });
 }
