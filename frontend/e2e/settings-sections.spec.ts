@@ -84,10 +84,15 @@ test("screenshots: risk unsaved, save bar, history", async ({ page }, testInfo) 
   await expect(page.locator(".shell-header")).toBeVisible();
   await page.waitForLoadState("networkidle");
 
-  // Two unsaved (tighter) changes for the shot.
-  await page.getByLabel("Risk per trade", { exact: true }).fill("0.8");
+  // Two unsaved (tighter) changes for the shot. The suite shares one
+  // backend, so other specs can move these values — pick a delta from the
+  // current value, never an absolute.
+  const tighter = (cur: number, step: number, min: number) =>
+    (cur - step >= min ? cur - step : cur + step).toFixed(2);
+  const risk = page.getByLabel("Risk per trade", { exact: true });
+  await risk.fill(tighter(Number(await risk.inputValue()), 0.2, 0.1));
   const daily = page.getByLabel("Daily loss limit");
-  await daily.fill(String(Math.max(0.5, Number(await daily.inputValue()) - 0.5)));
+  await daily.fill(tighter(Number(await daily.inputValue()), 0.5, 0.5));
   await expect(page.locator(".set-savebar")).toContainText("2 unsaved changes");
   await page.screenshot({
     path: `${SHOT_DIR}/settings-risk-unsaved-${w}.png`,
