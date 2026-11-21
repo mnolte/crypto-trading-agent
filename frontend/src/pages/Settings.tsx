@@ -70,7 +70,7 @@ export function Settings() {
   // Resync when the server document changes and the draft is clean, so an
   // external save (What-if apply, a source toggle) is not overwritten later.
   const dirtyRef = useRef(false);
-  const lastData = useRef(data);
+  const lastData = useRef<SettingsType | undefined>(undefined);
   useEffect(() => {
     if (
       data &&

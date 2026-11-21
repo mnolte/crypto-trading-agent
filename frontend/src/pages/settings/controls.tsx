@@ -11,6 +11,7 @@ import {
   formatLeaf,
   getPath,
   leafChanged,
+  sameValue,
   setPath,
   type MetaMap,
 } from "./model";
@@ -54,6 +55,16 @@ export interface RowDef {
 
 export function rowChanged(ctx: Ctx, keys: string[]): boolean {
   return keys.some((k) => leafChanged(ctx.draft, ctx.saved, k));
+}
+
+/** The "Changed from default" filter: a row counts when any of its leaves
+ * differs from the meta default (a saved non-default still counts). */
+export function rowNonDefault(ctx: Ctx, keys: string[]): boolean {
+  return keys.some((k) => {
+    const item = ctx.meta[k];
+    if (!item || item.fixed) return false;
+    return !sameValue(getPath(ctx.draft, k), item.default);
+  });
 }
 
 /** "Changed from 1.0% · Reset" under a changed row. */
@@ -297,7 +308,7 @@ export function SectionBody({
 }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const visible = rows.filter((def) => {
-    if (onlyChanged && !rowChanged(ctx, def.keys)) return false;
+    if (onlyChanged && !rowNonDefault(ctx, def.keys)) return false;
     if (!rowMatches(def, query)) return false;
     return true;
   });
