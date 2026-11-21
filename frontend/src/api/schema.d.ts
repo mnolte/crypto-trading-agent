@@ -2161,6 +2161,10 @@ export interface components {
              * Format: date-time
              */
             at: string;
+            /** Decision Action */
+            decision_action?: string | null;
+            /** Decision At */
+            decision_at?: string | null;
             /** Decision Id */
             decision_id: string;
             /** Fee Eur */
@@ -2210,6 +2214,11 @@ export interface components {
             items: components["schemas"]["FillOut"][];
             /** Next Cursor */
             next_cursor?: string | null;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /** FlattenPreview */
         FlattenPreview: {
@@ -3634,6 +3643,11 @@ export interface components {
             decision_id: string;
             /** Entry */
             entry: string;
+            /**
+             * Entry Order Type
+             * @enum {string}
+             */
+            entry_order_type: "market" | "limit";
             /** Last */
             last: string;
             latest_decision: components["schemas"]["LatestDecisionOut"] | null;
@@ -4959,6 +4973,8 @@ export interface components {
          *     stopped, by name.
          */
         ShadowRefOut: {
+            /** Entry Orders */
+            entry_orders: string;
             /** Id */
             id: string;
             /** Model */

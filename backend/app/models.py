@@ -638,6 +638,7 @@ class PositionCardOut(BaseModel):
     stop_hit_pct_equity: MoneyDecimal | None
     rr_at_entry: MoneyDecimal | None
     time_stop_at: datetime | None
+    entry_order_type: Literal["market", "limit"]
     round_trip_fees_eur: MoneyDecimal  # entry fee + estimated exit fee
     stop_history: list[StopHistoryItem]
     latest_decision: LatestDecisionOut | None
@@ -669,6 +670,7 @@ class ShadowRefOut(BaseModel):
     prompt_version: str
     status: str  # "running" | "stopped"
     started_at: datetime  # its paper account's start
+    entry_orders: str  # "market" | "limit" — its paper entry order type
 
 
 class TodayItemOut(BaseModel):
@@ -744,6 +746,8 @@ class FillOut(BaseModel):
     slippage_eur: MoneyDecimal | None
     reason: str
     decision_id: str
+    decision_action: str | None = None  # the decision's action, for the link label
+    decision_at: datetime | None = None
     trade_id: int | None
     paper_order_id: int | None
     source: Literal["live", "rebuilt"]
@@ -752,6 +756,7 @@ class FillOut(BaseModel):
 class FillsPageOut(BaseModel):
     items: list[FillOut]
     next_cursor: str | None = None
+    total: int = 0  # every fill matching the filters, all pages
 
 
 class LevelOut(BaseModel):

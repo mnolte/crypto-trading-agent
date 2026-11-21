@@ -1225,6 +1225,31 @@ def list_fills(
     )
 
 
+def count_fills(
+    session: Session,
+    account_id: int,
+    *,
+    pair: str | None = None,
+    side: str | None = None,
+    reason: str | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> int:
+    """How many fills match the order-history filters (all pages)."""
+    conds = [FillRow.account_id == account_id]
+    if pair is not None:
+        conds.append(FillRow.pair == pair)
+    if side is not None:
+        conds.append(FillRow.side == side)
+    if reason is not None:
+        conds.append(FillRow.reason == reason)
+    if start is not None:
+        conds.append(FillRow.at >= _utc_naive(start))
+    if end is not None:
+        conds.append(FillRow.at <= _utc_naive(end))
+    return int(session.scalar(select(func.count()).select_from(FillRow).where(*conds)) or 0)
+
+
 def fills_between(
     session: Session, account_id: int, start: datetime, end: datetime | None = None
 ) -> list[FillRow]:

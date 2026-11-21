@@ -1785,6 +1785,29 @@
             "title": "At",
             "type": "string"
           },
+          "decision_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Action"
+          },
+          "decision_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision At"
+          },
           "decision_id": {
             "title": "Decision Id",
             "type": "string"
@@ -1930,6 +1953,11 @@
               }
             ],
             "title": "Next Cursor"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
@@ -5824,6 +5852,14 @@
             "title": "Entry",
             "type": "string"
           },
+          "entry_order_type": {
+            "enum": [
+              "market",
+              "limit"
+            ],
+            "title": "Entry Order Type",
+            "type": "string"
+          },
           "last": {
             "title": "Last",
             "type": "string"
@@ -6021,6 +6057,7 @@
           "stop_hit_pct_equity",
           "rr_at_entry",
           "time_stop_at",
+          "entry_order_type",
           "round_trip_fees_eur",
           "stop_history",
           "latest_decision",
@@ -8120,6 +8157,10 @@
       "ShadowRefOut": {
         "description": "One shadow strategy for the Live / Shadow switch \u2014 running or\nstopped, by name.",
         "properties": {
+          "entry_orders": {
+            "title": "Entry Orders",
+            "type": "string"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -8152,7 +8193,8 @@
           "model",
           "prompt_version",
           "status",
-          "started_at"
+          "started_at",
+          "entry_orders"
         ],
         "title": "ShadowRefOut",
         "type": "object"

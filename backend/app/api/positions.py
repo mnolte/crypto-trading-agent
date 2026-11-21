@@ -96,7 +96,7 @@ def _broker_for_account(
     return account, account_row, broker, watcher_at
 
 
-def _shadow_refs(session: Session) -> list[ShadowRefOut]:
+def _shadow_refs(state: AppState, session: Session) -> list[ShadowRefOut]:
     """Every shadow that exists, running or stopped, by name — for the
     Live / Shadow switch."""
     out: list[ShadowRefOut] = []
@@ -104,6 +104,9 @@ def _shadow_refs(session: Session) -> list[ShadowRefOut]:
         account = session.get(AccountRow, row.account_id)
         if account is None:
             continue
+        settings = shadows_mod.apply_shadow_overrides(
+            state.settings, json.loads(row.overrides or "{}")
+        )
         out.append(
             ShadowRefOut(
                 id=row.id,
@@ -112,6 +115,7 @@ def _shadow_refs(session: Session) -> list[ShadowRefOut]:
                 prompt_version=row.prompt_version,
                 status=row.status,
                 started_at=repo.aware_utc(account.started_at),
+                entry_orders=settings.paper.entry_orders,
             )
         )
     return out
@@ -263,6 +267,7 @@ def _position_cards(
                 stop_hit_pct_equity=facts.stop_hit_pct_equity,
                 rr_at_entry=facts.rr_at_entry,
                 time_stop_at=facts.time_stop_at,
+                entry_order_type="limit" if held.entry_maker else "market",
                 round_trip_fees_eur=_round_trip_fees(
                     session,
                     account_row.id,
@@ -443,7 +448,7 @@ def get_positions(
         )
         return PositionsOut(
             account=label,
-            shadows=_shadow_refs(session),
+            shadows=_shadow_refs(state, session),
             totals=totals,
             positions=cards,
             orders=orders,
@@ -457,7 +462,7 @@ def get_positions(
 # ------------------------------------------------------------------- fills --
 
 
-def _fill_out(row: FillRow) -> FillOut:
+def _fill_out(row: FillRow, decision: DecisionRow | None = None) -> FillOut:
     return FillOut(
         id=row.id,
         at=repo.aware_utc(row.at),
@@ -472,6 +477,8 @@ def _fill_out(row: FillRow) -> FillOut:
         slippage_eur=Decimal(row.slippage_eur) if row.slippage_eur else None,
         reason=row.reason,
         decision_id=row.decision_id,
+        decision_action=decision.action if decision is not None else None,
+        decision_at=repo.aware_utc(decision.at) if decision is not None else None,
         trade_id=row.trade_id,
         paper_order_id=row.paper_order_id,
         source=cast("Literal['live', 'rebuilt']", row.source),
@@ -524,9 +531,30 @@ def get_fills(
             limit=FILL_PAGE + 1,
         )
         page = rows[:FILL_PAGE]
+        account_id = _live_account_id(state)
+        decision_ids = {r.decision_id for r in page}
+        decisions = (
+            {
+                d.id: d
+                for d in session.scalars(
+                    select(DecisionRow).where(DecisionRow.id.in_(decision_ids))
+                ).all()
+            }
+            if decision_ids
+            else {}
+        )
         return FillsPageOut(
-            items=[_fill_out(r) for r in page],
+            items=[_fill_out(r, decisions.get(r.decision_id)) for r in page],
             next_cursor=_encode_cursor(page[-1].id) if len(rows) > FILL_PAGE else None,
+            total=repo.count_fills(
+                session,
+                account_id,
+                pair=pair,
+                side=side,
+                reason=reason,
+                start=from_,
+                end=to,
+            ),
         )
     finally:
         session.close()
