@@ -33,7 +33,7 @@ How Trading Agent looks and what it says. It uses the same visual language as St
 | `Positions.dc.html` | Positions & orders: Live / Shadow A / Shadow B switch, totals line, a card per position (stop-to-target bar, four facts, stop history, watcher check, latest decision), working orders, today, the paper account, order history with filters and CSV export. "Shadow B" shows a working limit order (`Positions-shadow.png`) | v0.3 → Positions & orders |
 | `Decision.dc.html` | Decision detail drawer, 560 px | GUI screens → Decision detail |
 | `Performance.dc.html` | Performance | GUI screens → Performance |
-| `Settings.dc.html` | Settings, with a sticky unsaved-changes bar | GUI screens → Settings; Settings, secrets and persistence |
+| `Settings.dc.html` | Settings, **one section at a time** (025, as in Stock Trading Agent): a grouped section list (a Section select on phones) picks it, its address is the fragment (`#risk`, `#notify` …; opened without one, the file shows Risk limits), Previous/next links end each section; Find a setting and Changed from default. One row per setting with its default, money next to % of equity, fixed values as text with a lock, an Advanced fold in Markets; Risk limits opens with "What these limits mean today"; a sticky unsaved-changes bar with tighter/looser tags, a reason and "Save as v8". `Settings-390.png` at phone width, `Settings-390-save.png` with the phone's save bar opened, `Settings-history.png` the History section | v0.3 → Settings screen; Settings, secrets and persistence |
 | `States.dc.html` | Banners, dialogs, approval queue, notification, card states (loading, empty, error, backend unreachable) and toasts | States |
 | `Indicators.dc.html` | Indicators | GUI screens → Indicators |
 | `Inspector.dc.html` | LLM inspector | GUI screens → LLM inspector; Outcome tracking |
@@ -131,6 +131,18 @@ The `-390.png` screenshots show each screen at 390 px. Cards stack, wide tables 
 - **Order history:** reasons stop (red), target (green), others neutral. A fill rebuilt from history has "—" for reference and slippage. At phone width each fill is a three-line block: time, pair, side and quantity, reason; then fill, reference, slippage and fee; then the link.
 - **Phone width:** the four facts become two columns; the bar's middle label is hidden; position headers wrap.
 
+## Settings screen
+
+Item 025 follows Stock Trading Agent's Settings (its items 056, 069 and 100). Where the two differ, it is because crypto has different settings, not a different pattern.
+
+- **Sections and groups:** Trading (Markets, Execution, Risk limits, Exits, Entry rules, Paper broker), Model (Model and reviews, Shadows), Alerts and display (Notifications, Display), Connections (API keys and data), Records (Readiness, Schedule, History, Logs, Paper account). Access joins Connections with item 020.
+- **A row:** name; one line of explanation ending in "· default …" in the muted colour; the control with its unit on the right; "= €…" in mono to the left of every % of equity (and the € equivalents of max costs and the drawdown kill). Two or three related values share a row with a small label before each field (Stop distance from/to, Shock brake, Risk throttle).
+- **An unsaved change:** amber left edge and tint on the row, amber border on the field, "Changed from 1.0% · Reset" under it; the section list shows the count in an amber pill. A saved value that differs from its default has no highlight; Changed from default finds it.
+- **Fixed values** are text with a lock and "fixed by the spec", never a disabled control: Stablecoins, Cycle, Live trading, Breakeven, Stops and forced exits, Repeats.
+- **A control that can't be used yet says why** next to it, as text (Open Markets until item 017).
+- **The save bar** sticks to the bottom of the content column: count, each change old → new with its tag (tighter green, looser amber), the reason field, Discard, "Save as v<n>". Below 760 px it is one line, "2 unsaved changes · Review and save", opening to the same content.
+- **Keys and email** are saved by their own buttons (Test, Replace, Test and save), so the header says "keys are saved separately".
+
 ## Which PR builds which screens
 
 Follows the spec's build order. A PR builds only the screens listed for it.
@@ -151,6 +163,7 @@ Follows the spec's build order. A PR builds only the screens listed for it.
 | 12 Limit entries | Settings → market data & paper account: taker and maker fee, Entry orders (Market / Limit); Settings → shadow strategies: Shadow B row with fill rate; States: Decision drawer footer for a limit entry (waiting, filled, unfilled) |
 | 15 Error handling, logging and Logs screen | Logs (all of it, both widths, and the trace view); the Logs item in every sidebar under Control after Readiness; Errors: every page in `Errors.dc.html` (the static pages as files in `deploy/errors/`); card errors showing the error id; Needs you: the degraded item; Cycles card: an error slot links to the cycle's trace; Decision drawer: "Logs for this decision" |
 | 16 Positions & orders | Positions & orders (all of it, both widths, the shadow switch); the sidebar item in every sidebar under Monitor after Dashboard; Dashboard: the Open positions title links to the screen |
+| 025 Settings sections | Settings (all of it, both widths, the phone save bar); History |
 
 Blue **v0.2** tags in the screens and screenshots mark what v0.2 adds. They are for the
 handoff only: do not render them in the app.
