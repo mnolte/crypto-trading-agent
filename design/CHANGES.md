@@ -2,6 +2,13 @@
 
 Newest first. Each entry names the screens it touches.
 
+## 2026-11-04 — [023] Logs in every sidebar
+
+- **Logs in the sidebar** of every screen with one (Dashboard, Indicators, Performance, Insights, What-if, Reviews, LLM inspector, Ask, Readiness, Settings), under Control after Readiness, as in Stock Trading Agent. Until now only the Logs screen itself had the item, so the design had no way to reach it. Decision, States and Errors have no sidebar.
+- **Readiness:** the errors criterion follows v0.3 → Logging, errors and the Logs screen: "Errors in the log", no unreviewed error or critical problem and no critical line in the last 7 days, with "review on Logs" next to its status (as in Stock Trading Agent). It replaces "No unresolved errors … resolve on Dashboard".
+- The Logs screen itself is unchanged.
+- Screenshots updated: the ten screens above, at 1440 and 390 px.
+
 ## 2026-11-04 — Logs screen and error pages
 
 - New `Logs.dc.html`, adapted from Stock Trading Agent's Logs screen to crypto (pairs instead of symbols, UTC on hover, the crypto components, the same scenario as the Dashboard: the two OpenAI timeouts at 09:15 and 09:30, the sleep 23:15–23:45):
