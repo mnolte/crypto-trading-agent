@@ -554,7 +554,11 @@ def test_briefing_time_must_be_hh_mm(sim_client: TestClient) -> None:
     it must never reach scheduled_today."""
     doc = sim_client.get("/api/settings").json()
     doc["learning"]["briefing_time"] = "25:99"
-    out = sim_client.put("/api/settings", headers={"X-Local-Token": _token(sim_client)}, json=doc)
+    out = sim_client.put(
+        "/api/settings",
+        headers={"X-Local-Token": _token(sim_client)},
+        json={"settings": doc, "reason": "bad time"},
+    )
     assert out.status_code == 422
 
 
@@ -593,12 +597,19 @@ def test_settings_history_records_changes(client: TestClient) -> None:
     out = client.put(
         "/api/settings",
         headers={"X-Local-Token": _token(client)},
-        json=current,
+        json={"settings": current, "reason": "loosen readiness", "confirm_looser": True},
     )
     assert out.status_code == 200, out.text
-    history = client.get("/api/settings/history").json()["items"]
-    change = next(h for h in history if h["key"] == "readiness.min_closed_trades")
-    assert json.loads(change["new"]) == 80
+    page = client.get("/api/settings/history").json()
+    # The newest version carries the per-setting changes.
+    latest = page["versions"][0]
+    change = next(c for c in latest["changes"] if c["key"] == "readiness.min_closed_trades")
+    assert change["new"] == 80
+    assert change["direction"] == "looser"
+    # The per-setting row is written too, linked to the version — Readiness
+    # and What-if keep reading settings_history. "rows" is only the
+    # pre-version history, so it stays empty on a fresh database.
+    assert page["rows"] == []
 
 
 def test_briefings_list_endpoint(sim_client: TestClient) -> None:

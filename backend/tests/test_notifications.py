@@ -41,7 +41,14 @@ def test_notification_settings_and_smtp_password_never_return_secret(
             "recipient": "marc@example.test",
         }
     )
-    assert client.put("/api/settings", headers=headers, json=settings).status_code == 200
+    assert (
+        client.put(
+            "/api/settings",
+            headers=headers,
+            json={"settings": settings, "reason": "smtp setup"},
+        ).status_code
+        == 200
+    )
     result = client.post("/api/notifications/test", headers=headers)
     assert result.status_code == 200
     assert result.json()["email"] is True

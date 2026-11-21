@@ -484,6 +484,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/fills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Fills
+         * @description The live account's fills, newest first, 50 per page.
+         */
+        get: operations["get_fills_api_fills_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fills/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Fills
+         * @description Every fill matching the current filters as CSV, for download.
+         */
+        get: operations["export_fills_api_fills_export_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/glossary": {
         parameters: {
             query?: never;
@@ -890,6 +930,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/markets/{market}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activate Market Route */
+        post: operations["activate_market_route_api_markets__market__activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/markets/{market}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deactivate Market Route */
+        post: operations["deactivate_market_route_api_markets__market__deactivate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/markets/{market}/pause": {
         parameters: {
             query?: never;
@@ -1062,6 +1136,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Positions
+         * @description One account's positions, working orders and totals; the Today and
+         *     Paper account blocks only for the live account.
+         */
+        get: operations["get_positions_api_positions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/positions/{pair}/close": {
         parameters: {
             query?: never;
@@ -1194,10 +1289,51 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Settings History */
+        /**
+         * Get Settings History
+         * @description Numbered settings versions newest first, then the older
+         *     per-setting rows from before versions existed (item 025).
+         */
         get: operations["get_settings_history_api_settings_history_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Settings Meta */
+        get: operations["settings_meta_api_settings_meta_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Settings Preview
+         * @description Money, tags and errors for an unsaved draft; saves nothing.
+         */
+        post: operations["settings_preview_api_settings_preview_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2090,6 +2226,75 @@ export interface components {
             /** Events */
             events: components["schemas"]["LogEventOut"][];
         };
+        /**
+         * FillOut
+         * @description One paper fill for the order history (live account only).
+         */
+        FillOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Decision Action */
+            decision_action?: string | null;
+            /** Decision At */
+            decision_at?: string | null;
+            /** Decision Id */
+            decision_id: string;
+            /** Fee Eur */
+            fee_eur: string;
+            /**
+             * Fee Kind
+             * @enum {string}
+             */
+            fee_kind: "maker" | "taker";
+            /** Fill Price */
+            fill_price: string;
+            /** Id */
+            id: number;
+            /**
+             * Order Type
+             * @enum {string}
+             */
+            order_type: "market" | "limit";
+            /** Pair */
+            pair: string;
+            /** Paper Order Id */
+            paper_order_id: number | null;
+            /** Qty */
+            qty: string;
+            /** Reason */
+            reason: string;
+            /** Reference Price */
+            reference_price: string | null;
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "buy" | "sell";
+            /** Slippage Eur */
+            slippage_eur: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "live" | "rebuilt";
+            /** Trade Id */
+            trade_id: number | null;
+        };
+        /** FillsPageOut */
+        FillsPageOut: {
+            /** Items */
+            items: components["schemas"]["FillOut"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
         /** FlattenPreview */
         FlattenPreview: {
             /** Count */
@@ -2324,6 +2529,25 @@ export interface components {
             equity: string;
             /** Peak */
             peak: string;
+        };
+        /**
+         * LatestDecisionOut
+         * @description The pair's newest decision, for the card's "Latest decision" link.
+         */
+        LatestDecisionOut: {
+            /** Action */
+            action: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Confidence */
+            confidence: number;
+            /** Id */
+            id: string;
+            /** Limit Price */
+            limit_price?: string | null;
         };
         /**
          * LearningSettings
@@ -2725,6 +2949,17 @@ export interface components {
             /** Next */
             next?: string | null;
         };
+        /**
+         * MarketActionIn
+         * @description POST /api/markets/{market}/activate|deactivate body (item 025).
+         */
+        MarketActionIn: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+        };
         /** MarketOut */
         MarketOut: {
             /** Active */
@@ -2935,6 +3170,11 @@ export interface components {
         MarketUpdateIn: {
             /** Active */
             active: boolean;
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
         };
         /** MissedRange */
         MissedRange: {
@@ -3228,6 +3468,35 @@ export interface components {
             shadow?: string | null;
         };
         /**
+         * PaperAccountOut
+         * @description The live paper account card (live only).
+         */
+        PaperAccountOut: {
+            /** Cash */
+            cash: string;
+            /** Closed Trades */
+            closed_trades: number;
+            /** Coins Value */
+            coins_value: string;
+            /** Equity */
+            equity: string;
+            /** Fees Total */
+            fees_total: string;
+            /** Id */
+            id: number;
+            /** Realised Pnl */
+            realised_pnl: string;
+            /** Slippage Total */
+            slippage_total: string;
+            /** Start Balance */
+            start_balance: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+        };
+        /**
          * PaperOrderOut
          * @description One simulated limit order (entry or target leg).
          */
@@ -3456,6 +3725,69 @@ export interface components {
             /** Unrealised */
             unrealised: string;
         };
+        /**
+         * PositionCardOut
+         * @description One open position with every fact the card shows (016).
+         */
+        PositionCardOut: {
+            /** Decision Id */
+            decision_id: string;
+            /** Entry */
+            entry: string;
+            /**
+             * Entry Order Type
+             * @enum {string}
+             */
+            entry_order_type: "market" | "limit";
+            /** Last */
+            last: string;
+            latest_decision: components["schemas"]["LatestDecisionOut"] | null;
+            /**
+             * Opened At
+             * Format: date-time
+             */
+            opened_at: string;
+            /** Pair */
+            pair: string;
+            /** Pnl R */
+            pnl_r: string | null;
+            /** Qty */
+            qty: string;
+            /** Round Trip Fees Eur */
+            round_trip_fees_eur: string;
+            /** Rr At Entry */
+            rr_at_entry: string | null;
+            /** Stop */
+            stop: string;
+            /** Stop Above Entry */
+            stop_above_entry: boolean;
+            /** Stop Dist Atr */
+            stop_dist_atr: string | null;
+            /** Stop Dist Pct */
+            stop_dist_pct: string | null;
+            /** Stop History */
+            stop_history: components["schemas"]["StopHistoryItem"][];
+            /** Stop Hit Eur */
+            stop_hit_eur: string;
+            /** Stop Hit Pct Equity */
+            stop_hit_pct_equity: string | null;
+            /** Stop Hit R */
+            stop_hit_r: string | null;
+            /** Stop Near */
+            stop_near: boolean;
+            /** Target */
+            target: string;
+            /** Target Dist Atr */
+            target_dist_atr: string | null;
+            /** Target Dist Pct */
+            target_dist_pct: string | null;
+            /** Time Stop At */
+            time_stop_at: string | null;
+            /** Unrealised */
+            unrealised: string;
+            /** Watcher Checked At */
+            watcher_checked_at: string | null;
+        };
         /** PositionLines */
         PositionLines: {
             /** Entry */
@@ -3464,6 +3796,51 @@ export interface components {
             stop: string;
             /** Target */
             target: string;
+        };
+        /**
+         * PositionsOut
+         * @description GET /api/positions: one account's positions, working orders and
+         *     totals; ``today`` and ``paper_account`` only for account=live.
+         */
+        PositionsOut: {
+            /** Account */
+            account: string;
+            /** Orders */
+            orders: components["schemas"]["PaperOrderOut"][];
+            paper_account?: components["schemas"]["PaperAccountOut"] | null;
+            /** Positions */
+            positions: components["schemas"]["PositionCardOut"][];
+            /** Shadows */
+            shadows: components["schemas"]["ShadowRefOut"][];
+            today?: components["schemas"]["TodayOut"] | null;
+            totals: components["schemas"]["PositionsTotalsOut"];
+        };
+        /** PositionsTotalsOut */
+        PositionsTotalsOut: {
+            /** Cash */
+            cash: string;
+            /** Closest Atr */
+            closest_atr: string | null;
+            /** Closest Pair */
+            closest_pair: string | null;
+            /** Count */
+            count: number;
+            /** Exposure */
+            exposure: string;
+            /** Exposure Pct */
+            exposure_pct: number;
+            /** Fees Today */
+            fees_today: string;
+            /** Fees Total */
+            fees_total: string;
+            /** Open Risk Cap Pct */
+            open_risk_cap_pct: string;
+            /** Open Risk Pct */
+            open_risk_pct: string;
+            /** Stop Hit Total */
+            stop_hit_total: string;
+            /** Unrealised */
+            unrealised: string;
         };
         /** PriceInfo */
         PriceInfo: {
@@ -4558,8 +4935,35 @@ export interface components {
              */
             veto_window_s: number;
         };
-        /** SettingsHistoryItem */
-        SettingsHistoryItem: {
+        /**
+         * SettingsChangeOut
+         * @description One leaf that differs between two documents, tagged tighter /
+         *     looser / neutral by the directions map.
+         */
+        SettingsChangeOut: {
+            /** Direction */
+            direction: string;
+            /** Key */
+            key: string;
+            /** New */
+            new?: unknown | null;
+            /** Old */
+            old?: unknown | null;
+        };
+        /** SettingsHistoryPageOut */
+        SettingsHistoryPageOut: {
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Rows */
+            rows: components["schemas"]["SettingsHistoryRowOut"][];
+            /** Versions */
+            versions: components["schemas"]["SettingsHistoryVersionOut"][];
+        };
+        /**
+         * SettingsHistoryRowOut
+         * @description A per-setting change from before settings versions (item 025).
+         */
+        SettingsHistoryRowOut: {
             /**
              * At
              * Format: date-time
@@ -4572,10 +4976,122 @@ export interface components {
             /** Old */
             old: string | null;
         };
-        /** SettingsHistoryOut */
-        SettingsHistoryOut: {
+        /** SettingsHistoryVersionOut */
+        SettingsHistoryVersionOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Changes */
+            changes: components["schemas"]["SettingsChangeOut"][];
+            /** Reason */
+            reason: string;
+            /** Source */
+            source: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * SettingsMetaItem
+         * @description One leaf's description for the sectioned Settings screen.
+         */
+        SettingsMetaItem: {
+            /** Choices */
+            choices?: string[] | null;
+            /** Default */
+            default: unknown;
+            /** Direction */
+            direction?: string | null;
+            /**
+             * Fixed
+             * @default false
+             */
+            fixed: boolean;
+            /** Max */
+            max?: string | null;
+            /** Min */
+            min?: string | null;
+            /** Section */
+            section: string | null;
+            /** Step */
+            step?: string | null;
+            /** Unit */
+            unit?: string | null;
+        };
+        /** SettingsMetaOut */
+        SettingsMetaOut: {
             /** Items */
-            items: components["schemas"]["SettingsHistoryItem"][];
+            items: {
+                [key: string]: components["schemas"]["SettingsMetaItem"];
+            };
+            /** Version */
+            version: number;
+        };
+        /**
+         * SettingsPreviewOut
+         * @description POST /api/settings/preview: nothing is saved. ``equivalents`` maps a
+         *     dotted key to its euro amount ("€83.30"); ``errors`` maps a dotted key
+         *     to its range or cross-field message.
+         */
+        SettingsPreviewOut: {
+            /** Changes */
+            changes: components["schemas"]["SettingsChangeOut"][];
+            /** Equivalents */
+            equivalents: {
+                [key: string]: string;
+            };
+            /** Errors */
+            errors: {
+                [key: string]: string;
+            };
+            summary: components["schemas"]["SettingsPreviewSummary"];
+        };
+        /**
+         * SettingsPreviewSummary
+         * @description The "What these limits mean today" sentences, as data. Money is a
+         *     decimal string; the frontend only formats it.
+         */
+        SettingsPreviewSummary: {
+            /** Daily Stop Eur */
+            daily_stop_eur: string;
+            /** Day Start Equity */
+            day_start_equity: string;
+            /** Equity */
+            equity: string;
+            /** Kill Level Eur */
+            kill_level_eur: string;
+            /** Loss At Stop Eur */
+            loss_at_stop_eur: string;
+            /** Next Position Pct */
+            next_position_pct: string;
+            /** Peak Equity */
+            peak_equity: string;
+            /** Positions At Full Risk */
+            positions_at_full_risk: number;
+            /** Throttled Loss Eur */
+            throttled_loss_eur: string;
+        };
+        /**
+         * SettingsSaveIn
+         * @description PUT /api/settings body: the whole draft, a required reason and the
+         *     "it is me" flag for saves that loosen something.
+         */
+        SettingsSaveIn: {
+            /**
+             * Confirm Looser
+             * @default false
+             */
+            confirm_looser: boolean;
+            /** Reason */
+            reason: string;
+            settings: components["schemas"]["Settings-Input"];
+        };
+        /** SettingsSaveOut */
+        SettingsSaveOut: {
+            settings: components["schemas"]["Settings-Output"];
+            /** Version */
+            version: number;
         };
         /** ShadowIn */
         ShadowIn: {
@@ -4681,6 +5197,30 @@ export interface components {
              */
             confirm: "PROMOTE";
         };
+        /**
+         * ShadowRefOut
+         * @description One shadow strategy for the Live / Shadow switch — running or
+         *     stopped, by name.
+         */
+        ShadowRefOut: {
+            /** Entry Orders */
+            entry_orders: string;
+            /** Id */
+            id: string;
+            /** Model */
+            model: string;
+            /** Name */
+            name: string;
+            /** Prompt Version */
+            prompt_version: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Status */
+            status: string;
+        };
         /** Signal */
         Signal: {
             /** Name */
@@ -4700,6 +5240,19 @@ export interface components {
         SmtpPasswordIn: {
             /** Password */
             password: string;
+        };
+        /**
+         * SmtpSaveIn
+         * @description PUT /api/notifications body (item 025): the SMTP block only — the
+         *     rest of the notification settings save through PUT /api/settings.
+         */
+        SmtpSaveIn: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            smtp: components["schemas"]["SmtpSettings"];
         };
         /** SmtpSettings */
         SmtpSettings: {
@@ -4859,8 +5412,32 @@ export interface components {
         };
         /** SourceUpdateIn */
         SourceUpdateIn: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
             /** Enabled */
             enabled: boolean;
+        };
+        /**
+         * StopHistoryItem
+         * @description One stop level on a position card: the initial stop at entry, then
+         *     each breakeven/trailing move the watcher made.
+         */
+        StopHistoryItem: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "initial" | "breakeven" | "trailing";
+            /** Stop */
+            stop: string;
         };
         /** StorageSettings */
         StorageSettings: {
@@ -4913,6 +5490,66 @@ export interface components {
              * @default 60
              */
             stream_read_s: number;
+        };
+        /**
+         * TodayItemOut
+         * @description One fill since 00:00 Amsterdam (live account only).
+         */
+        TodayItemOut: {
+            /** Action */
+            action?: string | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Confidence */
+            confidence?: number | null;
+            /** Decision Id */
+            decision_id: string;
+            /** Fees Eur */
+            fees_eur?: string | null;
+            /** Held Seconds */
+            held_seconds?: number | null;
+            /** Pair */
+            pair: string;
+            /** Price */
+            price: string;
+            /** Qty */
+            qty: string;
+            /** Realised Eur */
+            realised_eur?: string | null;
+            /** Realised R */
+            realised_r?: string | null;
+            /** Reason */
+            reason: string;
+            /** Rr */
+            rr?: string | null;
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "buy" | "sell";
+            /**
+             * Still Open
+             * @default false
+             */
+            still_open: boolean;
+            /** Trade Id */
+            trade_id: number | null;
+        };
+        /** TodayOut */
+        TodayOut: {
+            /** Entries */
+            entries: number;
+            /** Exits */
+            exits: number;
+            /** Fees */
+            fees: string;
+            /** Items */
+            items: components["schemas"]["TodayItemOut"][];
+            /** Realised */
+            realised: string;
         };
         /** TradeListOut */
         TradeListOut: {
@@ -6037,6 +6674,77 @@ export interface operations {
             };
         };
     };
+    get_fills_api_fills_get: {
+        parameters: {
+            query?: {
+                pair?: string | null;
+                side?: ("buy" | "sell") | null;
+                reason?: ("decision" | "stop" | "target" | "time_stop" | "model_sell" | "flatten" | "manual" | "kill") | null;
+                from?: string | null;
+                to?: string | null;
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FillsPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_fills_api_fills_export_csv_get: {
+        parameters: {
+            query?: {
+                pair?: string | null;
+                side?: ("buy" | "sell") | null;
+                reason?: ("decision" | "stop" | "target" | "time_stop" | "model_sell" | "flatten" | "manual" | "kill") | null;
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_glossary_api_glossary_get: {
         parameters: {
             query?: never;
@@ -6724,6 +7432,80 @@ export interface operations {
             };
         };
     };
+    activate_market_route_api_markets__market__activate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                market: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarketActionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deactivate_market_route_api_markets__market__deactivate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                market: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarketActionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     pause_market_api_markets__market__pause_put: {
         parameters: {
             query?: never;
@@ -6847,7 +7629,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["NotificationSettings"];
+                "application/json": components["schemas"]["SmtpSaveIn"];
             };
         };
         responses: {
@@ -7066,6 +7848,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PerformanceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_positions_api_positions_get: {
+        parameters: {
+            query?: {
+                account?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PositionsOut"];
                 };
             };
             /** @description Validation Error */
@@ -7310,7 +8123,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Settings-Input"];
+                "application/json": components["schemas"]["SettingsSaveIn"];
             };
         };
         responses: {
@@ -7320,7 +8133,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Settings-Output"];
+                    "application/json": components["schemas"]["SettingsSaveOut"];
                 };
             };
             /** @description Validation Error */
@@ -7337,6 +8150,7 @@ export interface operations {
     get_settings_history_api_settings_history_get: {
         parameters: {
             query?: {
+                cursor?: string | null;
                 limit?: number;
             };
             header?: never;
@@ -7351,7 +8165,62 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SettingsHistoryOut"];
+                    "application/json": components["schemas"]["SettingsHistoryPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    settings_meta_api_settings_meta_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsMetaOut"];
+                };
+            };
+        };
+    };
+    settings_preview_api_settings_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsPreviewOut"];
                 };
             };
             /** @description Validation Error */

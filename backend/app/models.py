@@ -11,11 +11,40 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    PlainSerializer,
+    model_validator,
+)
+
+from app.settings_spec import KEEP_DAYS_RANGE, RANGES, TIMEOUT_RANGE, risk_errors, rules_errors
 
 # Money travels as a string in JSON: Decimals are exact and the frontend only
 # formats them.
 MoneyDecimal = Annotated[Decimal, PlainSerializer(lambda v: format(v, "f"), return_type=str)]
+
+
+def _range(lo: str, hi: str) -> AfterValidator:
+    """An inclusive bounds check; the 422 message reads "0.1 to 2"."""
+
+    def check(value: Decimal | int | float) -> Decimal | int | float:
+        if not Decimal(lo) <= Decimal(str(value)) <= Decimal(hi):
+            raise ValueError(f"must be {lo} to {hi}")
+        return value
+
+    return AfterValidator(check)
+
+
+def _keep_days_ok(value: dict[str, int]) -> dict[str, int]:
+    lo, hi = (Decimal(bound) for bound in KEEP_DAYS_RANGE)
+    for days in value.values():
+        if not lo <= Decimal(days) <= hi:
+            raise ValueError(f"must be {KEEP_DAYS_RANGE[0]} to {KEEP_DAYS_RANGE[1]}")
+    return value
+
 
 Action = Literal["BUY", "SELL", "HOLD", "SKIP"]
 ExecMode = Literal["auto", "supervised", "manual"]
@@ -240,29 +269,63 @@ class RiskSettings(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    min_rr: Decimal = Decimal("2.0")
-    max_cost_pct_of_risk: Decimal = Decimal("30")
-    risk_per_trade_pct: Decimal = Decimal("1.0")
-    throttled_risk_per_trade_pct: Decimal = Decimal("0.5")
-    total_open_risk_pct: Decimal = Decimal("2.5")
-    max_exposure_pct: Decimal = Decimal("100")
-    min_trade_eur: Decimal = Decimal("10")
-    cooldown_after_stopout_hours: Decimal = Decimal("6")
-    correlated_max_positions: int = 2
-    correlated_threshold: Decimal = Decimal("0.8")
-    shock_brake_btc_move_pct: Decimal = Decimal("4")
-    shock_brake_hours: Decimal = Decimal("2")
-    throttle_consecutive_losses: int = 3
-    throttle_drawdown_pct: Decimal = Decimal("4")
-    throttle_lift_drawdown_pct: Decimal = Decimal("2")
-    daily_loss_limit_pct: Decimal = Decimal("3")
-    kill_drawdown_pct: Decimal = Decimal("8")
-    stop_min_atr: Decimal = Decimal("0.5")
-    stop_max_atr: Decimal = Decimal("5")
-    stop_buffer_atr: Decimal = Decimal("0.1")  # stop sits this many ATR(1h) below the level
-    pending_entry_drift_pct: Decimal = Decimal("0.5")
-    time_stop_days: Decimal = Decimal("5")
+    min_rr: Annotated[Decimal, _range(*RANGES["risk.min_rr"])] = Decimal("2.0")
+    max_cost_pct_of_risk: Annotated[Decimal, _range(*RANGES["risk.max_cost_pct_of_risk"])] = (
+        Decimal("30")
+    )
+    risk_per_trade_pct: Annotated[Decimal, _range(*RANGES["risk.risk_per_trade_pct"])] = Decimal(
+        "1.0"
+    )
+    throttled_risk_per_trade_pct: Annotated[
+        Decimal, _range(*RANGES["risk.throttled_risk_per_trade_pct"])
+    ] = Decimal("0.5")
+    total_open_risk_pct: Annotated[Decimal, _range(*RANGES["risk.total_open_risk_pct"])] = Decimal(
+        "2.5"
+    )
+    max_exposure_pct: Annotated[Decimal, _range(*RANGES["risk.max_exposure_pct"])] = Decimal("100")
+    min_trade_eur: Annotated[Decimal, _range(*RANGES["risk.min_trade_eur"])] = Decimal("10")
+    cooldown_after_stopout_hours: Annotated[
+        Decimal, _range(*RANGES["risk.cooldown_after_stopout_hours"])
+    ] = Decimal("6")
+    correlated_max_positions: Annotated[int, _range(*RANGES["risk.correlated_max_positions"])] = 2
+    correlated_threshold: Annotated[Decimal, _range(*RANGES["risk.correlated_threshold"])] = (
+        Decimal("0.8")
+    )
+    shock_brake_btc_move_pct: Annotated[
+        Decimal, _range(*RANGES["risk.shock_brake_btc_move_pct"])
+    ] = Decimal("4")
+    shock_brake_hours: Annotated[Decimal, _range(*RANGES["risk.shock_brake_hours"])] = Decimal("2")
+    throttle_consecutive_losses: Annotated[
+        int, _range(*RANGES["risk.throttle_consecutive_losses"])
+    ] = 3
+    throttle_drawdown_pct: Annotated[Decimal, _range(*RANGES["risk.throttle_drawdown_pct"])] = (
+        Decimal("4")
+    )
+    throttle_lift_drawdown_pct: Annotated[
+        Decimal, _range(*RANGES["risk.throttle_lift_drawdown_pct"])
+    ] = Decimal("2")
+    daily_loss_limit_pct: Annotated[Decimal, _range(*RANGES["risk.daily_loss_limit_pct"])] = (
+        Decimal("3")
+    )
+    kill_drawdown_pct: Annotated[Decimal, _range(*RANGES["risk.kill_drawdown_pct"])] = Decimal("8")
+    stop_min_atr: Annotated[Decimal, _range(*RANGES["risk.stop_min_atr"])] = Decimal("0.5")
+    stop_max_atr: Annotated[Decimal, _range(*RANGES["risk.stop_max_atr"])] = Decimal("5")
+    stop_buffer_atr: Annotated[Decimal, _range(*RANGES["risk.stop_buffer_atr"])] = Decimal(
+        "0.1"
+    )  # stop sits this many ATR(1h) below the level
+    pending_entry_drift_pct: Annotated[Decimal, _range(*RANGES["risk.pending_entry_drift_pct"])] = (
+        Decimal("0.5")
+    )
+    time_stop_days: Annotated[Decimal, _range(*RANGES["risk.time_stop_days"])] = Decimal("5")
     trailing_stop_enabled: bool = False
+
+    @model_validator(mode="after")
+    def _cross_fields(self) -> RiskSettings:
+        errors = risk_errors(self)
+        if errors:
+            key, message = next(iter(errors.items()))
+            raise ValueError(f"{key}: {message}")
+        return self
 
 
 class RulesSettings(BaseModel):
@@ -271,14 +334,24 @@ class RulesSettings(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    prefilter_min_conds: int = 3  # of C2..C6, plus C1 and a position or setup
-    buy_min_conds: int = 4  # of C2..C6 for a Rules BUY
-    buy_max_atr_above_ema20: Decimal = Decimal("1.5")
-    stop_lookback_bars: int = 6
-    stop_atr_pad: Decimal = Decimal("0.2")
-    stop_max_atr: Decimal = Decimal("5")
-    target_max_atr: Decimal = Decimal("6")
-    target_rr: Decimal = Decimal("2.5")
+    prefilter_min_conds: Annotated[int, _range(*RANGES["rules.prefilter_min_conds"])] = 3
+    buy_min_conds: Annotated[int, _range(*RANGES["rules.buy_min_conds"])] = 4
+    buy_max_atr_above_ema20: Annotated[
+        Decimal, _range(*RANGES["rules.buy_max_atr_above_ema20"])
+    ] = Decimal("1.5")
+    stop_lookback_bars: Annotated[int, _range(*RANGES["rules.stop_lookback_bars"])] = 6
+    stop_atr_pad: Annotated[Decimal, _range(*RANGES["rules.stop_atr_pad"])] = Decimal("0.2")
+    stop_max_atr: Annotated[Decimal, _range(*RANGES["rules.stop_max_atr"])] = Decimal("5")
+    target_max_atr: Annotated[Decimal, _range(*RANGES["rules.target_max_atr"])] = Decimal("6")
+    target_rr: Annotated[Decimal, _range(*RANGES["rules.target_rr"])] = Decimal("2.5")
+
+    @model_validator(mode="after")
+    def _cross_fields(self) -> RulesSettings:
+        errors = rules_errors(self)
+        if errors:
+            key, message = next(iter(errors.items()))
+            raise ValueError(f"{key}: {message}")
+        return self
 
 
 class ModelSettings(BaseModel):
@@ -287,18 +360,22 @@ class ModelSettings(BaseModel):
     decider: Literal["openai", "rules"] = "openai"
     model_id: str = "gpt-4o-mini"
     prompt_version: str = "decision.v1"
-    daily_call_budget: int = 1000
+    daily_call_budget: Annotated[int, _range(*RANGES["model.daily_call_budget"])] = 1000
     rules_prefilter: bool = True
-    monthly_cost_cap_eur: Decimal = Decimal("10")
+    monthly_cost_cap_eur: Annotated[Decimal, _range(*RANGES["model.monthly_cost_cap_eur"])] = (
+        Decimal("10")
+    )
 
 
 class PaperSettings(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    start_balance_eur: Decimal = Decimal("10000")
-    taker_fee_pct: Decimal = Decimal("0.25")
-    maker_fee_pct: Decimal = Decimal("0.15")
-    slippage_pct: Decimal = Decimal("0.05")
+    start_balance_eur: Annotated[Decimal, _range(*RANGES["paper.start_balance_eur"])] = Decimal(
+        "10000"
+    )
+    taker_fee_pct: Annotated[Decimal, _range(*RANGES["paper.taker_fee_pct"])] = Decimal("0.25")
+    maker_fee_pct: Annotated[Decimal, _range(*RANGES["paper.maker_fee_pct"])] = Decimal("0.15")
+    slippage_pct: Annotated[Decimal, _range(*RANGES["paper.slippage_pct"])] = Decimal("0.05")
     # Market (default) or Limit (post-only): entries and targets pay the
     # maker fee and may not fill; stops and forced exits stay market.
     entry_orders: Literal["market", "limit"] = "market"
@@ -311,18 +388,26 @@ class MarketSettings(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    adx_threshold: Decimal = Decimal("25")
-    min_avg_daily_volume_eur: Decimal = Decimal("1000000")
-    max_avg_spread_pct: Decimal = Decimal("0.15")
-    min_daily_candles: int = 300
-    eligibility_fail_days: int = 3
-    eligibility_beyond_pct: Decimal = Decimal("20")
-    eligibility_recover_days: int = 3
-    history_1h: int = 800
-    history_4h: int = 300
-    history_1d: int = 300
-    structure_min_range_bars: int = 12
-    stale_grace_s: int = 900  # freshness: close + interval + grace (1h → 75 min)
+    adx_threshold: Annotated[Decimal, _range(*RANGES["market.adx_threshold"])] = Decimal("25")
+    min_avg_daily_volume_eur: Annotated[
+        Decimal, _range(*RANGES["market.min_avg_daily_volume_eur"])
+    ] = Decimal("1000000")
+    max_avg_spread_pct: Annotated[Decimal, _range(*RANGES["market.max_avg_spread_pct"])] = Decimal(
+        "0.15"
+    )
+    min_daily_candles: Annotated[int, _range(*RANGES["market.min_daily_candles"])] = 300
+    eligibility_fail_days: Annotated[int, _range(*RANGES["market.eligibility_fail_days"])] = 3
+    eligibility_beyond_pct: Annotated[Decimal, _range(*RANGES["market.eligibility_beyond_pct"])] = (
+        Decimal("20")
+    )
+    eligibility_recover_days: Annotated[int, _range(*RANGES["market.eligibility_recover_days"])] = 3
+    history_1h: Annotated[int, _range(*RANGES["market.history_1h"])] = 800
+    history_4h: Annotated[int, _range(*RANGES["market.history_4h"])] = 300
+    history_1d: Annotated[int, _range(*RANGES["market.history_1d"])] = 300
+    structure_min_range_bars: Annotated[int, _range(*RANGES["market.structure_min_range_bars"])] = (
+        12
+    )
+    stale_grace_s: Annotated[int, _range(*RANGES["market.stale_grace_s"])] = 900
     stablecoin_bases: list[str] = [
         "USDC",
         "EURC",
@@ -341,7 +426,7 @@ class SmtpSettings(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     host: str = ""
-    port: int = 587
+    port: Annotated[int, _range(*RANGES["notifications.smtp.port"])] = 587
     tls: bool = True
     username: str = ""
     sender: str = ""
@@ -383,8 +468,8 @@ class LearningSettings(BaseModel):
         default="08:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$"
     )  # HH:MM Europe/Amsterdam
     weekly_review: Literal["mon_08", "sun_20", "off"] = "mon_08"
-    ask_daily_limit: int = 100
-    insights_min_decisions: int = 30
+    ask_daily_limit: Annotated[int, _range(*RANGES["learning.ask_daily_limit"])] = 100
+    insights_min_decisions: Annotated[int, _range(*RANGES["learning.insights_min_decisions"])] = 30
 
 
 class ReadinessSettings(BaseModel):
@@ -394,10 +479,14 @@ class ReadinessSettings(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    min_closed_trades: int = 100
-    min_days_running: int = 30
-    max_drawdown_pct: Decimal = Decimal("6")
-    calibration_gap_pts: Decimal = Decimal("10")
+    min_closed_trades: Annotated[int, _range(*RANGES["readiness.min_closed_trades"])] = 100
+    min_days_running: Annotated[int, _range(*RANGES["readiness.min_days_running"])] = 30
+    max_drawdown_pct: Annotated[Decimal, _range(*RANGES["readiness.max_drawdown_pct"])] = Decimal(
+        "6"
+    )
+    calibration_gap_pts: Annotated[Decimal, _range(*RANGES["readiness.calibration_gap_pts"])] = (
+        Decimal("10")
+    )
 
 
 class UiSettings(BaseModel):
@@ -406,7 +495,7 @@ class UiSettings(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    stop_near_atr: Decimal = Decimal("1.5")
+    stop_near_atr: Annotated[Decimal, _range(*RANGES["ui.stop_near_atr"])] = Decimal("1.5")
 
 
 class LoggingSettings(BaseModel):
@@ -417,14 +506,14 @@ class LoggingSettings(BaseModel):
     console_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     queue_size: int = 20000
     # Days kept per level: debug 7, info 30, warning 180, error/critical 365.
-    keep_days: dict[str, int] = {
+    keep_days: Annotated[dict[str, int], AfterValidator(_keep_days_ok)] = {
         "DEBUG": 7,
         "INFO": 30,
         "WARNING": 180,
         "ERROR": 365,
         "CRITICAL": 365,
     }
-    max_db_mb: int = 2000
+    max_db_mb: Annotated[int, _range(*RANGES["logging.max_db_mb"])] = 2000
     backtest_debug: bool = False  # backtest children log INFO+ unless this is on
     library_debug: bool = False  # library loggers otherwise land at WARNING+
 
@@ -441,12 +530,12 @@ class TimeoutSettings(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    bitvavo_rest_s: float = 10
-    stream_read_s: float = 60
-    openai_s: float = 30
-    collector_s: float = 10
-    smtp_s: float = 15
-    keyring_s: float = 5
+    bitvavo_rest_s: Annotated[float, _range(*TIMEOUT_RANGE)] = 10
+    stream_read_s: Annotated[float, _range(*TIMEOUT_RANGE)] = 60
+    openai_s: Annotated[float, _range(*TIMEOUT_RANGE)] = 30
+    collector_s: Annotated[float, _range(*TIMEOUT_RANGE)] = 10
+    smtp_s: Annotated[float, _range(*TIMEOUT_RANGE)] = 15
+    keyring_s: Annotated[float, _range(*TIMEOUT_RANGE)] = 5
 
 
 class Settings(BaseModel):
@@ -460,8 +549,8 @@ class Settings(BaseModel):
     schema_version: int = 1
     active_markets: list[str] = DEFAULT_MARKETS.copy()
     execution_mode: ExecMode = "auto"
-    veto_window_s: int = 60
-    cycle_offset_s: int = 45
+    veto_window_s: Annotated[int, _range(*RANGES["veto_window_s"])] = 60
+    cycle_offset_s: Annotated[int, _range(*RANGES["cycle_offset_s"])] = 45
     data_source: Literal["bitvavo", "sim"] = "bitvavo"
     risk: RiskSettings = RiskSettings()
     rules: RulesSettings = RulesSettings()
@@ -478,6 +567,101 @@ class Settings(BaseModel):
     # Source ids the user disabled on the Sources page; the registry keeps
     # the runtime status.
     disabled_sources: list[str] = []
+
+
+# ------------------------------------------------------ settings sections --
+
+
+class SettingsSaveIn(BaseModel):
+    """PUT /api/settings body: the whole draft, a required reason and the
+    "it is me" flag for saves that loosen something."""
+
+    settings: Settings
+    reason: str
+    confirm_looser: bool = False
+
+
+class SettingsSaveOut(BaseModel):
+    version: int
+    settings: Settings
+
+
+class SettingsMetaItem(BaseModel):
+    """One leaf's description for the sectioned Settings screen."""
+
+    section: str | None  # None = accepted by the API, off the screen
+    default: object  # the Settings() default, JSON value
+    min: str | None = None
+    max: str | None = None
+    step: str | None = None
+    unit: str | None = None
+    choices: list[str] | None = None
+    direction: str | None = None  # which way is looser; None = uncovered
+    fixed: bool = False
+
+
+class SettingsMetaOut(BaseModel):
+    version: int
+    items: dict[str, SettingsMetaItem]
+
+
+class SettingsChangeOut(BaseModel):
+    """One leaf that differs between two documents, tagged tighter /
+    looser / neutral by the directions map."""
+
+    key: str
+    old: object | None = None
+    new: object | None = None
+    direction: str  # "looser" | "tighter" | "neutral"
+
+
+class SettingsPreviewSummary(BaseModel):
+    """The "What these limits mean today" sentences, as data. Money is a
+    decimal string; the frontend only formats it."""
+
+    equity: MoneyDecimal
+    day_start_equity: MoneyDecimal
+    peak_equity: MoneyDecimal
+    loss_at_stop_eur: MoneyDecimal  # one trade at full risk hitting its stop
+    throttled_loss_eur: MoneyDecimal  # the same while the throttle is on
+    positions_at_full_risk: int
+    next_position_pct: MoneyDecimal  # what the next position gets, %
+    daily_stop_eur: MoneyDecimal  # loss at the daily limit, from day start
+    kill_level_eur: MoneyDecimal  # equity level that fires the kill switch
+
+
+class SettingsPreviewOut(BaseModel):
+    """POST /api/settings/preview: nothing is saved. ``equivalents`` maps a
+    dotted key to its euro amount ("€83.30"); ``errors`` maps a dotted key
+    to its range or cross-field message."""
+
+    equivalents: dict[str, str]
+    summary: SettingsPreviewSummary
+    changes: list[SettingsChangeOut]
+    errors: dict[str, str]
+
+
+class SettingsHistoryVersionOut(BaseModel):
+    version: int
+    at: datetime
+    reason: str
+    source: str
+    changes: list[SettingsChangeOut]
+
+
+class SettingsHistoryRowOut(BaseModel):
+    """A per-setting change from before settings versions (item 025)."""
+
+    at: datetime
+    key: str
+    old: str | None
+    new: str | None
+
+
+class SettingsHistoryPageOut(BaseModel):
+    versions: list[SettingsHistoryVersionOut]
+    rows: list[SettingsHistoryRowOut]
+    next_cursor: str | None = None
 
 
 # ---------------------------------------------------------- screen payloads --
@@ -590,6 +774,173 @@ class DecisionDetail(BaseModel):
     outcome_failures: list[OutcomeFailureOut] = []
     outcome_pending_until: datetime | None = None
     entry_order: PaperOrderOut | None = None
+
+
+# ------------------------------------------------------- Positions & orders --
+
+
+class StopHistoryItem(BaseModel):
+    """One stop level on a position card: the initial stop at entry, then
+    each breakeven/trailing move the watcher made."""
+
+    kind: Literal["initial", "breakeven", "trailing"]
+    stop: MoneyDecimal
+    at: datetime
+
+
+class LatestDecisionOut(BaseModel):
+    """The pair's newest decision, for the card's "Latest decision" link."""
+
+    id: str
+    at: datetime
+    action: str
+    confidence: float
+    limit_price: MoneyDecimal | None = None  # the entry order's limit, if any
+
+
+class PositionCardOut(BaseModel):
+    """One open position with every fact the card shows (016)."""
+
+    pair: str
+    qty: MoneyDecimal
+    entry: MoneyDecimal
+    stop: MoneyDecimal
+    target: MoneyDecimal
+    opened_at: datetime
+    decision_id: str
+    last: MoneyDecimal
+    unrealised: MoneyDecimal
+    stop_dist_pct: MoneyDecimal | None
+    stop_dist_atr: MoneyDecimal | None
+    target_dist_pct: MoneyDecimal | None
+    target_dist_atr: MoneyDecimal | None
+    pnl_r: MoneyDecimal | None
+    stop_above_entry: bool
+    stop_near: bool
+    stop_hit_eur: MoneyDecimal  # qty x (stop - entry), before fees
+    stop_hit_r: MoneyDecimal | None
+    stop_hit_pct_equity: MoneyDecimal | None
+    rr_at_entry: MoneyDecimal | None
+    time_stop_at: datetime | None
+    entry_order_type: Literal["market", "limit"]
+    round_trip_fees_eur: MoneyDecimal  # entry fee + estimated exit fee
+    stop_history: list[StopHistoryItem]
+    latest_decision: LatestDecisionOut | None
+    watcher_checked_at: datetime | None
+
+
+class PositionsTotalsOut(BaseModel):
+    count: int
+    unrealised: MoneyDecimal
+    stop_hit_total: MoneyDecimal  # sum of every position's stop-hit result
+    open_risk_pct: Decimal  # broker.open_risk() as % of equity
+    open_risk_cap_pct: Decimal
+    exposure: MoneyDecimal
+    exposure_pct: float
+    cash: MoneyDecimal
+    fees_today: MoneyDecimal
+    fees_total: MoneyDecimal  # every fill of this account, all time
+    closest_pair: str | None  # nearest stop in ATR(1h)
+    closest_atr: Decimal | None
+
+
+class ShadowRefOut(BaseModel):
+    """One shadow strategy for the Live / Shadow switch — running or
+    stopped, by name."""
+
+    id: str
+    name: str
+    model: str
+    prompt_version: str
+    status: str  # "running" | "stopped"
+    started_at: datetime  # its paper account's start
+    entry_orders: str  # "market" | "limit" — its paper entry order type
+
+
+class TodayItemOut(BaseModel):
+    """One fill since 00:00 Amsterdam (live account only)."""
+
+    at: datetime
+    side: Literal["buy", "sell"]
+    pair: str
+    qty: MoneyDecimal
+    price: MoneyDecimal
+    reason: str
+    decision_id: str
+    trade_id: int | None
+    still_open: bool = False  # a buy fill whose position is still open
+    action: str | None = None  # the decision's action (entries)
+    confidence: float | None = None
+    rr: MoneyDecimal | None = None
+    held_seconds: int | None = None  # exits: opened -> closed
+    realised_eur: MoneyDecimal | None = None
+    realised_r: MoneyDecimal | None = None
+    fees_eur: MoneyDecimal | None = None  # the closed trade's both-side fee
+
+
+class TodayOut(BaseModel):
+    items: list[TodayItemOut]
+    entries: int
+    exits: int
+    realised: MoneyDecimal
+    fees: MoneyDecimal
+
+
+class PaperAccountOut(BaseModel):
+    """The live paper account card (live only)."""
+
+    id: int
+    started_at: datetime
+    start_balance: MoneyDecimal
+    cash: MoneyDecimal
+    coins_value: MoneyDecimal  # equity - cash
+    equity: MoneyDecimal
+    realised_pnl: MoneyDecimal
+    closed_trades: int
+    fees_total: MoneyDecimal
+    slippage_total: MoneyDecimal
+
+
+class PositionsOut(BaseModel):
+    """GET /api/positions: one account's positions, working orders and
+    totals; ``today`` and ``paper_account`` only for account=live."""
+
+    account: str  # "live" or the shadow id
+    shadows: list[ShadowRefOut]
+    totals: PositionsTotalsOut
+    positions: list[PositionCardOut]
+    orders: list[PaperOrderOut]
+    today: TodayOut | None = None
+    paper_account: PaperAccountOut | None = None
+
+
+class FillOut(BaseModel):
+    """One paper fill for the order history (live account only)."""
+
+    id: int
+    at: datetime
+    pair: str
+    side: Literal["buy", "sell"]
+    qty: MoneyDecimal
+    reference_price: MoneyDecimal | None
+    fill_price: MoneyDecimal
+    order_type: Literal["market", "limit"]
+    fee_eur: MoneyDecimal
+    fee_kind: Literal["maker", "taker"]
+    slippage_eur: MoneyDecimal | None
+    reason: str
+    decision_id: str
+    decision_action: str | None = None  # the decision's action, for the link label
+    decision_at: datetime | None = None
+    trade_id: int | None
+    paper_order_id: int | None
+    source: Literal["live", "rebuilt"]
+
+
+class FillsPageOut(BaseModel):
+    items: list[FillOut]
+    next_cursor: str | None = None
+    total: int = 0  # every fill matching the filters, all pages
 
 
 class LevelOut(BaseModel):
@@ -952,17 +1303,6 @@ class BriefingOut(BaseModel):
 
 class BriefingListOut(BaseModel):
     items: list[BriefingOut]
-
-
-class SettingsHistoryItem(BaseModel):
-    at: datetime
-    key: str
-    old: str | None
-    new: str | None
-
-
-class SettingsHistoryOut(BaseModel):
-    items: list[SettingsHistoryItem]
 
 
 # --------------------------------------------------------------- evidence --

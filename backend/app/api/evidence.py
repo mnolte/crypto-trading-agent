@@ -16,9 +16,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import repo
+from app import repo, settings_service
 from app.agent.prompts import PromptNotFoundError, load_prompt
-from app.api.deps import AppState, get_state, require_token
+from app.api.deps import AppState, broadcast_settings, get_state, require_token
 from app.db import DecisionRow, OutcomeRow, WhatifRow, utcnow
 from app.features import ask as ask_mod
 from app.features import shadows as shadows_mod
@@ -186,7 +186,7 @@ def save_whatif(
 
 
 @router.post("/whatif/{scenario_id}/apply", dependencies=[Depends(require_token)])
-def apply_whatif(
+async def apply_whatif(
     scenario_id: str,
     body: WhatIfApplyIn,
     state: Annotated[AppState, Depends(get_state)],
@@ -201,7 +201,15 @@ def apply_whatif(
         if not overrides:
             raise HTTPException(status_code=422, detail="nothing to apply")
         new_settings = apply_overrides(state.settings, overrides)
-        state.settings_version = repo.save_settings(session, new_settings)
+        # WhatIfApplyIn.confirm is the "it is me" step, so looser changes
+        # apply without a second confirmation.
+        state.settings_version = settings_service.save(
+            session,
+            new_settings,
+            reason=f"Applied What-if scenario '{row.name or row.id}'",
+            source="whatif",
+            confirm_looser=True,
+        )
         state.settings = new_settings
         repo.add_activity(
             session,
@@ -210,6 +218,7 @@ def apply_whatif(
             at=utcnow(),
         )
         session.commit()
+        await broadcast_settings(state)
         return {"ok": True, "settings_version": state.settings_version}
     finally:
         session.close()
@@ -287,7 +296,7 @@ def stop_shadow(shadow_id: str, state: Annotated[AppState, Depends(get_state)]) 
 
 
 @router.post("/shadows/{shadow_id}/promote", dependencies=[Depends(require_token)])
-def promote_shadow(
+async def promote_shadow(
     shadow_id: str,
     body: ShadowPromoteIn,
     state: Annotated[AppState, Depends(get_state)],
@@ -300,7 +309,14 @@ def promote_shadow(
         new_settings = state.settings.model_copy(deep=True)
         new_settings.model.model_id = row.model
         new_settings.model.prompt_version = row.prompt_version
-        state.settings_version = repo.save_settings(session, new_settings)
+        # ShadowPromoteIn.confirm is the "it is me" step.
+        state.settings_version = settings_service.save(
+            session,
+            new_settings,
+            reason=f"Promoted {row.name}",
+            source="promote",
+            confirm_looser=True,
+        )
         state.settings = new_settings
         shadows_mod.stop_shadow(session, row, utcnow())
         repo.add_activity(
@@ -310,6 +326,7 @@ def promote_shadow(
             at=utcnow(),
         )
         session.commit()
+        await broadcast_settings(state)
         return {"ok": True, "settings_version": state.settings_version}
     finally:
         session.close()

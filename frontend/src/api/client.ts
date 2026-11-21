@@ -54,7 +54,16 @@ export type ReadinessOut = components["schemas"]["ReadinessOut"];
 export type ReadinessRowOut = components["schemas"]["ReadinessRowOut"];
 export type BriefingOut = components["schemas"]["BriefingOut"];
 export type BriefingListOut = components["schemas"]["BriefingListOut"];
-export type SettingsHistoryOut = components["schemas"]["SettingsHistoryOut"];
+export type SettingsHistoryPageOut = components["schemas"]["SettingsHistoryPageOut"];
+export type SettingsHistoryVersionOut =
+  components["schemas"]["SettingsHistoryVersionOut"];
+export type SettingsHistoryRowOut = components["schemas"]["SettingsHistoryRowOut"];
+export type SettingsMetaOut = components["schemas"]["SettingsMetaOut"];
+export type SettingsMetaItem = components["schemas"]["SettingsMetaItem"];
+export type SettingsPreviewOut = components["schemas"]["SettingsPreviewOut"];
+export type SettingsSaveIn = components["schemas"]["SettingsSaveIn"];
+export type SettingsSaveOut = components["schemas"]["SettingsSaveOut"];
+export type SettingsChangeOut = components["schemas"]["SettingsChangeOut"];
 export type InsightsOut = components["schemas"]["InsightsOut"];
 export type InsightSliceOut = components["schemas"]["InsightSliceOut"];
 export type InsightFinding = components["schemas"]["InsightFinding"];
@@ -76,6 +85,18 @@ export type AskConversationListOut = components["schemas"]["AskConversationListO
 export type AskConversationOut = components["schemas"]["AskConversationOut"];
 export type OutcomeStatsOut = components["schemas"]["OutcomeStatsOut"];
 export type OutcomeStatsRow = components["schemas"]["OutcomeStatsRow"];
+export type PositionsOut = components["schemas"]["PositionsOut"];
+export type PositionCardOut = components["schemas"]["PositionCardOut"];
+export type PositionsTotalsOut = components["schemas"]["PositionsTotalsOut"];
+export type ShadowRefOut = components["schemas"]["ShadowRefOut"];
+export type PaperAccountOut = components["schemas"]["PaperAccountOut"];
+export type TodayOut = components["schemas"]["TodayOut"];
+export type TodayItemOut = components["schemas"]["TodayItemOut"];
+export type StopHistoryItem = components["schemas"]["StopHistoryItem"];
+export type LatestDecisionOut = components["schemas"]["LatestDecisionOut"];
+export type PaperOrderOut = components["schemas"]["PaperOrderOut"];
+export type FillOut = components["schemas"]["FillOut"];
+export type FillsPageOut = components["schemas"]["FillsPageOut"];
 
 export type NeedsItem = components["schemas"]["NeedsItem"];
 export type HealthItem = components["schemas"]["HealthItem"];
@@ -114,6 +135,8 @@ export class ApiError extends Error {
   errorId?: string;
   requestId?: string;
   retryAfter?: string;
+  /** Looser-change details on a 409 looser_needs_confirm. */
+  changes?: { key: string; old?: unknown; new?: unknown; direction?: string }[];
 
   constructor(opts: {
     status: number;
@@ -122,6 +145,7 @@ export class ApiError extends Error {
     errorId?: string;
     requestId?: string;
     retryAfter?: string;
+    changes?: { key: string; old?: unknown; new?: unknown; direction?: string }[];
   }) {
     super(opts.message);
     this.name = "ApiError";
@@ -130,6 +154,7 @@ export class ApiError extends Error {
     this.errorId = opts.errorId;
     this.requestId = opts.requestId;
     this.retryAfter = opts.retryAfter;
+    this.changes = opts.changes;
   }
 }
 
@@ -160,7 +185,15 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const requestId = response.headers.get("x-request-id") ?? undefined;
     const retryAfter = response.headers.get("retry-after") ?? undefined;
-    let body: { error?: { code?: string; message?: string; error_id?: string }; detail?: string } = {};
+    let body: {
+      error?: {
+        code?: string;
+        message?: string;
+        error_id?: string;
+        changes?: { key: string; old?: unknown; new?: unknown; direction?: string }[];
+      };
+      detail?: string;
+    } = {};
     try {
       body = (await response.json()) as typeof body;
     } catch {
@@ -177,6 +210,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
       errorId: err?.error_id,
       requestId,
       retryAfter,
+      changes: err?.changes,
     });
   }
   return (await response.json()) as T;

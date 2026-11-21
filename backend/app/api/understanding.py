@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app import repo
+from app import repo, settings_service
 from app.api.deps import AppState, get_state, require_token
 from app.api.routes import broadcast_snapshot
 from app.db import BriefingRow, EntryPauseRow, utcnow
@@ -27,8 +27,7 @@ from app.models import (
     GlossaryOut,
     GlossaryTermOut,
     ReadinessOut,
-    SettingsHistoryItem,
-    SettingsHistoryOut,
+    SettingsHistoryPageOut,
 )
 
 router = APIRouter(prefix="/api")
@@ -174,19 +173,16 @@ def get_briefing(briefing_id: int, state: Annotated[AppState, Depends(get_state)
         session.close()
 
 
-@router.get("/settings/history")
+@router.get("/settings/history", response_model=SettingsHistoryPageOut)
 def get_settings_history(
-    state: Annotated[AppState, Depends(get_state)], limit: int = 200
-) -> SettingsHistoryOut:
+    state: Annotated[AppState, Depends(get_state)],
+    cursor: str | None = None,
+    limit: int = 50,
+) -> SettingsHistoryPageOut:
+    """Numbered settings versions newest first, then the older
+    per-setting rows from before versions existed (item 025)."""
     session = state.session_factory()
     try:
-        return SettingsHistoryOut(
-            items=[
-                SettingsHistoryItem(
-                    at=repo.aware_utc(row.at), key=row.key, old=row.old, new=row.new
-                )
-                for row in repo.list_settings_history(session, limit=limit)
-            ]
-        )
+        return settings_service.history_page(session, cursor, limit=limit)
     finally:
         session.close()

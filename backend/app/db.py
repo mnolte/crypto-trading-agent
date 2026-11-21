@@ -399,7 +399,8 @@ class SettingsHistoryRow(Base):
 
     Decisions store the settings version they ran under; this table answers
     "what changed, and when" — the Readiness screen shows loosened
-    thresholds with their date.
+    thresholds with their date. From item 025 each row also carries the
+    settings version it belongs to (NULL for changes from before versions).
     """
 
     __tablename__ = "settings_history"
@@ -409,6 +410,22 @@ class SettingsHistoryRow(Base):
     key: Mapped[str]
     old: Mapped[str | None]  # JSON-encoded leaf value (None = key absent)
     new: Mapped[str | None]
+    version: Mapped[int | None] = mapped_column(default=None)
+
+
+class SettingsVersionRow(Base):
+    """One numbered settings version: the whole document, why it was saved
+    and where the save came from (screen, promote, whatif, action,
+    migration). ``changes`` is a JSON list of {key, old, new, direction}."""
+
+    __tablename__ = "settings_versions"
+
+    version: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime]
+    reason: Mapped[str]
+    source: Mapped[str]
+    doc: Mapped[str]  # the settings document as saved
+    changes: Mapped[str] = mapped_column(default="[]")  # JSON list
 
 
 class AlertRow(Base):
@@ -513,6 +530,48 @@ class StopMoveRow(Base):
     old_stop: Mapped[str]
     new_stop: Mapped[str]
     reason: Mapped[str]  # "breakeven" | "trailing"
+
+
+class FillRow(Base):
+    """One paper fill: the record behind every position open and close.
+
+    ``reference_price`` is the price the fill was simulated from (the last
+    trade for a market order, the watcher's crossing price for a stop, the
+    limit for a limit fill) and ``slippage_eur`` its cost against it —
+    both NULL on fills rebuilt from trades and positions, which never had
+    them recorded. ``trade_id`` is set on the exit fill and, once the
+    trade closes, on its entry fill too.
+    """
+
+    __tablename__ = "fills"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    account_id: Mapped[int]
+    at: Mapped[datetime]
+    pair: Mapped[str]
+    side: Mapped[str]  # "buy" | "sell"
+    qty: Mapped[str]
+    reference_price: Mapped[str | None]
+    fill_price: Mapped[str]
+    order_type: Mapped[str]  # "market" | "limit"
+    fee_eur: Mapped[str]
+    fee_kind: Mapped[str]  # "maker" | "taker"
+    slippage_eur: Mapped[str | None]
+    # decision | stop | target | time_stop | model_sell | flatten | manual | kill
+    reason: Mapped[str]
+    decision_id: Mapped[str]
+    trade_id: Mapped[int | None]
+    paper_order_id: Mapped[int | None]
+    source: Mapped[str]  # "live" | "rebuilt"
+
+
+class MetaRow(Base):
+    """Small key/value store for one-off bookkeeping (the fills rebuild)."""
+
+    __tablename__ = "meta"
+
+    key: Mapped[str] = mapped_column(primary_key=True)
+    value: Mapped[str]
 
 
 BUSY_TIMEOUT_MS = 30000

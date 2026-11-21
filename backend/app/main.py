@@ -29,7 +29,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
-from app import logstore, repo
+from app import logstore, repo, settings_service
 from app import tasks as tasks_mod
 from app.agent.broker.paper import PaperBroker
 from app.agent.deciders.openai_decider import OpenAIDecider
@@ -43,7 +43,7 @@ from app.agent.market.universe import (
 from app.agent.outcomes import outcome_loop
 from app.api import context as context_routes
 from app.api import dashboard as dashboard_routes
-from app.api import deps, errors, evidence, inspector, notifications, routes, screens, ws
+from app.api import deps, errors, evidence, inspector, notifications, positions, routes, screens, ws
 from app.api import logs as logs_routes
 from app.api import sources as source_routes
 from app.api import understanding as understanding_routes
@@ -66,6 +66,7 @@ from app.db import (
     utcnow,
 )
 from app.features import briefings as briefings_mod
+from app.features import fills as fills_mod
 from app.features.shadows import ShadowRunner
 from app.logstore.record import fingerprint
 from app.operations import backup_loop
@@ -441,10 +442,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         session = session_factory()
         try:
             settings = repo.load_settings(session)
+            settings_service.ensure_base_version(session, settings)
             if env.ta_data_source is not None and settings.data_source != env.ta_data_source:
                 # TA_DATA_SOURCE (tests, e2e, dev): stored like a manual change.
                 settings.data_source = env.ta_data_source
-                repo.save_settings(session, settings)
+                settings_service.save(
+                    session,
+                    settings,
+                    reason=f"TA_DATA_SOURCE={env.ta_data_source} at start",
+                    source="action",
+                    confirm_looser=True,
+                )
             settings_version = repo.settings_version(session)
         finally:
             session.close()
@@ -482,6 +490,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             session.close()
         state.broker = broker
         state.account_id = account.id
+        # One-time rebuild of paper fills from trades and positions; the
+        # meta marker makes it run once, on the first start after 0014.
+        session = session_factory()
+        try:
+            fills_mod.rebuild_fills(session, settings.paper)
+        finally:
+            session.close()
         notification_dispatcher = notifications.NotificationDispatcher(state)
         source_recovery_generations: dict[str, int] = {}
 
@@ -665,6 +680,7 @@ def create_app() -> FastAPI:
     app.add_middleware(errors.ShutdownGuard)
     app.add_middleware(deps.RequestIdMiddleware)
     app.include_router(routes.router)
+    app.include_router(positions.router)
     app.include_router(screens.router)
     app.include_router(dashboard_routes.router)
     app.include_router(source_routes.router)

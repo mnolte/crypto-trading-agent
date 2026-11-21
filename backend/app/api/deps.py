@@ -33,6 +33,7 @@ from app.agent.market import make_market_client
 from app.agent.market.base import MarketClient, MarketInfo
 from app.agent.market.bitvavo import BitvavoClient
 from app.config import LOCAL_HOSTS
+from app.features import positions as positions_mod
 from app.features import quiet as quiet_mod
 from app.features.needs import load_needs
 from app.features.performance import since_start
@@ -202,6 +203,19 @@ def require_token(request: Request, x_local_token: str | None = Header(default=N
         raise HTTPException(status_code=403, detail="missing or invalid X-Local-Token")
 
 
+async def broadcast_settings(state: AppState) -> None:
+    """Push the new settings version to every connected WebSocket client
+    (``{"type": "settings", "data": {"version": n}}``)."""
+    if not state.ws_clients:
+        return
+    payload = '{"type":"settings","data":{"version":' + str(state.settings_version) + "}}"
+    for ws in list(state.ws_clients):
+        try:
+            await ws.send_text(payload)
+        except Exception:  # noqa: BLE001 - a closed socket shows as any error
+            state.ws_clients.discard(ws)
+
+
 def build_snapshot(state: AppState) -> Snapshot:
     """The full snapshot pushed over the WebSocket after every change.
 
@@ -270,17 +284,15 @@ def build_snapshot(state: AppState) -> Snapshot:
         positions = [p.to_model() for p in broker.positions.values()]
         stop_near_atr = settings.ui.stop_near_atr
         for model, held in zip(positions, broker.positions.values(), strict=True):
-            model.stop_above_entry = held.stop >= held.entry
-            if held.last <= 0:
-                continue
-            dist = held.last - held.stop
-            model.stop_dist_pct = dist / held.last * 100
-            atr = engine._atr_1h(session, held.pair, now)
-            if atr is not None and atr > 0:
-                model.stop_dist_atr = dist / atr
-                model.stop_near = model.stop_dist_atr < stop_near_atr
-            if held.qty > 0 and held.r_unit > 0:
-                model.pnl_r = held.unrealised / (held.qty * held.r_unit)
+            atr = engine._atr_1h(session, held.pair, now) if held.last > 0 else None
+            positions_mod.position_facts(
+                model,
+                held,
+                atr,
+                equity=equity,
+                stop_near_atr=stop_near_atr,
+                time_stop_days=settings.risk.time_stop_days,
+            )
         activity = [
             ActivityItem(
                 at=repo.aware_utc(row.at),
