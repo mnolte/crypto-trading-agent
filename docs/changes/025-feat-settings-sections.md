@@ -6,7 +6,7 @@ status: building
 issue: 44
 kickoff: 025-feat-settings-sections.md
 spec_prs: [45]
-build_prs: []
+build_prs: [51]
 ---
 
 # 025 · feat · Settings sections
@@ -25,3 +25,14 @@ Marc, 21 Nov: the crypto agent's settings should work like Stock Trading Agent's
 - **API:** `GET /api/settings/meta`, `POST /api/settings/preview`, `PUT /api/settings` with `{settings, reason, confirm_looser}` (409 `looser_needs_confirm`), `GET /api/settings/history` in versions.
 - Also changed: GUI screens → Settings points to the new section; Settings, secrets and persistence and the API table mention versions; Build order (v0.3) lists item 025.
 - The kickoff sets the range and direction of every setting; the spec only says that each has one.
+
+## 2026-11-21 · build PR #51
+
+Backend half: settings now save as numbered versions.
+
+- Every numeric setting has a range (422 with "must be 0.1 to 2" style messages); cross-field rules for risk and rules.
+- `settings_directions.py`: one tighter/looser map that fails closed; model and prompt changes and event channels going off always ask once more.
+- `settings_versions` + `settings_history.version` (migration 0014); the first boot writes the stored document once as a `migration` version.
+- `settings_service.save` enforces the 3–200-character reason and the looser-change confirmation (409 `looser_needs_confirm`); every former `repo.save_settings` caller now saves with its source and reason.
+- New endpoints: `GET /api/settings/meta`, `POST /api/settings/preview` (backend Decimal money, saves nothing), paged `GET /api/settings/history`, `POST /api/markets/{m}/activate|deactivate`; `PUT /api/settings` takes `{settings, reason, confirm_looser}` and returns `{version, settings}`; a `settings` WebSocket message carries the new version.
+- `PUT /api/notifications` is SMTP-only now; the screen arrives in the next PR.
