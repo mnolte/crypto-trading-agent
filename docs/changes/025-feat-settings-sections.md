@@ -5,7 +5,7 @@ title: Settings sections
 status: ready
 issue: 44
 kickoff: 025-feat-settings-sections.md
-spec_prs: []
+spec_prs: [45]
 build_prs: []
 ---
 
