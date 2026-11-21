@@ -51,7 +51,10 @@ test.beforeAll(async ({ request }) => {
     ...(updated.paper as Record<string, unknown>),
     entry_orders: "limit",
   };
-  await request.put("/api/settings", { headers, data: updated });
+  await request.put("/api/settings", {
+    headers,
+    data: { settings: updated, reason: "e2e: limit entries" },
+  });
   seed();
 });
 
@@ -64,7 +67,10 @@ function seed(...ids: string[]) {
 
 test.afterAll(async ({ request }) => {
   if (headers && originalSettings !== undefined) {
-    await request.put("/api/settings", { headers, data: originalSettings });
+    await request.put("/api/settings", {
+      headers,
+      data: { settings: originalSettings, reason: "e2e: restore settings" },
+    });
   }
 });
 

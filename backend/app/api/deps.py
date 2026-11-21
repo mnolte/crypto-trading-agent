@@ -203,6 +203,19 @@ def require_token(request: Request, x_local_token: str | None = Header(default=N
         raise HTTPException(status_code=403, detail="missing or invalid X-Local-Token")
 
 
+async def broadcast_settings(state: AppState) -> None:
+    """Push the new settings version to every connected WebSocket client
+    (``{"type": "settings", "data": {"version": n}}``)."""
+    if not state.ws_clients:
+        return
+    payload = '{"type":"settings","data":{"version":' + str(state.settings_version) + "}}"
+    for ws in list(state.ws_clients):
+        try:
+            await ws.send_text(payload)
+        except Exception:  # noqa: BLE001 - a closed socket shows as any error
+            state.ws_clients.discard(ws)
+
+
 def build_snapshot(state: AppState) -> Snapshot:
     """The full snapshot pushed over the WebSocket after every change.
 

@@ -224,8 +224,18 @@ def test_market_activation_and_listing(sim_client: TestClient) -> None:
     assert resp.status_code == 409
     assert resp.json()["error"]["message"] == "volume"
 
+    # Activating a market adds it to active_markets — a looser change, so
+    # the first attempt must be refused and the confirmed one accepted.
     resp = sim_client.put(
         "/api/markets/NEW-EUR", json={"active": True}, headers={"X-Local-Token": token}
+    )
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "looser_needs_confirm"
+
+    resp = sim_client.put(
+        "/api/markets/NEW-EUR",
+        json={"active": True, "confirm": True},
+        headers={"X-Local-Token": token},
     )
     assert resp.status_code == 200
     body = resp.json()

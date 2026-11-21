@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi.testclient import TestClient
 
 from app.db import make_engine, make_session_factory
@@ -21,13 +23,22 @@ def test_settings_defaults(client: TestClient) -> None:
     assert body["risk"]["kill_drawdown_pct"] == "8"
 
 
+def _put_settings(client: TestClient, doc: dict[str, Any], **extra: object) -> Any:
+    return client.put(
+        "/api/settings",
+        json={"settings": doc, "reason": "test save", **extra},
+        headers={"X-Local-Token": client.get("/api/session").json()["token"]},
+    )
+
+
 def test_settings_put_and_reload(client: TestClient, env_paths: object) -> None:
-    token = client.get("/api/session").json()["token"]
     current = client.get("/api/settings").json()
     current["model"]["decider"] = "rules"
     current["risk"]["min_rr"] = 2.5
-    response = client.put("/api/settings", json=current, headers={"X-Local-Token": token})
+    # decider is an always-confirm key; min_rr 2.0 -> 2.5 is tighter.
+    response = _put_settings(client, current, confirm_looser=True)
     assert response.status_code == 200
+    assert response.json()["version"] >= 2
 
     # Reload straight from the database: the document survived persistence.
     from app.config import get_env
@@ -61,10 +72,9 @@ def test_settings_unknown_keys_dropped(env_paths: object) -> None:
 
 
 def test_settings_invalid_rejected(client: TestClient) -> None:
-    token = client.get("/api/session").json()["token"]
     body = client.get("/api/settings").json()
     body["execution_mode"] = "yolo"
-    response = client.put("/api/settings", json=body, headers={"X-Local-Token": token})
+    response = _put_settings(client, body)
     assert response.status_code == 422
 
 

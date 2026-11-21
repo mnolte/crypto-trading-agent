@@ -13,18 +13,27 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app import repo
+from app import repo, settings_service
 from app import tasks as tasks_mod
-from app.api.deps import AppState, get_state, require_token
+from app.api import errors as api_errors
+from app.api.deps import AppState, broadcast_settings, get_state, require_token
 from app.config import SecretStoreError, get_secret, secret_status, set_secret
 from app.db import utcnow
-from app.models import NotificationSettings
+from app.models import NotificationSettings, SmtpSettings
 
 router = APIRouter(prefix="/api/notifications")
 
 
 class SmtpPasswordIn(BaseModel):
     password: str
+
+
+class SmtpSaveIn(BaseModel):
+    """PUT /api/notifications body (item 025): the SMTP block only — the
+    rest of the notification settings save through PUT /api/settings."""
+
+    smtp: SmtpSettings
+    confirm: bool = False
 
 
 @router.get("/smtp-password")
@@ -51,17 +60,32 @@ def get_notifications(
 
 
 @router.put("", dependencies=[Depends(require_token)])
-def put_notifications(
-    settings: NotificationSettings,
+async def put_notifications(
+    body: SmtpSaveIn,
     state: Annotated[AppState, Depends(get_state)],
 ) -> NotificationSettings:
-    state.settings.notifications = settings
+    state.settings.notifications.smtp = body.smtp
     session = state.session_factory()
     try:
-        state.settings_version = repo.save_settings(session, state.settings)
+        try:
+            state.settings_version = settings_service.save(
+                session,
+                state.settings,
+                reason="Email settings tested and saved",
+                source="action",
+                confirm_looser=body.confirm,
+            )
+        except settings_service.LooserNeedsConfirm as exc:
+            return api_errors.api_error(  # type: ignore[return-value]
+                409,
+                "This change loosens a limit — confirm to save it.",
+                code="looser_needs_confirm",
+                extra={"changes": exc.changes},
+            )
     finally:
         session.close()
-    return settings
+    await broadcast_settings(state)
+    return state.settings.notifications
 
 
 # In-app toast severity per notification event (PR 14): critical toasts

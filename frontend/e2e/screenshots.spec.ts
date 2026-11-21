@@ -40,7 +40,10 @@ test.beforeAll(async ({ request }) => {
   const settingsResponse = await request.get("/api/settings");
   const settings = (await settingsResponse.json()) as Record<string, unknown>;
   settings.execution_mode = "manual";
-  await request.put("/api/settings", { headers, data: settings });
+  await request.put("/api/settings", {
+    headers,
+    data: { settings, reason: "e2e: manual mode for screenshots" },
+  });
   await request.post("/api/agent/run-now", { headers });
 
   // Wait for the cycle to finish (candles fetched + decisions written).

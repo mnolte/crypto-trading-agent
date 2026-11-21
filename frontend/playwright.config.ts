@@ -32,6 +32,7 @@ export default defineConfig({
         "screenshots.spec.ts",
         "pr15.spec.ts",
         "positions.spec.ts",
+        "settings-sections.spec.ts",
       ],
       use: { viewport: { width: 390, height: 844 } },
     },

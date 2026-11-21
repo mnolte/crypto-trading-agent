@@ -16,8 +16,9 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from starlette.responses import JSONResponse
 
-from app import repo
+from app import repo, settings_service
 from app.agent.market.universe import (
     IneligibleMarketError,
     UnknownMarketError,
@@ -25,7 +26,8 @@ from app.agent.market.universe import (
     deactivate_market,
     warming_up,
 )
-from app.api.deps import AppState, get_state, require_token
+from app.api import errors as api_errors
+from app.api.deps import AppState, broadcast_settings, get_state, require_token
 from app.api.routes import broadcast_snapshot
 from app.config import SecretStoreError, delete_secret, set_secret
 from app.db import DecisionRow, MarketRow, utcnow
@@ -77,6 +79,7 @@ def _source_out(status: SourceStatus) -> SourceOut:
 
 class SourceUpdateIn(BaseModel):
     enabled: bool
+    confirm: bool = False
 
 
 class SecretIn(BaseModel):
@@ -193,6 +196,13 @@ def _market_out(
 
 class MarketUpdateIn(BaseModel):
     active: bool
+    confirm: bool = False
+
+
+class MarketActionIn(BaseModel):
+    """POST /api/markets/{market}/activate|deactivate body (item 025)."""
+
+    confirm: bool = False
 
 
 # ------------------------------------------------------------------ sources --
@@ -226,13 +236,28 @@ async def update_source(
     session = state.session_factory()
     try:
         settings.disabled_sources = sorted(disabled)
-        version = repo.save_settings(session, settings)
+        try:
+            version = settings_service.save(
+                session,
+                settings,
+                reason=f"Turned {'on' if body.enabled else 'off'} {source_id}",
+                source="action",
+                confirm_looser=body.confirm,
+            )
+        except settings_service.LooserNeedsConfirm as exc:
+            return api_errors.api_error(  # type: ignore[return-value]
+                409,
+                "This change loosens a limit — confirm to save it.",
+                code="looser_needs_confirm",
+                extra={"changes": exc.changes},
+            )
     finally:
         session.close()
     state.settings = settings
     state.settings_version = version
     state.sources.set_disabled(settings.disabled_sources)
     await broadcast_snapshot(state)
+    await broadcast_settings(state)
     return _source_out(state.sources.status(source_id))
 
 
@@ -316,14 +341,18 @@ def list_markets(state: Annotated[AppState, Depends(get_state)]) -> list[MarketO
         session.close()
 
 
-@router.put("/markets/{market}", dependencies=[Depends(require_token)])
-async def update_market(
-    market: str, body: MarketUpdateIn, state: Annotated[AppState, Depends(get_state)]
-) -> MarketOut:
+async def _set_market_active(
+    state: AppState, market: str, active: bool, confirm: bool
+) -> MarketOut | JSONResponse:
+    """Activate or deactivate a market and save the settings version.
+
+    Returns the market payload, or the 409 response when the change is
+    looser and ``confirm`` is false.
+    """
     session = state.session_factory()
     settings = state.settings
     try:
-        if body.active:
+        if active:
             try:
                 row = await activate_market(state.market_client, session, market, settings.market)
             except UnknownMarketError as exc:
@@ -341,10 +370,46 @@ async def update_market(
                 raise HTTPException(status_code=404, detail="unknown market")
             row = deactivated
             settings.active_markets = [m for m in settings.active_markets if m != market]
-        version = repo.save_settings(session, settings)
+        try:
+            version = settings_service.save(
+                session,
+                settings,
+                reason=f"{'Activated' if active else 'Deactivated'} {market}",
+                source="action",
+                confirm_looser=confirm,
+            )
+        except settings_service.LooserNeedsConfirm as exc:
+            return api_errors.api_error(
+                409,
+                "This change loosens a limit — confirm to save it.",
+                code="looser_needs_confirm",
+                extra={"changes": exc.changes},
+            )
     finally:
         session.close()
     state.settings = settings
     state.settings_version = version
     await broadcast_snapshot(state)
+    await broadcast_settings(state)
     return _market_out(state, row)
+
+
+@router.put("/markets/{market}", dependencies=[Depends(require_token)])
+async def update_market(
+    market: str, body: MarketUpdateIn, state: Annotated[AppState, Depends(get_state)]
+) -> MarketOut:
+    return await _set_market_active(state, market, body.active, body.confirm)  # type: ignore[return-value]
+
+
+@router.post("/markets/{market}/activate", dependencies=[Depends(require_token)])
+async def activate_market_route(
+    market: str, body: MarketActionIn, state: Annotated[AppState, Depends(get_state)]
+) -> MarketOut:
+    return await _set_market_active(state, market, True, body.confirm)  # type: ignore[return-value]
+
+
+@router.post("/markets/{market}/deactivate", dependencies=[Depends(require_token)])
+async def deactivate_market_route(
+    market: str, body: MarketActionIn, state: Annotated[AppState, Depends(get_state)]
+) -> MarketOut:
+    return await _set_market_active(state, market, False, body.confirm)  # type: ignore[return-value]
