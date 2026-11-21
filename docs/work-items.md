@@ -64,7 +64,7 @@ The examples use 099 as a made-up number.
 | 013 | feat | Decision quality (prompt v2) | `DEVIN_KICKOFF.md` | — | #17 | merged |
 | 014 | feat | Shell and Dashboard | `pr-14.md` | #18 | #19 | merged |
 | 015 | feat | Error handling, logging and the Logs screen | `pr-15.md` | #18, #20 | #22 | merged |
-| 016 | feat | Positions & orders | — | #18 | — | ready |
+| 016 | feat | Positions & orders | `016-feat-positions-orders.md` | #18, #35 | — | planned |
 | 017 | feat | Markets screen | — | #18 | — | ready |
 | 018 | feat | Strategies screen | — | #18 | — | ready |
 | 019 | feat | Backtest | — | #18 | — | ready |
