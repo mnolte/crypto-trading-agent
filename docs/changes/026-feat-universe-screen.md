@@ -5,7 +5,7 @@ title: Universe screen
 status: ready
 issue: 46
 kickoff: 026-feat-universe-screen.md
-spec_prs: []
+spec_prs: [49]
 build_prs: []
 ---
 
