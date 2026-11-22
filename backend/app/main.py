@@ -522,8 +522,9 @@ async def refresh_market_data(
             if notify is not None:
                 notices.append(("risk_control", f"Market {change}: {market}", text))
         session.commit()
-        for kind, title, text in notices:
-            await notify(kind, title, text)
+        if notify is not None:
+            for kind, title, text in notices:
+                await notify(kind, title, text)
         for market in state.settings.active_markets:
             row = session.get(MarketRow, market)
             if row is None:
