@@ -1,6 +1,13 @@
 import type { ReactNode } from "react";
 
-export type ChipVariant = "neutral" | "up" | "down" | "amber" | "side";
+export type ChipVariant =
+  | "neutral"
+  | "up"
+  | "down"
+  | "amber"
+  | "side"
+  | "info"
+  | "eligible";
 
 export function Chip({
   variant = "neutral",

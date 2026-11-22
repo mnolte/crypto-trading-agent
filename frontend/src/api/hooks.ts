@@ -46,6 +46,9 @@ import {
   type SourceOut,
   type Tf,
   type TradeListOut,
+  type UniverseOut,
+  type UniverseSyncOut,
+  type CheckDetailOut,
   type WhatIfJobOut,
   type WhatIfSpecIn,
 } from "./client";
@@ -179,6 +182,55 @@ export function useMarkets() {
   });
 }
 
+/** The Universe screen payload (item 026): check line, tiles, calls and
+ * every EUR market with its one status. Refetched every 60 s while open
+ * and on every snapshot push. */
+export function useUniverse() {
+  return useQuery({
+    queryKey: ["universe"],
+    queryFn: () => api<UniverseOut>("/api/universe"),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+}
+
+/** Latest + in-use check runs for the funnel card. */
+export function useUniverseCheck() {
+  return useQuery({
+    queryKey: ["universe-check"],
+    queryFn: () => api<CheckDetailOut>("/api/universe/check"),
+    staleTime: 30_000,
+  });
+}
+
+/** Latest run per sync job; polls every 2 s while a job runs. */
+export function useUniverseSync() {
+  return useQuery({
+    queryKey: ["universe-sync"],
+    queryFn: () => api<UniverseSyncOut>("/api/universe/sync"),
+    staleTime: 5_000,
+    refetchInterval: (query) =>
+      query.state.data?.jobs.some((j) => j.status === "running") ? 2_000 : 15_000,
+  });
+}
+
+/** POST /api/universe/sync/{job}/retry — reruns a failed job's failures. */
+export function useRetrySyncJob() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (job: string) =>
+      api<{ job: string; status: string }>(
+        `/api/universe/sync/${encodeURIComponent(job)}/retry`,
+        { method: "POST" },
+      ),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["universe-sync"] });
+      void client.invalidateQueries({ queryKey: ["universe"] });
+      void client.invalidateQueries({ queryKey: ["universe-check"] });
+    },
+  });
+}
+
 export function useSources() {
   return useQuery({
     queryKey: ["sources"],
@@ -276,6 +328,7 @@ export function usePauseEntries() {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["snapshot"] });
       void client.invalidateQueries({ queryKey: ["markets"] });
+      void client.invalidateQueries({ queryKey: ["universe"] });
     },
   });
 }
@@ -293,6 +346,7 @@ export function useResumeEntries() {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["snapshot"] });
       void client.invalidateQueries({ queryKey: ["markets"] });
+      void client.invalidateQueries({ queryKey: ["universe"] });
     },
   });
 }
@@ -506,16 +560,22 @@ export function useUpdateMarket() {
       market,
       active,
       confirm = false,
+      confirmLooser = false,
     }: {
       market: string;
       active: boolean;
       confirm?: boolean;
+      confirmLooser?: boolean;
     }) =>
       api<MarketOut>(`/api/markets/${encodeURIComponent(market)}`, {
         method: "PUT",
-        body: JSON.stringify({ active, confirm }),
+        body: JSON.stringify({ active, confirm, confirm_looser: confirmLooser }),
       }),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["markets"] }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["markets"] });
+      client.invalidateQueries({ queryKey: ["universe"] });
+      client.invalidateQueries({ queryKey: ["universe-sync"] });
+    },
   });
 }
 

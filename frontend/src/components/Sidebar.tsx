@@ -125,6 +125,23 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
         ),
       },
       {
+        to: "/universe",
+        label: "Universe",
+        icon: (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "0 0 18px" }}>
+            <circle cx="5" cy="5" r="1.5" />
+            <circle cx="12" cy="5" r="1.5" />
+            <circle cx="19" cy="5" r="1.5" />
+            <circle cx="5" cy="12" r="1.5" />
+            <circle cx="12" cy="12" r="1.5" />
+            <circle cx="19" cy="12" r="1.5" />
+            <circle cx="5" cy="19" r="1.5" />
+            <circle cx="12" cy="19" r="1.5" />
+            <circle cx="19" cy="19" r="1.5" />
+          </svg>
+        ),
+      },
+      {
         to: "/logs",
         label: "Logs",
         icon: (

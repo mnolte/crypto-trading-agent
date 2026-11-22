@@ -26,13 +26,14 @@ export default defineConfig({
     { name: "w1100", use: { viewport: { width: 1100, height: 900 } } },
     {
       name: "w390",
-      // Phone-width coverage is for the screenshots spec; the other specs
-      // assert behaviour, not layout.
+      // Phone-width coverage is for the screenshot and layout specs; the
+      // other specs assert behaviour, not layout.
       testMatch: [
         "screenshots.spec.ts",
         "pr15.spec.ts",
         "positions.spec.ts",
         "settings-sections.spec.ts",
+        "universe.spec.ts",
       ],
       use: { viewport: { width: 390, height: 844 } },
     },

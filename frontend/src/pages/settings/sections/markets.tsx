@@ -1,28 +1,35 @@
-import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { useUniverse } from "../../../api/hooks";
 import type { RowDef, SectionProps } from "../controls";
 import { NumInput as Num, SectionBody } from "../controls";
-import { MarketsBlock } from "../blocks";
+
+/** "Active markets" row: the count, the pairs and the link to the screen
+ * that manages them (item 026 — the table itself lives on Universe). */
+function ActiveMarketsValue() {
+  const { data } = useUniverse();
+  const active = (data?.markets ?? []).filter((m) => m.active);
+  const names = active.map((m) => m.market).join(", ");
+  return (
+    <span className="settings-row">
+      <Link className="btn btn--secondary btn--sm" to="/universe">
+        Open Universe
+      </Link>
+      <span className="card__meta">
+        {active.length === 0
+          ? "No active markets."
+          : `${active.length} active: ${names}`}
+      </span>
+    </span>
+  );
+}
 
 export const rows: RowDef[] = [
   {
     keys: ["active_markets"],
     label: "Active markets",
     explanation:
-      "Which Bitvavo EUR markets may be traded. The daily check at 01:00 UTC applies these thresholds; you activate and deactivate markets in the table below. Each active market adds up to 96 model calls a day before the pre-filter.",
-    render: () => (
-      <span className="settings-row">
-        <ButtonLike
-          disabled
-          title="The Markets screen comes with a later item"
-        >
-          Open Markets
-        </ButtonLike>
-        <span className="card__meta">
-          The Markets screen comes with a later item; until then the market
-          table is shown here, under these thresholds.
-        </span>
-      </span>
-    ),
+      "Which Bitvavo EUR markets may be traded. The daily check at 01:00 UTC applies these thresholds; you activate and deactivate markets on the Universe screen. Each active market adds up to 96 model calls a day before the pre-filter.",
+    render: () => <ActiveMarketsValue />,
   },
   { heading: "Eligibility", keys: [], label: "", explanation: "" },
   {
@@ -94,6 +101,13 @@ export const rows: RowDef[] = [
       "Passing days in a row before a failing market is clear again.",
     advanced: true,
   },
+  {
+    keys: ["market.check_data_error_pct"],
+    label: "Data error share",
+    explanation:
+      "When this share of previously eligible markets has missing volume or spread data, the check counts as failed and keeps the previous result.",
+    advanced: true,
+  },
   { heading: "Timeouts", keys: [], label: "", explanation: "", advanced: true },
   {
     keys: ["timeouts.bitvavo_rest_s", "timeouts.stream_read_s"],
@@ -133,31 +147,8 @@ export const rows: RowDef[] = [
   },
 ];
 
-function ButtonLike({
-  children,
-  disabled,
-  title,
-}: {
-  children: ReactNode;
-  disabled?: boolean;
-  title?: string;
-}) {
-  return (
-    <button
-      type="button"
-      className="btn btn--secondary btn--sm"
-      disabled={disabled}
-      title={title}
-    >
-      {children}
-    </button>
-  );
-}
-
 export function Section({ ctx, query, onlyChanged }: SectionProps) {
   return (
-    <SectionBody ctx={ctx} rows={rows} query={query} onlyChanged={onlyChanged}>
-      <MarketsBlock />
-    </SectionBody>
+    <SectionBody ctx={ctx} rows={rows} query={query} onlyChanged={onlyChanged} />
   );
 }

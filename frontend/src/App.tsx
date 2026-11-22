@@ -22,6 +22,9 @@ const Inspector = lazy(() =>
 const Readiness = lazy(() =>
   import("./pages/Readiness").then((m) => ({ default: m.Readiness })),
 );
+const Universe = lazy(() =>
+  import("./pages/Universe").then((m) => ({ default: m.Universe })),
+);
 const Logs = lazy(() =>
   import("./pages/Logs").then((m) => ({ default: m.Logs })),
 );
@@ -81,6 +84,7 @@ export default function App() {
                 <Route path="/reviews" element={<Reviews />} />
                 <Route path="/inspector" element={<Inspector />} />
                 <Route path="/readiness" element={<Readiness />} />
+                <Route path="/universe" element={<Universe />} />
                 <Route path="/logs" element={<Logs />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>

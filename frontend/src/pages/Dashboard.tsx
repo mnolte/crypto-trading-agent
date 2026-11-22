@@ -1417,10 +1417,10 @@ function MarketsCard({
   return (
     <Card
       label="Markets"
-      title="Markets"
+      title={<Link to="/universe">Markets</Link>}
       actions={
         <span className="card__meta" style={{ fontSize: "var(--ta-text-md)" }}>
-          {markets.length} pairs · <Link to="/settings">Markets in Settings</Link>{" "}
+          {markets.length} pairs · <Link to="/universe">Open Universe</Link>{" "}
           · click a row to chart it
         </span>
       }

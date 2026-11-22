@@ -63,6 +63,7 @@ const META: SettingsMetaOut = {
 vi.mock("../api/hooks", () => ({
   useSettings: () => ({ data: DOC }),
   useSettingsMeta: () => ({ data: META }),
+  useUniverse: () => ({ data: undefined }),
   usePrompts: () => ({ data: [] }),
   useSaveSettings: () => ({ mutate: h.saveMutate, isPending: false }),
   useSettingsPreview: () => ({ mutate: h.previewMutate }),

@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type {
-  EntryPause,
-  MarketOut,
   NotificationSettings,
   SourceOut,
 } from "../../api/client";
 import {
   useCreateShadow,
   useDeleteData,
-  useMarkets,
   useNotifications,
   usePrompts,
   usePromoteShadow,
@@ -25,7 +22,6 @@ import {
   useStopShadow,
   useTestNotifications,
   useTestSecret,
-  useUpdateMarket,
   useUpdateSource,
 } from "../../api/hooks";
 import { ApiError } from "../../api/client";
@@ -34,13 +30,10 @@ import { Chip } from "../../components/Chip";
 import { DataTable } from "../../components/DataTable";
 import { Dialog } from "../../components/Dialog";
 import { FormField, Input, Select } from "../../components/FormField";
-import { PauseSelect } from "../../components/PauseSelect";
 import { SegmentedControl } from "../../components/SegmentedControl";
 import {
   formatDateTime,
   formatEur,
-  formatEurCompact,
-  formatPct,
   formatSigned,
   formatTime,
   parseNumberInput,
@@ -100,141 +93,6 @@ function useConfirmRetry() {
     </Dialog>
   );
   return { ask, dialog };
-}
-
-// ------------------------------------------------------------- Markets --
-
-export function MarketsBlock() {
-  const { data: markets } = useMarkets();
-  const { data: snapshot } = useSnapshot();
-  const updateMarket = useUpdateMarket();
-  const [marketQuery, setMarketQuery] = useState("");
-  const [marketError, setMarketError] = useState<string | null>(null);
-  const confirm = useConfirmRetry();
-
-  const filtered = useMemo(
-    () =>
-      (markets ?? []).filter((m) =>
-        m.market.toLowerCase().includes(marketQuery.toLowerCase()),
-      ),
-    [markets, marketQuery],
-  );
-  const pausedMap = useMemo(
-    () => new Map((snapshot?.paused ?? []).map((p) => [p.pair, p])),
-    [snapshot],
-  );
-
-  const toggle = (m: MarketOut, active: boolean, confirmFlag = false) => {
-    setMarketError(null);
-    updateMarket.mutate(
-      { market: m.market, active, confirm: confirmFlag },
-      {
-        onError: (e) => {
-          if (e instanceof ApiError && e.status === 409) {
-            confirm.ask(e, (c) => toggle(m, active, c));
-            return;
-          }
-          setMarketError(e.message);
-        },
-      },
-    );
-  };
-
-  return (
-    <div className="set-block">
-      <Input
-        type="search"
-        placeholder="Search Bitvavo EUR markets, e.g. HYPE"
-        aria-label="Search markets"
-        value={marketQuery}
-        onChange={(e) => setMarketQuery(e.target.value)}
-      />
-      {marketError && (
-        <p className="settings-error" role="alert">
-          {marketError}
-        </p>
-      )}
-      <DataTable
-        minWidth={640}
-        maxHeight={420}
-        columns={[
-          { key: "market", label: "Market" },
-          { key: "vol", label: "30d vol/day", numeric: true },
-          { key: "spread", label: "Spread", numeric: true },
-          { key: "status", label: "Status" },
-          { key: "pause", label: "Pause entries" },
-          { key: "active", label: "Active", numeric: true },
-        ]}
-      >
-        {filtered.map((m) => (
-          <MarketRow
-            key={m.market}
-            market={m}
-            pause={pausedMap.get(m.market) ?? pausedMap.get("*")}
-            pending={updateMarket.isPending}
-            onToggle={(active) => toggle(m, active)}
-          />
-        ))}
-      </DataTable>
-      {confirm.dialog}
-      <p className="card__meta" style={{ margin: 0 }}>
-        Until the Markets screen lands, the market table stays here under the
-        thresholds above.
-      </p>
-    </div>
-  );
-}
-
-function MarketRow({
-  market,
-  pause,
-  pending,
-  onToggle,
-}: {
-  market: MarketOut;
-  pause: EntryPause | undefined;
-  pending: boolean;
-  onToggle: (active: boolean) => void;
-}) {
-  const status = market.paused
-    ? { text: "paused", variant: "amber" as const }
-    : market.active
-      ? market.warming_up
-        ? { text: "warming up", variant: "amber" as const }
-        : { text: "active", variant: "up" as const }
-      : market.eligible
-        ? { text: "eligible", variant: "neutral" as const }
-        : { text: market.failed_rule ?? "ineligible", variant: "down" as const };
-  return (
-    <tr>
-      <td className="text--strong">{market.market}</td>
-      <td className="num">
-        {market.volume_30d_eur !== null
-          ? formatEurCompact(market.volume_30d_eur)
-          : "—"}
-      </td>
-      <td className="num">
-        {market.spread_pct !== null ? formatPct(market.spread_pct, 2) : "—"}
-      </td>
-      <td>
-        <Chip variant={status.variant}>{status.text}</Chip>
-      </td>
-      <td>
-        <PauseSelect pair={market.market} pause={pause} />
-      </td>
-      <td className="num">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={market.active}
-          aria-label={`${market.market} active`}
-          className="switch"
-          disabled={pending}
-          onClick={() => onToggle(!market.active)}
-        />
-      </td>
-    </tr>
-  );
 }
 
 // ------------------------------------------------------------- Sources --

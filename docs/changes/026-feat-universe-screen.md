@@ -2,11 +2,11 @@
 item: 026
 type: feat
 title: Universe screen
-status: building
+status: merged
 issue: 46
 kickoff: 026-feat-universe-screen.md
 spec_prs: [49]
-build_prs: [58]
+build_prs: [58, 61]
 ---
 
 # 026 · feat · Universe screen
@@ -40,3 +40,14 @@ Backend half of the item; the screen follows in a second PR.
 - Status precedence per spec: active → warming up, failing, 1–2 of 3 fails, entries paused, held, active; not active → held-not-active, eligible, recovering, excluded.
 
 Tests: `backend/tests/test_universe_screen.py` (funnel, bad-data retention at and below the threshold, vs-BTC/correlation, every status kind, sync lifecycle and retry-due, retention, activation returning early, Decimal round-trip, the four endpoints). `test_needs.py` updated for the new link target.
+
+## 2026-11-22 · build PR #61
+
+Screen half: the Universe page and the Settings → Markets reduction.
+
+- Route `/universe`, sidebar item "Universe" in Control after Readiness with the grid icon (phone menu included). Page: the check line (amber with the error and the result in use when the last check failed, "Check settings" → Settings → Markets), the six tiles, Data sync (one line while every job ran on time; opens itself on a failure, a late run or a running job; backfill progress bar; Retry per failed job), Today's check as a funnel with the kept/held-back line and "How the check works", and the market table.
+- One chip and one line per status kind, including per-timeframe bars for warming up and the paused clock; filters All, Active, Held, Eligible, Failing, Warming up, Excluded with counts kept in `?filter=` (the Needs-you item opens `?filter=failing`); search on pair and name; every column sorts; the default fold shows up to 6 active (attention kinds never hidden), 2 eligible, every recovering and 3 excluded, each closed by a "N more … · show all" row.
+- In-row confirmations: Activate with the looser tag, the candles it loads and the calls before → after against the daily budget (PUT with `confirm_looser`), Deactivate, and the per-coin entries pause through the existing PauseSelect choices; PUT errors show in the row.
+- Refetching: `/api/universe` every 60 s and on every snapshot push, `/api/universe/sync` every 2 s while a job runs.
+- Settings → Markets: the market table and its search are removed; "Active markets" shows the count, the names and "Open Universe"; the Advanced fold gains "Data error share" (`market.check_data_error_pct`). The Dashboard Markets card title and its meta link open `/universe`.
+- Tests: `frontend/src/pages/universe.test.ts` and `universe.ts` helpers (chips, filters, folds, sorting, sync rows), e2e `frontend/e2e/universe.spec.ts` with `e2e/seed-universe.py` (sidebar, filters, activate → warming up → active, deactivate, Settings link, failed-check banner, running backfill, no sideways scroll at 390 px); screenshots in `docs/screenshots/026/`.
