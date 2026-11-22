@@ -206,6 +206,9 @@ async def test_cancelled_request_ends_quietly_during_shutdown() -> None:
     async def inner(scope: Any, receive: Any, send: Any) -> None:
         raise asyncio.CancelledError
 
+    async def send(message: Any) -> None:
+        return None
+
     async def run(flag: bool) -> None:
         app = FastAPI()
         app.state.shutdown_requested = flag
@@ -217,7 +220,7 @@ async def test_cancelled_request_ends_quietly_during_shutdown() -> None:
             "headers": [],
             "app": app,
         }
-        await middleware(scope, None, lambda message: None)  # type: ignore[arg-type]
+        await middleware(scope, None, send)  # type: ignore[arg-type]
 
     await run(True)
     with pytest.raises(asyncio.CancelledError):
