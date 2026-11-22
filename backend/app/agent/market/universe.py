@@ -54,6 +54,7 @@ log = logging.getLogger(__name__)
 
 RuleName = Literal["volume", "spread", "history", "type", "status"]
 RULE_ORDER: tuple[RuleName, ...] = ("volume", "spread", "history", "type", "status")
+BACKFILL_TFS: tuple[Tf, ...] = ("1h", "4h", "1d")
 CATEGORICAL_RULES = {"type", "status"}  # no numeric distance: fail at once
 VOLUME_LOOKBACK_DAYS = 30
 # One extra closed daily candle gives the 31 closes the vs-BTC return and
@@ -559,7 +560,7 @@ async def backfill_job(
     timeframes retry at the next cycle via ``backfill_retry_due``."""
     now = now or utcnow()
     limits: dict[Tf, int] = {"1h": cfg.history_1h, "4h": cfg.history_4h, "1d": cfg.history_1d}
-    wanted = [tf for tf in ("1h", "4h", "1d") if tfs is None or tf in tfs]
+    wanted = [tf for tf in BACKFILL_TFS if tfs is None or tf in tfs]
     total = sum(limits[tf] for tf in wanted)
     run = syncs.begin(f"backfill:{market}", total=total) if syncs is not None else None
     stored = 0

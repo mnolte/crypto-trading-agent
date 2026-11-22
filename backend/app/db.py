@@ -62,7 +62,7 @@ class CandleRow(Base):
     volume: Mapped[str]
 
 
-class DecimalText(TypeDecorator):
+class DecimalText(TypeDecorator[Decimal]):
     """A Decimal stored as its decimal string — exact in SQLite, where a
     REAL column would round (hard rule 2)."""
 

@@ -103,25 +103,27 @@ def upgrade() -> None:
                 "daily_candles, below_streak, within_streak, checked_at, "
                 "active, activated_at, last_price, price_at, "
                 "vs_btc_30d_pct, corr_btc_30d, eligible_since, failing_since) "
-                "VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+                "VALUES (:market, :base, :quote, :status, NULL, :eligible, "
+                ":failed_rule, :volume, :spread, :candles, :below, :within, "
+                ":checked_at, :active, :activated_at, "
                 "NULL, NULL, NULL, NULL, NULL, NULL)"
             ),
-            (
-                r.market,
-                r.base,
-                r.quote,
-                r.status,
-                r.eligible,
-                r.failed_rule,
-                _dec(r.volume_30d_eur, "0.01"),
-                _dec(r.spread_pct, "0.0001"),
-                r.daily_candles,
-                r.below_streak,
-                r.within_streak,
-                r.checked_at,
-                r.active,
-                r.activated_at,
-            ),
+            {
+                "market": r.market,
+                "base": r.base,
+                "quote": r.quote,
+                "status": r.status,
+                "eligible": r.eligible,
+                "failed_rule": r.failed_rule,
+                "volume": _dec(r.volume_30d_eur, "0.01"),
+                "spread": _dec(r.spread_pct, "0.0001"),
+                "candles": r.daily_candles,
+                "below": r.below_streak,
+                "within": r.within_streak,
+                "checked_at": r.checked_at,
+                "active": r.active,
+                "activated_at": r.activated_at,
+            },
         )
     op.drop_table("markets")
     op.rename_table("markets_new", "markets")

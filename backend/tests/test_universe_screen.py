@@ -4,22 +4,25 @@ retention, BTC-relative metrics, statuses, sync runs and the API."""
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.testclient import TestClient
 
-from app.agent.market.base import Candle, MarketInfo, Ticker24h
+from app.agent.market.base import Candle, MarketInfo, OrderBook, Ticker24h
 from app.agent.market.sync import SyncRuns, backfill_retry_due
 from app.agent.market.universe import (
     activate_market,
     run_eligibility_check,
 )
-from app.api.universe import market_status
+from app.api.deps import AppState
+from app.api.universe import MarketStatusOut, market_status
 from app.db import (
     MarketCheckRow,
     MarketRow,
@@ -27,7 +30,7 @@ from app.db import (
     make_engine,
     make_session_factory,
 )
-from app.models import MarketSettings
+from app.models import MarketSettings, Tf
 from app.repo import candle_counts
 
 NOW = datetime(2026, 10, 1, tzinfo=UTC)
@@ -113,13 +116,27 @@ class FakeMarket:
             return [self._tickers[market]]
         return list(self._tickers.values())
 
-    async def candles(self, market, interval, limit, *, start=None, end=None):
+    async def candles(
+        self,
+        market: str,
+        interval: Tf,
+        limit: int,
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+    ) -> list[Candle]:
         bars = self._daily.get(market, [])
         return bars[-limit:]
 
+    async def order_book(self, market: str, depth: int = 50) -> OrderBook:
+        return OrderBook(market=market, bids=[], asks=[])
+
+    async def ticker_price(self, market: str, **_kw: Any) -> Decimal:
+        return Decimal("1")
+
 
 @pytest.fixture()
-def session(tmp_path: Path) -> Session:
+def session(tmp_path: Path) -> Iterator[Session]:
     engine = make_engine(tmp_path / "t.db")
     from app.db import Base
 
@@ -130,7 +147,7 @@ def session(tmp_path: Path) -> Session:
     engine.dispose()
 
 
-def _cfg(**kw) -> MarketSettings:
+def _cfg(**kw: Any) -> MarketSettings:
     base = {
         "min_avg_daily_volume_eur": Decimal("1000000"),
         "max_avg_spread_pct": Decimal("0.15"),
@@ -233,9 +250,10 @@ async def test_data_error_keeps_previous_result(session: Session) -> None:
     assert rows == [] and transitions == {}
 
     check = session.scalar(select(MarketCheckRow).order_by(MarketCheckRow.id.desc()))
-    assert check.status == "failed" and check.error
+    assert check is not None and check.status == "failed" and check.error
     for market in ("AAA-EUR", "BBB-EUR"):
         row = session.get(MarketRow, market)
+        assert row is not None
         assert row.eligible and row.eligible_since == (NOW - DAY).replace(tzinfo=None)
 
 
@@ -254,7 +272,7 @@ async def test_below_threshold_data_error_is_not_an_error(session: Session) -> N
     client = FakeMarket(infos, tickers, daily)
     rows, _ = await run_eligibility_check(client, session, _cfg(), NOW)
     check = session.scalar(select(MarketCheckRow).order_by(MarketCheckRow.id.desc()))
-    assert check.status == "ok"
+    assert check is not None and check.status == "ok"
     assert len(rows) == 10
 
 
@@ -279,6 +297,7 @@ async def test_vs_btc_and_correlation(session: Session) -> None:
 
     btc = session.get(MarketRow, "BTC-EUR")
     aaa = session.get(MarketRow, "AAA-EUR")
+    assert btc is not None and aaa is not None
     assert btc.vs_btc_30d_pct is None and btc.corr_btc_30d is None
     assert aaa.vs_btc_30d_pct is not None and aaa.corr_btc_30d is not None
     # AAA drifts up faster than BTC over the same 30 days.
@@ -298,31 +317,33 @@ async def test_vs_btc_null_without_31_closes(session: Session) -> None:
     client = FakeMarket(infos, tickers, daily)
     await run_eligibility_check(client, session, _cfg(), NOW)
     aaa = session.get(MarketRow, "AAA-EUR")
+    assert aaa is not None
     assert aaa.vs_btc_30d_pct is None and aaa.corr_btc_30d is None
 
 
 # ------------------------------------------------------------- statuses --
 
 
-def _state(session: Session):
+def _state(session: Session) -> AppState:
     """A minimal AppState for market_status."""
 
     class _S:
-        account_id = 1
-        settings = type("X", (), {"market": _cfg()})()
-        broker = type("B", (), {"positions": {}})()
-        agent_engine = None
+        account_id: int = 1
+        settings: Any = type("X", (), {"market": _cfg()})()
+        broker: Any = type("B", (), {"positions": {}})()
+        agent_engine: Any = None
+        session_factory: Any = None
 
     state = _S()
     state.session_factory = lambda: session
-    return state
+    return cast(AppState, state)
 
 
 def test_market_status_kinds(session: Session) -> None:
     state = _state(session)
     cfg = _cfg()
 
-    def status(row: MarketRow):
+    def status(row: MarketRow) -> MarketStatusOut:
         return market_status(session, state, row, cfg)
 
     # eligible, not active
@@ -456,7 +477,15 @@ async def test_activate_returns_before_backfill(session: Session) -> None:
     fired: list[str] = []
 
     class SlowClient(FakeMarket):
-        async def candles(self, market, interval, limit, *, start=None, end=None):
+        async def candles(
+            self,
+            market: str,
+            interval: Tf,
+            limit: int,
+            *,
+            start: datetime | None = None,
+            end: datetime | None = None,
+        ) -> list[Candle]:
             import asyncio
 
             await asyncio.sleep(0.2)
@@ -483,6 +512,7 @@ def test_decimal_columns_roundtrip(session: Session) -> None:
     session.add(row)
     session.commit()
     got = session.get(MarketRow, "DEC-EUR")
+    assert got is not None
     assert got.volume_30d_eur == Decimal("1234567.89")
     assert got.spread_pct == Decimal("0.12345")
     assert got.last_price == Decimal("65432.10")

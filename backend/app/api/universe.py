@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any, Literal
@@ -34,7 +35,15 @@ from app.agent.market.universe import (
 )
 from app.api import deps
 from app.api.deps import AppState, get_state, require_token
-from app.db import AMSTERDAM, MarketCheckRow, MarketRow, SyncRunRow, utcnow
+from app.db import (
+    AMSTERDAM,
+    DecisionRow,
+    MarketCheckRow,
+    MarketRow,
+    PositionRow,
+    SyncRunRow,
+    utcnow,
+)
 from app.models import MarketSettings, MoneyDecimal, Regime
 
 log = logging.getLogger(__name__)
@@ -224,18 +233,18 @@ def _fmt_when(value: datetime | None) -> str:
     return repo.aware_utc(value).astimezone(AMSTERDAM).strftime("%a %H:%M")
 
 
-def _position(session: Session, state: AppState, market: str):
+def _position(session: Session, state: AppState, market: str) -> PositionRow | None:
     for row in repo.list_position_rows(session, state.account_id):
         if row.pair == market:
             return row
     return None
 
 
-def _last_decision(session: Session, state: AppState, market: str):
+def _last_decision(session: Session, state: AppState, market: str) -> DecisionRow | None:
     return repo.latest_decisions(session, state.account_id, [market]).get(market)
 
 
-def _decision_text(drow) -> str | None:
+def _decision_text(drow: DecisionRow | None) -> str | None:
     if drow is None:
         return None
     action = getattr(drow, "action", None)
@@ -639,7 +648,9 @@ async def get_universe(state: Annotated[AppState, Depends(get_state)]) -> Univer
             ),
             error=latest_check.error if latest_check is not None else None,
             result_in_use_at=(
-                repo.aware_utc(in_use_check.finished_at) if in_use_check is not None else None
+                repo.aware_utc(in_use_check.finished_at)
+                if in_use_check is not None and in_use_check.finished_at is not None
+                else None
             ),
         )
 
@@ -768,7 +779,7 @@ def get_universe_sync(state: Annotated[AppState, Depends(get_state)]) -> SyncOut
 # --------------------------------------------------------------------- retry --
 
 
-def _spawn(state: AppState, fn, name: str) -> None:
+def _spawn(state: AppState, fn: Callable[[], Awaitable[None]], name: str) -> None:
     """A tracked one-shot task for a sync retry."""
 
     async def wrapped() -> None:
