@@ -143,7 +143,9 @@ def test_unclean_start_closes_interrupted_work_idempotently(tmp_path: Path) -> N
     eng = make_engine(db_path)
     try:
         with eng.begin() as conn:
-            whatif = dict(conn.execute(text("SELECT id, status FROM whatif_scenarios")).fetchall())
+            whatif: dict[str, str] = dict(
+                conn.execute(text("SELECT id, status FROM whatif_scenarios")).fetchall()
+            )
             sync = list(
                 conn.execute(text("SELECT job, status, failures FROM sync_runs ORDER BY id"))
             )
