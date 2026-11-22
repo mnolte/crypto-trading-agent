@@ -68,12 +68,14 @@ def test_error_activity_stays_out_of_the_legacy_table(client: TestClient) -> Non
     finally:
         session.close()
     assert client.get("/api/errors").json() == []
-    # The same failure logged twice is one problem with count 2.
+    # The same failure logged twice is one problem with count 2. The
+    # writer commits in batches, so the two lines can land in different
+    # batches: wait for the count, not just for the problem to exist.
     for _ in range(2):
         state.log_store.submit(
             _problem_line("same failure", "agent.scheduler", "cycle.step_failed")
         )
-    _wait_for(lambda: state.log_store.unreviewed_problems())
+    _wait_for(lambda: any(p["count"] == 2 for p in state.log_store.unreviewed_problems()))
     probs = state.log_store.unreviewed_problems()
     assert len(probs) == 1 and probs[0]["count"] == 2 and probs[0]["example"] == "same failure"
 
