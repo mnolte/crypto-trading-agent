@@ -774,6 +774,9 @@ async def get_indicators(
 
         liquidity = LiquidityOut(spread_pct=None, depth_eur=None, vol24h_vs_30d=None)
         if frozen_at is None:
+            # The order-book and ticker fetches are network awaits — end
+            # the read transaction so the pooled connection goes back.
+            session.rollback()
             liquidity = await _liquidity(state, session, pair)
 
         return IndicatorsOut(

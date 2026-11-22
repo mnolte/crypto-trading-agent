@@ -194,6 +194,9 @@ class AppState:
     backfill_tasks: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     universe_prices: dict[str, Decimal] = field(default_factory=dict)
     universe_prices_at: datetime | None = None
+    # Serializes price refreshes so concurrent Universe polls share one
+    # in-flight fetch instead of each pinning a pool connection on it.
+    universe_prices_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
 def build_market_client(settings: Settings, sources: SourceRegistry) -> MarketClient:

@@ -3,6 +3,7 @@ retention, BTC-relative metrics, statuses, sync runs and the API."""
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
@@ -22,7 +23,7 @@ from app.agent.market.universe import (
     run_eligibility_check,
 )
 from app.api.deps import AppState
-from app.api.universe import MarketStatusOut, market_status
+from app.api.universe import MarketStatusOut, _prices, market_status
 from app.db import (
     MarketCheckRow,
     MarketRow,
@@ -516,6 +517,42 @@ def test_decimal_columns_roundtrip(session: Session) -> None:
     assert got.volume_30d_eur == Decimal("1234567.89")
     assert got.spread_pct == Decimal("0.12345")
     assert got.last_price == Decimal("65432.10")
+
+
+# ------------------------------------------------------------ price cache --
+
+
+@pytest.mark.asyncio
+async def test_prices_fetch_shared_between_concurrent_callers(session: Session) -> None:
+    """Concurrent Universe polls share one in-flight price fetch — each
+    would otherwise pin its own pooled DB connection across the network
+    call (the 2026-11-22 pool exhaustion)."""
+    started = asyncio.Event()
+    release = asyncio.Event()
+    calls = 0
+
+    class SlowPrices(FakeMarket):
+        async def ticker_prices(self) -> dict[str, Decimal]:
+            nonlocal calls
+            calls += 1
+            started.set()
+            await release.wait()
+            return {"AAA-EUR": Decimal("101")}
+
+    state = _state(session)
+    state.market_client = SlowPrices([], {}, {})
+    state.universe_prices = {}
+    state.universe_prices_at = None
+    state.universe_prices_lock = asyncio.Lock()
+
+    first = asyncio.create_task(_prices(state))
+    await started.wait()
+    second = asyncio.create_task(_prices(state))
+    await asyncio.sleep(0)
+    release.set()
+    prices1, prices2 = await asyncio.gather(first, second)
+    assert calls == 1
+    assert prices1 == prices2 == {"AAA-EUR": Decimal("101")}
 
 
 # ------------------------------------------------------------------ api --

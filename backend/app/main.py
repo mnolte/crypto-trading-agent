@@ -513,12 +513,17 @@ async def refresh_market_data(
         finally:
             if check_run is not None:
                 check_run.finish()
+        # Commit the activity rows before the sends: a session may never
+        # stay checked out across the SMTP await.
+        notices: list[tuple[str, str, str]] = []
         for market, change in transitions.items():
             text = f"market {market} eligibility check: {change}"
             repo.add_activity(session, "alert", text, at=utcnow(), pair=market)
             if notify is not None:
-                await notify("risk_control", f"Market {change}: {market}", text)
+                notices.append(("risk_control", f"Market {change}: {market}", text))
         session.commit()
+        for kind, title, text in notices:
+            await notify(kind, title, text)
         for market in state.settings.active_markets:
             row = session.get(MarketRow, market)
             if row is None:

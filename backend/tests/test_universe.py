@@ -28,7 +28,7 @@ from app.agent.market.universe import (
 from app.config import get_env
 from app.db import MarketRow, make_engine, make_session_factory
 from app.models import MarketSettings
-from app.repo import candle_counts, get_market_row
+from app.repo import candle_counts, get_market_row, upsert_candles
 
 NOW = datetime(2026, 10, 1, tzinfo=UTC)
 DAY = timedelta(days=1)
@@ -267,6 +267,42 @@ async def test_run_eligibility_check_over_eur_markets(session: Session) -> None:
     assert transitions == {}
     # Rows persisted.
     assert get_market_row(session, "GOOD-EUR") is not None
+
+
+async def test_check_never_holds_transaction_across_fetches(session: Session) -> None:
+    """A pooled connection may not stay checked out while exchange
+    fetches run: every candles() call must see a closed transaction.
+
+    STALE-EUR's exchange fetch comes back empty, so its metrics come from
+    the stored-candle fallback — a read that leaves the transaction open.
+    GOOD-EUR passes the cheap rules on stored candles, so its
+    full-history fetch runs right after another open transaction."""
+    cfg = MarketSettings()
+    upsert_candles(session, "STALE-EUR", "1d", _candles(320, volume=500.0))
+    upsert_candles(session, "GOOD-EUR", "1d", _candles(320, volume=15_000.0))
+    seen: list[tuple[str, str, bool]] = []
+
+    class Probe(FakeMarket):
+        async def candles(
+            self,
+            market: str,
+            interval: str,
+            limit: int,
+            *,
+            start: datetime | None = None,
+            end: datetime | None = None,
+        ) -> list[Candle]:
+            seen.append((market, interval, session.in_transaction()))
+            return await super().candles(market, interval, limit, start=start, end=end)
+
+    client = Probe(
+        [_info("STALE-EUR", "STALE"), _info("GOOD-EUR", "GOOD")],
+        {"STALE-EUR": _ticker("STALE-EUR"), "GOOD-EUR": _ticker("GOOD-EUR")},
+        {},  # every fetch is empty → the stored-candle fallback runs
+    )
+    await run_eligibility_check(client, session, cfg, NOW)
+    assert seen
+    assert not any(open_tx for _, _, open_tx in seen)
 
 
 async def test_history_check_counts_closed_bars_only(session: Session) -> None:
