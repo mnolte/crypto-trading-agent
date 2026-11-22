@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal
 
-import httpx
+import httpx2
 import openai
 
 from app.db import utcnow
@@ -25,7 +25,7 @@ TIMEOUT_S = 30.0  # spec: 30 s timeout on the model call
 MAX_ATTEMPTS = 2  # one try plus exactly one retry
 
 
-class _CaptureTransport(httpx.AsyncHTTPTransport):
+class _CaptureTransport(httpx2.AsyncHTTPTransport):
     """Records the exact bytes of the last request/response pair."""
 
     def __init__(self) -> None:
@@ -33,9 +33,9 @@ class _CaptureTransport(httpx.AsyncHTTPTransport):
         self.last_request: bytes | None = None
         self.last_response: bytes | None = None
         self.last_status: int | None = None
-        self.last_headers: httpx.Headers | None = None
+        self.last_headers: httpx2.Headers | None = None
 
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+    async def handle_async_request(self, request: httpx2.Request) -> httpx2.Response:
         self.last_request = await request.aread()
         response = await super().handle_async_request(request)
         self.last_response = await response.aread()
@@ -78,7 +78,7 @@ class OpenAIResponsesClient:
             api_key=api_key,
             timeout=timeout_s,
             max_retries=0,  # the spec's retry policy is ours to record
-            http_client=httpx.AsyncClient(transport=self._transport),
+            http_client=httpx2.AsyncClient(transport=self._transport),
         )
 
     async def aclose(self) -> None:
