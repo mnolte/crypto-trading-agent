@@ -739,6 +739,111 @@
         "title": "ChartMarker",
         "type": "object"
       },
+      "CheckDetailOut": {
+        "properties": {
+          "in_use": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckRunOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CheckRunOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "latest",
+          "in_use"
+        ],
+        "title": "CheckDetailOut",
+        "type": "object"
+      },
+      "CheckLineOut": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "last_check_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Check At"
+          },
+          "result_in_use_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result In Use At"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ok",
+                  "failed",
+                  "running"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "trigger": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger"
+          }
+        },
+        "required": [
+          "last_check_at",
+          "trigger",
+          "status",
+          "error",
+          "result_in_use_at"
+        ],
+        "title": "CheckLineOut",
+        "type": "object"
+      },
       "CheckOut": {
         "description": "One input or output check result shown on a call card.",
         "properties": {
@@ -766,6 +871,90 @@
           "status"
         ],
         "title": "CheckOut",
+        "type": "object"
+      },
+      "CheckRunOut": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "funnel": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelStepOut"
+            },
+            "title": "Funnel",
+            "type": "array"
+          },
+          "held_back": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Held Back",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kept": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Kept",
+            "type": "array"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "thresholds": {
+            "additionalProperties": true,
+            "title": "Thresholds",
+            "type": "object"
+          },
+          "trigger": {
+            "title": "Trigger",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "started_at",
+          "finished_at",
+          "trigger",
+          "status",
+          "error",
+          "thresholds",
+          "funnel",
+          "kept",
+          "held_back"
+        ],
+        "title": "CheckRunOut",
         "type": "object"
       },
       "ClientReport": {
@@ -1995,6 +2184,43 @@
           "unrealised_eur"
         ],
         "title": "FlattenPreview",
+        "type": "object"
+      },
+      "FunnelStepOut": {
+        "properties": {
+          "dropped": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "left": {
+            "title": "Left",
+            "type": "integer"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule",
+          "left",
+          "dropped"
+        ],
+        "title": "FunnelStepOut",
         "type": "object"
       },
       "Gate": {
@@ -4295,7 +4521,7 @@
           "spread_pct": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -4310,7 +4536,7 @@
           "volume_30d_eur": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -4353,6 +4579,18 @@
             ],
             "default": "25",
             "title": "Adx Threshold"
+          },
+          "check_data_error_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "50",
+            "title": "Check Data Error Pct"
           },
           "eligibility_beyond_pct": {
             "anyOf": [
@@ -4461,6 +4699,11 @@
             "title": "Adx Threshold",
             "type": "string"
           },
+          "check_data_error_pct": {
+            "default": "50",
+            "title": "Check Data Error Pct",
+            "type": "string"
+          },
           "eligibility_beyond_pct": {
             "default": "20",
             "title": "Eligibility Beyond Pct",
@@ -4539,6 +4782,47 @@
         "title": "MarketSettings",
         "type": "object"
       },
+      "MarketStatusOut": {
+        "properties": {
+          "facts": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Facts",
+            "type": "object"
+          },
+          "held": {
+            "default": false,
+            "title": "Held",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "warming_up",
+              "failing",
+              "fails",
+              "paused",
+              "held",
+              "active",
+              "eligible",
+              "recovering",
+              "excluded",
+              "held_not_active"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "line": {
+            "title": "Line",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "line"
+        ],
+        "title": "MarketStatusOut",
+        "type": "object"
+      },
       "MarketUpdateIn": {
         "properties": {
           "active": {
@@ -4548,6 +4832,11 @@
           "confirm": {
             "default": false,
             "title": "Confirm",
+            "type": "boolean"
+          },
+          "confirm_looser": {
+            "default": false,
+            "title": "Confirm Looser",
             "type": "boolean"
           }
         },
@@ -7416,6 +7705,7 @@
             "$ref": "#/components/schemas/MarketSettings-Input",
             "default": {
               "adx_threshold": "25",
+              "check_data_error_pct": "50",
               "eligibility_beyond_pct": "20",
               "eligibility_fail_days": 3,
               "eligibility_recover_days": 3,
@@ -7683,6 +7973,7 @@
             "$ref": "#/components/schemas/MarketSettings-Output",
             "default": {
               "adx_threshold": "25",
+              "check_data_error_pct": "50",
               "eligibility_beyond_pct": "20",
               "eligibility_fail_days": 3,
               "eligibility_recover_days": 3,
@@ -9077,6 +9368,191 @@
         "title": "StorageSettings",
         "type": "object"
       },
+      "SyncFailureOut": {
+        "properties": {
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "next_retry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Retry"
+          },
+          "tf": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tf"
+          },
+          "what": {
+            "title": "What",
+            "type": "string"
+          }
+        },
+        "required": [
+          "what",
+          "error"
+        ],
+        "title": "SyncFailureOut",
+        "type": "object"
+      },
+      "SyncJobOut": {
+        "properties": {
+          "done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/SyncFailureOut"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "job": {
+            "title": "Job",
+            "type": "string"
+          },
+          "market": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "job",
+          "status",
+          "started_at",
+          "finished_at",
+          "duration_seconds",
+          "done",
+          "total",
+          "failures"
+        ],
+        "title": "SyncJobOut",
+        "type": "object"
+      },
+      "SyncOut": {
+        "properties": {
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/SyncJobOut"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "watcher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WatcherStateOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "jobs",
+          "watcher"
+        ],
+        "title": "SyncOut",
+        "type": "object"
+      },
       "Throttle": {
         "properties": {
           "lifts_when": {
@@ -9459,6 +9935,280 @@
         "title": "UiSettings",
         "type": "object"
       },
+      "UniverseCallsOut": {
+        "properties": {
+          "active_per_day": {
+            "title": "Active Per Day",
+            "type": "integer"
+          },
+          "daily_call_budget": {
+            "title": "Daily Call Budget",
+            "type": "integer"
+          },
+          "per_market_per_day": {
+            "title": "Per Market Per Day",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "per_market_per_day",
+          "active_per_day",
+          "daily_call_budget"
+        ],
+        "title": "UniverseCallsOut",
+        "type": "object"
+      },
+      "UniverseMarketOut": {
+        "properties": {
+          "activated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activated At"
+          },
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "below_streak": {
+            "title": "Below Streak",
+            "type": "integer"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "corr_btc_30d": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corr Btc 30D"
+          },
+          "eligible": {
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "failed_rule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Rule"
+          },
+          "last_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Price"
+          },
+          "market": {
+            "title": "Market",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "price_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price At"
+          },
+          "regime": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Regime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spread_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Pct"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MarketStatusOut"
+          },
+          "volume_30d_eur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume 30D Eur"
+          },
+          "vs_btc_30d_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vs Btc 30D Pct"
+          },
+          "within_streak": {
+            "title": "Within Streak",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "market",
+          "name",
+          "status",
+          "eligible",
+          "active",
+          "failed_rule",
+          "below_streak",
+          "within_streak",
+          "checked_at",
+          "activated_at",
+          "last_price",
+          "price_at",
+          "volume_30d_eur",
+          "spread_pct",
+          "vs_btc_30d_pct",
+          "corr_btc_30d"
+        ],
+        "title": "UniverseMarketOut",
+        "type": "object"
+      },
+      "UniverseOut": {
+        "properties": {
+          "calls": {
+            "$ref": "#/components/schemas/UniverseCallsOut"
+          },
+          "check": {
+            "$ref": "#/components/schemas/CheckLineOut"
+          },
+          "markets": {
+            "items": {
+              "$ref": "#/components/schemas/UniverseMarketOut"
+            },
+            "title": "Markets",
+            "type": "array"
+          },
+          "tiles": {
+            "$ref": "#/components/schemas/UniverseTilesOut"
+          }
+        },
+        "required": [
+          "check",
+          "tiles",
+          "calls",
+          "markets"
+        ],
+        "title": "UniverseOut",
+        "type": "object"
+      },
+      "UniverseTilesOut": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "integer"
+          },
+          "active_calls_per_day": {
+            "title": "Active Calls Per Day",
+            "type": "integer"
+          },
+          "eligible": {
+            "title": "Eligible",
+            "type": "integer"
+          },
+          "eur_excluded": {
+            "title": "Eur Excluded",
+            "type": "integer"
+          },
+          "eur_markets": {
+            "title": "Eur Markets",
+            "type": "integer"
+          },
+          "failing": {
+            "additionalProperties": true,
+            "title": "Failing",
+            "type": "object"
+          },
+          "held": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Held",
+            "type": "array"
+          },
+          "warming": {
+            "additionalProperties": true,
+            "title": "Warming",
+            "type": "object"
+          }
+        },
+        "required": [
+          "eur_markets",
+          "eur_excluded",
+          "eligible",
+          "active",
+          "active_calls_per_day",
+          "held",
+          "failing",
+          "warming"
+        ],
+        "title": "UniverseTilesOut",
+        "type": "object"
+      },
       "Usage": {
         "properties": {
           "calls_today": {
@@ -9530,6 +10280,32 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WatcherStateOut": {
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "errors": {
+            "title": "Errors",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "checked_at",
+          "errors"
+        ],
+        "title": "WatcherStateOut",
         "type": "object"
       },
       "WhatIfApplyIn": {
@@ -14717,6 +15493,119 @@
           }
         },
         "summary": "Get Trades"
+      }
+    },
+    "/api/universe": {
+      "get": {
+        "operationId": "get_universe_api_universe_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UniverseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Universe"
+      }
+    },
+    "/api/universe/check": {
+      "get": {
+        "operationId": "get_universe_check_api_universe_check_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Universe Check"
+      }
+    },
+    "/api/universe/sync": {
+      "get": {
+        "operationId": "get_universe_sync_api_universe_sync_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Universe Sync"
+      }
+    },
+    "/api/universe/sync/{job}/retry": {
+      "post": {
+        "operationId": "retry_sync_job_api_universe_sync__job__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job",
+            "required": true,
+            "schema": {
+              "title": "Job",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Retry Sync Job Api Universe Sync  Job  Retry Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Sync Job"
       }
     },
     "/api/whatif": {

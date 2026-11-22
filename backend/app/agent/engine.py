@@ -39,7 +39,12 @@ from app.agent.market.base import (
     MarketInfo,
     drop_forming,
 )
-from app.agent.market.universe import entries_allowed, warming_up
+from app.agent.market.sync import SyncRun, SyncRuns, plain_error
+from app.agent.market.universe import (
+    entries_allowed,
+    retry_due_backfills,
+    warming_up,
+)
 from app.agent.risk import HUNDRED, BuyContext, check_buy, check_exit, update_trail
 from app.agent.signals import (
     PairSignals,
@@ -121,6 +126,7 @@ class Engine:
         sleep: Sleeper = asyncio.sleep,
         broadcast: Callable[[], Awaitable[None]] | None = None,
         notify: Notifier | None = None,
+        syncs: SyncRuns | None = None,
     ) -> None:
         self._sessions = session_factory
         self.client = market_client
@@ -134,6 +140,11 @@ class Engine:
         self._sleep = sleep
         self._broadcast = broadcast
         self._notify_event = notify
+        self._syncs = syncs
+        # The cycle's candles sync_runs row (item 026): begun in
+        # _run_cycle_inner, updated by _load_context/_decide_pair.
+        self._candles_run: SyncRun | None = None
+        self._candles_done = 0
 
         self.status: Literal["running", "paused", "killed", "error"] = "paused"
         self.cycle = 0
@@ -643,6 +654,28 @@ class Engine:
                 await self._run_cycle_inner(cycle_no, now, started)
         await self._measure_clock_offset()
 
+    def _candles_unit(self, done: int = 1) -> None:
+        """One candle-fetch unit finished for the cycle's sync row."""
+        if self._candles_run is None:
+            return
+        self._candles_done += done
+        self._candles_run.progress(self._candles_done, self._candles_run_total)
+
+    def _candles_unit_failed(
+        self, what: str, exc: BaseException, tf: str | None = None, units: int = 1
+    ) -> None:
+        """A candle fetch failed: record it and count the unit done —
+        the next retry is the next cycle."""
+        if self._candles_run is None:
+            return
+        self._candles_run.fail(
+            what,
+            plain_error(exc),
+            next_retry=self._next_due(self.clock()),
+            tf=tf,
+        )
+        self._candles_unit(units)
+
     async def _run_cycle_inner(self, cycle_no: int, now: datetime, started: float) -> None:
         log.info("cycle %d started", cycle_no, extra={"event": "cycle.start"})
         session = self._sessions()
@@ -650,8 +683,17 @@ class Engine:
             settings = self._settings()
             repo.add_activity(session, "cycle", f"cycle {cycle_no} started", at=now)
             session.commit()
-            context = await self._load_context(session, settings, now)
-            session.commit()
+            if self._syncs is not None:
+                # Failed backfills whose next_retry passed run again for
+                # their failed timeframes before the cycle's fetches.
+                await retry_due_backfills(
+                    self.client,
+                    self._sessions,
+                    settings.market,
+                    now,
+                    syncs=self._syncs,
+                    cycle_offset_s=settings.cycle_offset_s,
+                )
             pairs = [
                 m for m in settings.active_markets if not warming_up(session, m, settings.market)
             ]
@@ -661,6 +703,17 @@ class Engine:
             for pair in self.broker.positions:
                 if pair not in pairs:
                     pairs.append(pair)
+            # The candles job: 3 fetches per decided pair plus the 4
+            # market-context fetches (_load_context).
+            self._candles_done = 0
+            self._candles_run_total = len(pairs) * 3 + 4
+            self._candles_run = (
+                self._syncs.begin("candles", total=self._candles_run_total)
+                if self._syncs is not None
+                else None
+            )
+            context = await self._load_context(session, settings, now)
+            session.commit()
             # The read snapshot ends here: the gather below must not run
             # inside a transaction — a write after it would fail on a
             # stale snapshot (SQLITE_BUSY_SNAPSHOT, "database is locked").
@@ -696,6 +749,9 @@ class Engine:
             if self.status == "error":
                 self.status = "running"
         finally:
+            if self._candles_run is not None:
+                self._candles_run.finish()
+                self._candles_run = None
             session.close()
             self.cycle_in_progress = False
             self.next_run_at = (
@@ -826,6 +882,7 @@ class Engine:
             repo.upsert_candles(session, "BTC-EUR", "4h", btc_4h)
             repo.upsert_candles(session, "BTC-EUR", "1d", btc_1d)
             ctx["btc_1h"], ctx["btc_4h"], ctx["btc_1d"] = btc_1h, btc_4h, btc_1d
+            self._candles_unit(3)
             btc_sig = compute_pair_signals(
                 "BTC-EUR",
                 btc_1h,
@@ -839,6 +896,7 @@ class Engine:
             # may stay open across a network call.
             session.commit()
         except MarketDataError as exc:
+            self._candles_unit_failed("BTC-EUR", exc, units=3)
             log.warning(
                 "BTC-EUR market context fetch failed: %s",
                 exc,
@@ -848,7 +906,9 @@ class Engine:
             usdc = drop_forming(await self.client.candles("USDC-EUR", "1h", 48), "1h", now)
             repo.upsert_candles(session, "USDC-EUR", "1h", usdc)
             ctx["usdc_1h"] = usdc
+            self._candles_unit()
         except MarketDataError as exc:
+            self._candles_unit_failed("USDC-EUR", exc, tf="1h")
             log.warning(
                 "USDC-EUR market context fetch failed: %s",
                 exc,
@@ -903,7 +963,9 @@ class Engine:
             session.commit()
             candles["1d"] = await self._fetch_closed(session, pair, "1d", now)
             session.commit()
+            self._candles_unit(3)
         except MarketDataError as exc:
+            self._candles_unit_failed(pair, exc, units=3)
             session.rollback()
             candles = {}
             log.warning(

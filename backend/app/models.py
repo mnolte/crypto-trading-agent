@@ -401,6 +401,9 @@ class MarketSettings(BaseModel):
         Decimal("20")
     )
     eligibility_recover_days: Annotated[int, _range(*RANGES["market.eligibility_recover_days"])] = 3
+    check_data_error_pct: Annotated[Decimal, _range(*RANGES["market.check_data_error_pct"])] = (
+        Decimal("50")
+    )
     history_1h: Annotated[int, _range(*RANGES["market.history_1h"])] = 800
     history_4h: Annotated[int, _range(*RANGES["market.history_4h"])] = 300
     history_1d: Annotated[int, _range(*RANGES["market.history_1d"])] = 300

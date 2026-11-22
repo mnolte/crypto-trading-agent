@@ -211,7 +211,7 @@ def test_ineligible_active_market_item(client: TestClient) -> None:
         session.close()
     item = next(i for i in _needs(state).items if i.kind == "market")
     assert "SOL-EUR" in item.title
-    assert item.action_target == "/settings#markets"
+    assert item.action_target == "/universe?filter=failing"
 
 
 def test_cost_cap_item(client: TestClient) -> None:

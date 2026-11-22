@@ -1460,6 +1460,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/universe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Universe */
+        get: operations["get_universe_api_universe_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/universe/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Universe Check */
+        get: operations["get_universe_check_api_universe_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/universe/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Universe Sync */
+        get: operations["get_universe_sync_api_universe_sync_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/universe/sync/{job}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Sync Job */
+        post: operations["retry_sync_job_api_universe_sync__job__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/whatif": {
         parameters: {
             query?: never;
@@ -1814,6 +1882,24 @@ export interface components {
              */
             time: string;
         };
+        /** CheckDetailOut */
+        CheckDetailOut: {
+            in_use: components["schemas"]["CheckRunOut"] | null;
+            latest: components["schemas"]["CheckRunOut"] | null;
+        };
+        /** CheckLineOut */
+        CheckLineOut: {
+            /** Error */
+            error: string | null;
+            /** Last Check At */
+            last_check_at: string | null;
+            /** Result In Use At */
+            result_in_use_at: string | null;
+            /** Status */
+            status: ("ok" | "failed" | "running") | null;
+            /** Trigger */
+            trigger: string | null;
+        };
         /**
          * CheckOut
          * @description One input or output check result shown on a call card.
@@ -1831,6 +1917,34 @@ export interface components {
              * @enum {string}
              */
             status: "pass" | "warn" | "fail";
+        };
+        /** CheckRunOut */
+        CheckRunOut: {
+            /** Error */
+            error: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Funnel */
+            funnel: components["schemas"]["FunnelStepOut"][];
+            /** Held Back */
+            held_back: string[];
+            /** Id */
+            id: number;
+            /** Kept */
+            kept: string[];
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Status */
+            status: string;
+            /** Thresholds */
+            thresholds: {
+                [key: string]: unknown;
+            };
+            /** Trigger */
+            trigger: string;
         };
         /** ClientReport */
         ClientReport: {
@@ -2305,6 +2419,17 @@ export interface components {
             pairs: string[];
             /** Unrealised Eur */
             unrealised_eur: string;
+        };
+        /** FunnelStepOut */
+        FunnelStepOut: {
+            /** Dropped */
+            dropped: string[];
+            /** Label */
+            label?: string | null;
+            /** Left */
+            left: number;
+            /** Rule */
+            rule: string;
         };
         /** Gate */
         Gate: {
@@ -2990,11 +3115,11 @@ export interface components {
             /** Rules State */
             rules_state?: ("passed" | "held" | "failed" | "paused" | "warming" | "none") | null;
             /** Spread Pct */
-            spread_pct: number | null;
+            spread_pct: string | null;
             /** Status */
             status: string;
             /** Volume 30D Eur */
-            volume_30d_eur: number | null;
+            volume_30d_eur: string | null;
             /** Warming Up */
             warming_up: boolean;
         };
@@ -3010,6 +3135,11 @@ export interface components {
              * @default 25
              */
             adx_threshold: number | string;
+            /**
+             * Check Data Error Pct
+             * @default 50
+             */
+            check_data_error_pct: number | string;
             /**
              * Eligibility Beyond Pct
              * @default 20
@@ -3095,6 +3225,11 @@ export interface components {
              */
             adx_threshold: string;
             /**
+             * Check Data Error Pct
+             * @default 50
+             */
+            check_data_error_pct: string;
+            /**
              * Eligibility Beyond Pct
              * @default 20
              */
@@ -3166,6 +3301,28 @@ export interface components {
              */
             structure_min_range_bars: number;
         };
+        /** MarketStatusOut */
+        MarketStatusOut: {
+            /**
+             * Facts
+             * @default {}
+             */
+            facts: {
+                [key: string]: unknown;
+            };
+            /**
+             * Held
+             * @default false
+             */
+            held: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "warming_up" | "failing" | "fails" | "paused" | "held" | "active" | "eligible" | "recovering" | "excluded" | "held_not_active";
+            /** Line */
+            line: string;
+        };
         /** MarketUpdateIn */
         MarketUpdateIn: {
             /** Active */
@@ -3175,6 +3332,11 @@ export interface components {
              * @default false
              */
             confirm: boolean;
+            /**
+             * Confirm Looser
+             * @default false
+             */
+            confirm_looser: boolean;
         };
         /** MissedRange */
         MissedRange: {
@@ -4500,6 +4662,7 @@ export interface components {
             /**
              * @default {
              *       "adx_threshold": "25",
+             *       "check_data_error_pct": "50",
              *       "eligibility_beyond_pct": "20",
              *       "eligibility_fail_days": 3,
              *       "eligibility_recover_days": 3,
@@ -4755,6 +4918,7 @@ export interface components {
             /**
              * @default {
              *       "adx_threshold": "25",
+             *       "check_data_error_pct": "50",
              *       "eligibility_beyond_pct": "20",
              *       "eligibility_fail_days": 3,
              *       "eligibility_recover_days": 3,
@@ -5447,6 +5611,48 @@ export interface components {
              */
             shutdown_grace_seconds: number;
         };
+        /** SyncFailureOut */
+        SyncFailureOut: {
+            /** Error */
+            error: string;
+            /** Next Retry */
+            next_retry?: string | null;
+            /** Tf */
+            tf?: string | null;
+            /** What */
+            what: string;
+        };
+        /** SyncJobOut */
+        SyncJobOut: {
+            /** Done */
+            done: number | null;
+            /** Duration Seconds */
+            duration_seconds: number | null;
+            /** Failures */
+            failures: components["schemas"]["SyncFailureOut"][];
+            /** Finished At */
+            finished_at: string | null;
+            /** Job */
+            job: string;
+            /** Market */
+            market?: string | null;
+            /** Progress */
+            progress?: {
+                [key: string]: unknown;
+            } | null;
+            /** Started At */
+            started_at: string | null;
+            /** Status */
+            status: string | null;
+            /** Total */
+            total: number | null;
+        };
+        /** SyncOut */
+        SyncOut: {
+            /** Jobs */
+            jobs: components["schemas"]["SyncJobOut"][];
+            watcher: components["schemas"]["WatcherStateOut"] | null;
+        };
         /** Throttle */
         Throttle: {
             /** Lifts When */
@@ -5626,6 +5832,81 @@ export interface components {
              */
             stop_near_atr: string;
         };
+        /** UniverseCallsOut */
+        UniverseCallsOut: {
+            /** Active Per Day */
+            active_per_day: number;
+            /** Daily Call Budget */
+            daily_call_budget: number;
+            /** Per Market Per Day */
+            per_market_per_day: number;
+        };
+        /** UniverseMarketOut */
+        UniverseMarketOut: {
+            /** Activated At */
+            activated_at: string | null;
+            /** Active */
+            active: boolean;
+            /** Below Streak */
+            below_streak: number;
+            /** Checked At */
+            checked_at: string | null;
+            /** Corr Btc 30D */
+            corr_btc_30d: string | null;
+            /** Eligible */
+            eligible: boolean;
+            /** Failed Rule */
+            failed_rule: string | null;
+            /** Last Price */
+            last_price: string | null;
+            /** Market */
+            market: string;
+            /** Name */
+            name: string | null;
+            /** Price At */
+            price_at: string | null;
+            regime?: components["schemas"]["Regime"] | null;
+            /** Spread Pct */
+            spread_pct: string | null;
+            status: components["schemas"]["MarketStatusOut"];
+            /** Volume 30D Eur */
+            volume_30d_eur: string | null;
+            /** Vs Btc 30D Pct */
+            vs_btc_30d_pct: string | null;
+            /** Within Streak */
+            within_streak: number;
+        };
+        /** UniverseOut */
+        UniverseOut: {
+            calls: components["schemas"]["UniverseCallsOut"];
+            check: components["schemas"]["CheckLineOut"];
+            /** Markets */
+            markets: components["schemas"]["UniverseMarketOut"][];
+            tiles: components["schemas"]["UniverseTilesOut"];
+        };
+        /** UniverseTilesOut */
+        UniverseTilesOut: {
+            /** Active */
+            active: number;
+            /** Active Calls Per Day */
+            active_calls_per_day: number;
+            /** Eligible */
+            eligible: number;
+            /** Eur Excluded */
+            eur_excluded: number;
+            /** Eur Markets */
+            eur_markets: number;
+            /** Failing */
+            failing: {
+                [key: string]: unknown;
+            };
+            /** Held */
+            held: string[];
+            /** Warming */
+            warming: {
+                [key: string]: unknown;
+            };
+        };
         /** Usage */
         Usage: {
             /** Calls Today */
@@ -5651,6 +5932,13 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** WatcherStateOut */
+        WatcherStateOut: {
+            /** Checked At */
+            checked_at: string | null;
+            /** Errors */
+            errors: number;
         };
         /** WhatIfApplyIn */
         WhatIfApplyIn: {
@@ -8463,6 +8751,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TradeListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_universe_api_universe_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UniverseOut"];
+                };
+            };
+        };
+    };
+    get_universe_check_api_universe_check_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckDetailOut"];
+                };
+            };
+        };
+    };
+    get_universe_sync_api_universe_sync_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncOut"];
+                };
+            };
+        };
+    };
+    retry_sync_job_api_universe_sync__job__retry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path: {
+                job: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
                 };
             };
             /** @description Validation Error */

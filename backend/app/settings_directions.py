@@ -80,6 +80,10 @@ DIRECTIONS: dict[str, tuple[Direction, str]] = {
     "market.eligibility_fail_days": ("up", "markets stay active longer while failing"),
     "market.eligibility_beyond_pct": ("up", "markets further beyond still count"),
     "market.eligibility_recover_days": ("down", "markets pass again sooner"),
+    "market.check_data_error_pct": (
+        "neutral",
+        "how much missing data counts as a data error, not a rule",
+    ),
     "market.history_1h": ("neutral", "how much 1h history is kept"),
     "market.history_4h": ("neutral", "how much 4h history is kept"),
     "market.history_1d": ("neutral", "how much daily history is kept"),

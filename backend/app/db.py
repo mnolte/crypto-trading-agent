@@ -10,14 +10,16 @@ import fcntl
 import os
 import sqlite3
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
-from typing import IO
+from typing import IO, Any
 from zoneinfo import ZoneInfo
 
 from alembic.config import Config
-from sqlalchemy import UniqueConstraint, create_engine, event
+from sqlalchemy import String, UniqueConstraint, create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from sqlalchemy.types import TypeDecorator
 
 from alembic import command
 from app.config import BACKEND_DIR
@@ -60,6 +62,20 @@ class CandleRow(Base):
     volume: Mapped[str]
 
 
+class DecimalText(TypeDecorator):
+    """A Decimal stored as its decimal string — exact in SQLite, where a
+    REAL column would round (hard rule 2)."""
+
+    impl = String
+    cache_ok = True
+
+    def process_bind_param(self, value: Decimal | None, dialect: Any) -> str | None:
+        return None if value is None else format(value, "f")
+
+    def process_result_value(self, value: str | None, dialect: Any) -> Decimal | None:
+        return None if value is None else Decimal(value)
+
+
 class MarketRow(Base):
     """Eligibility and activation state for one Bitvavo EUR market.
 
@@ -75,16 +91,59 @@ class MarketRow(Base):
     base: Mapped[str] = mapped_column(default="")
     quote: Mapped[str] = mapped_column(default="EUR")
     status: Mapped[str] = mapped_column(default="")
+    name: Mapped[str | None] = mapped_column(default=None)  # from /assets
     eligible: Mapped[bool] = mapped_column(default=False)
     failed_rule: Mapped[str | None]
-    volume_30d_eur: Mapped[float | None]
-    spread_pct: Mapped[float | None]
+    volume_30d_eur: Mapped[Decimal | None] = mapped_column(DecimalText, default=None)
+    spread_pct: Mapped[Decimal | None] = mapped_column(DecimalText, default=None)
     daily_candles: Mapped[int | None]
     below_streak: Mapped[int] = mapped_column(default=0)
     within_streak: Mapped[int] = mapped_column(default=0)
     checked_at: Mapped[datetime | None]
     active: Mapped[bool] = mapped_column(default=False)
     activated_at: Mapped[datetime | None]
+    last_price: Mapped[Decimal | None] = mapped_column(DecimalText, default=None)
+    price_at: Mapped[datetime | None] = mapped_column(default=None)
+    vs_btc_30d_pct: Mapped[Decimal | None] = mapped_column(DecimalText, default=None)
+    corr_btc_30d: Mapped[Decimal | None] = mapped_column(DecimalText, default=None)
+    eligible_since: Mapped[datetime | None] = mapped_column(default=None)
+    failing_since: Mapped[datetime | None] = mapped_column(default=None)
+
+
+class MarketCheckRow(Base):
+    """One eligibility-check run (item 026): trigger, outcome, the
+    thresholds used and the funnel. 90 days kept; the daily job prunes."""
+
+    __tablename__ = "market_checks"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    started_at: Mapped[datetime]
+    finished_at: Mapped[datetime | None]
+    trigger: Mapped[str]  # "startup" | "daily" | "retry"
+    status: Mapped[str]  # "ok" | "failed"
+    error: Mapped[str | None]
+    thresholds: Mapped[str] = mapped_column(default="{}")  # JSON
+    funnel: Mapped[str] = mapped_column(default="[]")  # JSON steps
+    kept: Mapped[str] = mapped_column(default="[]")  # JSON
+    held_back: Mapped[str] = mapped_column(default="[]")  # JSON
+
+
+class SyncRunRow(Base):
+    """One run of a data-sync job (item 026): the Universe → Data sync
+    card. ``failures`` is a JSON list of {what, tf?, error, next_retry};
+    ``what`` is a market or a source. 30 days kept."""
+
+    __tablename__ = "sync_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    job: Mapped[str]  # exchange_rules | daily_check | candles | backfill:<market>
+    started_at: Mapped[datetime]
+    finished_at: Mapped[datetime | None]
+    status: Mapped[str]  # "running" | "ok" | "partial" | "failed"
+    done: Mapped[int] = mapped_column(default=0)
+    total: Mapped[int | None]
+    failures: Mapped[str | None]  # JSON list
+    updated_at: Mapped[datetime]
 
 
 class AccountRow(Base):

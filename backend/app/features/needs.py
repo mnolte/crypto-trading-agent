@@ -204,8 +204,8 @@ def compute_needs(inputs: NeedsInputs) -> Needs:
                 kind="market",
                 title=f"{row.market} is failing the eligibility check",
                 detail=row.failed_rule,
-                action_label="Review in Settings",
-                action_target="/settings#markets",
+                action_label="Open Universe",
+                action_target="/universe?filter=failing",
                 since=repo.aware_utc(row.checked_at) if row.checked_at else None,
             )
         )

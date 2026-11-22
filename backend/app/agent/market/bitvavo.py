@@ -268,6 +268,19 @@ class BitvavoClient:
         except ValidationError as exc:
             raise UpstreamError("unparsable ticker/24h response") from exc
 
+    async def ticker_prices(self) -> dict[str, Decimal]:
+        """GET /ticker/price with no market → ``{market: price}`` for
+        every market in one call."""
+        raw = await self._get("/ticker/price")
+        items = raw if isinstance(raw, list) else [raw]
+        out: dict[str, Decimal] = {}
+        for item in items:
+            try:
+                out[str(item["market"])] = Decimal(str(item["price"]))
+            except (KeyError, TypeError, ArithmeticError) as exc:
+                raise UpstreamError("unparsable ticker/price response") from exc
+        return out
+
     async def markets(self) -> list[MarketInfo]:
         raw = await self._get("/markets")
         try:
@@ -286,6 +299,18 @@ class BitvavoClient:
             ]
         except (ValidationError, KeyError) as exc:
             raise UpstreamError("unparsable /markets response") from exc
+
+    async def assets(self) -> dict[str, str]:
+        """GET /assets → ``{symbol: name}`` for display names."""
+        raw = await self._get("/assets")
+        try:
+            return {
+                str(item["symbol"]): str(item["name"])
+                for item in raw
+                if isinstance(item, dict) and item.get("symbol") and item.get("name")
+            }
+        except (TypeError, KeyError) as exc:
+            raise UpstreamError("unparsable /assets response") from exc
 
     async def time(self) -> datetime:
         raw = await self._get("/time")
