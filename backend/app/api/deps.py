@@ -150,8 +150,21 @@ class RequestIdMiddleware:
                 message["headers"] = headers
             await send(message)  # type: ignore[arg-type]
 
-        with logstore.log_context(request_id=request_id):
-            await self.app(scope, receive, send_with_id)
+        try:
+            with logstore.log_context(request_id=request_id):
+                await self.app(scope, receive, send_with_id)
+        except asyncio.CancelledError:
+            # Uvicorn cancels requests still running when its graceful-
+            # shutdown window expires. The sync endpoint already runs
+            # detached on a worker thread, so once shutdown is requested
+            # the request can only end quietly; re-raising would log a
+            # traceback per cancelled request.
+            app = scope.get("app")
+            if not getattr(getattr(app, "state", None), "shutdown_requested", False):
+                raise
+            task = asyncio.current_task()
+            if task is not None and task.cancelling() > 0:
+                task.uncancel()
 
 
 @dataclass
