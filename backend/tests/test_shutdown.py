@@ -25,6 +25,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 import app.main as app_mod
+from app.api import deps
 from app.db import make_engine
 from app.main import create_app
 
@@ -156,6 +157,7 @@ def test_sigint_handler_first_announces_then_skips_then_forwards(
 
     handler(signal.SIGINT, None)
     assert app.state.sigint_requested is True
+    assert app.state.shutdown_requested is True
     assert previous[signal.SIGINT].call_count == 1
 
     with caplog.at_level("WARNING", logger="app.main"):
@@ -194,6 +196,32 @@ async def test_announce_shutdown_pushes_to_ws_clients() -> None:
     app_mod._announce_shutdown(app)
     await asyncio.sleep(0.05)
     assert len(payloads) == 1
+
+
+async def test_cancelled_request_ends_quietly_during_shutdown() -> None:
+    """Uvicorn cancels requests still running when its graceful-shutdown
+    window expires; once shutdown is requested that must not surface as
+    an ASGI error, and outside shutdown it must still propagate."""
+
+    async def inner(scope: Any, receive: Any, send: Any) -> None:
+        raise asyncio.CancelledError
+
+    async def run(flag: bool) -> None:
+        app = FastAPI()
+        app.state.shutdown_requested = flag
+        middleware = deps.RequestIdMiddleware(inner)
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/health",
+            "headers": [],
+            "app": app,
+        }
+        await middleware(scope, None, lambda message: None)  # type: ignore[arg-type]
+
+    await run(True)
+    with pytest.raises(asyncio.CancelledError):
+        await run(False)
 
 
 async def test_drain_tasks_gives_emails_a_send_window() -> None:

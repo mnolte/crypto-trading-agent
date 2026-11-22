@@ -273,6 +273,7 @@ def _install_signal_handlers(app: FastAPI) -> None:
     def _handler(signum: int, frame: FrameType | None) -> None:
         counts[signum] += 1
         if counts[signum] == 1:
+            app.state.shutdown_requested = True
             if signum == signal.SIGINT:
                 app.state.sigint_requested = True
             _announce_shutdown(app)
@@ -673,6 +674,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         shutdown_started = time.monotonic()
         if state is not None:
             state.shutting_down = True
+        app.state.shutdown_requested = True
         app.state.shutting_down = True
         log.info("Shutdown requested", extra={"event": "app.shutdown"})
         _announce_shutdown(app)  # a no-op when a signal already announced
