@@ -4,6 +4,7 @@ import asyncio
 import itertools
 import json
 import logging
+import random
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -23,6 +24,11 @@ OKX_BASE = "https://www.okx.com"
 DERIBIT_BASE = "https://www.deribit.com/api/v2"
 SYMBOLS: tuple[Literal["BTC", "ETH"], ...] = ("BTC", "ETH")
 RETRY_STATUSES = {429, 500, 502, 503, 504}
+# Total tries on a retryable status; network errors keep one retry.
+STATUS_ATTEMPTS = 5
+RETRY_AFTER_CAP_S = 30.0
+BACKOFF_BASE_S = 1.0
+BACKOFF_CAP_S = 30.0
 
 
 @dataclass(frozen=True)
@@ -265,6 +271,16 @@ class ContextCollector:
         if delay > 0:
             await self._sleep(delay)
 
+    def _retry_delay(self, response: httpx.Response, attempt: int) -> float:
+        retry_after = response.headers.get("retry-after")
+        if retry_after:
+            try:
+                return min(float(retry_after), RETRY_AFTER_CAP_S)
+            except ValueError:
+                pass
+        backoff = min(BACKOFF_CAP_S, BACKOFF_BASE_S * 2**attempt)
+        return random.uniform(0.0, backoff)
+
     async def _get(
         self,
         source: str,
@@ -272,29 +288,23 @@ class ContextCollector:
         params: dict[str, str | int | float | bool | None],
     ) -> object:
         base = OKX_BASE if source == "okx" else DERIBIT_BASE
-        for attempt in range(2):
+        network_retries = 0
+        for attempt in range(STATUS_ATTEMPTS):
             if source == "deribit":
                 await self._pace_deribit()
             try:
                 response = await self.client.get(f"{base}{path}", params=params, timeout=10.0)
-                if response.status_code in RETRY_STATUSES and attempt == 0:
-                    retry_after = response.headers.get("retry-after")
-                    delay = (
-                        min(float(retry_after), 30.0)
-                        if retry_after
-                        else 1.0
-                        if response.status_code == 429
-                        else 0.25
-                    )
-                    await self._sleep(delay)
-                    continue
-                response.raise_for_status()
-                return response.json()
             except (httpx.NetworkError, httpx.TimeoutException):
-                if attempt == 0:
+                if network_retries == 0:
+                    network_retries += 1
                     await self._sleep(0.25)
                     continue
                 raise
+            if response.status_code in RETRY_STATUSES and attempt < STATUS_ATTEMPTS - 1:
+                await self._sleep(self._retry_delay(response, attempt))
+                continue
+            response.raise_for_status()
+            return response.json()
         raise AssertionError("unreachable")
 
     async def _try(
@@ -308,7 +318,7 @@ class ContextCollector:
             return await self._get(source, path, params)
         except Exception as exc:  # noqa: BLE001 - boundary: one collector source
             errors.append(exc)
-            log.warning("market context request failed %s %s: %s", source, path, exc)
+            log.debug("market context request failed %s %s: %s", source, path, exc)
             return None
 
     async def collect(self, *, days: int | None = None) -> dict[str, int]:
@@ -401,7 +411,14 @@ class ContextCollector:
         if days is not None:
             cutoff = until - timedelta(days=days)
             points = [point for point in points if point.ts >= cutoff]
-        return points, errors[0] if errors else None
+        error = errors[0] if errors else None
+        if error is not None:
+            log.warning(
+                "market context okx: %d request(s) failed; first error: %s",
+                len(errors),
+                error,
+            )
+        return points, error
 
     async def _collect_deribit(
         self, days: int | None
@@ -485,4 +502,11 @@ class ContextCollector:
                 log.warning("no skew row for %s: missing deltas", symbol)
             else:
                 points.append(skew)
-        return points, errors[0] if errors else None
+        error = errors[0] if errors else None
+        if error is not None:
+            log.warning(
+                "market context deribit: %d request(s) failed; first error: %s",
+                len(errors),
+                error,
+            )
+        return points, error
