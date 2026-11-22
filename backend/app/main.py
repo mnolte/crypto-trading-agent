@@ -579,7 +579,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         for coro, job in (
             (daily_market_loop(state, notification_dispatcher.notify), "job-market-daily"),
-            (context_loop(ContextCollector(session_factory, registry)), "job-collector"),
+            (
+                context_loop(
+                    ContextCollector(session_factory, registry, settings=lambda: state.settings)
+                ),
+                "job-collector",
+            ),
             (outcome_loop(session_factory, asyncio.Event()), "job-outcomes"),
             (backup_loop(env.ta_db_path, env.ta_data_dir), "job-backup"),
             (

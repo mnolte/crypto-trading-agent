@@ -4,6 +4,7 @@ import asyncio
 import itertools
 import json
 import logging
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -13,6 +14,7 @@ import httpx
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import repo
+from app.models import Settings
 from app.sources import SourceRegistry
 
 log = logging.getLogger(__name__)
@@ -226,6 +228,8 @@ class ContextCollector:
         client: httpx.AsyncClient | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         sleep: Callable[[float], Any] = asyncio.sleep,
+        settings: Callable[[], Settings] | None = None,
+        monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         self._sessions = session_factory
         self.sources = sources
@@ -233,10 +237,33 @@ class ContextCollector:
         self._owns_client = client is None
         self.clock = clock
         self._sleep = sleep
+        self._settings = settings or (lambda: Settings())
+        self._monotonic = monotonic
+        self._pace_lock = asyncio.Lock()
+        self._pace_next_at = 0.0
 
     async def aclose(self) -> None:
         if self._owns_client:
             await self.client.aclose()
+
+    async def _pace_deribit(self) -> None:
+        """Space Deribit request starts by the configured minimum interval.
+
+        The lock hands each waiter its own slot, so asyncio.gather cannot
+        bypass the rate; the sleep is the injected one, keeping tests
+        deterministic.
+        """
+        rps = float(self._settings().market.deribit_requests_per_second)
+        if rps <= 0:
+            return
+        interval = 1.0 / rps
+        async with self._pace_lock:
+            now = self._monotonic()
+            start = max(now, self._pace_next_at)
+            self._pace_next_at = start + interval
+            delay = start - now
+        if delay > 0:
+            await self._sleep(delay)
 
     async def _get(
         self,
@@ -246,6 +273,8 @@ class ContextCollector:
     ) -> object:
         base = OKX_BASE if source == "okx" else DERIBIT_BASE
         for attempt in range(2):
+            if source == "deribit":
+                await self._pace_deribit()
             try:
                 response = await self.client.get(f"{base}{path}", params=params, timeout=10.0)
                 if response.status_code in RETRY_STATUSES and attempt == 0:
