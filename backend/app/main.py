@@ -11,11 +11,11 @@ import asyncio
 import json
 import logging
 import signal
-import sqlite3
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import FrameType
 from typing import Any
 
@@ -65,6 +65,7 @@ from app.db import (
     make_engine,
     make_session_factory,
     run_migrations,
+    sqlite_quick_check,
     utcnow,
 )
 from app.features import briefings as briefings_mod
@@ -81,27 +82,91 @@ FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 SOURCE_RECOVERY_RESOLVE_S = 3600
 EMAIL_SHUTDOWN_GRACE_S = 5.0
 CHECKPOINT_RETRY_S = 5.0
+
+
+class StartupRecoveryError(RuntimeError):
+    """Startup cannot safely continue; the process must exit fail-closed."""
+
+
 # Strong refs for in-flight shutdown-announce sends; done callbacks drop them.
 _announce_tasks: set[asyncio.Task[None]] = set()
 
 
-def _interrupt_running_runs(eng: DbEngine) -> int:
-    """What-if runs still 'running' are marked interrupted — their work
-    cannot continue on a new process. A missing/legacy whatif table is
-    not worth blocking startup or shutdown."""
+def _interrupt_running_runs(eng: DbEngine, *, reason: str = "restart") -> dict[str, int]:
+    """Close persisted work that cannot continue on a new process.
+
+    What-if rows still queued/running are marked interrupted, sync runs
+    still running are failed with the reason appended, and an unfinished
+    market check is failed. Each table is handled separately: a legacy
+    database missing one of them must not block the others.
+    """
+    counts: dict[str, int] = {}
     try:
         with eng.begin() as conn:
-            return (
+            counts["whatif"] = (
                 conn.execute(
                     text(
                         "UPDATE whatif_scenarios SET status = 'interrupted' "
-                        "WHERE status = 'running'"
+                        "WHERE status IN ('queued', 'running')"
                     )
                 ).rowcount
                 or 0
             )
     except SQLAlchemyError:
-        return 0
+        pass
+    try:
+        with eng.begin() as conn:
+            rows = conn.execute(
+                text("SELECT id, job, failures FROM sync_runs WHERE status = 'running'")
+            ).fetchall()
+            now = utcnow().replace(tzinfo=None)
+            for row in rows:
+                try:
+                    failures = json.loads(row.failures or "[]")
+                except (TypeError, ValueError):
+                    failures = []
+                if not isinstance(failures, list):
+                    failures = []
+                failures.append(
+                    {
+                        "what": row.job,
+                        "error": f"sync run interrupted by {reason}",
+                        "next_retry": None,
+                    }
+                )
+                conn.execute(
+                    text(
+                        "UPDATE sync_runs SET status = 'failed', finished_at = :now, "
+                        "updated_at = :now, failures = :failures WHERE id = :id"
+                    ),
+                    {
+                        "now": now,
+                        "failures": json.dumps(failures),
+                        "id": row.id,
+                    },
+                )
+            counts["sync_runs"] = len(rows)
+    except SQLAlchemyError:
+        pass
+    try:
+        with eng.begin() as conn:
+            counts["market_checks"] = (
+                conn.execute(
+                    text(
+                        "UPDATE market_checks SET status = 'failed', "
+                        "error = COALESCE(error, :error), finished_at = :now "
+                        "WHERE finished_at IS NULL"
+                    ),
+                    {
+                        "error": f"market check interrupted by {reason}",
+                        "now": utcnow().replace(tzinfo=None),
+                    },
+                ).rowcount
+                or 0
+            )
+    except SQLAlchemyError:
+        pass
+    return counts
 
 
 async def _resolve_source_error_after_recovery(
@@ -158,36 +223,58 @@ def _heartbeat_loop(lock: EngineLock) -> Callable[[], Awaitable[None]]:
 
 def _unclean_start(env: EnvConfig) -> None:
     """A leftover lock file means the last run did not shut down cleanly:
-    WARNING, a quick_check on the trading database, running cycles marked
-    interrupted, and the agent restarts paused (AppState defaults)."""
+    WARNING, persisted in-progress work is closed, and the agent restarts
+    paused (AppState defaults). The trading database's integrity was
+    verified before this runs."""
     log.warning(
         "previous run did not shut down cleanly",
         extra={"event": "app.unclean_shutdown"},
     )
-    try:
-        conn = sqlite3.connect(str(env.ta_db_path), timeout=5.0)
-        verdict = conn.execute("PRAGMA quick_check").fetchone()
-        conn.close()
-        if verdict and verdict[0] != "ok":
-            log.critical(
-                "trading database failed PRAGMA quick_check: %s",
-                verdict[0],
-                extra={"event": "db.unwritable"},
-            )
-    except (sqlite3.Error, OSError) as exc:
-        log.critical(
-            "trading database could not be opened for a clean-start check: %s",
-            exc,
-            extra={"event": "db.unwritable"},
-        )
     eng = make_engine(env.ta_db_path)
-    marked = _interrupt_running_runs(eng)
+    interrupted = _interrupt_running_runs(eng, reason="unclean restart")
     eng.dispose()
-    if marked:
+    total = sum(interrupted.values())
+    if total:
         log.warning(
             "%d interrupted run(s) marked after an unclean shutdown",
-            marked,
-            extra={"event": "app.unclean_shutdown"},
+            total,
+            extra={"event": "app.unclean_shutdown", "data": interrupted},
+        )
+
+
+def _verify_trading_database(db_path: Path) -> None:
+    """Fail closed before migrations when the trading DB is not readable."""
+    problem = sqlite_quick_check(db_path)
+    if problem is None:
+        return
+    log.critical(
+        "trading database failed startup integrity check: %s",
+        problem,
+        extra={"event": "db.corrupt", "data": {"path": str(db_path)}},
+    )
+    raise StartupRecoveryError(f"trading database at {db_path} failed integrity check: {problem}")
+
+
+def _report_auxiliary_database_problems(env: EnvConfig) -> None:
+    """Non-blocking diagnostics for the logs DB and newest backup."""
+    logs_db = env.ta_data_dir / "logs" / "logs.db"
+    problem = sqlite_quick_check(logs_db)
+    if problem is not None:
+        log.critical(
+            "logs.db failed startup integrity check: %s",
+            problem,
+            extra={"event": "logs.corrupt", "data": {"path": str(logs_db)}},
+        )
+    backup_dir = env.ta_data_dir / "backups"
+    backups = sorted(backup_dir.glob("agent-*.db"), reverse=True) if backup_dir.is_dir() else []
+    if not backups:
+        return
+    problem = sqlite_quick_check(backups[0], read_only=True)
+    if problem is not None:
+        log.error(
+            "newest backup failed startup integrity check: %s",
+            problem,
+            extra={"event": "backup.invalid", "data": {"path": str(backups[0])}},
         )
 
 
@@ -483,9 +570,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db_engine: DbEngine | None = None
     state: AppState | None = None
     try:
+        _report_auxiliary_database_problems(env)
+        _verify_trading_database(env.ta_db_path)
         if lock.preexisted:
             _unclean_start(env)
-        run_migrations(env.ta_db_path)
+        try:
+            run_migrations(env.ta_db_path)
+        except Exception as exc:
+            log.critical(
+                "database migrations failed at startup: %s",
+                exc,
+                exc_info=True,
+                extra={"event": "db.migration_failed"},
+            )
+            raise StartupRecoveryError(f"database migrations failed: {exc}") from exc
         db_engine = make_engine(env.ta_db_path)
         store = logstore.get_store()
         if store is not None:
@@ -715,12 +813,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                     )
             await state.market_client.aclose()
         if db_engine is not None:
-            interrupted = _interrupt_running_runs(db_engine)
-            if interrupted:
+            interrupted = _interrupt_running_runs(db_engine, reason="shutdown")
+            total_interrupted = sum(interrupted.values())
+            if total_interrupted:
                 log.info(
                     "%d interrupted run(s) marked at shutdown",
-                    interrupted,
-                    extra={"event": "app.interrupted_run"},
+                    total_interrupted,
+                    extra={"event": "app.interrupted_run", "data": interrupted},
                 )
             await _final_checkpoint(db_engine)
             db_engine.dispose()

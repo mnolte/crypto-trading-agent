@@ -5983,7 +5983,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "queued" | "running" | "done" | "failed";
+            status: "queued" | "running" | "done" | "failed" | "interrupted";
             /**
              * Updated At
              * Format: date-time
