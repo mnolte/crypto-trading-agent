@@ -97,6 +97,17 @@ export type LatestDecisionOut = components["schemas"]["LatestDecisionOut"];
 export type PaperOrderOut = components["schemas"]["PaperOrderOut"];
 export type FillOut = components["schemas"]["FillOut"];
 export type FillsPageOut = components["schemas"]["FillsPageOut"];
+export type UniverseOut = components["schemas"]["UniverseOut"];
+export type UniverseMarketOut = components["schemas"]["UniverseMarketOut"];
+export type MarketStatusOut = components["schemas"]["MarketStatusOut"];
+export type MarketStatusKind = MarketStatusOut["kind"];
+export type CheckLineOut = components["schemas"]["CheckLineOut"];
+export type CheckDetailOut = components["schemas"]["CheckDetailOut"];
+export type CheckRunOut = components["schemas"]["CheckRunOut"];
+export type FunnelStepOut = components["schemas"]["FunnelStepOut"];
+export type UniverseSyncOut = components["schemas"]["SyncOut"];
+export type SyncJobOut = components["schemas"]["SyncJobOut"];
+export type SyncFailureOut = components["schemas"]["SyncFailureOut"];
 
 export type NeedsItem = components["schemas"]["NeedsItem"];
 export type HealthItem = components["schemas"]["HealthItem"];
