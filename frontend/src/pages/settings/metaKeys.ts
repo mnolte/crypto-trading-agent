@@ -26,6 +26,7 @@ export const META_SECTION_KEYS: ReadonlySet<string> = new Set([
   "logging.keep_days.WARNING",
   "logging.max_db_mb",
   "market.adx_threshold",
+  "market.check_data_error_pct",
   "market.eligibility_beyond_pct",
   "market.eligibility_fail_days",
   "market.eligibility_recover_days",

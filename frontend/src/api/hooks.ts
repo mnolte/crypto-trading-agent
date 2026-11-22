@@ -226,6 +226,7 @@ export function useRetrySyncJob() {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["universe-sync"] });
       void client.invalidateQueries({ queryKey: ["universe"] });
+      void client.invalidateQueries({ queryKey: ["universe-check"] });
     },
   });
 }
@@ -327,6 +328,7 @@ export function usePauseEntries() {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["snapshot"] });
       void client.invalidateQueries({ queryKey: ["markets"] });
+      void client.invalidateQueries({ queryKey: ["universe"] });
     },
   });
 }
