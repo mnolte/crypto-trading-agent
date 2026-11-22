@@ -6,12 +6,12 @@ status: merged
 issue: 66
 kickoff: —
 spec_prs: []
-build_prs: [PR]
+build_prs: [67]
 ---
 
 # 033 · fix · DB pool exhaustion — sessions held across network awaits
 
-## 2026-11-23 · build PR #PR
+## 2026-11-23 · build PR #67
 
 On 2026-11-22 the API's SQLAlchemy QueuePool (size 5 + overflow 10)
 exhausted during a Bitvavo outage: responses took ~78 s, and every code
