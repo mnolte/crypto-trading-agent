@@ -50,6 +50,20 @@ _SIM_PARAMS: dict[str, tuple[float, float, float]] = {
 }
 _FALLBACK_PARAMS = (1.0, 0.012, 1_000.0)
 
+# Display names for the simulated markets (GET /assets equivalent).
+_SIM_NAMES = {
+    "BTC": "Bitcoin",
+    "ETH": "Ethereum",
+    "SOL": "Solana",
+    "XRP": "XRP",
+    "ADA": "Cardano",
+    "LINK": "Chainlink",
+    "AVAX": "Avalanche",
+    "DOGE": "Dogecoin",
+    "LTC": "Litecoin",
+    "USDC": "USD Coin",
+}
+
 
 def _stable_seed(seed: int, market: str) -> int:
     digest = hashlib.sha256(f"{seed}:{market}".encode()).digest()
@@ -269,6 +283,9 @@ class SimMarket:
             return Decimal("0")
         return closed[-1].close
 
+    async def ticker_prices(self) -> dict[str, Decimal]:
+        return {name: await self.ticker_price(name) for name in self.market_names}
+
     async def ticker_24h(self, market: str | None = None) -> list[Ticker24h]:
         names = [market] if market else self.market_names
         out: list[Ticker24h] = []
@@ -292,6 +309,12 @@ class SimMarket:
                 )
             )
         return out
+
+    async def assets(self) -> dict[str, str]:
+        return {
+            name.split("-")[0]: _SIM_NAMES.get(name.split("-")[0], name.split("-")[0])
+            for name in self.market_names
+        }
 
     async def markets(self) -> list[MarketInfo]:
         return [

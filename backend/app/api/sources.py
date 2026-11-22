@@ -26,6 +26,7 @@ from app.agent.market.universe import (
     deactivate_market,
     warming_up,
 )
+from app.api import deps
 from app.api import errors as api_errors
 from app.api.deps import AppState, broadcast_settings, get_state, require_token
 from app.api.routes import broadcast_snapshot
@@ -99,8 +100,8 @@ class MarketOut(BaseModel):
     warming_up: bool
     paused: bool
     status: str
-    volume_30d_eur: float | None
-    spread_pct: float | None
+    volume_30d_eur: MoneyDecimal | None
+    spread_pct: MoneyDecimal | None
     daily_candles: int | None
     checked_at: datetime | None
     # Markets card extras — filled for active markets only.
@@ -196,7 +197,8 @@ def _market_out(
 
 class MarketUpdateIn(BaseModel):
     active: bool
-    confirm: bool = False
+    confirm: bool = False  # item 025 name; confirm_looser is the spec name
+    confirm_looser: bool = False
 
 
 class MarketActionIn(BaseModel):
@@ -354,7 +356,13 @@ async def _set_market_active(
     try:
         if active:
             try:
-                row = await activate_market(state.market_client, session, market, settings.market)
+                row = await activate_market(
+                    state.market_client,
+                    session,
+                    market,
+                    settings.market,
+                    on_active=lambda m: deps.schedule_backfill(state, m),
+                )
             except UnknownMarketError as exc:
                 raise HTTPException(status_code=404, detail=str(exc)) from exc
             except IneligibleMarketError as exc:
@@ -379,6 +387,11 @@ async def _set_market_active(
                 confirm_looser=confirm,
             )
         except settings_service.LooserNeedsConfirm as exc:
+            if active:
+                # The 409 means nothing was saved — the market row must
+                # not stay active either.
+                row.active = False
+                repo.upsert_market_row(session, row)
             return api_errors.api_error(
                 409,
                 "This change loosens a limit — confirm to save it.",
@@ -398,7 +411,7 @@ async def _set_market_active(
 async def update_market(
     market: str, body: MarketUpdateIn, state: Annotated[AppState, Depends(get_state)]
 ) -> MarketOut:
-    return await _set_market_active(state, market, body.active, body.confirm)  # type: ignore[return-value]
+    return await _set_market_active(state, market, body.active, body.confirm or body.confirm_looser)  # type: ignore[return-value]
 
 
 @router.post("/markets/{market}/activate", dependencies=[Depends(require_token)])

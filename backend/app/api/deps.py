@@ -14,9 +14,10 @@ Local-only rules from the spec:
 from __future__ import annotations
 
 import asyncio
+import logging
 import secrets
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlparse
@@ -27,11 +28,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app import logstore, repo
+from app import tasks as tasks_mod
 from app.agent import budget
 from app.agent.broker.paper import PaperBroker
 from app.agent.market import make_market_client
 from app.agent.market.base import MarketClient, MarketInfo
 from app.agent.market.bitvavo import BitvavoClient
+from app.agent.market.universe import backfill_job
 from app.config import LOCAL_HOSTS
 from app.features import positions as positions_mod
 from app.features import quiet as quiet_mod
@@ -172,6 +175,12 @@ class AppState:
     agent_engine: AgentEngine | None = None
     shutting_down: bool = False
     log_store: Any = None
+    # Item 026: sync-run records, in-flight backfills per market, and the
+    # once-a-minute price cache behind GET /api/universe.
+    syncs: Any = None
+    backfill_tasks: dict[str, asyncio.Task[None]] = field(default_factory=dict)
+    universe_prices: dict[str, Decimal] = field(default_factory=dict)
+    universe_prices_at: datetime | None = None
 
 
 def build_market_client(settings: Settings, sources: SourceRegistry) -> MarketClient:
@@ -191,6 +200,46 @@ def build_market_client(settings: Settings, sources: SourceRegistry) -> MarketCl
 
 def get_state(request: Request) -> AppState:
     return request.app.state.app_state  # type: ignore[no-any-return]
+
+
+log = logging.getLogger(__name__)
+
+
+def _track(state: AppState, task: asyncio.Task[Any]) -> None:
+    state.tasks.append(task)
+    task.add_done_callback(
+        lambda completed: state.tasks.remove(completed) if completed in state.tasks else None
+    )
+
+
+def schedule_backfill(state: AppState, market: str) -> None:
+    """Spawn a market's history backfill as a supervised task; a second
+    call while one runs for that market is a no-op. Activation returns
+    before the backfill finishes (item 026)."""
+    existing = state.backfill_tasks.get(market)
+    if existing is not None and not existing.done():
+        return
+
+    async def job() -> None:
+        try:
+            await backfill_job(
+                state.market_client,
+                state.session_factory,
+                market,
+                state.settings.market,
+                syncs=state.syncs,
+                cycle_offset_s=state.settings.cycle_offset_s,
+            )
+        except Exception:
+            log.exception("backfill for %s failed", market)
+
+    task = tasks_mod.spawn(
+        job,
+        name=f"backfill-{market}",
+        restart=False,
+        track=lambda t: _track(state, t),
+    )
+    state.backfill_tasks[market] = task
 
 
 def get_session(request: Request) -> Session:

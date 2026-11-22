@@ -35,8 +35,8 @@ from app.agent.broker.paper import PaperBroker
 from app.agent.deciders.openai_decider import OpenAIDecider
 from app.agent.deciders.rules import RulesDecider
 from app.agent.engine import Engine
+from app.agent.market.sync import SyncRuns, plain_error
 from app.agent.market.universe import (
-    backfill_market,
     run_eligibility_check,
     warming_up,
 )
@@ -47,6 +47,7 @@ from app.api import deps, errors, evidence, inspector, notifications, positions,
 from app.api import logs as logs_routes
 from app.api import sources as source_routes
 from app.api import understanding as understanding_routes
+from app.api import universe as universe_routes
 from app.api.deps import (
     AppState,
     LocalOnlyMiddleware,
@@ -59,6 +60,7 @@ from app.context.scheduler import context_loop
 from app.db import (
     EngineLock,
     ErrorRow,
+    MarketCheckRow,
     MarketRow,
     make_engine,
     make_session_factory,
@@ -344,27 +346,85 @@ def _track_task(state: AppState, task: asyncio.Task[None]) -> None:
     )
 
 
+async def _exchange_rules_job(state: AppState, run: Any = None) -> list[Any]:
+    """The exchange_rules sync job: /markets + /assets + market names."""
+    infos = await state.market_client.markets()
+    state.market_rules.clear()
+    state.market_rules.update({i.market: i for i in infos})
+    try:
+        names = await state.market_client.assets()
+    except Exception as exc:  # noqa: BLE001 - names stay pending, rules still load
+        if run is not None:
+            run.fail("bitvavo", plain_error(exc))
+    else:
+        session = state.session_factory()
+        try:
+            for info in infos:
+                if info.quote != "EUR":
+                    continue
+                row = session.get(MarketRow, info.market)
+                if row is not None and names.get(info.base):
+                    row.name = names[info.base]
+            session.commit()
+        finally:
+            session.close()
+    if run is not None:
+        run.progress(len(infos), len(infos))
+    return infos
+
+
 async def refresh_market_data(
     state: AppState,
     notify: Callable[[str, str, str], Awaitable[None]] | None = None,
+    *,
+    trigger: str = "startup",
 ) -> None:
     """Market-data check: exchange rules, the eligibility check and
     backfills for active markets still warming up. Runs at startup and
-    daily at 01:00 UTC (``daily_market_loop``).
+    daily at 01:00 UTC (``daily_market_loop``); each part writes its own
+    ``sync_runs`` row (item 026).
 
     Any failure marks the source in the registry; it never stops startup —
     a failing source must not fail cycles, and the app always starts paused.
     """
     session = state.session_factory()
     try:
-        infos = await state.market_client.markets()
-        # The engine and shadow runner hold this dict by reference —
-        # update it in place so they see the fetched rules too.
-        state.market_rules.clear()
-        state.market_rules.update({i.market: i for i in infos})
-        _rows, transitions = await run_eligibility_check(
-            state.market_client, session, state.settings.market
-        )
+        rules_run = state.syncs.begin("exchange_rules") if state.syncs else None
+        try:
+            await _exchange_rules_job(state, rules_run)
+        except Exception as exc:
+            if rules_run is not None:
+                rules_run.abort(plain_error(exc))
+            raise
+        finally:
+            if rules_run is not None:
+                rules_run.finish()
+
+        check_run = state.syncs.begin("daily_check") if state.syncs else None
+        try:
+            _rows, transitions = await run_eligibility_check(
+                state.market_client,
+                session,
+                state.settings.market,
+                trigger=trigger,
+                on_progress=check_run.progress if check_run else None,
+            )
+            if check_run is not None:
+                latest = session.scalar(
+                    select(MarketCheckRow).order_by(MarketCheckRow.id.desc()).limit(1)
+                )
+                if latest is not None and latest.status == "failed":
+                    check_run.abort(latest.error or "check failed")
+                else:
+                    eur = len(state.market_rules)
+                    check_run.progress(eur, eur)
+        except Exception as exc:
+            if check_run is not None:
+                check_run.abort(plain_error(exc))
+            raise
+        finally:
+            if check_run is not None:
+                check_run.finish()
         for market, change in transitions.items():
             text = f"market {market} eligibility check: {change}"
             repo.add_activity(session, "alert", text, at=utcnow(), pair=market)
@@ -380,7 +440,7 @@ async def refresh_market_data(
                 row.activated_at = utcnow()
                 repo.upsert_market_row(session, row)
             if warming_up(session, market, state.settings.market):
-                await backfill_market(state.market_client, session, market, state.settings.market)
+                deps.schedule_backfill(state, market)
         session.commit()
     except Exception as exc:  # noqa: BLE001 - boundary: the market-data job
         state.sources.record("bitvavo", exc)
@@ -402,7 +462,7 @@ async def daily_market_loop(
             due += timedelta(days=1)
         await asyncio.sleep(max(60.0, (due - now).total_seconds()))
         try:
-            await refresh_market_data(state, notify)
+            await refresh_market_data(state, notify, trigger="daily")
         except Exception:
             log.exception("daily market-data refresh failed")
 
@@ -473,6 +533,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             market_client=market_client,
             sources=registry,
             status="paused",
+            syncs=SyncRuns(session_factory),
         )
         app.state.app_state = state
         state.log_store = logstore.get_store()
@@ -541,6 +602,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             decider=RulesDecider(),
             broadcast=lambda: routes.broadcast_snapshot(state),
             notify=notification_dispatcher.notify,
+            syncs=state.syncs,
         )
         # The OpenAI decider reads the live broker and risk state through
         # the engine, so it always sees the current account even after a
@@ -692,6 +754,7 @@ def create_app() -> FastAPI:
     app.include_router(context_routes.router)
     app.include_router(inspector.router)
     app.include_router(understanding_routes.router)
+    app.include_router(universe_routes.router)
     app.include_router(evidence.router)
     app.include_router(notifications.router)
     app.include_router(logs_routes.router)

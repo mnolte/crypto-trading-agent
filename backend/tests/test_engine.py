@@ -226,6 +226,12 @@ class ScriptMarket:
     async def ticker_24h(self, market: str | None = None) -> list[Ticker24h]:
         return []
 
+    async def ticker_prices(self) -> dict[str, Decimal]:
+        return dict(self.tickers)
+
+    async def assets(self) -> dict[str, str]:
+        return {}
+
     async def markets(self) -> list[MarketInfo]:
         return [
             MarketInfo(

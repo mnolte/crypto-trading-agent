@@ -142,7 +142,18 @@ class MarketClient(Protocol):
 
     async def ticker_24h(self, market: str | None = None) -> list[Ticker24h]: ...
 
+    async def ticker_prices(self) -> dict[str, Decimal]:
+        """Last price for every market in one request — the Universe
+        screen refreshes prices at most once a minute (item 026)."""
+        ...
+
     async def markets(self) -> list[MarketInfo]: ...
+
+    async def assets(self) -> dict[str, str]:
+        """``{symbol: name}`` from the exchange's public asset list —
+        the display names on the Universe screen. A missing name stays
+        absent; the screen shows "name pending"."""
+        ...
 
     async def aclose(self) -> None: ...
 

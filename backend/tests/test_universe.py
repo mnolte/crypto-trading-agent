@@ -81,6 +81,12 @@ class FakeMarket:
     async def ticker_price(self, market: str, **_kw: Any) -> Decimal:
         return Decimal("1")
 
+    async def ticker_prices(self) -> dict[str, Decimal]:
+        return {}
+
+    async def assets(self) -> dict[str, str]:
+        return {}
+
 
 def _candles(
     n: int, *, price: float = 100.0, volume: float = 100.0, step: timedelta = DAY

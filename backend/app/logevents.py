@@ -148,7 +148,7 @@ _EVENTS = [
     ),
     LogEvent(
         "eligibility.check_failed",
-        ERR,
+        WRN,
         "market.universe",
         "The daily eligibility check itself failed; yesterday's result stands.",
         "Check the job.failed line for the error; the check runs again tomorrow.",
