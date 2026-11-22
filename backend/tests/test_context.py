@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import itertools
 import json
 import logging
 import shutil
+from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -282,6 +285,172 @@ def test_schedule_minute_five_and_startup_catchup() -> None:
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(context_loop(fake, clock=lambda: NOW, sleep=stop_after_sleep))  # type: ignore[arg-type]
     assert fake.runs == 1
+
+
+SKEW_EXPIRY_MS = int((NOW + timedelta(days=30)).timestamp() * 1000)
+SKEW_INSTRUMENTS = [
+    {"instrument_name": name, "expiration_timestamp": SKEW_EXPIRY_MS}
+    for name in (
+        "BTC-13NOV26-90000-P",
+        "BTC-13NOV26-100000-P",
+        "BTC-13NOV26-90000-C",
+        "BTC-13NOV26-100000-C",
+    )
+]
+SKEW_TICKERS = {
+    "BTC-13NOV26-90000-P": (-0.35, 60.0),
+    "BTC-13NOV26-100000-P": (-0.15, 56.0),
+    "BTC-13NOV26-90000-C": (0.15, 50.0),
+    "BTC-13NOV26-100000-C": (0.35, 54.0),
+}
+
+
+class _FakePacer:
+    """Deterministic monotonic clock: sleeps advance it and are recorded."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+        self.sleeps: list[float] = []
+
+    async def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+    def monotonic(self) -> float:
+        return self.now
+
+
+def _deribit_handler(
+    ticker: Callable[[httpx.Request, int], httpx.Response],
+    calls: list[float],
+    pacer: _FakePacer,
+) -> Callable[[httpx.Request], Coroutine[Any, Any, httpx.Response]]:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/public/get_volatility_index_data"):
+            return httpx.Response(
+                200,
+                json={"result": {"data": [[1000, 1, 2, 0, 1.25]], "continuation": None}},
+            )
+        if path.endswith("/public/get_instruments"):
+            return httpx.Response(200, json={"result": SKEW_INSTRUMENTS})
+        if path.endswith("/public/ticker"):
+            calls.append(pacer.now)
+            return ticker(request, len(calls))
+        return httpx.Response(404)
+
+    return handler
+
+
+def _ok_ticker(request: httpx.Request, _call: int) -> httpx.Response:
+    name = request.url.params["instrument_name"]
+    delta, iv = SKEW_TICKERS[name]
+    return httpx.Response(
+        200,
+        json={
+            "result": {
+                "instrument_name": name,
+                "mark_iv": iv,
+                "greeks": {"delta": delta},
+                "underlying_price": 100000,
+            }
+        },
+    )
+
+
+async def test_deribit_429_then_200_recovers_skew(tmp_path: Path, migrated_db: Path) -> None:
+    pacer = _FakePacer()
+    calls: list[float] = []
+    ticker_calls = 0
+
+    def ticker(request: httpx.Request, _call: int) -> httpx.Response:
+        nonlocal ticker_calls
+        ticker_calls += 1
+        if ticker_calls == 1:
+            return httpx.Response(429, headers={"Retry-After": "2"}, json={})
+        return _ok_ticker(request, _call)
+
+    handler = _deribit_handler(ticker, calls, pacer)
+    engine, sessions = _sessions(tmp_path / "retry.db", migrated_db)
+    registry = SourceRegistry(["okx"])
+    collector = ContextCollector(
+        sessions,
+        registry,
+        client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        clock=lambda: NOW,
+        sleep=pacer.sleep,
+        monotonic=pacer.monotonic,
+    )
+    try:
+        counts = await collector.collect()
+        assert counts["skew_25d"] == 2  # BTC and ETH
+        assert ticker_calls == 9  # 8 instruments + the one retried call
+        assert 2.0 in pacer.sleeps  # Retry-After honoured
+        assert registry.status("deribit").runtime.failures == 0
+    finally:
+        await collector.client.aclose()
+        engine.dispose()
+
+
+async def test_deribit_requests_respect_min_interval(tmp_path: Path, migrated_db: Path) -> None:
+    pacer = _FakePacer()
+    calls: list[float] = []
+    handler = _deribit_handler(_ok_ticker, calls, pacer)
+    engine, sessions = _sessions(tmp_path / "pace.db", migrated_db)
+    collector = ContextCollector(
+        sessions,
+        SourceRegistry(["okx"]),
+        client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        clock=lambda: NOW,
+        sleep=pacer.sleep,
+        monotonic=pacer.monotonic,
+    )
+    try:
+        counts = await collector.collect()
+        assert counts["skew_25d"] == 2
+        assert len(calls) == 8  # 4 instruments x BTC and ETH
+        # Default 2 requests/second -> 0.5 s between request starts.
+        assert all(later - earlier >= 0.5 - 1e-6 for earlier, later in itertools.pairwise(calls))
+    finally:
+        await collector.client.aclose()
+        engine.dispose()
+
+
+async def test_deribit_persistent_429_records_error_without_skew(
+    tmp_path: Path, migrated_db: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.WARNING)
+    pacer = _FakePacer()
+    calls: list[float] = []
+
+    def ticker(_request: httpx.Request, _call: int) -> httpx.Response:
+        return httpx.Response(429, json={"error": {"message": "too_many_requests"}})
+
+    handler = _deribit_handler(ticker, calls, pacer)
+    engine, sessions = _sessions(tmp_path / "limited.db", migrated_db)
+    registry = SourceRegistry(["okx"])
+    collector = ContextCollector(
+        sessions,
+        registry,
+        client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        clock=lambda: NOW,
+        sleep=pacer.sleep,
+        monotonic=pacer.monotonic,
+    )
+    try:
+        counts = await collector.collect()
+        assert "skew_25d" not in counts
+        runtime = registry.status("deribit").runtime
+        assert runtime.failures == 1
+        assert "429" in (runtime.last_error or "")
+        # One summary warning per collect; per-request detail stays at debug.
+        warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+        assert sum("market context deribit" in w for w in warnings) == 1
+        assert not any("market context request failed" in w for w in warnings)
+        assert len(calls) == 8 * 5  # every instrument exhausts the 5-try budget
+    finally:
+        await collector.client.aclose()
+        engine.dispose()
 
 
 def test_context_api_filters(client: TestClient, env_paths: Path) -> None:

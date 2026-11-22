@@ -89,6 +89,7 @@ DIRECTIONS: dict[str, tuple[Direction, str]] = {
     "market.history_1d": ("neutral", "how much daily history is kept"),
     "market.structure_min_range_bars": ("neutral", "structure lookback"),
     "market.stale_grace_s": ("up", "staler data still counts as fresh"),
+    "market.deribit_requests_per_second": ("up", "Deribit requests run closer to its limit"),
     "market.stablecoin_bases": ("down", "a longer list is tighter"),
     # --------------------------------------------------------- readiness --
     "readiness.min_closed_trades": ("down", "readiness reached with fewer trades"),

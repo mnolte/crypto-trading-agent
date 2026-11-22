@@ -411,6 +411,12 @@ class MarketSettings(BaseModel):
         12
     )
     stale_grace_s: Annotated[int, _range(*RANGES["market.stale_grace_s"])] = 900
+    # Market-context collector: sustained Deribit public requests per second.
+    # Deribit cut public/ticker to 5/s (burst 25) on 19 Nov 2026; 2/s keeps
+    # the hourly ~216-request skew fetch well under the limit.
+    deribit_requests_per_second: Annotated[
+        float, _range(*RANGES["market.deribit_requests_per_second"])
+    ] = 2.0
     stablecoin_bases: list[str] = [
         "USDC",
         "EURC",

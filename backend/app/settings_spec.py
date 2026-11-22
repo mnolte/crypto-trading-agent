@@ -46,6 +46,8 @@ SECTIONS: dict[str, str | None] = {
     "ui.stop_near_atr": "display",
     "data_source": "keys",
     "disabled_sources": "keys",
+    # Accepted by the API, deliberately off the Settings screen.
+    "market.deribit_requests_per_second": SECTION_OFF,
     "readiness.": "ready",
     "logging.console_level": "logs",
     "logging.keep_days.": "logs",
@@ -69,6 +71,7 @@ OFF_SCREEN: frozenset[str] = frozenset(
         "logging.backtest_debug",
         "logging.library_debug",
         "storage.shutdown_grace_seconds",
+        "market.deribit_requests_per_second",
     }
 )
 
@@ -121,6 +124,7 @@ RANGES: dict[str, tuple[str, str]] = {
     "market.history_1d": ("100", "5000"),
     "market.structure_min_range_bars": ("3", "100"),
     "market.stale_grace_s": ("60", "7200"),
+    "market.deribit_requests_per_second": ("0.1", "20"),
     "model.daily_call_budget": ("0", "20000"),
     "model.monthly_cost_cap_eur": ("0", "1000"),
     "paper.start_balance_eur": ("100", "1000000"),
@@ -195,6 +199,7 @@ UNITS: dict[str, str] = {
     "market.history_1d": "bars",
     "market.structure_min_range_bars": "bars",
     "market.stale_grace_s": "s",
+    "market.deribit_requests_per_second": "req/s",
     "market.stablecoin_bases": "",
     "model.decider": "",
     "model.model_id": "",
