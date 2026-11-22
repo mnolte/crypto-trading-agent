@@ -243,7 +243,8 @@ class ContextCollector:
         self._owns_client = client is None
         self.clock = clock
         self._sleep = sleep
-        self._settings = settings or (lambda: Settings())
+        default = Settings()
+        self._settings = settings if settings is not None else lambda: default
         self._monotonic = monotonic
         self._pace_lock = asyncio.Lock()
         self._pace_next_at = 0.0
