@@ -6,7 +6,7 @@ status: building
 issue: 46
 kickoff: 026-feat-universe-screen.md
 spec_prs: [49]
-build_prs: [backend]
+build_prs: [58]
 ---
 
 # 026 · feat · Universe screen
