@@ -2,11 +2,11 @@
 item: 028
 type: fix
 title: Problem count test flake
-status: building
+status: merged
 issue: 52
 kickoff: —
 spec_prs: []
-build_prs: []
+build_prs: [53]
 ---
 
 # 028 · fix · Problem count test flake
