@@ -2,11 +2,11 @@
 item: 029
 type: ops
 title: OpenAI SDK 3.x httpx2 migration
-status: building
+status: merged
 issue: 54
 kickoff: —
 spec_prs: []
-build_prs: []
+build_prs: [55]
 ---
 
 # 029 · ops · OpenAI SDK 3.x httpx2 migration
