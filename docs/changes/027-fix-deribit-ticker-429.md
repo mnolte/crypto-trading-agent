@@ -6,7 +6,7 @@ status: building
 issue: 47
 kickoff: 027-fix-deribit-ticker-429.md
 spec_prs: []
-build_prs: [PENDING]
+build_prs: [57]
 ---
 
 # 027 · fix · Deribit ticker 429 rate limit
@@ -18,7 +18,7 @@ instrument. The build paces the requests and gives 429 a real retry budget;
 no change to skew values, instruments or stored rows. Root cause and
 proposed fix: issue #47, kickoff `027-fix-deribit-ticker-429.md`.
 
-## 2026-11-22 · build PR #PENDING
+## 2026-11-22 · build PR #57
 
 - New setting `market.deribit_requests_per_second` (default 2, range 0.1–20,
   off the Settings screen): a shared minimum-interval pacer in the collector
