@@ -861,7 +861,7 @@ function PriceChartCard({
   onTf,
   onPick,
 }: {
-  anchorRef: React.RefObject<HTMLElement>;
+  anchorRef: React.RefObject<HTMLElement | null>;
   snapshot?: Snapshot;
   pair: string | null;
   heldPairs: string[];
