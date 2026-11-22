@@ -1396,7 +1396,7 @@ class WhatIfSpecIn(BaseModel):
 
 class WhatIfJobOut(BaseModel):
     id: str
-    status: Literal["queued", "running", "done", "failed"]
+    status: Literal["queued", "running", "done", "failed", "interrupted"]
     progress: float
     name: str | None
     saved: bool

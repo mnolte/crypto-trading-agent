@@ -660,6 +660,32 @@ def make_session_factory(engine: Engine) -> sessionmaker[Session]:
     return sessionmaker(engine, expire_on_commit=False)
 
 
+def sqlite_quick_check(db_path: Path, *, read_only: bool = False) -> str | None:
+    """Return the first ``PRAGMA quick_check`` problem, or None.
+
+    A missing file is not a problem: startup creates it through Alembic.
+    ``read_only`` opens through a SQLite URI so diagnostics never create
+    journal files next to a backup.
+    """
+    if not db_path.exists():
+        return None
+    try:
+        if read_only:
+            conn = sqlite3.connect(f"{db_path.absolute().as_uri()}?mode=ro", uri=True, timeout=5.0)
+        else:
+            conn = sqlite3.connect(str(db_path), timeout=5.0)
+        try:
+            row = conn.execute("PRAGMA quick_check").fetchone()
+        finally:
+            conn.close()
+    except (sqlite3.Error, OSError) as exc:
+        return f"check failed: {exc}"
+    if row is None:
+        return "quick_check returned no result"
+    verdict = str(row[0])
+    return None if verdict == "ok" else verdict
+
+
 def run_migrations(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     cfg = Config(str(ALEMBIC_INI))

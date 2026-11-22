@@ -112,8 +112,8 @@ def test_global_hooks_log_uncaught(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_unclean_start_marks_interrupted_runs(tmp_path: Path) -> None:
-    """A stale lock on startup: warning logged, quick_check passes, a
-    'running' what-if run is marked interrupted."""
+    """A stale lock on startup: warning logged and a 'running' what-if
+    run is marked interrupted."""
     db_path = tmp_path / "agent.db"
     eng = make_engine(db_path)
     run_migrations(db_path)

@@ -10393,7 +10393,8 @@
               "queued",
               "running",
               "done",
-              "failed"
+              "failed",
+              "interrupted"
             ],
             "title": "Status",
             "type": "string"
