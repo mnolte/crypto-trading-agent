@@ -3011,6 +3011,11 @@ export interface components {
              */
             adx_threshold: number | string;
             /**
+             * Deribit Requests Per Second
+             * @default 2
+             */
+            deribit_requests_per_second: number;
+            /**
              * Eligibility Beyond Pct
              * @default 20
              */
@@ -3094,6 +3099,11 @@ export interface components {
              * @default 25
              */
             adx_threshold: string;
+            /**
+             * Deribit Requests Per Second
+             * @default 2
+             */
+            deribit_requests_per_second: number;
             /**
              * Eligibility Beyond Pct
              * @default 20
@@ -4500,6 +4510,7 @@ export interface components {
             /**
              * @default {
              *       "adx_threshold": "25",
+             *       "deribit_requests_per_second": 2,
              *       "eligibility_beyond_pct": "20",
              *       "eligibility_fail_days": 3,
              *       "eligibility_recover_days": 3,
@@ -4755,6 +4766,7 @@ export interface components {
             /**
              * @default {
              *       "adx_threshold": "25",
+             *       "deribit_requests_per_second": 2,
              *       "eligibility_beyond_pct": "20",
              *       "eligibility_fail_days": 3,
              *       "eligibility_recover_days": 3,

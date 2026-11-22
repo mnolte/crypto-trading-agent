@@ -20,7 +20,9 @@ async def run(days: int) -> None:
         settings = repo.load_settings(session)
     finally:
         session.close()
-    collector = ContextCollector(sessions, SourceRegistry(settings.disabled_sources))
+    collector = ContextCollector(
+        sessions, SourceRegistry(settings.disabled_sources), settings=lambda: settings
+    )
     try:
         counts = await collector.collect(days=days)
     finally:
