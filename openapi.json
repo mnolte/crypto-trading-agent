@@ -4354,6 +4354,11 @@
             "default": "25",
             "title": "Adx Threshold"
           },
+          "deribit_requests_per_second": {
+            "default": 2.0,
+            "title": "Deribit Requests Per Second",
+            "type": "number"
+          },
           "eligibility_beyond_pct": {
             "anyOf": [
               {
@@ -4460,6 +4465,11 @@
             "default": "25",
             "title": "Adx Threshold",
             "type": "string"
+          },
+          "deribit_requests_per_second": {
+            "default": 2.0,
+            "title": "Deribit Requests Per Second",
+            "type": "number"
           },
           "eligibility_beyond_pct": {
             "default": "20",
@@ -7416,6 +7426,7 @@
             "$ref": "#/components/schemas/MarketSettings-Input",
             "default": {
               "adx_threshold": "25",
+              "deribit_requests_per_second": 2.0,
               "eligibility_beyond_pct": "20",
               "eligibility_fail_days": 3,
               "eligibility_recover_days": 3,
@@ -7683,6 +7694,7 @@
             "$ref": "#/components/schemas/MarketSettings-Output",
             "default": {
               "adx_threshold": "25",
+              "deribit_requests_per_second": 2.0,
               "eligibility_beyond_pct": "20",
               "eligibility_fail_days": 3,
               "eligibility_recover_days": 3,

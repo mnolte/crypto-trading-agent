@@ -5,9 +5,10 @@ import itertools
 import json
 import logging
 import shutil
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -323,7 +324,7 @@ def _deribit_handler(
     ticker: Callable[[httpx.Request, int], httpx.Response],
     calls: list[float],
     pacer: _FakePacer,
-) -> Callable[[httpx.Request], Awaitable[httpx.Response]]:
+) -> Callable[[httpx.Request], Coroutine[Any, Any, httpx.Response]]:
     async def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
         if path.endswith("/public/get_volatility_index_data"):
