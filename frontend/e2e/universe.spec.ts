@@ -172,9 +172,18 @@ test.describe("Universe screen", () => {
       path: path.join(SHOTS, "universe-activate-confirm.png"),
     });
 
-    await dialog
-      .getByRole("button", { name: "Activate", exact: true })
-      .click();
+    // Wait for the PUT itself: navigating away right after the click can
+    // abort the request before it reaches the backend on a slow runner.
+    const [activateRes] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes("/api/markets/AVAX-EUR") &&
+          r.request().method() === "PUT",
+      ),
+      dialog.getByRole("button", { name: "Activate", exact: true }).click(),
+    ]);
+    expect(activateRes.ok()).toBeTruthy();
+    await expect(dialog).toHaveCount(0);
     // The row leaves the eligible filter (it is active now). A search
     // bypasses the fold, so the row stays findable among many actives.
     await page.goto("/universe");
@@ -208,9 +217,18 @@ test.describe("Universe screen", () => {
     await expect(
       dialog.getByText(/No new entries; an open position is still managed/),
     ).toBeVisible();
-    await dialog
-      .getByRole("button", { name: "Deactivate", exact: true })
-      .click();
+    const [deactivateRes] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes("/api/markets/DOGE-EUR") &&
+          r.request().method() === "PUT",
+      ),
+      dialog
+        .getByRole("button", { name: "Deactivate", exact: true })
+        .click(),
+    ]);
+    expect(deactivateRes.ok()).toBeTruthy();
+    await expect(dialog).toHaveCount(0);
     // Deactivated and still eligible: the row now offers Activate again.
     await page.goto("/universe?filter=eligible");
     await page.getByLabel("Find a market").fill("DOGE");
