@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import httpx
+import httpx2
 import openai
 import pytest
 
@@ -56,18 +56,18 @@ def _client(outcomes: list[Any]) -> tuple[OpenAIResponsesClient, _FakeResponses]
 
 
 def _status_error(code: int) -> openai.APIStatusError:
-    request = httpx.Request("POST", "https://api.openai.com/v1/responses")
-    response = httpx.Response(code, request=request)
+    request = httpx2.Request("POST", "https://api.openai.com/v1/responses")
+    response = httpx2.Response(code, request=request)
     return openai.APIStatusError("boom", response=response, body=None)
 
 
 def _conn_error() -> openai.APIConnectionError:
-    request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+    request = httpx2.Request("POST", "https://api.openai.com/v1/responses")
     return openai.APIConnectionError(request=request)
 
 
 def _timeout() -> openai.APITimeoutError:
-    request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+    request = httpx2.Request("POST", "https://api.openai.com/v1/responses")
     return openai.APITimeoutError(request)
 
 
@@ -149,16 +149,18 @@ async def test_request_and_response_captured_byte_for_byte(
     )
     seen: list[bytes] = []
 
-    async def fake_handle(self: httpx.AsyncHTTPTransport, request: httpx.Request) -> httpx.Response:
+    async def fake_handle(
+        self: httpx2.AsyncHTTPTransport, request: httpx2.Request
+    ) -> httpx2.Response:
         seen.append(await request.aread())
-        return httpx.Response(
+        return httpx2.Response(
             200,
             content=body,
             headers={"x-request-id": "req-9"},
             request=request,
         )
 
-    monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", fake_handle)
+    monkeypatch.setattr(httpx2.AsyncHTTPTransport, "handle_async_request", fake_handle)
     client = OpenAIResponsesClient("sk-test")
     try:
         result = await client.call({"model": "gpt-4o-mini", "input": "{}", "temperature": 0})
