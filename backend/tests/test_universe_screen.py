@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 from starlette.testclient import TestClient
 
@@ -25,6 +25,8 @@ from app.agent.market.universe import (
 from app.api.deps import AppState
 from app.api.universe import MarketStatusOut, _prices, market_status
 from app.db import (
+    Base,
+    DecisionRow,
     MarketCheckRow,
     MarketRow,
     SyncRunRow,
@@ -32,7 +34,7 @@ from app.db import (
     make_session_factory,
 )
 from app.models import MarketSettings, Tf
-from app.repo import candle_counts
+from app.repo import candle_counts, latest_decisions
 
 NOW = datetime(2026, 10, 1, tzinfo=UTC)
 DAY = timedelta(days=1)
@@ -594,3 +596,89 @@ def test_universe_api_endpoints(sim_client: TestClient) -> None:
     # Unknown job → 404.
     resp = sim_client.post("/api/universe/sync/nope/retry", headers=headers)
     assert resp.status_code == 404
+
+
+# ------------------------------------------------- item 034: query batching --
+
+
+def _decision(pair: str, at: datetime, decision_id: str) -> DecisionRow:
+    return DecisionRow(
+        id=decision_id,
+        cycle=1,
+        at=at.replace(tzinfo=None),
+        account_id=1,
+        pair=pair,
+        decider="rules",
+        model=None,
+        prompt_version=None,
+        action="HOLD",
+        confidence=0.5,
+        reasoning="test",
+        invalidation=None,
+        signals="[]",
+        plan=None,
+        gates="[]",
+        status="none",
+        execute_at=None,
+        error=None,
+        regime="{}",
+        btc_regime="{}",
+        invalidation_price=None,
+        risk_pct_used="1",
+        settings_version=1,
+        shadow_id=None,
+        stand_in=False,
+        raw_brief=None,
+        raw_response=None,
+        prefilter=True,
+    )
+
+
+def test_latest_decisions_one_query_for_all_pairs(tmp_path: Path) -> None:
+    """Item 034: the newest decision per pair comes back in a fixed number
+    of queries, not one scan of ``decisions`` per pair."""
+    engine = make_engine(tmp_path / "t.db")
+    Base.metadata.create_all(engine)
+    s = make_session_factory(engine)()
+    try:
+        pairs = [f"P{i}-EUR" for i in range(12)]
+        for i, pair in enumerate(pairs):
+            s.add(_decision(pair, NOW - DAY, f"old-{i}"))
+            s.add(_decision(pair, NOW, f"new-{i}"))
+        s.add(_decision("OTHER-EUR", NOW + DAY, "other-account"))
+        s.flush()
+        # The OTHER-EUR row belongs to account 2 — it must not leak into
+        # account 1's latest decisions even though its pair is requested.
+        other = s.get(DecisionRow, "other-account")
+        assert other is not None
+        other.account_id = 2
+        s.add(_decision("LONE-EUR", NOW - 2 * DAY, "lone"))
+        s.commit()
+
+        statements: list[str] = []
+
+        def _count(
+            conn: object,
+            cursor: object,
+            statement: str,
+            parameters: object,
+            context: object,
+            executemany: object,
+        ) -> None:
+            statements.append(statement)
+
+        event.listen(engine, "before_cursor_execute", _count)
+        try:
+            out = latest_decisions(s, 1, [*pairs, "LONE-EUR", "NONE-EUR", "OTHER-EUR"])
+        finally:
+            event.remove(engine, "before_cursor_execute", _count)
+
+        assert set(out) == set(pairs) | {"LONE-EUR"}
+        for i, pair in enumerate(pairs):
+            assert out[pair].id == f"new-{i}"
+        assert out["LONE-EUR"].id == "lone"
+        selects = [st for st in statements if st.lstrip().upper().startswith("SELECT")]
+        assert len(selects) <= 3
+    finally:
+        s.close()
+        engine.dispose()

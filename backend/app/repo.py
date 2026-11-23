@@ -673,17 +673,27 @@ def get_decision_row(session: Session, decision_id: str) -> DecisionRow | None:
 
 
 def latest_decisions(session: Session, account_id: int, pairs: list[str]) -> dict[str, DecisionRow]:
-    """The newest decision row per pair for the snapshot."""
-    out: dict[str, DecisionRow] = {}
-    for pair in pairs:
-        row = session.scalar(
-            select(DecisionRow)
-            .where(DecisionRow.account_id == account_id, DecisionRow.pair == pair)
-            .order_by(DecisionRow.at.desc())
-            .limit(1)
+    """The newest decision row per pair — two queries for all pairs, not
+    one scan of ``decisions`` per pair (item 034)."""
+    if not pairs:
+        return {}
+    newest = (
+        select(DecisionRow.pair, func.max(DecisionRow.at).label("mx"))
+        .where(DecisionRow.account_id == account_id, DecisionRow.pair.in_(pairs))
+        .group_by(DecisionRow.pair)
+        .subquery()
+    )
+    rows = session.scalars(
+        select(DecisionRow)
+        .where(DecisionRow.account_id == account_id)
+        .join(
+            newest,
+            (DecisionRow.pair == newest.c.pair) & (DecisionRow.at == newest.c.mx),
         )
-        if row is not None:
-            out[pair] = row
+    ).all()
+    out: dict[str, DecisionRow] = {}
+    for row in rows:
+        out[row.pair] = row
     return out
 
 

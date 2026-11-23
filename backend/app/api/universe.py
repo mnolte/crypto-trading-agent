@@ -11,6 +11,7 @@ failed job.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import Awaitable, Callable
@@ -270,13 +271,19 @@ def market_status(
     counts: dict[str, int] | None = None,
     backfill_failures: list[dict[str, Any]] | None = None,
     backfill_next_retry: str | None = None,
+    decisions: dict[str, DecisionRow] | None = None,
+    positions: dict[str, PositionRow] | None = None,
 ) -> MarketStatusOut:
     """The one status a market gets, first match wins (docs/SPEC.md,
-    Universe screen → The market table)."""
+    Universe screen → The market table). ``decisions`` and ``positions``
+    are the prefetched per-pair maps from ``get_universe``; without them
+    each lookup queries on its own (tests call it that way)."""
     market = row.market
-    pos = _position(session, state, market)
+    pos = positions.get(market) if positions is not None else _position(session, state, market)
     held = pos is not None
-    drow = _last_decision(session, state, market)
+    drow = (
+        decisions.get(market) if decisions is not None else _last_decision(session, state, market)
+    )
     decision = _decision_text(drow)
 
     if row.active:
@@ -551,12 +558,19 @@ async def get_universe(state: Annotated[AppState, Depends(get_state)]) -> Univer
     # Prices first: the fetch is a network call and a session may never
     # stay checked out across one — the session opens after it returns.
     prices = await _prices(state)
+    # The payload is hundreds of synchronous queries; on the event loop
+    # they starve every other request, so the DB work runs in a thread.
+    return await asyncio.to_thread(_universe_payload, state, prices)
+
+
+def _universe_payload(state: AppState, prices: dict[str, Decimal]) -> UniverseOut:
     session = state.session_factory()
     try:
         cfg = state.settings.market
         rows = repo.list_market_rows(session)
         pairs = [r.market for r in rows]
         decisions = repo.latest_decisions(session, state.account_id, pairs)
+        positions = {p.pair: p for p in repo.list_position_rows(session, state.account_id)}
         statuses: list[tuple[int, MarketStatusOut, MarketRow, UniverseMarketOut]] = []
         for row in rows:
             run = _backfill_run(session, row.market) if row.active else None
@@ -566,9 +580,13 @@ async def get_universe(state: Annotated[AppState, Depends(get_state)]) -> Univer
                 state,
                 row,
                 cfg,
-                counts=repo.candle_counts(session, row.market),
+                # Only an active market can be warming up — skip the
+                # candle count for the other ~400 rows.
+                counts=repo.candle_counts(session, row.market) if row.active else None,
                 backfill_failures=failures,
                 backfill_next_retry=nxt,
+                decisions=decisions,
+                positions=positions,
             )
             drow = decisions.get(row.market)
             regime = None
@@ -611,7 +629,7 @@ async def get_universe(state: Annotated[AppState, Depends(get_state)]) -> Univer
         eur = len(rows)
         eligible_rows = [r for r in rows if r.eligible]
         active_rows = [r for r in rows if r.active]
-        held_markets = sorted(p.pair for p in repo.list_position_rows(session, state.account_id))
+        held_markets = sorted(positions)
         failing = [r for r in active_rows if r.failed_rule is not None]
         failing_info = {
             "count": len(failing),
