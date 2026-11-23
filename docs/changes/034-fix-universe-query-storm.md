@@ -6,12 +6,12 @@ status: building
 issue: 68
 kickoff: —
 spec_prs: []
-build_prs: []
+build_prs: [69]
 ---
 
 # 034 · fix · Universe API query storm — per-market decision lookups
 
-## 2026-11-23 · build PR
+## 2026-11-23 · build PR #69
 
 `GET /api/universe` never answered: the Universe screen (and every other
 endpoint) appeared empty. A faulthandler dump of a live instance showed
