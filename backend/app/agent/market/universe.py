@@ -244,6 +244,9 @@ async def check_market(
         and not is_stable
         and info.status == "trading"
     ):
+        # The screening read may have left a transaction open — end it
+        # before the full-history fetch so no connection spans the await.
+        session.rollback()
         full = await _daily_candles(client, session, info.market, cfg.min_daily_candles, now)
         daily_count = len(full)
     return MarketMetrics(
@@ -415,6 +418,9 @@ async def run_eligibility_check(
         metrics[info.market] = await check_market(
             client, session, info, tickers.get(info.market), cfg, now
         )
+        # The next market's candle fetches are network awaits — end the
+        # transaction so the pooled connection goes back between markets.
+        session.rollback()
         if on_progress is not None:
             on_progress(index + 1, len(eur_infos))
     session.commit()
@@ -642,6 +648,9 @@ async def activate_market(
     now = now or utcnow()
     row = session.get(MarketRow, market)
     if row is None:
+        # The on-demand check below is a network call — release the
+        # transaction first (the lookup missed, so nothing is lost).
+        session.rollback()
         # Never checked: run the check for this market on demand so the
         # refusal still names the failed rule.
         infos = {i.market: i for i in await client.markets()}

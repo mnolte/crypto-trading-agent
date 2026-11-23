@@ -474,31 +474,42 @@ def _latest_check(session: Session, status: str | None = None) -> MarketCheckRow
 
 async def _prices(state: AppState) -> dict[str, Decimal]:
     """Last prices for every market, fetched at most once a minute; a
-    failed fetch keeps the cached prices and their time."""
-    now = utcnow()
-    fresh = (
-        state.universe_prices_at is not None
-        and (now - state.universe_prices_at).total_seconds() < PRICE_CACHE_S
-    )
-    if fresh:
+    failed fetch keeps the cached prices and their time.
+
+    The lock makes concurrent polls share one in-flight fetch — without
+    it every waiting request would hold its own DB connection across the
+    whole network call."""
+
+    def fresh() -> bool:
+        return (
+            state.universe_prices_at is not None
+            and (utcnow() - state.universe_prices_at).total_seconds() < PRICE_CACHE_S
+        )
+
+    if fresh():
         return state.universe_prices
-    try:
-        prices = await state.market_client.ticker_prices()
-    except Exception as exc:  # noqa: BLE001 - keep the cached prices
-        log.warning("universe price refresh failed: %s", plain_error(exc))
-        return state.universe_prices
-    state.universe_prices = prices
-    state.universe_prices_at = now
-    session = state.session_factory()
-    try:
-        for market, price in prices.items():
-            row = session.get(MarketRow, market)
-            if row is not None:
-                row.last_price = price
-                row.price_at = now.replace(tzinfo=None)
-        session.commit()
-    finally:
-        session.close()
+    async with state.universe_prices_lock:
+        # Re-check inside the lock: a concurrent call may have just
+        # refreshed while this one waited.
+        if fresh():
+            return state.universe_prices
+        try:
+            prices = await state.market_client.ticker_prices()
+        except Exception as exc:  # noqa: BLE001 - keep the cached prices
+            log.warning("universe price refresh failed: %s", plain_error(exc))
+            return state.universe_prices
+        state.universe_prices = prices
+        state.universe_prices_at = utcnow()
+        session = state.session_factory()
+        try:
+            for market, price in prices.items():
+                row = session.get(MarketRow, market)
+                if row is not None:
+                    row.last_price = price
+                    row.price_at = state.universe_prices_at.replace(tzinfo=None)
+            session.commit()
+        finally:
+            session.close()
     return prices
 
 
@@ -537,11 +548,13 @@ def _sort_key(item: tuple[int, MarketStatusOut, MarketRow]) -> tuple[Any, ...]:
 
 @router.get("/universe")
 async def get_universe(state: Annotated[AppState, Depends(get_state)]) -> UniverseOut:
+    # Prices first: the fetch is a network call and a session may never
+    # stay checked out across one — the session opens after it returns.
+    prices = await _prices(state)
     session = state.session_factory()
     try:
         cfg = state.settings.market
         rows = repo.list_market_rows(session)
-        prices = await _prices(state)
         pairs = [r.market for r in rows]
         decisions = repo.latest_decisions(session, state.account_id, pairs)
         statuses: list[tuple[int, MarketStatusOut, MarketRow, UniverseMarketOut]] = []
@@ -840,6 +853,9 @@ async def _retry_candles(state: AppState, markets: set[str]) -> None:
                     session.commit()
                 except Exception as exc:  # noqa: BLE001 - per-market failure
                     run.fail(market, plain_error(exc), tf=tf)
+                    # A failed upsert can leave the transaction open —
+                    # end it so the next fetch never spans an await.
+                    session.rollback()
                 done += 1
                 run.progress(done, len(markets) * 3)
     finally:
