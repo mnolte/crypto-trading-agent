@@ -467,7 +467,7 @@ def _websocket_collector(
         clock=lambda: NOW,
         sleep=pacer.sleep,
         monotonic=pacer.monotonic,
-        websocket=websocket,  # type: ignore[arg-type]
+        websocket=websocket,
     )
 
 
