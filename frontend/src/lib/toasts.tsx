@@ -78,7 +78,7 @@ export function ToastStack() {
 function ToastCard({ toast }: { toast: Toast }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const remaining = useRef(AUTO_CLOSE_MS);
-  const started = useRef(Date.now());
+  const started = useRef(0);
   const auto = toast.severity !== "critical";
 
   useEffect(() => {

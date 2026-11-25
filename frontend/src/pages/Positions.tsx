@@ -114,6 +114,24 @@ function formatHeld(seconds: number): string {
   return rh ? `${d} d ${rh} h` : `${d} d`;
 }
 
+/** Order-history date range for the `period`/`from`/`to` URL filters;
+ * relative periods anchor at the moment the filters last changed. */
+function orderRange(period: string, customFrom: string, customTo: string) {
+  const nowMs = Date.now();
+  if (period === "7d") {
+    return { fromIso: new Date(nowMs - 7 * 864e5).toISOString(), toIso: "" };
+  }
+  if (period === "30d") {
+    return { fromIso: new Date(nowMs - 30 * 864e5).toISOString(), toIso: "" };
+  }
+  if (period === "custom") {
+    const to = customTo ? new Date(`${customTo}T23:59:59`).toISOString() : "";
+    const from = customFrom ? new Date(`${customFrom}T00:00:00`).toISOString() : "";
+    return { fromIso: from, toIso: to };
+  }
+  return { fromIso: "", toIso: "" };
+}
+
 function signedR(value: string | null | undefined): string {
   if (value == null) return "—";
   const n = Number(value);
@@ -146,21 +164,10 @@ export function Positions() {
   const customFrom = searchParams.get("from") ?? "";
   const customTo = searchParams.get("to") ?? "";
 
-  const { fromIso, toIso } = useMemo(() => {
-    const nowMs = Date.now();
-    if (period === "7d") {
-      return { fromIso: new Date(nowMs - 7 * 864e5).toISOString(), toIso: "" };
-    }
-    if (period === "30d") {
-      return { fromIso: new Date(nowMs - 30 * 864e5).toISOString(), toIso: "" };
-    }
-    if (period === "custom") {
-      const to = customTo ? new Date(`${customTo}T23:59:59`).toISOString() : "";
-      const from = customFrom ? new Date(`${customFrom}T00:00:00`).toISOString() : "";
-      return { fromIso: from, toIso: to };
-    }
-    return { fromIso: "", toIso: "" };
-  }, [period, customFrom, customTo]);
+  const { fromIso, toIso } = useMemo(
+    () => orderRange(period, customFrom, customTo),
+    [period, customFrom, customTo],
+  );
 
   const filters: FillFilters = {
     ...(pair ? { pair } : {}),

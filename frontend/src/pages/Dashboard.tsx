@@ -94,9 +94,11 @@ export function Dashboard() {
   const chartRef = useRef<HTMLElement>(null);
   // Deep link: /?decision=<id> (Ask citations, weekly review) opens the drawer.
   const decisionParam = searchParams.get("decision");
-  useEffect(() => {
+  const [prevDecisionParam, setPrevDecisionParam] = useState<string | null>(null);
+  if (decisionParam !== prevDecisionParam) {
+    setPrevDecisionParam(decisionParam);
     if (decisionParam) setDecisionId(decisionParam);
-  }, [decisionParam]);
+  }
   const [firstRunDismissed, setFirstRunDismissed] = useState(
     () => localStorage.getItem(FIRST_RUN_KEY) === "1",
   );
@@ -1173,7 +1175,11 @@ function DecisionsCard({ onOpen }: { onOpen: (id: string) => void }) {
   const cycles = useCyclesRecent(24);
   const items = cycles.data?.decisions ?? [];
   const [open, setOpen] = useState<number | null>(0);
-  useEffect(() => setOpen(0), [cycles.dataUpdatedAt]);
+  const [prevDataUpdatedAt, setPrevDataUpdatedAt] = useState(cycles.dataUpdatedAt);
+  if (cycles.dataUpdatedAt !== prevDataUpdatedAt) {
+    setPrevDataUpdatedAt(cycles.dataUpdatedAt);
+    setOpen(0);
+  }
 
   const head = items.slice(0, 3);
   const tail = items.slice(3);

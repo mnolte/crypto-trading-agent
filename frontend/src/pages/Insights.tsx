@@ -30,6 +30,10 @@ const PERIODS = [
   { value: "all", label: "Since start" },
 ];
 
+function daysAgoIso(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString();
+}
+
 export function Insights() {
   const [dimension, setDimension] = useState("pair");
   const [period, setPeriod] = useState("30d");
@@ -37,8 +41,7 @@ export function Insights() {
 
   const from = useMemo(() => {
     if (period === "all") return undefined;
-    const days = period === "7d" ? 7 : 30;
-    return new Date(Date.now() - days * 86_400_000).toISOString();
+    return daysAgoIso(period === "7d" ? 7 : 30);
   }, [period]);
 
   const { data, isPending } = useInsights({ dimension, from, decider });

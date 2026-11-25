@@ -96,7 +96,12 @@ export function AppShell({
   }, []);
 
   // The phone menu closes on navigation and locks body scroll while open.
-  useEffect(() => setMenuOpen(false), [location.pathname, location.search]);
+  const locationKey = `${location.pathname}${location.search}`;
+  const [prevLocationKey, setPrevLocationKey] = useState(locationKey);
+  if (locationKey !== prevLocationKey) {
+    setPrevLocationKey(locationKey);
+    setMenuOpen(false);
+  }
   useEffect(() => {
     if (!menuOpen) return;
     const prev = document.body.style.overflow;
@@ -120,7 +125,9 @@ export function AppShell({
 
   // Backend unreachable: two or more cards fail or the snapshot query itself.
   const unreachable = failing.count >= 2 || snapshotQuery.isError;
-  const since = failing.since ?? (unreachable ? Date.now() : null);
+  const since =
+    failing.since ??
+    (unreachable ? snapshotQuery.errorUpdatedAt || null : null);
   useEffect(() => {
     if (!unreachable) return;
     const id = window.setInterval(() => {
@@ -169,7 +176,7 @@ export function AppShell({
                   {since ? ` since ${formatTime(new Date(since).toISOString())}` : ""}.
                 </b>{" "}
                 Showing data from{" "}
-                {formatTime(new Date(dataUpdatedAt || Date.now()).toISOString())},
+                {formatTime(new Date(dataUpdatedAt || since || 0).toISOString())},
                 marked stale. Retrying every 15 seconds. If only this browser
                 lost its connection, the agent keeps running and watching stops.
               </span>

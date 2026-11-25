@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import type {
   NotificationSettings,
@@ -283,9 +283,11 @@ export function SmtpBlock({ ctx }: { ctx: Ctx }) {
   type Smtp = NotificationSettings["smtp"];
   const smtp: Smtp = notif?.smtp ?? ctx.draft.notifications.smtp;
   const [local, setLocal] = useState<Smtp | null>(null);
-  useEffect(() => {
+  const [prevSeed, setPrevSeed] = useState<{ notif: typeof notif; local: Smtp | null } | null>(null);
+  if (prevSeed === null || prevSeed.notif !== notif || prevSeed.local !== local) {
+    setPrevSeed({ notif, local });
     if (notif && local === null) setLocal({ ...notif.smtp });
-  }, [notif, local]);
+  }
   const setSmtp = (patch: Partial<Smtp>) => {
     setLocal((l) => ({ ...(l ?? smtp), ...patch }));
   };
