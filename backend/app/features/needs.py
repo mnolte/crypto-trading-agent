@@ -369,33 +369,33 @@ def load_needs(state: AppState, session: Session, now: datetime) -> Needs:
             select(LlmCallRow)
             .where(LlmCallRow.attention == "act")
             .order_by(desc(LlmCallRow.at))
-            .limit(100)
+            .limit(500)
         ).all()
-        inspector_act: list[dict[str, Any]] = []
-        seen: set[str] = set()
-        for row in act_rows:
-            import json as _json
+        groups: dict[tuple[str, str], list[LlmCallRow]] = {}
+        import json as _json
 
-            found = _json.loads(row.reasons or "[]")
-            code = str(found[0].get("code")) if found else "error"
-            if code in seen:
-                continue
-            later_success = session.scalar(
+        for row in act_rows:
+            for found in _json.loads(row.reasons or "[]"):
+                groups.setdefault((str(found.get("code")), row.feature), []).append(row)
+        inspector_act: list[dict[str, Any]] = []
+        for (code, feature), rows_group in list(groups.items())[:10]:
+            last_at = max(row.at for row in rows_group)
+            recovered = session.scalar(
                 select(LlmCallRow.id).where(
-                    LlmCallRow.at > row.at,
+                    LlmCallRow.feature == feature,
                     LlmCallRow.outcome_status == "success",
-                    LlmCallRow.reasons.like(f'%"{code}"%'),
+                    LlmCallRow.at > last_at,
                 )
             )
-            if later_success:
+            if recovered:
                 continue
-            seen.add(code)
+            first = rows_group[0]
             inspector_act.append(
                 {
                     "code": code,
-                    "label": code.replace("_", " "),
-                    "detail": row.pair,
-                    "at": repo.aware_utc(row.at).isoformat(),
+                    "label": f"{code.replace('_', ' ')} x{len(rows_group)}",
+                    "detail": first.pair,
+                    "at": repo.aware_utc(last_at).isoformat(),
                 }
             )
         inputs = NeedsInputs(
