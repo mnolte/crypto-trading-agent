@@ -27,7 +27,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import repo
-from app.agent import budget
+from app.agent import budget, reasons
 from app.agent.broker.paper import PaperBroker
 from app.agent.openai_client import CallResult, OpenAIResponsesClient
 from app.agent.prompts import load_prompt
@@ -708,6 +708,7 @@ async def generate_briefing(
     )
     repo.add_briefing(session, row)
     for call_row in call_rows:
+        reasons.stamp(session, call_row, final_action=None, settings=settings)
         repo.add_llm_call(session, call_row)
     if reason is not None:
         repo.add_activity(session, "alert", f"briefing fell back to template: {reason}", at=now)

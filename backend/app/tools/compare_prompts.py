@@ -230,7 +230,16 @@ async def run_report(
         out_checks, status = evaluate_replay(result, brief, meta, settings, prompt.brief_version)
         now = utcnow()
         row = replay_row(
-            orig, prompt, payload["model"], result, payload, out_checks, status, now=now
+            orig,
+            prompt,
+            payload["model"],
+            result,
+            payload,
+            out_checks,
+            status,
+            now=now,
+            session=session,
+            settings=settings,
         )
         usd, eur = budget.cost_estimates(
             budget.ModelPrices(),

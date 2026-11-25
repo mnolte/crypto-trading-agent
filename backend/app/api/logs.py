@@ -102,6 +102,8 @@ class LogProblemOut(BaseModel):
     count_at_review: int | None = None
     meaning: str | None = None
     what_to_do: str | None = None
+    need: str = "none"  # act | watch | none
+    recurring: bool = False
 
 
 class ProblemsOut(BaseModel):
@@ -271,7 +273,27 @@ def problems(request: Request, state: str | None = None) -> ProblemsOut:
         if event is not None:
             p["meaning"] = event.meaning
             p["what_to_do"] = event.what_to_do
+        state_app: AppState = request.app.state.app_state
+        watch_count = state_app.settings.ui.log_watch_min_count
+        levelno = int(p.get("levelno") or 0)
+        count = int(p.get("count") or 0)
+        count_at_review = p.get("count_at_review")
+        recurring = (
+            p.get("state") in {"expected", "fixed"}
+            and count_at_review is not None
+            and count > int(count_at_review)
+        )
+        if p.get("state") == "unreviewed" and levelno >= logging.ERROR:
+            need = "act"
+        elif count >= watch_count or recurring:
+            need = "watch"
+        else:
+            need = "none"
+        p["need"] = need
+        p["recurring"] = recurring
         out.append(LogProblemOut(**p))
+    order = {"act": 0, "watch": 1, "none": 2}
+    out.sort(key=lambda item: (order[item.need], item.last_seen or ""), reverse=False)
     return ProblemsOut(problems=out)
 
 

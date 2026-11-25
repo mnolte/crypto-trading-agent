@@ -29,6 +29,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import logstore, repo
+from app.agent import reasons
 from app.agent.broker.paper import BrokerState, HeldPosition, PaperBroker
 from app.agent.deciders.base import DecideContext, Decider, Draft, RiskView
 from app.agent.limit import buy_fills, post_only_limit, sell_fills
@@ -2468,6 +2469,13 @@ class Engine:
             call_row = repo.get_llm_call(session, draft.llm_call_id)
             if call_row is not None:
                 call_row.decision_id = decision.id
+                reasons.stamp(
+                    session,
+                    call_row,
+                    final_action=decision.action,
+                    settings=settings,
+                    change_detail=decision.error,
+                )
         self.latest[pair] = decision
         session.commit()
         return decision

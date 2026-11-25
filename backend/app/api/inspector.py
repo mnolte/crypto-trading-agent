@@ -10,20 +10,24 @@ a call correct or wrong for the JSONL export.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import math
 import re
 import uuid
-from datetime import datetime
+from collections import Counter
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from sqlalchemy import select
+from sqlalchemy import asc, desc, func, select
 from sqlalchemy.orm import Session
 
 from app import repo
-from app.agent import budget
+from app.agent import budget, reasons
 from app.agent.brief import BriefMeta
+from app.agent.brief_sections import sections as brief_sections
 from app.agent.brief_v2 import brief_version_of
 from app.agent.openai_client import OpenAIResponsesClient
 from app.agent.prompts import PromptNotFoundError, load_prompt
@@ -33,6 +37,18 @@ from app.agent.replay import (
     replay_request,
 )
 from app.api.deps import AppState, get_state, require_token
+from app.api.inspector_filters import (
+    InspectorFilters,
+    conditions,
+    cursor_condition,
+    encode_cursor,
+    outcome_labels,
+    parse_period,
+    skip_cursor_condition,
+    skips_conditions,
+    source_name,
+    split_values,
+)
 from app.config import get_secret
 from app.db import AMSTERDAM, DecisionRow, LlmCallRow, OutcomeRow, utcnow
 from app.features.briefings import text_numbers_ok
@@ -43,7 +59,10 @@ from app.models import (
     LlmCallDetail,
     LlmCallListItem,
     LlmCallListOut,
+    LlmCallReasonOut,
     LlmCallReplayIn,
+    LlmCallSummaryOut,
+    LlmCallTopReasonOut,
     LlmCallVerdictIn,
     OutcomeScorecardOut,
     OutcomeScorecardRow,
@@ -113,7 +132,25 @@ def _call_item(row: LlmCallRow, decision_action: str | None = None) -> LlmCallLi
         output_tokens=row.output_tokens,
         cost_eur=Decimal(row.cost_eur) if row.cost_eur else None,
         latency_ms=row.latency_ms,
+        source=source_name(row.feature),
+        outcome_status=row.outcome_status,
+        reasons=_reason_items(row.reasons),
+        attention=row.attention,
     )
+
+
+def _reason_items(raw: str | None) -> list[LlmCallReasonOut]:
+    items: list[LlmCallReasonOut] = []
+    for item in json.loads(raw or "[]"):
+        meta = reasons.REASONS.get(item.get("code"), {})
+        items.append(
+            LlmCallReasonOut(
+                code=item.get("code", ""),
+                label=meta.label if meta else item.get("code", ""),
+                detail=item.get("detail"),
+            )
+        )
+    return items
 
 
 def _skipped_item(row: Any) -> LlmCallListItem:
@@ -132,6 +169,9 @@ def _skipped_item(row: Any) -> LlmCallListItem:
         issues=0,
         verdict=None,
         decision_id=row.id,
+        source="live",
+        outcome_status="success",
+        attention="none",
     )
 
 
@@ -164,6 +204,50 @@ def _attempts(raw: str | None) -> list[LlmCallAttemptOut]:
     return out
 
 
+def _explanations(row: LlmCallRow, session: Session) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    stored = reasons.parse_reasons(row.reasons)
+    cfg = repo.load_settings(session).inspector.attention
+    attention_why = reasons.attention_why(session, row, stored, cfg)
+    base_links = []
+    if row.decision_id:
+        base_links.append({"label": "Decision", "href": f"/?decision={row.decision_id}"})
+    if row.cycle is not None:
+        base_links.append({"label": "Cycle in Logs", "href": f"/logs?cycle_id=c-{row.cycle:04d}"})
+    for item in stored:
+        code = str(item.get("code") or "")
+        meta = reasons.REASONS.get(code)
+        links = [{"label": "Calls with this reason", "href": f"/inspector?reason={code}&period=7d"}]
+        links.extend(base_links)
+        out.append(
+            {
+                "code": code,
+                "label": meta.label if meta else code,
+                "meaning": meta.meaning if meta else "",
+                "likely_cause": meta.likely_cause if meta else "",
+                "why_here": reasons.why_here(item, row),
+                "what_to_do": meta.what_to_do if meta else "",
+                "attention": row.attention or "none",
+                "attention_why": attention_why,
+                "links": links,
+            }
+        )
+    return out
+
+
+def _prompt_hash_match(row: LlmCallRow, system_prompt: str | None) -> bool | None:
+    if not system_prompt or not row.prompt_version:
+        return None
+    try:
+        prompt = load_prompt(row.prompt_version)
+    except PromptNotFoundError:
+        return None
+    return (
+        hashlib.sha256(prompt.body.encode()).hexdigest()
+        == hashlib.sha256(system_prompt.encode()).hexdigest()
+    )
+
+
 def _call_detail(row: LlmCallRow, session: Session) -> LlmCallDetail:
     system_prompt, brief, schema = _request_parts(row)
     replays = repo.list_replays(session, row.id)
@@ -191,6 +275,18 @@ def _call_detail(row: LlmCallRow, session: Session) -> LlmCallDetail:
             parsed = json.loads(row.parsed)
         except json.JSONDecodeError:
             parsed = {"_unparseable": row.parsed}
+    result_sentence = {
+        "ok": "The model answered and its output passed the checks.",
+        "input_blocked": "The input checks stopped the call before it was sent.",
+        "invalid_output": "The model answered, but its output failed the checks.",
+        "error": "The OpenAI call failed.",
+        "timeout": "The OpenAI call timed out.",
+    }.get(row.status, "The call ended with this status.")
+    final_sentence = (
+        f"The final action was {decision_action or _parsed_action(row) or 'HOLD'}."
+        if row.feature == "decision"
+        else "This call does not decide a trade."
+    )
     return LlmCallDetail(
         id=row.id,
         at=repo.aware_utc(row.at),
@@ -233,6 +329,18 @@ def _call_detail(row: LlmCallRow, session: Session) -> LlmCallDetail:
         verdict_note=row.verdict_note,
         verdict_at=repo.aware_utc(row.verdict_at) if row.verdict_at else None,
         brief_upgraded=upgraded,
+        outcome_status=row.outcome_status or "success",
+        reasons=_reason_items(row.reasons),
+        attention=row.attention or "none",
+        explained_reasons=_explanations(row, session),
+        result_sentence=result_sentence,
+        final_action_sentence=final_sentence,
+        sections=brief_sections(row.request_json) if row.request_json else [],
+        prompt_hash_match=_prompt_hash_match(row, system_prompt),
+        payload_cleared=row.request_json is None and row.response_raw is None,
+        newer_id=None,
+        older_id=None,
+        outside_filters=False,
     )
 
 
@@ -247,46 +355,349 @@ def list_calls(
     issues: bool = False,
     verdict: Literal["correct", "wrong", "unreviewed"] | None = None,
     outcome: str | None = None,
-    skipped: bool = True,
+    skipped: bool = False,
     before: datetime | None = None,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    period: str = "24h",
+    from_: Annotated[datetime | None, Query(alias="from")] = None,
+    to: datetime | None = None,
+    source: Annotated[list[str] | None, Query()] = None,
+    action: Literal["BUY", "SELL", "HOLD"] | None = None,
+    reason: str | None = None,
+    model: str | None = None,
+    prompt: str | None = None,
+    attention: Literal["act", "watch", "none"] | None = None,
+    cycle: int | None = None,
+    cursor: str | None = None,
+    sort: Literal["newest", "oldest"] = "newest",
+    limit: Annotated[int | None, Query(ge=1, le=200)] = None,
 ) -> LlmCallListOut:
-    """Call history plus, when ``skipped``, the cycles the pre-filter
-    decided not to send — merged newest-first."""
+    """Filtered call history with stable keyset pagination. Rows whose cycle
+    never reached the model fold in only when ``skipped=true``."""
     state = get_state(request)
     session = _session(state)
     try:
-        account_id = _account_id(state)
-        if issues:
-            rows = repo.list_llm_calls_with_issues(
-                session, account_id, pair=pair, before=before, limit=limit
-            )
-        else:
-            rows = repo.list_llm_calls(
-                session,
-                account_id,
-                pair=pair,
-                status=status,
-                verdict=verdict,
-                outcome=outcome,
-                before=before,
-                limit=limit,
-            )
+        settings = state.settings
+        page_size = limit or settings.inspector.page_size
+        start_at, end_at = parse_period(period, from_, to)
+        filters = InspectorFilters(
+            period=period,
+            start=start_at,
+            end=end_at,
+            status=status,
+            sources=split_values(source),
+            pair=pair,
+            action=action,
+            reason=reason,
+            model=model,
+            prompt=prompt,
+            verdict=verdict,
+            outcome=outcome,
+            attention=attention,
+            cycle=cycle,
+            issues=issues,
+            skipped=skipped,
+        )
+        conds = conditions(filters)
+        if before is not None:
+            conds.append(LlmCallRow.at < before.replace(tzinfo=None))
+        if cursor:
+            try:
+                conds.append(cursor_condition(cursor, sort))
+            except ValueError:
+                raise HTTPException(status_code=400, detail="invalid cursor") from None
+        ordering = (
+            (asc(LlmCallRow.at), asc(LlmCallRow.id))
+            if sort == "oldest"
+            else (desc(LlmCallRow.at), desc(LlmCallRow.id))
+        )
+        rows = session.scalars(
+            select(LlmCallRow).where(*conds).order_by(*ordering).limit(page_size + 1)
+        ).all()
+        items = []
         actions = repo.decision_actions(session, [r.decision_id for r in rows if r.decision_id])
-        items = [_call_item(r, actions.get(r.decision_id or "")) for r in rows]
-        if skipped and status is None and verdict is None and outcome is None and not issues:
-            skips = repo.list_prefilter_skips(
-                session, account_id, pair=pair, before=before, limit=limit
+        labels = outcome_labels(session, [r.decision_id for r in rows if r.decision_id])
+        for row in rows:
+            item = _call_item(row, actions.get(row.decision_id or ""))
+            item.outcome_label = labels.get(row.decision_id or "")
+            item.fold_key = reasons.fold_key(row, item.final_action)
+            items.append(item)
+
+        skip_conds = skips_conditions(filters)
+        skip_rows = []
+        if skip_conds is not None:
+            if before is not None:
+                skip_conds.append(DecisionRow.at < before.replace(tzinfo=None))
+            if cursor:
+                skip_conds.append(skip_cursor_condition(cursor, sort))
+            skip_ordering = (
+                (asc(DecisionRow.at), asc(DecisionRow.id))
+                if sort == "oldest"
+                else (desc(DecisionRow.at), desc(DecisionRow.id))
             )
-            items += [_skipped_item(r) for r in skips]
-            items.sort(key=lambda i: i.at, reverse=True)
-            items = items[:limit]
-        return LlmCallListOut(items=items)
+            skip_rows = session.scalars(
+                select(DecisionRow).where(*skip_conds).order_by(*skip_ordering).limit(page_size + 1)
+            ).all()
+            items.extend(_skipped_item(row) for row in skip_rows)
+
+        reverse = sort == "newest"
+        items.sort(key=lambda item: (item.at.replace(tzinfo=None), item.id), reverse=reverse)
+        has_more = len(items) > page_size
+        items = items[:page_size]
+        next_cursor = (
+            encode_cursor(items[-1].at.replace(tzinfo=None), items[-1].id)
+            if has_more and items
+            else None
+        )
+        total = session.scalar(select(func.count()).select_from(LlmCallRow).where(*conds)) or 0
+        if skip_conds is not None:
+            total += (
+                session.scalar(select(func.count()).select_from(DecisionRow).where(*skip_conds))
+                or 0
+            )
+        return LlmCallListOut(items=items, next_cursor=next_cursor, total=total)
     finally:
         session.close()
 
 
 # -------------------------------------------------------------------- detail
+
+
+@router.get("/api/llm-calls/summary", response_model=LlmCallSummaryOut)
+def summarize_calls(
+    request: Request,
+    period: str = "24h",
+    from_: Annotated[datetime | None, Query(alias="from")] = None,
+    to: datetime | None = None,
+    source: Annotated[list[str] | None, Query()] = None,
+    pair: str | None = None,
+    status: str | None = None,
+    action: str | None = None,
+    reason: str | None = None,
+    model: str | None = None,
+    prompt: str | None = None,
+    verdict: str | None = None,
+    outcome: str | None = None,
+    attention: str | None = None,
+    cycle: int | None = None,
+    issues: bool = False,
+) -> LlmCallSummaryOut:
+    """Counts, cost, latency, buckets and filter-option counts for the same filters."""
+    state = get_state(request)
+    session = _session(state)
+    try:
+        start_at, end_at = parse_period(period, from_, to)
+        f = InspectorFilters(
+            period=period,
+            start=start_at,
+            end=end_at,
+            status=status,
+            sources=split_values(source),
+            pair=pair,
+            action=action,
+            reason=reason,
+            model=model,
+            prompt=prompt,
+            verdict=verdict,
+            outcome=outcome,
+            attention=attention,
+            cycle=cycle,
+            issues=issues,
+        )
+        rows = session.scalars(select(LlmCallRow).where(*conditions(f))).all()
+        total = len(rows)
+        counts = {
+            "success": sum(r.outcome_status == "success" for r in rows),
+            "warning": sum(r.outcome_status == "warning" for r in rows),
+            "error": sum(r.outcome_status == "error" for r in rows),
+        }
+        shares = {key: (value / total if total else 0.0) for key, value in counts.items()}
+        attention_counts = {
+            key: sum((r.attention or "none") == key for r in rows)
+            for key in ("act", "watch", "none")
+        }
+        skip_conds = [DecisionRow.prefilter.is_(False)]
+        if start_at is not None:
+            skip_conds.append(DecisionRow.at >= start_at)
+        if end_at is not None:
+            skip_conds.append(DecisionRow.at <= end_at)
+        if pair:
+            skip_conds.append(DecisionRow.pair == pair)
+        cycles_without_call = (
+            session.scalar(select(func.count()).select_from(DecisionRow).where(*skip_conds)) or 0
+        )
+        cost: dict[str, Decimal] = {
+            "live": Decimal(0),
+            "shadow": Decimal(0),
+            "replay": Decimal(0),
+            "text": Decimal(0),
+            "ask": Decimal(0),
+        }
+        for row in rows:
+            src = source_name(row.feature) or "live"
+            cost[src] += Decimal(row.cost_eur or "0")
+        latencies = sorted(r.latency_ms for r in rows if r.latency_ms is not None)
+        median = (
+            int((latencies[len(latencies) // 2] + latencies[(len(latencies) - 1) // 2]) / 2)
+            if latencies
+            else None
+        )
+        p95 = latencies[math.ceil(len(latencies) * 0.95) - 1] if latencies else None
+        buckets: dict[str, dict[str, object]] = {}
+        for row in rows:
+            local = (row.at if row.at.tzinfo else row.at.replace(tzinfo=UTC)).astimezone(AMSTERDAM)
+            if period == "24h":
+                key = local.replace(minute=0, second=0, microsecond=0).isoformat()
+            elif period in ("7d", "30d", "custom"):
+                key = local.date().isoformat()
+            else:
+                iso = local.isocalendar()
+                key = f"{iso.year}-W{iso.week:02d}"
+            bucket = buckets.setdefault(key, {"at": key, "success": 0, "warning": 0, "error": 0})
+            bucket[row.outcome_status or "success"] = (
+                int(bucket[row.outcome_status or "success"]) + 1
+            )
+
+        reason_counts: Counter[tuple[str, str | None]] = Counter()
+        examples: dict[tuple[str, str | None], LlmCallRow] = {}
+        attention_by_reason: dict[tuple[str, str | None], str] = {}
+        for row in sorted(rows, key=lambda r: r.at, reverse=True):
+            for item in json.loads(row.reasons or "[]"):
+                key = (item.get("code", ""), item.get("detail"))
+                reason_counts[key] += 1
+                examples.setdefault(key, row)
+                attention_by_reason[key] = row.attention or "none"
+        top = []
+        for (code, detail), count in reason_counts.most_common(6):
+            example = examples[(code, detail)]
+            meta = reasons.REASONS.get(code, {})
+            top.append(
+                LlmCallTopReasonOut(
+                    code=code,
+                    label=meta.get("label", code),
+                    detail=detail,
+                    count=count,
+                    example=(
+                        f"{example.at.isoformat()} · {example.pair} · "
+                        f"{_parsed_action(example) or 'HOLD'}"
+                    ),
+                    attention=attention_by_reason[(code, detail)],
+                )
+            )
+
+        def counts_for(dimension: str) -> dict[str, int]:
+            vals: Counter[str] = Counter()
+            rows_dim = session.scalars(
+                select(LlmCallRow).where(*conditions(f, skip=dimension))
+            ).all()
+            for row in rows_dim:
+                if dimension == "status":
+                    vals[row.outcome_status or "success"] += 1
+                elif dimension == "source":
+                    vals[source_name(row.feature) or "other"] += 1
+                elif dimension == "pair":
+                    vals[row.pair] += 1
+                elif dimension == "model":
+                    vals[row.model] += 1
+                elif dimension == "prompt":
+                    vals[row.prompt_version] += 1
+                elif dimension == "verdict":
+                    vals[row.verdict or "unreviewed"] += 1
+                elif dimension == "attention":
+                    vals[row.attention or "none"] += 1
+                elif dimension == "reason":
+                    for item in json.loads(row.reasons or "[]"):
+                        vals[item.get("code", "")] += 1
+                elif dimension == "action":
+                    vals[
+                        _parsed_action(row)
+                        or ("HOLD" if row.status == "input_blocked" else "unknown")
+                    ] += 1
+                elif dimension == "outcome":
+                    vals["reviewed" if row.decision_id else "none"] += 1
+            return dict(vals)
+
+        return LlmCallSummaryOut(
+            calls=total,
+            cycles_without_call=cycles_without_call,
+            counts=counts,
+            shares=shares,
+            attention_counts=attention_counts,
+            cost_eur=cost,
+            latency_ms={"median": median, "p95": p95},
+            buckets=[buckets[key] for key in sorted(buckets)],
+            option_counts={
+                name: counts_for(name)
+                for name in (
+                    "status",
+                    "source",
+                    "pair",
+                    "action",
+                    "reason",
+                    "model",
+                    "prompt",
+                    "verdict",
+                    "outcome",
+                    "attention",
+                )
+            },
+            top_reasons=top,
+        )
+    finally:
+        session.close()
+
+
+@router.get("/api/llm-calls/export.csv")
+def export_calls_csv(request: Request) -> Response:
+    """Metadata-only CSV export; prompts and raw payloads are never included."""
+    state = get_state(request)
+    session = _session(state)
+    try:
+        rows = session.scalars(select(LlmCallRow).order_by(desc(LlmCallRow.at)).limit(10000)).all()
+        labels = outcome_labels(session, [r.decision_id for r in rows if r.decision_id])
+        lines = [
+            "id,at,cycle,pair,source,feature,model,prompt_version,status,outcome_status,reasons,attention,action,final_action,verdict,outcome_label,input_tokens,output_tokens,cost_eur,latency_ms"
+        ]
+        for row in rows:
+            reason_text = ";".join(
+                f"{item.get('code')}:{item.get('detail') or ''}"
+                for item in json.loads(row.reasons or "[]")
+            )
+            values = [
+                row.id,
+                repo.aware_utc(row.at).isoformat(),
+                row.cycle,
+                row.pair,
+                source_name(row.feature),
+                row.feature,
+                row.model,
+                row.prompt_version,
+                row.status,
+                row.outcome_status,
+                reason_text,
+                row.attention,
+                _parsed_action(row),
+                _parsed_action(row),
+                row.verdict,
+                labels.get(row.decision_id or ""),
+                row.input_tokens,
+                row.output_tokens,
+                row.cost_eur,
+                row.latency_ms,
+            ]
+            escaped = []
+            for value in values:
+                text = "" if value is None else str(value)
+                escaped.append(
+                    '"' + text.replace('"', '""') + '"' if any(c in text for c in '",\n') else text
+                )
+            lines.append(",".join(escaped))
+        return Response(
+            content="\n".join(lines) + "\n",
+            media_type="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="llm-calls.csv"'},
+        )
+    finally:
+        session.close()
 
 
 @router.get("/api/llm-calls/export.jsonl")
@@ -359,6 +770,33 @@ def export_calls(
         session.close()
 
 
+def _filters_from_query(request: Request) -> InspectorFilters:
+    qp = request.query_params
+    start_raw = qp.get("from")
+    end_raw = qp.get("to")
+    start = datetime.fromisoformat(start_raw).replace(tzinfo=None) if start_raw else None
+    end = datetime.fromisoformat(end_raw).replace(tzinfo=None) if end_raw else None
+    start, end = parse_period(qp.get("period", "24h"), start, end)
+    cycle_raw = qp.get("cycle")
+    return InspectorFilters(
+        period=qp.get("period", "24h"),
+        start=start,
+        end=end,
+        status=qp.get("status"),
+        sources=split_values(qp.getlist("source") or qp.get("source")),
+        pair=qp.get("pair"),
+        action=qp.get("action"),
+        reason=qp.get("reason"),
+        model=qp.get("model"),
+        prompt=qp.get("prompt"),
+        verdict=qp.get("verdict"),
+        outcome=qp.get("outcome"),
+        attention=qp.get("attention"),
+        cycle=int(cycle_raw) if cycle_raw else None,
+        issues=qp.get("issues") == "true",
+    )
+
+
 @router.get("/api/llm-calls/{call_id}", response_model=LlmCallDetail)
 def get_call(request: Request, call_id: str) -> LlmCallDetail:
     state = get_state(request)
@@ -367,7 +805,30 @@ def get_call(request: Request, call_id: str) -> LlmCallDetail:
         row = repo.get_llm_call(session, call_id)
         if row is None:
             raise HTTPException(status_code=404, detail="unknown call")
-        return _call_detail(row, session)
+        detail = _call_detail(row, session)
+        filters = _filters_from_query(request)
+        conds = conditions(filters)
+        matches = session.scalar(select(LlmCallRow.id).where(*conds, LlmCallRow.id == row.id))
+        detail.outside_filters = matches is None
+        newer_cond = (LlmCallRow.at > row.at) | (
+            (LlmCallRow.at == row.at) & (LlmCallRow.id > row.id)
+        )
+        older_cond = (LlmCallRow.at < row.at) | (
+            (LlmCallRow.at == row.at) & (LlmCallRow.id < row.id)
+        )
+        detail.newer_id = session.scalar(
+            select(LlmCallRow.id)
+            .where(*conds, newer_cond)
+            .order_by(asc(LlmCallRow.at), asc(LlmCallRow.id))
+            .limit(1)
+        )
+        detail.older_id = session.scalar(
+            select(LlmCallRow.id)
+            .where(*conds, older_cond)
+            .order_by(desc(LlmCallRow.at), desc(LlmCallRow.id))
+            .limit(1)
+        )
+        return detail
     finally:
         session.close()
 
@@ -534,6 +995,12 @@ async def replay_call(request: Request, call_id: str, body: LlmCallReplayIn) -> 
         )
         new_row.cost_usd = str(usd) if usd is not None else None
         new_row.cost_eur = str(eur) if eur is not None else None
+        reasons.stamp(
+            session,
+            new_row,
+            final_action=reasons.parsed_action(new_row),
+            settings=settings,
+        )
         repo.add_llm_call(session, new_row)
         session.commit()
         return _call_detail(new_row, session)
