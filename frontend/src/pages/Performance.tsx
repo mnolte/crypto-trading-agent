@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { UTCTimestamp } from "lightweight-charts";
 import type { TradeOut } from "../api/client";
-import { usePerformance, useSnapshot, useTrades } from "../api/hooks";
+import { useNow, usePerformance, useSnapshot, useTrades } from "../api/hooks";
 import { RecordNotFound } from "./Errors";
 import { AppShell } from "../components/AppShell";
 import { Card } from "../components/Card";
@@ -56,11 +56,12 @@ export function Performance() {
   const { data: perf } = usePerformance(from, end);
   const { data: trades } = useTrades(from, end);
   const { data: snapshot } = useSnapshot();
+  const now = useNow(3_600_000);
   const accountDays = snapshot?.account_started_at
     ? Math.max(
         1,
         Math.ceil(
-          (Date.now() - new Date(snapshot.account_started_at).getTime()) /
+          (now - new Date(snapshot.account_started_at).getTime()) /
             86_400_000,
         ),
       )

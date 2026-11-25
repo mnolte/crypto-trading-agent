@@ -62,7 +62,9 @@ export function IndicatorChart({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const hoverRef = useRef(onHover);
-  hoverRef.current = onHover;
+  useEffect(() => {
+    hoverRef.current = onHover;
+  });
 
   useEffect(() => {
     if (!ref.current) return;

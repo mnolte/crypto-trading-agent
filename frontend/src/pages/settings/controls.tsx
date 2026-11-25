@@ -316,9 +316,21 @@ export function SectionBody({
   const adv = visible.filter((d) => d.advanced);
   const advForced = query !== "" && adv.length > 0;
   const showAdv = advancedOpen || advForced;
-  let lastHeading: string | undefined;
-  const renderRow = (def: RowDef) => {
-    if (def.keys.length === 0 && def.label === "") {
+  const isSep = (def: RowDef) => def.keys.length === 0 && def.label === "";
+  const seq = [...plain, ...adv];
+  // A heading shows on the first row that carries it; heading-only separator
+  // rows render their own <h3> and do not break the run.
+  const headingAt = seq.map((def, i) => {
+    if (isSep(def)) return undefined;
+    for (let j = i - 1; j >= 0; j--) {
+      if (!isSep(seq[j])) {
+        return def.heading !== seq[j].heading ? def.heading : undefined;
+      }
+    }
+    return def.heading;
+  });
+  const renderRow = (def: RowDef, i: number) => {
+    if (isSep(def)) {
       // Heading-only separator row.
       return def.heading ? (
         <h3 key={def.heading} className="set-sub">
@@ -326,13 +338,11 @@ export function SectionBody({
         </h3>
       ) : null;
     }
-    const heading = def.heading !== lastHeading ? def.heading : undefined;
-    lastHeading = def.heading;
-    return <Row key={def.label} ctx={ctx} def={{ ...def, heading }} />;
+    return <Row key={def.label} ctx={ctx} def={{ ...def, heading: headingAt[i] }} />;
   };
   return (
     <div className="set-rows">
-      {plain.map(renderRow)}
+      {plain.map((d, i) => renderRow(d, i))}
       {adv.length > 0 && (
         <Advanced
           title="Advanced"
@@ -340,7 +350,7 @@ export function SectionBody({
           open={showAdv}
           onToggle={() => setAdvancedOpen((o) => !o)}
         >
-          {adv.map(renderRow)}
+          {adv.map((d, i) => renderRow(d, plain.length + i))}
         </Advanced>
       )}
       {children}

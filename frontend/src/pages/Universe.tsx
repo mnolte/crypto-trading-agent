@@ -60,6 +60,10 @@ import {
 
 const DISPLAY_TZ = "Europe/Amsterdam";
 
+function nowMs(): number {
+  return Date.now();
+}
+
 /** "03:00" — the Amsterdam clock time of the 01:00 UTC daily check,
  * following summer time. */
 function checkTimeAmsterdam(): string {
@@ -428,7 +432,7 @@ function DataSyncCard({
     () => syncRows(data.jobs, cycleMinutes),
     [data.jobs, cycleMinutes],
   );
-  const attention = useMemo(() => syncAttention(rows, Date.now()), [rows]);
+  const attention = useMemo(() => syncAttention(rows, nowMs()), [rows]);
   const attentionCount = attention.failed + attention.running + attention.late;
   const open = openOverride ?? attentionCount > 0;
 

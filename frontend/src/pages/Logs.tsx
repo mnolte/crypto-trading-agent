@@ -124,10 +124,12 @@ export function Logs() {
     queryFn: () => api<LogsList>(`/api/logs?${buildQuery(filters)}`),
     refetchInterval: 15_000,
   });
-  useEffect(() => {
+  const [prevData, setPrevData] = useState(data);
+  if (data !== prevData) {
+    setPrevData(data);
     setOlder([]);
     setNextCursor(data?.next ?? null);
-  }, [data]);
+  }
   const lines = useMemo(() => [...(data?.lines ?? []), ...older], [data, older]);
 
   const { data: summary } = useQuery({
@@ -150,8 +152,8 @@ export function Logs() {
 
   // Follow new lines: the WS "logs" topic pushes WARNING+ live.
   const followRef = useRef(follow);
-  followRef.current = follow;
   useEffect(() => {
+    followRef.current = follow;
     if (!follow) return;
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${location.host}/ws`);

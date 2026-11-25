@@ -67,10 +67,19 @@ export function Settings() {
       ? sectionParam
       : (sectionParam === undefined ? readLastSection() : DEFAULT_SECTION);
 
+  const changed = useMemo(
+    () => (draft && original ? changedKeys(draft, original) : new Set<string>()),
+    [draft, original],
+  );
+  const dirty = changed.size > 0;
+
   // Resync when the server document changes and the draft is clean, so an
   // external save (What-if apply, a source toggle) is not overwritten later.
   const dirtyRef = useRef(false);
   const lastData = useRef<SettingsType | undefined>(undefined);
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  });
   useEffect(() => {
     if (
       data &&
@@ -106,10 +115,6 @@ export function Settings() {
   }, [draft, draftJson, runPreview]);
 
   const metaMap = useMemo(() => meta?.items ?? {}, [meta]);
-  const changed = useMemo(
-    () => (draft && original ? changedKeys(draft, original) : new Set<string>()),
-    [draft, original],
-  );
   const nonDefault = useMemo(
     () => (draft ? nonDefaultKeys(draft, metaMap) : new Set<string>()),
     [draft, metaMap],
@@ -133,8 +138,6 @@ export function Settings() {
     return counts;
   }, [nonDefault, metaMap]);
 
-  const dirty = changed.size > 0;
-  dirtyRef.current = dirty;
   const previewErrors = preview?.errors ?? {};
   const hasPreviewErrors = Object.keys(previewErrors).length > 0;
   const reasonOk = reason.trim().length >= 3 && reason.trim().length <= 200;
