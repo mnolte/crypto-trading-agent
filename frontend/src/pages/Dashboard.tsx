@@ -1387,7 +1387,7 @@ function BriefingBody({ briefing }: { briefing: BriefingOut }) {
 
 type MarketFilter = "all" | "pass" | "held" | "paused";
 
-function MarketsCard({
+export function MarketsCard({
   markets,
   heldPairs,
   selected,
@@ -1479,9 +1479,9 @@ function MarketsCard({
                 <span className={`num markets-num ${Number(m.chg_24h_pct ?? 0) >= 0 ? "up" : "down"}`}>
                   {m.chg_24h_pct != null ? formatChange(m.chg_24h_pct) : "—"}
                 </span>
-                <span>
+                <span className="markets-regime">
                   {m.regime ? (
-                    <RegimeChip regime={m.regime} />
+                    <RegimeChip regime={m.regime} compact />
                   ) : (
                     <span className="regime-chip regime-chip--warm">warming up</span>
                   )}

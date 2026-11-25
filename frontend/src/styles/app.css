@@ -1342,6 +1342,7 @@ input[type="checkbox"].check {
 .regime-chip {
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
   height: 26px;
   padding: 0 10px;
   border-radius: 999px;
@@ -1350,6 +1351,19 @@ input[type="checkbox"].check {
   border: 1px solid var(--ta-border-strong);
   background: var(--ta-raised);
   color: var(--ta-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.regime-chip--compact {
+  padding: 0 8px;
+}
+
+.regime-chip__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .regime-chip--up { background: var(--ta-positive-bg); color: var(--ta-positive); border-color: var(--ta-positive-border); }
@@ -3821,6 +3835,11 @@ select.input--sm {
 
 .markets-pair {
   font-weight: 600;
+}
+
+.markets-regime {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .markets-num {
