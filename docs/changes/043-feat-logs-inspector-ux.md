@@ -6,7 +6,7 @@ status: building
 issue: 96
 kickoff: 043-feat-logs-inspector-ux.md
 spec_prs: [97]
-build_prs: []
+build_prs: [98]
 ---
 
 # 043 · feat · Logs and LLM inspector UX
@@ -22,6 +22,6 @@ Marc, 25 Nov: "Improve the UX and UI of the logs and LLM inspector pages. Get yo
 - **Logs → Recurring problems:** "Does it need you?" per problem (an unreviewed error or a critical: needs you; a warning from `ui.log_watch_min_count`, 5, times: watch), sorted by it, with the counts above, a What to do line, and the rest folded.
 - Kept: Re-run, verdicts, the labelled export, Open in Indicators, Download JSON, the checks, attempts, replays, skipped cycles, the scorecard. "Has issues only" is replaced by Status and Reason.
 
-## 2026-11-25 · build PR 1 (backend)
+## 2026-11-25 · build PR #98
 
 Backend foundation for the inspector rebuild: stored call status, fixed reasons and attention; migration 0018 with an idempotent backfill; stamping in every call writer; brief sections; list filters, totals and keyset cursors; summary, CSV export, explanations, hash state and filter-aware neighbours; Logs problem need levels. No decision, gate, prompt or stored request/response content changed.
