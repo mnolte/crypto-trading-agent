@@ -357,6 +357,17 @@ def outcome_candle_needs(
     return needs
 
 
+def _merged_outcome_windows(needs: list[OutcomeCandleNeed]) -> list[tuple[datetime, datetime]]:
+    windows: list[tuple[datetime, datetime]] = []
+    for need in sorted(needs, key=lambda item: item.anchor):
+        if windows and need.anchor <= windows[-1][1]:
+            start, end = windows[-1]
+            windows[-1] = (start, max(end, need.end))
+        else:
+            windows.append((need.anchor, need.end))
+    return windows
+
+
 async def backfill_outcome_candles(
     client: MarketClient,
     session: Session,
@@ -366,10 +377,10 @@ async def backfill_outcome_candles(
 ) -> int:
     """Fetch the closed 1h candles missing from incomplete outcome windows.
 
-    Candles are grouped by pair: the 4h, 24h and 72h windows are nested, so
-    one bounded historical request covers every missing horizon for the same
-    decision cluster. This never activates the pair or runs its decision
-    cycle; it only fills the candle table the outcome worker already reads.
+    Overlapping windows for one pair share one bounded historical request:
+    the 4h, 24h and 72h windows are nested, while disjoint windows stay
+    separate. This never activates the pair or runs its decision cycle; it
+    only fills the candle table the outcome worker already reads.
     """
     recover_terminal_outcomes(session, now)
     grouped: dict[str, list[OutcomeCandleNeed]] = {}
@@ -378,28 +389,27 @@ async def backfill_outcome_candles(
 
     fetched_count = 0
     for pair, pair_needs in grouped.items():
-        start = min(need.anchor for need in pair_needs)
-        end = max(need.end for need in pair_needs)
-        limit = math.ceil((end - start).total_seconds() / 3600) + 4
-        session.rollback()
-        try:
-            fetched = await client.candles(pair, "1h", limit, end=end)
-        except MarketDataError as exc:
-            log.warning(
-                "outcome candle backfill failed for %s: %s",
-                pair,
-                plain_error(exc),
-                extra={
-                    "event": "candles.fetch_failed",
-                    "pair": pair,
-                    "data": {"job": "outcomes"},
-                },
-            )
-            continue
-        closed = drop_forming(fetched, "1h", now)
-        if closed:
-            repo.upsert_candles(session, pair, "1h", closed)
-            fetched_count += len(closed)
+        for start, end in _merged_outcome_windows(pair_needs):
+            limit = math.ceil((end - start).total_seconds() / 3600) + 4
+            session.rollback()
+            try:
+                fetched = await client.candles(pair, "1h", limit, end=end)
+            except MarketDataError as exc:
+                log.warning(
+                    "outcome candle backfill failed for %s: %s",
+                    pair,
+                    plain_error(exc),
+                    extra={
+                        "event": "candles.fetch_failed",
+                        "pair": pair,
+                        "data": {"job": "outcomes"},
+                    },
+                )
+                continue
+            closed = drop_forming(fetched, "1h", now)
+            if closed:
+                repo.upsert_candles(session, pair, "1h", closed)
+                fetched_count += len(closed)
     recover_terminal_outcomes(session, now)
     return fetched_count
 

@@ -16,7 +16,9 @@ from app.agent.broker.paper import HeldPosition, PaperBroker
 from app.agent.market.base import Candle, MarketClient, UpstreamError
 from app.agent.outcomes import (
     MAX_OUTCOME_ATTEMPTS,
+    OutcomeCandleNeed,
     _label,
+    _merged_outcome_windows,
     backfill_outcome_candles,
     compute_outcome,
     run_outcomes,
@@ -263,6 +265,19 @@ def test_sell_exit_labels(reference: Decimal, expected: str) -> None:
         _label("SELL", "executed", "neither", reference, Decimal("110"), Decimal("10"), 24)
         == expected
     )
+
+
+def test_outcome_fetch_windows_merge_only_overlapping() -> None:
+    needs = [
+        OutcomeCandleNeed(pair="BTC-EUR", anchor=NOW, end=NOW + 4 * HOUR),
+        OutcomeCandleNeed(pair="BTC-EUR", anchor=NOW + HOUR, end=NOW + 5 * HOUR),
+        OutcomeCandleNeed(pair="BTC-EUR", anchor=NOW + 100 * HOUR, end=NOW + 104 * HOUR),
+    ]
+
+    assert _merged_outcome_windows(needs) == [
+        (NOW, NOW + 5 * HOUR),
+        (NOW + 100 * HOUR, NOW + 104 * HOUR),
+    ]
 
 
 async def test_outcome_backfill_fetches_missing_candles_for_inactive_pair(
