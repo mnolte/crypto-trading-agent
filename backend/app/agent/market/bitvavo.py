@@ -30,6 +30,7 @@ from app.agent.market.base import (
     Ticker24h,
     UpstreamError,
 )
+from app.errors import plain_error
 from app.models import Tf
 
 BASE_URL = "https://api.bitvavo.com/v2"
@@ -139,7 +140,7 @@ class BitvavoClient:
                 response = await self._client.get(path, params=params)
             except httpx.HTTPError as exc:
                 self._event(exc)
-                raise MarketDataError(f"bitvavo request failed: {exc}") from exc
+                raise MarketDataError(f"bitvavo request failed: {plain_error(exc)}") from exc
             self._track_rate_limit(response)
             if response.status_code == 429:
                 if attempts >= self._max_429_retries:

@@ -39,7 +39,7 @@ from app.agent.market.base import (
     MarketInfo,
     drop_forming,
 )
-from app.agent.market.sync import SyncRun, SyncRuns, plain_error
+from app.agent.market.sync import SyncRun, SyncRuns
 from app.agent.market.universe import (
     entries_allowed,
     retry_due_backfills,
@@ -54,6 +54,7 @@ from app.agent.signals import (
     decision_signals,
 )
 from app.db import AccountRow, DecisionRow, PaperOrderRow, SkippedSlotRow, utcnow
+from app.errors import plain_error
 from app.models import (
     Decision,
     Gate,

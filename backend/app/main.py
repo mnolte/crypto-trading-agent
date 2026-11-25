@@ -35,7 +35,7 @@ from app.agent.broker.paper import PaperBroker
 from app.agent.deciders.openai_decider import OpenAIDecider
 from app.agent.deciders.rules import RulesDecider
 from app.agent.engine import Engine
-from app.agent.market.sync import SyncRuns, plain_error
+from app.agent.market.sync import SyncRuns
 from app.agent.market.universe import (
     run_eligibility_check,
     warming_up,
@@ -68,6 +68,7 @@ from app.db import (
     sqlite_quick_check,
     utcnow,
 )
+from app.errors import plain_error
 from app.features import briefings as briefings_mod
 from app.features import fills as fills_mod
 from app.features.shadows import ShadowRunner

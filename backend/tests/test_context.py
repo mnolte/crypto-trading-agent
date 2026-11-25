@@ -263,6 +263,33 @@ async def test_collector_timeout_does_not_block_other_task(
         engine.dispose()
 
 
+async def test_collector_first_error_names_exception_class(
+    tmp_path: Path, migrated_db: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.WARNING)
+    engine, sessions = _sessions(tmp_path / "errtext.db", migrated_db)
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("")
+
+    collector = ContextCollector(
+        sessions,
+        SourceRegistry(["okx"]),
+        client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        clock=lambda: NOW,
+        sleep=lambda _seconds: asyncio.sleep(0),
+    )
+    try:
+        await collector.collect()
+        warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+        assert any(
+            "market context deribit" in w and "first error: ReadTimeout" in w for w in warnings
+        )
+    finally:
+        await collector.client.aclose()
+        engine.dispose()
+
+
 def test_schedule_minute_five_and_startup_catchup() -> None:
     assert next_run(NOW) == datetime(2026, 10, 14, 13, 5, tzinfo=UTC)
 

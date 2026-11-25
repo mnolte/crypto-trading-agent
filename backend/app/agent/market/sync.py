@@ -44,13 +44,6 @@ CHECK_KEEP_DAYS = 90
 PROGRESS_INTERVAL_SECONDS = 1.0
 
 
-def plain_error(exc: BaseException) -> str:
-    """An exception's text in plain words — the only form an error may
-    take into a market_checks / sync_runs row (hard rule 8)."""
-    text = str(exc).strip() or exc.__class__.__name__
-    return text[:500]
-
-
 def _iso(value: datetime | None) -> str | None:
     if value is None:
         return None

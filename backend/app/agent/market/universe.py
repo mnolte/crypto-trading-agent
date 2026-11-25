@@ -44,9 +44,9 @@ from app.agent.market.sync import (
     SyncRuns,
     backfill_retry_due,
     next_cycle_start,
-    plain_error,
 )
 from app.db import MarketCheckRow, MarketRow, utcnow
+from app.errors import plain_error
 from app.models import MarketSettings, Tf
 from app.repo import candle_counts, load_candles, upsert_candles, upsert_market_row
 
