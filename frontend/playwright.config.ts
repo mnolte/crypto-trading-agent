@@ -22,10 +22,30 @@ export default defineConfig({
     timeout: 60_000,
   },
   projects: [
-    { name: "w1440", use: { viewport: { width: 1440, height: 900 } } },
-    { name: "w1100", use: { viewport: { width: 1100, height: 900 } } },
+    // Every spec shares one backend and one database, and several PUT the
+    // whole /api/settings object. settings-save asserts an exact value after
+    // a reload, so it runs alone first; the viewport projects wait for it
+    // (item 036).
+    {
+      name: "settings",
+      testMatch: "settings-save.spec.ts",
+      use: { viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: "w1440",
+      dependencies: ["settings"],
+      testIgnore: "settings-save.spec.ts",
+      use: { viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: "w1100",
+      dependencies: ["settings"],
+      testIgnore: "settings-save.spec.ts",
+      use: { viewport: { width: 1100, height: 900 } },
+    },
     {
       name: "w390",
+      dependencies: ["settings"],
       // Phone-width coverage is for the screenshot and layout specs; the
       // other specs assert behaviour, not layout.
       testMatch: [
