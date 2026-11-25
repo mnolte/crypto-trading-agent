@@ -460,6 +460,62 @@
         "title": "AskOut",
         "type": "object"
       },
+      "BriefSection": {
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/BriefSectionRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "rows"
+        ],
+        "title": "BriefSection",
+        "type": "object"
+      },
+      "BriefSectionRow": {
+        "description": "One label/value/read row in the inspector's brief sections.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "read": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value",
+          "path"
+        ],
+        "title": "BriefSectionRow",
+        "type": "object"
+      },
       "BriefingListOut": {
         "properties": {
           "items": {
@@ -2858,6 +2914,95 @@
         "title": "InsightsOut",
         "type": "object"
       },
+      "InspectorAttentionSettings": {
+        "description": "The thresholds for a call's stored attention level.",
+        "properties": {
+          "act_429_per_day": {
+            "default": 3,
+            "title": "Act 429 Per Day",
+            "type": "integer"
+          },
+          "act_in_a_row_cycles": {
+            "default": 3,
+            "title": "Act In A Row Cycles",
+            "type": "integer"
+          },
+          "act_invalid_count": {
+            "default": 3,
+            "title": "Act Invalid Count",
+            "type": "integer"
+          },
+          "act_invalid_window": {
+            "default": 20,
+            "title": "Act Invalid Window",
+            "type": "integer"
+          },
+          "act_number_check_count": {
+            "default": 3,
+            "title": "Act Number Check Count",
+            "type": "integer"
+          },
+          "act_number_check_window": {
+            "default": 5,
+            "title": "Act Number Check Window",
+            "type": "integer"
+          },
+          "watch_claim_share_pct": {
+            "default": 20,
+            "title": "Watch Claim Share Pct",
+            "type": "integer"
+          },
+          "watch_claim_window": {
+            "default": 20,
+            "title": "Watch Claim Window",
+            "type": "integer"
+          },
+          "watch_slow_per_day": {
+            "default": 3,
+            "title": "Watch Slow Per Day",
+            "type": "integer"
+          },
+          "watch_within_cycles": {
+            "default": 2,
+            "title": "Watch Within Cycles",
+            "type": "integer"
+          }
+        },
+        "title": "InspectorAttentionSettings",
+        "type": "object"
+      },
+      "InspectorSettings": {
+        "description": "Inspector display and attention thresholds.",
+        "properties": {
+          "attention": {
+            "$ref": "#/components/schemas/InspectorAttentionSettings",
+            "default": {
+              "act_429_per_day": 3,
+              "act_in_a_row_cycles": 3,
+              "act_invalid_count": 3,
+              "act_invalid_window": 20,
+              "act_number_check_count": 3,
+              "act_number_check_window": 5,
+              "watch_claim_share_pct": 20,
+              "watch_claim_window": 20,
+              "watch_slow_per_day": 3,
+              "watch_within_cycles": 2
+            }
+          },
+          "page_size": {
+            "default": 50,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "slow_call_seconds": {
+            "default": 15,
+            "title": "Slow Call Seconds",
+            "type": "integer"
+          }
+        },
+        "title": "InspectorSettings",
+        "type": "object"
+      },
       "KillInfo": {
         "properties": {
           "at": {
@@ -3145,6 +3290,11 @@
             "title": "Attempts",
             "type": "array"
           },
+          "attention": {
+            "default": "none",
+            "title": "Attention",
+            "type": "string"
+          },
           "brief": {
             "anyOf": [
               {
@@ -3228,8 +3378,21 @@
             ],
             "title": "Decision Id"
           },
+          "explained_reasons": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/LlmCallExplainedReasonOut"
+            },
+            "title": "Explained Reasons",
+            "type": "array"
+          },
           "feature": {
             "title": "Feature",
+            "type": "string"
+          },
+          "final_action_sentence": {
+            "default": "",
+            "title": "Final Action Sentence",
             "type": "string"
           },
           "id": {
@@ -3269,6 +3432,33 @@
             "title": "Model",
             "type": "string"
           },
+          "newer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newer Id"
+          },
+          "older_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Older Id"
+          },
+          "outcome_status": {
+            "default": "success",
+            "title": "Outcome Status",
+            "type": "string"
+          },
           "output_checks": {
             "items": {
               "$ref": "#/components/schemas/CheckOut"
@@ -3298,6 +3488,11 @@
             ],
             "title": "Output Tokens"
           },
+          "outside_filters": {
+            "default": false,
+            "title": "Outside Filters",
+            "type": "boolean"
+          },
           "pair": {
             "title": "Pair",
             "type": "string"
@@ -3314,9 +3509,33 @@
             ],
             "title": "Parsed"
           },
+          "payload_cleared": {
+            "default": false,
+            "title": "Payload Cleared",
+            "type": "boolean"
+          },
+          "prompt_hash_match": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Hash Match"
+          },
           "prompt_version": {
             "title": "Prompt Version",
             "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/LlmCallReasonOut"
+            },
+            "title": "Reasons",
+            "type": "array"
           },
           "replay_of": {
             "anyOf": [
@@ -3368,6 +3587,19 @@
               }
             ],
             "title": "Response Raw"
+          },
+          "result_sentence": {
+            "default": "",
+            "title": "Result Sentence",
+            "type": "string"
+          },
+          "sections": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BriefSection"
+            },
+            "title": "Sections",
+            "type": "array"
           },
           "status": {
             "title": "Status",
@@ -3453,6 +3685,71 @@
         "title": "LlmCallDetail",
         "type": "object"
       },
+      "LlmCallExplainedReasonOut": {
+        "properties": {
+          "attention": {
+            "title": "Attention",
+            "type": "string"
+          },
+          "attention_why": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attention Why"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "likely_cause": {
+            "title": "Likely Cause",
+            "type": "string"
+          },
+          "links": {
+            "default": [],
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Links",
+            "type": "array"
+          },
+          "meaning": {
+            "title": "Meaning",
+            "type": "string"
+          },
+          "what_to_do": {
+            "title": "What To Do",
+            "type": "string"
+          },
+          "why_here": {
+            "title": "Why Here",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "meaning",
+          "likely_cause",
+          "why_here",
+          "what_to_do",
+          "attention"
+        ],
+        "title": "LlmCallExplainedReasonOut",
+        "type": "object"
+      },
       "LlmCallListItem": {
         "description": "One call-history row; ``kind == \"skipped\"`` is a decision row where\nthe Rules pre-filter passed nothing to the model.",
         "properties": {
@@ -3477,6 +3774,17 @@
             "format": "date-time",
             "title": "At",
             "type": "string"
+          },
+          "attention": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attention"
           },
           "cost_eur": {
             "anyOf": [
@@ -3528,6 +3836,17 @@
             ],
             "title": "Final Action"
           },
+          "fold_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fold Key"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -3578,6 +3897,28 @@
             ],
             "title": "Model"
           },
+          "outcome_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Label"
+          },
+          "outcome_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Status"
+          },
           "output_tokens": {
             "anyOf": [
               {
@@ -3603,6 +3944,25 @@
               }
             ],
             "title": "Prompt Version"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/LlmCallReasonOut"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
           },
           "status": {
             "anyOf": [
@@ -3644,12 +4004,57 @@
             },
             "title": "Items",
             "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
           "items"
         ],
         "title": "LlmCallListOut",
+        "type": "object"
+      },
+      "LlmCallReasonOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label"
+        ],
+        "title": "LlmCallReasonOut",
         "type": "object"
       },
       "LlmCallReplayIn": {
@@ -3678,6 +4083,149 @@
           }
         },
         "title": "LlmCallReplayIn",
+        "type": "object"
+      },
+      "LlmCallSummaryOut": {
+        "properties": {
+          "attention_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Attention Counts",
+            "type": "object"
+          },
+          "buckets": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Buckets",
+            "type": "array"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_eur": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Cost Eur",
+            "type": "object"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "cycles_without_call": {
+            "title": "Cycles Without Call",
+            "type": "integer"
+          },
+          "latency_ms": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Latency Ms",
+            "type": "object"
+          },
+          "option_counts": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Option Counts",
+            "type": "object"
+          },
+          "shares": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Shares",
+            "type": "object"
+          },
+          "top_reasons": {
+            "items": {
+              "$ref": "#/components/schemas/LlmCallTopReasonOut"
+            },
+            "title": "Top Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "calls",
+          "cycles_without_call",
+          "counts",
+          "shares",
+          "attention_counts",
+          "cost_eur",
+          "latency_ms",
+          "buckets",
+          "option_counts",
+          "top_reasons"
+        ],
+        "title": "LlmCallSummaryOut",
+        "type": "object"
+      },
+      "LlmCallTopReasonOut": {
+        "properties": {
+          "attention": {
+            "default": "none",
+            "title": "Attention",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "example": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Example"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "count"
+        ],
+        "title": "LlmCallTopReasonOut",
         "type": "object"
       },
       "LlmCallVerdictIn": {
@@ -4099,6 +4647,17 @@
             ],
             "title": "Count At Review"
           },
+          "count_in_period": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count In Period"
+          },
           "event": {
             "anyOf": [
               {
@@ -4191,6 +4750,22 @@
             ],
             "title": "Meaning"
           },
+          "need": {
+            "default": "none",
+            "title": "Need",
+            "type": "string"
+          },
+          "need_why": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Need Why"
+          },
           "note": {
             "anyOf": [
               {
@@ -4209,6 +4784,11 @@
             },
             "title": "Pairs",
             "type": "array"
+          },
+          "recurring": {
+            "default": false,
+            "title": "Recurring",
+            "type": "boolean"
           },
           "reviewed_at": {
             "anyOf": [
@@ -6635,6 +7215,18 @@
       },
       "ProblemsOut": {
         "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "default": {
+              "act": 0,
+              "none": 0,
+              "watch": 0
+            },
+            "title": "Counts",
+            "type": "object"
+          },
           "problems": {
             "items": {
               "$ref": "#/components/schemas/LogProblemOut"
@@ -7744,6 +8336,25 @@
             "title": "Execution Mode",
             "type": "string"
           },
+          "inspector": {
+            "$ref": "#/components/schemas/InspectorSettings",
+            "default": {
+              "attention": {
+                "act_429_per_day": 3,
+                "act_in_a_row_cycles": 3,
+                "act_invalid_count": 3,
+                "act_invalid_window": 20,
+                "act_number_check_count": 3,
+                "act_number_check_window": 5,
+                "watch_claim_share_pct": 20,
+                "watch_claim_window": 20,
+                "watch_slow_per_day": 3,
+                "watch_within_cycles": 2
+              },
+              "page_size": 50,
+              "slow_call_seconds": 15
+            }
+          },
           "learning": {
             "$ref": "#/components/schemas/LearningSettings",
             "default": {
@@ -7948,6 +8559,7 @@
           "ui": {
             "$ref": "#/components/schemas/UiSettings-Input",
             "default": {
+              "log_watch_min_count": 5,
               "stop_near_atr": "1.5"
             }
           },
@@ -8012,6 +8624,25 @@
             ],
             "title": "Execution Mode",
             "type": "string"
+          },
+          "inspector": {
+            "$ref": "#/components/schemas/InspectorSettings",
+            "default": {
+              "attention": {
+                "act_429_per_day": 3,
+                "act_in_a_row_cycles": 3,
+                "act_invalid_count": 3,
+                "act_invalid_window": 20,
+                "act_number_check_count": 3,
+                "act_number_check_window": 5,
+                "watch_claim_share_pct": 20,
+                "watch_claim_window": 20,
+                "watch_slow_per_day": 3,
+                "watch_within_cycles": 2
+              },
+              "page_size": 50,
+              "slow_call_seconds": 15
+            }
           },
           "learning": {
             "$ref": "#/components/schemas/LearningSettings",
@@ -8217,6 +8848,7 @@
           "ui": {
             "$ref": "#/components/schemas/UiSettings-Output",
             "default": {
+              "log_watch_min_count": 5,
               "stop_near_atr": "1.5"
             }
           },
@@ -9988,8 +10620,13 @@
         "type": "object"
       },
       "UiSettings-Input": {
-        "description": "Display thresholds for the GUI \u2014 the amber stop distance lives here\nso the highlight rule is configurable, never a literal in logic.",
+        "description": "Display thresholds for the GUI \u2014 display rules live here, never as\nliterals in logic.",
         "properties": {
+          "log_watch_min_count": {
+            "default": 5,
+            "title": "Log Watch Min Count",
+            "type": "integer"
+          },
           "stop_near_atr": {
             "anyOf": [
               {
@@ -10007,8 +10644,13 @@
         "type": "object"
       },
       "UiSettings-Output": {
-        "description": "Display thresholds for the GUI \u2014 the amber stop distance lives here\nso the highlight rule is configurable, never a literal in logic.",
+        "description": "Display thresholds for the GUI \u2014 display rules live here, never as\nliterals in logic.",
         "properties": {
+          "log_watch_min_count": {
+            "default": 5,
+            "title": "Log Watch Min Count",
+            "type": "integer"
+          },
           "stop_near_atr": {
             "default": "1.5",
             "title": "Stop Near Atr",
@@ -12890,7 +13532,7 @@
     },
     "/api/llm-calls": {
       "get": {
-        "description": "Call history plus, when ``skipped``, the cycles the pre-filter\ndecided not to send \u2014 merged newest-first.",
+        "description": "Filtered call history with stable keyset pagination. Rows whose cycle\nnever reached the model fold in only when ``skipped=true``.",
         "operationId": "list_calls_api_llm_calls_get",
         "parameters": [
           {
@@ -12977,7 +13619,7 @@
             "name": "skipped",
             "required": false,
             "schema": {
-              "default": true,
+              "default": false,
               "title": "Skipped",
               "type": "boolean"
             }
@@ -13001,14 +13643,221 @@
           },
           {
             "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "default": "24h",
+              "title": "Period",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "BUY",
+                    "SELL",
+                    "HOLD"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reason",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Model"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prompt",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attention",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "act",
+                    "watch",
+                    "none"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attention"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cycle",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cycle"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "newest",
+              "enum": [
+                "newest",
+                "oldest",
+                "new",
+                "old"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 50,
-              "maximum": 200,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "maximum": 200,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
             }
           }
         ],
@@ -13035,6 +13884,23 @@
           }
         },
         "summary": "List Calls"
+      }
+    },
+    "/api/llm-calls/export.csv": {
+      "get": {
+        "description": "Metadata-only CSV export; prompts and raw payloads are never included.",
+        "operationId": "export_calls_csv_api_llm_calls_export_csv_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Export Calls Csv"
       }
     },
     "/api/llm-calls/export.jsonl": {
@@ -13101,6 +13967,270 @@
           }
         },
         "summary": "Export Calls"
+      }
+    },
+    "/api/llm-calls/summary": {
+      "get": {
+        "description": "Counts, cost, latency, buckets and filter-option counts for the same filters.",
+        "operationId": "summarize_calls_api_llm_calls_summary_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "default": "24h",
+              "title": "Period",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pair",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pair"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reason",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Model"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prompt",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt"
+            }
+          },
+          {
+            "in": "query",
+            "name": "verdict",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Verdict"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Outcome"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attention",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attention"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cycle",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cycle"
+            }
+          },
+          {
+            "in": "query",
+            "name": "issues",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Issues",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LlmCallSummaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Summarize Calls"
       }
     },
     "/api/llm-calls/{call_id}": {
@@ -13695,6 +14825,16 @@
                 }
               ],
               "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "default": "7d",
+              "title": "Period",
+              "type": "string"
             }
           }
         ],

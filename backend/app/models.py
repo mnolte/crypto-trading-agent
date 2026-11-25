@@ -501,12 +501,56 @@ class ReadinessSettings(BaseModel):
 
 
 class UiSettings(BaseModel):
-    """Display thresholds for the GUI — the amber stop distance lives here
-    so the highlight rule is configurable, never a literal in logic."""
+    """Display thresholds for the GUI — display rules live here, never as
+    literals in logic."""
 
     model_config = ConfigDict(extra="ignore")
 
     stop_near_atr: Annotated[Decimal, _range(*RANGES["ui.stop_near_atr"])] = Decimal("1.5")
+    log_watch_min_count: Annotated[int, _range(*RANGES["ui.log_watch_min_count"])] = 5
+
+
+class InspectorAttentionSettings(BaseModel):
+    """The thresholds for a call's stored attention level."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    act_in_a_row_cycles: Annotated[
+        int, _range(*RANGES["inspector.attention.act_in_a_row_cycles"])
+    ] = 3
+    act_429_per_day: Annotated[int, _range(*RANGES["inspector.attention.act_429_per_day"])] = 3
+    act_invalid_count: Annotated[int, _range(*RANGES["inspector.attention.act_invalid_count"])] = 3
+    act_invalid_window: Annotated[
+        int, _range(*RANGES["inspector.attention.act_invalid_window"])
+    ] = 20
+    act_number_check_count: Annotated[
+        int, _range(*RANGES["inspector.attention.act_number_check_count"])
+    ] = 3
+    act_number_check_window: Annotated[
+        int, _range(*RANGES["inspector.attention.act_number_check_window"])
+    ] = 5
+    watch_within_cycles: Annotated[
+        int, _range(*RANGES["inspector.attention.watch_within_cycles"])
+    ] = 2
+    watch_slow_per_day: Annotated[
+        int, _range(*RANGES["inspector.attention.watch_slow_per_day"])
+    ] = 3
+    watch_claim_share_pct: Annotated[
+        int, _range(*RANGES["inspector.attention.watch_claim_share_pct"])
+    ] = 20
+    watch_claim_window: Annotated[
+        int, _range(*RANGES["inspector.attention.watch_claim_window"])
+    ] = 20
+
+
+class InspectorSettings(BaseModel):
+    """Inspector display and attention thresholds."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    slow_call_seconds: Annotated[int, _range(*RANGES["inspector.slow_call_seconds"])] = 15
+    page_size: Annotated[int, _range(*RANGES["inspector.page_size"])] = 50
+    attention: InspectorAttentionSettings = InspectorAttentionSettings()
 
 
 class LoggingSettings(BaseModel):
@@ -572,6 +616,7 @@ class Settings(BaseModel):
     learning: LearningSettings = LearningSettings()
     readiness: ReadinessSettings = ReadinessSettings()
     ui: UiSettings = UiSettings()
+    inspector: InspectorSettings = InspectorSettings()
     logging: LoggingSettings = LoggingSettings()
     storage: StorageSettings = StorageSettings()
     timeouts: TimeoutSettings = TimeoutSettings()
@@ -1169,10 +1214,72 @@ class LlmCallListItem(BaseModel):
     output_tokens: int | None = None
     cost_eur: MoneyDecimal | None = None
     latency_ms: int | None = None
+    source: str | None = None  # live | shadow | replay | text | ask
+    outcome_status: str | None = None  # success | warning | error
+    reasons: list[LlmCallReasonOut] = []
+    attention: str | None = None  # none | watch | act
+    outcome_label: str | None = None  # the decision outcome after 72h
+    fold_key: str | None = None
+
+
+class LlmCallReasonOut(BaseModel):
+    code: str
+    label: str
+    detail: str | None = None
 
 
 class LlmCallListOut(BaseModel):
     items: list[LlmCallListItem]
+    next_cursor: str | None = None
+    total: int = 0
+
+
+class LlmCallTopReasonOut(BaseModel):
+    code: str
+    label: str
+    detail: str | None = None
+    count: int
+    example: str | None = None
+    attention: str = "none"
+
+
+class LlmCallSummaryOut(BaseModel):
+    calls: int
+    cycles_without_call: int
+    counts: dict[str, int]
+    shares: dict[str, float]
+    attention_counts: dict[str, int]
+    cost_eur: dict[str, MoneyDecimal]
+    latency_ms: dict[str, int | None]
+    buckets: list[dict[str, object]]
+    option_counts: dict[str, dict[str, int]]
+    top_reasons: list[LlmCallTopReasonOut]
+
+
+class LlmCallExplainedReasonOut(BaseModel):
+    code: str
+    label: str
+    meaning: str
+    likely_cause: str
+    why_here: str
+    what_to_do: str
+    attention: str
+    attention_why: str | None = None
+    links: list[dict[str, str]] = []
+
+
+class BriefSectionRow(BaseModel):
+    """One label/value/read row in the inspector's brief sections."""
+
+    label: str
+    value: str
+    read: str | None = None
+    path: str
+
+
+class BriefSection(BaseModel):
+    title: str
+    rows: list[BriefSectionRow]
 
 
 class ReplayInfo(BaseModel):
@@ -1219,6 +1326,18 @@ class LlmCallDetail(BaseModel):
     verdict_note: str | None
     verdict_at: datetime | None
     brief_upgraded: str | None = None  # e.g. "v1 → v2" on a replay whose brief was upgraded
+    outcome_status: str = "success"
+    reasons: list[LlmCallReasonOut] = []
+    attention: str = "none"
+    explained_reasons: list[LlmCallExplainedReasonOut] = []
+    result_sentence: str = ""
+    final_action_sentence: str = ""
+    sections: list[BriefSection] = []
+    prompt_hash_match: bool | None = None
+    payload_cleared: bool = False
+    newer_id: str | None = None
+    older_id: str | None = None
+    outside_filters: bool = False
 
 
 class LlmCallReplayIn(BaseModel):

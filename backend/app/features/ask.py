@@ -27,7 +27,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import repo
-from app.agent import budget
+from app.agent import budget, reasons
 from app.agent.broker.paper import PaperBroker
 from app.agent.openai_client import OpenAIResponsesClient
 from app.agent.prompts import load_prompt
@@ -588,6 +588,7 @@ async def answer_question(
                     session.add(call_row)
                     session.flush()
                     if result.status != "ok":
+                        reasons.stamp(session, call_row, final_action=None, settings=settings)
                         reason = "model call failed"
                         break
                     fcalls = _function_calls(result.response_bytes)
@@ -629,6 +630,7 @@ async def answer_question(
                             for _ in [0]
                         ]
                     )
+                    reasons.stamp(session, call_row, final_action=None, settings=settings)
                     if candidate and not bad:
                         text = candidate
                         break
@@ -686,6 +688,7 @@ async def answer_question(
                             )
                             if not bad2:
                                 text = cand2
+                        reasons.stamp(session, call_row, final_action=None, settings=settings)
                     break
             finally:
                 # Land the staged call rows and release the read snapshot

@@ -102,10 +102,15 @@ class LogProblemOut(BaseModel):
     count_at_review: int | None = None
     meaning: str | None = None
     what_to_do: str | None = None
+    need: str = "none"  # act | watch | none
+    recurring: bool = False
+    need_why: str | None = None
+    count_in_period: int | None = None
 
 
 class ProblemsOut(BaseModel):
     problems: list[LogProblemOut]
+    counts: dict[str, int] = {"act": 0, "watch": 0, "none": 0}
 
 
 class LogSummaryOut(BaseModel):
@@ -252,7 +257,7 @@ def summary(request: Request) -> LogSummaryOut:
 
 
 @router.get("/problems")
-def problems(request: Request, state: str | None = None) -> ProblemsOut:
+def problems(request: Request, state: str | None = None, period: str = "7d") -> ProblemsOut:
     store = _store(request)
     where = "WHERE state = ?" if state else ""
     params = (state,) if state else ()
@@ -271,8 +276,44 @@ def problems(request: Request, state: str | None = None) -> ProblemsOut:
         if event is not None:
             p["meaning"] = event.meaning
             p["what_to_do"] = event.what_to_do
+        state_app: AppState = request.app.state.app_state
+        watch_count = state_app.settings.ui.log_watch_min_count
+        levelno = int(p.get("levelno") or 0)
+        count = int(p.get("count") or 0)
+        count_at_review = p.get("count_at_review")
+        recurring = (
+            p.get("state") in {"expected", "fixed"}
+            and count_at_review is not None
+            and count > int(count_at_review)
+        )
+        if p.get("state") == "unreviewed" and levelno >= logging.ERROR:
+            need = "act"
+        elif count >= watch_count or recurring:
+            need = "watch"
+        else:
+            need = "none"
+        days = {"24h": 1, "7d": 7, "30d": 30}.get(period, 7)
+        since = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        with store.connect_readonly() as conn:
+            p["count_in_period"] = conn.execute(
+                "SELECT COUNT(*) FROM log_lines WHERE fingerprint = ? AND ts >= ?",
+                (p["fingerprint"], since),
+            ).fetchone()[0]
+        if need == "act":
+            p["need_why"] = "unreviewed error or critical"
+        elif need == "watch":
+            p["need_why"] = (
+                f"{p['count_in_period']} times in {period}"
+                if not recurring
+                else "back after it was marked fixed or expected"
+            )
+        p["need"] = need
+        p["recurring"] = recurring
         out.append(LogProblemOut(**p))
-    return ProblemsOut(problems=out)
+    order = {"act": 0, "watch": 1, "none": 2}
+    out.sort(key=lambda item: (order[item.need], -(item.count_in_period or 0)))
+    counts = {key: sum(item.need == key for item in out) for key in ("act", "watch", "none")}
+    return ProblemsOut(problems=out, counts=counts)
 
 
 class ReviewBody(BaseModel):

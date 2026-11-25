@@ -17,12 +17,13 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from app import repo
 from app.agent import budget
 from app.agent.engine import PRICE_FALLBACK_S, WATCH_S
-from app.db import AMSTERDAM, DecisionRow, MarketRow
+from app.db import AMSTERDAM, DecisionRow, LlmCallRow, MarketRow
 from app.models import HealthItem, KillInfo, Needs, NeedsItem, NotificationSettings
 from app.sources import SourceStatus
 
@@ -44,6 +45,7 @@ class NeedsInputs:
     kill: KillInfo | None = None
     pending: list[DecisionRow] = field(default_factory=list)
     errors: list[dict[str, Any]] = field(default_factory=list)
+    inspector_act: list[dict[str, Any]] = field(default_factory=list)
     degraded: list[str] = field(default_factory=list)
     sources: list[SourceStatus] = field(default_factory=list)
     notifications: NotificationSettings = field(default_factory=NotificationSettings)
@@ -141,6 +143,21 @@ def compute_needs(inputs: NeedsInputs) -> Needs:
                 action_label="Review",
                 action_target="/logs",
                 since=_iso(first_seen) if isinstance(first_seen, str) else None,
+            )
+        )
+
+    # Inspector act groups: one item per reason group until a later call
+    # of that group succeeds. Attention itself is computed and frozen when
+    # the call is written.
+    for group in inputs.inspector_act:
+        items.append(
+            NeedsItem(
+                kind="inspector",
+                title=f"Model calls need you: {group['label']}",
+                detail=group.get("detail"),
+                action_label="Open inspector",
+                action_target=f"/inspector?attention=act&reason={group['code']}&period=7d",
+                since=_iso(str(group.get("at") or "")),
             )
         )
 
@@ -348,12 +365,46 @@ def load_needs(state: AppState, session: Session, now: datetime) -> Needs:
         engine = state.agent_engine
         account_id = state.broker.account_id if state.broker is not None else state.account_id
         btc = repo.load_candles(session, "BTC-EUR", "1h", 1)
+        act_rows = session.scalars(
+            select(LlmCallRow)
+            .where(LlmCallRow.attention == "act")
+            .order_by(desc(LlmCallRow.at))
+            .limit(500)
+        ).all()
+        groups: dict[tuple[str, str], list[LlmCallRow]] = {}
+        import json as _json
+
+        for row in act_rows:
+            for found in _json.loads(row.reasons or "[]"):
+                groups.setdefault((str(found.get("code")), row.feature), []).append(row)
+        inspector_act: list[dict[str, Any]] = []
+        for (code, feature), rows_group in list(groups.items())[:10]:
+            last_at = max(row.at for row in rows_group)
+            recovered = session.scalar(
+                select(LlmCallRow.id).where(
+                    LlmCallRow.feature == feature,
+                    LlmCallRow.outcome_status == "success",
+                    LlmCallRow.at > last_at,
+                )
+            )
+            if recovered:
+                continue
+            first = rows_group[0]
+            inspector_act.append(
+                {
+                    "code": code,
+                    "label": f"{code.replace('_', ' ')} x{len(rows_group)}",
+                    "detail": first.pair,
+                    "at": repo.aware_utc(last_at).isoformat(),
+                }
+            )
         inputs = NeedsInputs(
             now=now,
             engine_status=engine.status if engine is not None else None,
             kill=engine.kill if engine is not None else None,
             pending=repo.pending_decisions(session, account_id),
             errors=state.log_store.unreviewed_problems() if state.log_store is not None else [],
+            inspector_act=inspector_act,
             sources=state.sources.statuses(),
             notifications=settings.notifications,
             failing_markets=[

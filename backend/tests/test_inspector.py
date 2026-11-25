@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app import repo
+from app.agent import reasons
 from app.config import set_secret
 from app.db import DecisionRow, LlmCallRow
 
@@ -42,6 +43,7 @@ def _call_row(
     output_checks: str = "[]",
     cost_usd: str | None = "0.0110",
     cost_eur: str | None = "0.0100",
+    latency_ms: int = 10,
     decision_id: str | None = None,
     request_json: str | None = None,
 ) -> LlmCallRow:
@@ -58,7 +60,7 @@ def _call_row(
         prompt_version="decision.v1",
         status=status,
         attempts=json.dumps([{"at": at.isoformat(), "outcome": "sent", "latency_ms": 10}]),
-        latency_ms=10,
+        latency_ms=latency_ms,
         input_tokens=100,
         output_tokens=50,
         cost_usd=cost_usd,
@@ -81,6 +83,9 @@ def _call_row(
         verdict_note=None,
         verdict_at=None,
     )
+    outcome, found = reasons.classify(row, reasons.parsed_action(row), 15)
+    row.outcome_status = outcome
+    row.reasons = json.dumps(found, separators=(",", ":"))
     session = _session(client)
     try:
         repo.add_llm_call(session, row)
@@ -135,7 +140,7 @@ def test_list_merges_calls_and_prefilter_skips(client: TestClient) -> None:
     _call_row(client, call_id="c1", at=NOW)
     _decision_row(client, decision_id="d1", prefilter=False, at=NOW - timedelta(minutes=5))
     _decision_row(client, decision_id="d2", prefilter=True, at=NOW - timedelta(minutes=6))
-    items = client.get("/api/llm-calls").json()["items"]
+    items = client.get("/api/llm-calls?period=all&skipped=true").json()["items"]
     kinds = {i["id"]: i["kind"] for i in items}
     assert kinds["c1"] == "call"
     assert kinds["d1"] == "skipped"
@@ -147,9 +152,9 @@ def test_list_merges_calls_and_prefilter_skips(client: TestClient) -> None:
 def test_list_skips_hidden_with_filters(client: TestClient) -> None:
     _call_row(client, call_id="c1", status="api_error")
     _decision_row(client, decision_id="d1", prefilter=False)
-    items = client.get("/api/llm-calls?status=api_error").json()["items"]
+    items = client.get("/api/llm-calls?period=all&status=api_error").json()["items"]
     assert [i["id"] for i in items] == ["c1"]
-    items = client.get("/api/llm-calls?skipped=false").json()["items"]
+    items = client.get("/api/llm-calls?period=all&skipped=false").json()["items"]
     assert [i["id"] for i in items] == ["c1"]
 
 
@@ -164,7 +169,7 @@ def test_list_issues_only_warn_or_fail(client: TestClient) -> None:
         call_id="warned",
         output_checks=json.dumps([{"name": "Signal claims", "status": "warn", "detail": "x"}]),
     )
-    items = client.get("/api/llm-calls?issues=true").json()["items"]
+    items = client.get("/api/llm-calls?period=all&issues=true").json()["items"]
     assert [i["id"] for i in items] == ["warned"]
     assert items[0]["issues"] == 1
 
@@ -172,7 +177,7 @@ def test_list_issues_only_warn_or_fail(client: TestClient) -> None:
 def test_list_pair_filter(client: TestClient) -> None:
     _call_row(client, call_id="sol", pair="SOL-EUR")
     _call_row(client, call_id="eth", pair="ETH-EUR")
-    items = client.get("/api/llm-calls?pair=SOL-EUR").json()["items"]
+    items = client.get("/api/llm-calls?period=all&pair=SOL-EUR").json()["items"]
     assert [i["id"] for i in items] == ["sol"]
 
 
@@ -413,3 +418,77 @@ def test_detail_tolerates_a_null_text_field(client: TestClient) -> None:
     detail = client.get("/api/llm-calls/c1").json()
     assert detail["output_schema"] is None
     assert detail["brief"] is not None
+
+
+# ------------------------------------------------------- item 043 additions --
+
+
+def test_list_keyset_cursor_and_total(client: TestClient) -> None:
+    for index in range(3):
+        _call_row(client, call_id=f"c{index}", at=NOW - timedelta(minutes=index))
+    first = client.get("/api/llm-calls?period=all&limit=2").json()
+    assert first["total"] == 3
+    assert len(first["items"]) == 2
+    second = client.get(f"/api/llm-calls?period=all&limit=2&cursor={first['next_cursor']}").json()
+    assert second["total"] == 3
+    assert [i["id"] for i in second["items"]] == ["c2"]
+    assert second["next_cursor"] is None
+
+
+def test_list_reason_and_attention_filters(client: TestClient) -> None:
+    row = _call_row(
+        client,
+        call_id="warned",
+        output_checks=json.dumps([{"name": "Signal claims", "status": "warn", "detail": "x"}]),
+    )
+    stored = json.loads(row.reasons or "[]")
+    assert stored[0]["code"] == "claim_mismatch"
+    items = client.get("/api/llm-calls?period=all&reason=claim_mismatch").json()["items"]
+    assert [i["id"] for i in items] == ["warned"]
+    assert client.get("/api/llm-calls?period=all&attention=act").json()["items"] == []
+
+
+def test_summary_counts_cost_latency_buckets_and_options(client: TestClient) -> None:
+    _call_row(client, call_id="live", cost_eur="0.0100", latency_ms=1000)
+    _call_row(client, call_id="shadow", feature="shadow:rules", cost_eur="0.0200", latency_ms=2000)
+    _decision_row(client, decision_id="skip", prefilter=False)
+    data = client.get("/api/llm-calls/summary?period=all&source=live,shadow").json()
+    assert data["calls"] == 2
+    assert data["cycles_without_call"] == 1
+    assert data["cost_eur"]["live"] == "0.0100"
+    assert data["cost_eur"]["shadow"] == "0.0200"
+    assert data["latency_ms"] == {"median": 1500, "p95": 2000}
+    assert data["counts"]["success"] == 2
+    assert data["option_counts"]["source"]["shadow"] == 1
+    assert data["buckets"]
+
+
+def test_export_csv_has_metadata_only(client: TestClient) -> None:
+    _call_row(client, call_id="c1")
+    response = client.get("/api/llm-calls/export.csv")
+    assert response.status_code == 200
+    text = response.text
+    assert "prompt_version" in text
+    assert "SYSTEM PROMPT BODY" not in text
+    assert "request_json" not in text
+    assert "response_raw" not in text
+
+
+def test_detail_explanations_sections_hash_and_neighbours(client: TestClient) -> None:
+    _call_row(client, call_id="older", at=NOW - timedelta(minutes=2))
+    _call_row(
+        client,
+        call_id="focus",
+        at=NOW - timedelta(minutes=1),
+        output_checks=json.dumps([{"name": "Signal claims", "status": "warn", "detail": "x"}]),
+    )
+    _call_row(client, call_id="newer", at=NOW)
+    detail = client.get("/api/llm-calls/focus?period=all").json()
+    assert detail["outcome_status"] == "warning"
+    assert detail["explained_reasons"][0]["code"] == "claim_mismatch"
+    assert detail["explained_reasons"][0]["why_here"]
+    assert detail["sections"][0]["title"] == "Call"
+    assert detail["newer_id"] == "newer"
+    assert detail["older_id"] == "older"
+    hidden = client.get("/api/llm-calls/focus?period=all&pair=ETH-EUR").json()
+    assert hidden["outside_filters"] is True

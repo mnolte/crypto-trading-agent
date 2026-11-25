@@ -298,6 +298,11 @@ class LlmCallRow(Base):
     verdict: Mapped[str | None]  # "correct" | "wrong" | None
     verdict_note: Mapped[str | None]
     verdict_at: Mapped[datetime | None]
+    # Item 043: the call's status explained for the inspector. Written once
+    # with the call; attention is never recomputed afterwards.
+    outcome_status: Mapped[str] = mapped_column(default="success")
+    reasons: Mapped[str] = mapped_column(default="[]")  # JSON list of {code, detail}
+    attention: Mapped[str] = mapped_column(default="none")  # "none" | "watch" | "act"
 
 
 class OutcomeRow(Base):

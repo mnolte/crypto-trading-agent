@@ -627,10 +627,30 @@ export interface paths {
         };
         /**
          * List Calls
-         * @description Call history plus, when ``skipped``, the cycles the pre-filter
-         *     decided not to send — merged newest-first.
+         * @description Filtered call history with stable keyset pagination. Rows whose cycle
+         *     never reached the model fold in only when ``skipped=true``.
          */
         get: operations["list_calls_api_llm_calls_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/llm-calls/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Calls Csv
+         * @description Metadata-only CSV export; prompts and raw payloads are never included.
+         */
+        get: operations["export_calls_csv_api_llm_calls_export_csv_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -651,6 +671,26 @@ export interface paths {
          * @description Labelled calls as JSONL with their computed forward outcomes.
          */
         get: operations["export_calls_api_llm_calls_export_jsonl_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/llm-calls/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Summarize Calls
+         * @description Counts, cost, latency, buckets and filter-option counts for the same filters.
+         */
+        get: operations["summarize_calls_api_llm_calls_summary_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1795,6 +1835,27 @@ export interface components {
             /** Remaining */
             remaining: number;
         };
+        /** BriefSection */
+        BriefSection: {
+            /** Rows */
+            rows: components["schemas"]["BriefSectionRow"][];
+            /** Title */
+            title: string;
+        };
+        /**
+         * BriefSectionRow
+         * @description One label/value/read row in the inspector's brief sections.
+         */
+        BriefSectionRow: {
+            /** Label */
+            label: string;
+            /** Path */
+            path: string;
+            /** Read */
+            read?: string | null;
+            /** Value */
+            value: string;
+        };
         /** BriefingListOut */
         BriefingListOut: {
             /** Items */
@@ -2661,6 +2722,93 @@ export interface components {
             /** Total Decisions */
             total_decisions: number;
         };
+        /**
+         * InspectorAttentionSettings
+         * @description The thresholds for a call's stored attention level.
+         */
+        InspectorAttentionSettings: {
+            /**
+             * Act 429 Per Day
+             * @default 3
+             */
+            act_429_per_day: number;
+            /**
+             * Act In A Row Cycles
+             * @default 3
+             */
+            act_in_a_row_cycles: number;
+            /**
+             * Act Invalid Count
+             * @default 3
+             */
+            act_invalid_count: number;
+            /**
+             * Act Invalid Window
+             * @default 20
+             */
+            act_invalid_window: number;
+            /**
+             * Act Number Check Count
+             * @default 3
+             */
+            act_number_check_count: number;
+            /**
+             * Act Number Check Window
+             * @default 5
+             */
+            act_number_check_window: number;
+            /**
+             * Watch Claim Share Pct
+             * @default 20
+             */
+            watch_claim_share_pct: number;
+            /**
+             * Watch Claim Window
+             * @default 20
+             */
+            watch_claim_window: number;
+            /**
+             * Watch Slow Per Day
+             * @default 3
+             */
+            watch_slow_per_day: number;
+            /**
+             * Watch Within Cycles
+             * @default 2
+             */
+            watch_within_cycles: number;
+        };
+        /**
+         * InspectorSettings
+         * @description Inspector display and attention thresholds.
+         */
+        InspectorSettings: {
+            /**
+             * @default {
+             *       "act_429_per_day": 3,
+             *       "act_in_a_row_cycles": 3,
+             *       "act_invalid_count": 3,
+             *       "act_invalid_window": 20,
+             *       "act_number_check_count": 3,
+             *       "act_number_check_window": 5,
+             *       "watch_claim_share_pct": 20,
+             *       "watch_claim_window": 20,
+             *       "watch_slow_per_day": 3,
+             *       "watch_within_cycles": 2
+             *     }
+             */
+            attention: components["schemas"]["InspectorAttentionSettings"];
+            /**
+             * Page Size
+             * @default 50
+             */
+            page_size: number;
+            /**
+             * Slow Call Seconds
+             * @default 15
+             */
+            slow_call_seconds: number;
+        };
         /** KillInfo */
         KillInfo: {
             /**
@@ -2783,6 +2931,11 @@ export interface components {
             at: string;
             /** Attempts */
             attempts: components["schemas"]["LlmCallAttemptOut"][];
+            /**
+             * Attention
+             * @default none
+             */
+            attention: string;
             /** Brief */
             brief: string | null;
             /** Brief Upgraded */
@@ -2797,8 +2950,18 @@ export interface components {
             decision_action?: ("BUY" | "SELL" | "HOLD" | "SKIP") | null;
             /** Decision Id */
             decision_id: string | null;
+            /**
+             * Explained Reasons
+             * @default []
+             */
+            explained_reasons: components["schemas"]["LlmCallExplainedReasonOut"][];
             /** Feature */
             feature: string;
+            /**
+             * Final Action Sentence
+             * @default
+             */
+            final_action_sentence: string;
             /** Id */
             id: string;
             /** Input Checks */
@@ -2809,20 +2972,46 @@ export interface components {
             latency_ms: number | null;
             /** Model */
             model: string;
+            /** Newer Id */
+            newer_id?: string | null;
+            /** Older Id */
+            older_id?: string | null;
+            /**
+             * Outcome Status
+             * @default success
+             */
+            outcome_status: string;
             /** Output Checks */
             output_checks: components["schemas"]["CheckOut"][];
             /** Output Schema */
             output_schema: string | null;
             /** Output Tokens */
             output_tokens: number | null;
+            /**
+             * Outside Filters
+             * @default false
+             */
+            outside_filters: boolean;
             /** Pair */
             pair: string;
             /** Parsed */
             parsed: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Payload Cleared
+             * @default false
+             */
+            payload_cleared: boolean;
+            /** Prompt Hash Match */
+            prompt_hash_match?: boolean | null;
             /** Prompt Version */
             prompt_version: string;
+            /**
+             * Reasons
+             * @default []
+             */
+            reasons: components["schemas"]["LlmCallReasonOut"][];
             /** Replay Of */
             replay_of: string | null;
             /** Replays */
@@ -2833,6 +3022,16 @@ export interface components {
             request_json: string | null;
             /** Response Raw */
             response_raw: string | null;
+            /**
+             * Result Sentence
+             * @default
+             */
+            result_sentence: string;
+            /**
+             * Sections
+             * @default []
+             */
+            sections: components["schemas"]["BriefSection"][];
             /** Status */
             status: string;
             /** System Prompt */
@@ -2843,6 +3042,32 @@ export interface components {
             verdict_at: string | null;
             /** Verdict Note */
             verdict_note: string | null;
+        };
+        /** LlmCallExplainedReasonOut */
+        LlmCallExplainedReasonOut: {
+            /** Attention */
+            attention: string;
+            /** Attention Why */
+            attention_why?: string | null;
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
+            /** Likely Cause */
+            likely_cause: string;
+            /**
+             * Links
+             * @default []
+             */
+            links: {
+                [key: string]: string;
+            }[];
+            /** Meaning */
+            meaning: string;
+            /** What To Do */
+            what_to_do: string;
+            /** Why Here */
+            why_here: string;
         };
         /**
          * LlmCallListItem
@@ -2857,6 +3082,8 @@ export interface components {
              * Format: date-time
              */
             at: string;
+            /** Attention */
+            attention?: string | null;
             /** Cost Eur */
             cost_eur?: string | null;
             /** Decision Id */
@@ -2865,6 +3092,8 @@ export interface components {
             feature?: string | null;
             /** Final Action */
             final_action?: ("BUY" | "SELL" | "HOLD" | "SKIP") | null;
+            /** Fold Key */
+            fold_key?: string | null;
             /** Id */
             id: string;
             /** Input Tokens */
@@ -2883,12 +3112,23 @@ export interface components {
             latency_ms?: number | null;
             /** Model */
             model?: string | null;
+            /** Outcome Label */
+            outcome_label?: string | null;
+            /** Outcome Status */
+            outcome_status?: string | null;
             /** Output Tokens */
             output_tokens?: number | null;
             /** Pair */
             pair: string;
             /** Prompt Version */
             prompt_version?: string | null;
+            /**
+             * Reasons
+             * @default []
+             */
+            reasons: components["schemas"]["LlmCallReasonOut"][];
+            /** Source */
+            source?: string | null;
             /** Status */
             status?: string | null;
             /** Verdict */
@@ -2898,6 +3138,22 @@ export interface components {
         LlmCallListOut: {
             /** Items */
             items: components["schemas"]["LlmCallListItem"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
+        /** LlmCallReasonOut */
+        LlmCallReasonOut: {
+            /** Code */
+            code: string;
+            /** Detail */
+            detail?: string | null;
+            /** Label */
+            label: string;
         };
         /** LlmCallReplayIn */
         LlmCallReplayIn: {
@@ -2905,6 +3161,63 @@ export interface components {
             model?: string | null;
             /** Prompt Version */
             prompt_version?: string | null;
+        };
+        /** LlmCallSummaryOut */
+        LlmCallSummaryOut: {
+            /** Attention Counts */
+            attention_counts: {
+                [key: string]: number;
+            };
+            /** Buckets */
+            buckets: {
+                [key: string]: unknown;
+            }[];
+            /** Calls */
+            calls: number;
+            /** Cost Eur */
+            cost_eur: {
+                [key: string]: string;
+            };
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Cycles Without Call */
+            cycles_without_call: number;
+            /** Latency Ms */
+            latency_ms: {
+                [key: string]: number | null;
+            };
+            /** Option Counts */
+            option_counts: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /** Shares */
+            shares: {
+                [key: string]: number;
+            };
+            /** Top Reasons */
+            top_reasons: components["schemas"]["LlmCallTopReasonOut"][];
+        };
+        /** LlmCallTopReasonOut */
+        LlmCallTopReasonOut: {
+            /**
+             * Attention
+             * @default none
+             */
+            attention: string;
+            /** Code */
+            code: string;
+            /** Count */
+            count: number;
+            /** Detail */
+            detail?: string | null;
+            /** Example */
+            example?: string | null;
+            /** Label */
+            label: string;
         };
         /** LlmCallVerdictIn */
         LlmCallVerdictIn: {
@@ -2993,6 +3306,8 @@ export interface components {
             count?: number | null;
             /** Count At Review */
             count_at_review?: number | null;
+            /** Count In Period */
+            count_in_period?: number | null;
             /** Event */
             event?: string | null;
             /** Example */
@@ -3011,6 +3326,13 @@ export interface components {
             logger?: string | null;
             /** Meaning */
             meaning?: string | null;
+            /**
+             * Need
+             * @default none
+             */
+            need: string;
+            /** Need Why */
+            need_why?: string | null;
             /** Note */
             note?: string | null;
             /**
@@ -3018,6 +3340,11 @@ export interface components {
              * @default []
              */
             pairs: string[];
+            /**
+             * Recurring
+             * @default false
+             */
+            recurring: boolean;
             /** Reviewed At */
             reviewed_at?: string | null;
             /** State */
@@ -4063,6 +4390,17 @@ export interface components {
         };
         /** ProblemsOut */
         ProblemsOut: {
+            /**
+             * Counts
+             * @default {
+             *       "act": 0,
+             *       "none": 0,
+             *       "watch": 0
+             *     }
+             */
+            counts: {
+                [key: string]: number;
+            };
             /** Problems */
             problems: components["schemas"]["LogProblemOut"][];
         };
@@ -4681,6 +5019,25 @@ export interface components {
             execution_mode: "auto" | "supervised" | "manual";
             /**
              * @default {
+             *       "attention": {
+             *         "act_429_per_day": 3,
+             *         "act_in_a_row_cycles": 3,
+             *         "act_invalid_count": 3,
+             *         "act_invalid_window": 20,
+             *         "act_number_check_count": 3,
+             *         "act_number_check_window": 5,
+             *         "watch_claim_share_pct": 20,
+             *         "watch_claim_window": 20,
+             *         "watch_slow_per_day": 3,
+             *         "watch_within_cycles": 2
+             *       },
+             *       "page_size": 50,
+             *       "slow_call_seconds": 15
+             *     }
+             */
+            inspector: components["schemas"]["InspectorSettings"];
+            /**
+             * @default {
              *       "ask_daily_limit": 100,
              *       "briefing_time": "08:00",
              *       "insights_min_decisions": 30,
@@ -4882,6 +5239,7 @@ export interface components {
             timeouts: components["schemas"]["TimeoutSettings"];
             /**
              * @default {
+             *       "log_watch_min_count": 5,
              *       "stop_near_atr": "1.5"
              *     }
              */
@@ -4936,6 +5294,25 @@ export interface components {
              * @enum {string}
              */
             execution_mode: "auto" | "supervised" | "manual";
+            /**
+             * @default {
+             *       "attention": {
+             *         "act_429_per_day": 3,
+             *         "act_in_a_row_cycles": 3,
+             *         "act_invalid_count": 3,
+             *         "act_invalid_window": 20,
+             *         "act_number_check_count": 3,
+             *         "act_number_check_window": 5,
+             *         "watch_claim_share_pct": 20,
+             *         "watch_claim_window": 20,
+             *         "watch_slow_per_day": 3,
+             *         "watch_within_cycles": 2
+             *       },
+             *       "page_size": 50,
+             *       "slow_call_seconds": 15
+             *     }
+             */
+            inspector: components["schemas"]["InspectorSettings"];
             /**
              * @default {
              *       "ask_daily_limit": 100,
@@ -5139,6 +5516,7 @@ export interface components {
             timeouts: components["schemas"]["TimeoutSettings"];
             /**
              * @default {
+             *       "log_watch_min_count": 5,
              *       "stop_near_atr": "1.5"
              *     }
              */
@@ -5864,10 +6242,15 @@ export interface components {
         };
         /**
          * UiSettings
-         * @description Display thresholds for the GUI — the amber stop distance lives here
-         *     so the highlight rule is configurable, never a literal in logic.
+         * @description Display thresholds for the GUI — display rules live here, never as
+         *     literals in logic.
          */
         "UiSettings-Input": {
+            /**
+             * Log Watch Min Count
+             * @default 5
+             */
+            log_watch_min_count: number;
             /**
              * Stop Near Atr
              * @default 1.5
@@ -5876,10 +6259,15 @@ export interface components {
         };
         /**
          * UiSettings
-         * @description Display thresholds for the GUI — the amber stop distance lives here
-         *     so the highlight rule is configurable, never a literal in logic.
+         * @description Display thresholds for the GUI — display rules live here, never as
+         *     literals in logic.
          */
         "UiSettings-Output": {
+            /**
+             * Log Watch Min Count
+             * @default 5
+             */
+            log_watch_min_count: number;
             /**
              * Stop Near Atr
              * @default 1.5
@@ -7242,7 +7630,19 @@ export interface operations {
                 outcome?: string | null;
                 skipped?: boolean;
                 before?: string | null;
-                limit?: number;
+                period?: string;
+                from?: string | null;
+                to?: string | null;
+                source?: string[] | null;
+                action?: ("BUY" | "SELL" | "HOLD") | null;
+                reason?: string | null;
+                model?: string | null;
+                prompt?: string | null;
+                attention?: ("act" | "watch" | "none") | null;
+                cycle?: number | null;
+                cursor?: string | null;
+                sort?: "newest" | "oldest" | "new" | "old";
+                limit?: number | null;
             };
             header?: never;
             path?: never;
@@ -7270,6 +7670,26 @@ export interface operations {
             };
         };
     };
+    export_calls_csv_api_llm_calls_export_csv_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     export_calls_api_llm_calls_export_jsonl_get: {
         parameters: {
             query?: {
@@ -7289,6 +7709,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    summarize_calls_api_llm_calls_summary_get: {
+        parameters: {
+            query?: {
+                period?: string;
+                from?: string | null;
+                to?: string | null;
+                source?: string[] | null;
+                pair?: string | null;
+                status?: string | null;
+                action?: string | null;
+                reason?: string | null;
+                model?: string | null;
+                prompt?: string | null;
+                verdict?: string | null;
+                outcome?: string | null;
+                attention?: string | null;
+                cycle?: number | null;
+                issues?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmCallSummaryOut"];
                 };
             };
             /** @description Validation Error */
@@ -7571,6 +8036,7 @@ export interface operations {
         parameters: {
             query?: {
                 state?: string | null;
+                period?: string;
             };
             header?: never;
             path?: never;

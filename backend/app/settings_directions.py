@@ -99,6 +99,33 @@ DIRECTIONS: dict[str, tuple[Direction, str]] = {
     # ----------------------------------------------------- notifications --
     "notifications.browser_enabled": ("off", "fewer alerts reach you"),
     "notifications.email_enabled": ("off", "fewer alerts reach you"),
+    # ---------------------------------------------------------- display --
+    "ui.stop_near_atr": ("neutral", "when a stop is shown as near"),
+    "ui.log_watch_min_count": ("neutral", "when a repeated warning becomes one to watch"),
+    "inspector.slow_call_seconds": ("neutral", "when a model call counts as slow"),
+    "inspector.page_size": ("neutral", "how many calls one inspector page loads"),
+    "inspector.attention.act_in_a_row_cycles": ("neutral", "when repeated failures need you"),
+    "inspector.attention.act_429_per_day": ("neutral", "when rate-limit failures need you"),
+    "inspector.attention.act_invalid_count": ("neutral", "when unusable answers need you"),
+    "inspector.attention.act_invalid_window": ("neutral", "the window unusable answers count in"),
+    "inspector.attention.act_number_check_count": (
+        "neutral",
+        "when rejected text numbers need you",
+    ),
+    "inspector.attention.act_number_check_window": (
+        "neutral",
+        "the window rejected text numbers count in",
+    ),
+    "inspector.attention.watch_within_cycles": (
+        "neutral",
+        "when nearby provider errors are one to watch",
+    ),
+    "inspector.attention.watch_slow_per_day": ("neutral", "when slow calls are one to watch"),
+    "inspector.attention.watch_claim_share_pct": (
+        "neutral",
+        "when repeated warnings are one to watch",
+    ),
+    "inspector.attention.watch_claim_window": ("neutral", "the window repeated warnings count in"),
     # ---------------------------------------------------------- top level --
     "execution_mode": ("toward_auto", "manual to supervised to auto is looser"),
     "veto_window_s": ("down", "a shorter window to veto"),

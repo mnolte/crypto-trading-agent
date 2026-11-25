@@ -30,7 +30,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import repo
-from app.agent import budget
+from app.agent import budget, reasons
 from app.agent.brief import (
     MAX_ENTRY_DISTANCE_PCT,
     TF_FIELDS,
@@ -763,6 +763,7 @@ class OpenAIDecider:
             input_fails = [c for c in in_checks if c.status == "fail"]
             if input_fails:
                 row.status = "input_blocked"
+                reasons.stamp(session, row, final_action="HOLD", settings=settings)
                 repo.add_llm_call(session, row)
                 session.commit()
                 first = input_fails[0]
@@ -820,6 +821,7 @@ class OpenAIDecider:
 
             if result.status != "ok":
                 await self._track_model_result(result.status, result.error or result.status)
+                reasons.stamp(session, row, final_action=rules_draft.action, settings=settings)
                 repo.add_llm_call(session, row)
                 repo.add_activity(
                     session,
@@ -852,6 +854,7 @@ class OpenAIDecider:
                 brief_version=prompt.brief_version,
             )
             row.output_checks = _checks_json(verdict.checks)
+            reasons.stamp(session, row, final_action=verdict.action, settings=settings)
             repo.add_llm_call(session, row)
             session.commit()
             draft = self._draft(out, verdict, model, prompt.version)

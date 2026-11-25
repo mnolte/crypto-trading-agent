@@ -16,6 +16,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.agent import reasons
 from app.agent.brief import BriefMeta, brief_json
 from app.agent.brief_v2 import (
     brief_version_of,
@@ -145,12 +146,14 @@ def replay_row(
     status: str,
     *,
     now: Any,
+    session: Session | None = None,
+    settings: Settings | None = None,
 ) -> LlmCallRow:
     """The llm_calls row a replay produces — feature "replay", linked to
     the original call."""
     import uuid
 
-    return LlmCallRow(
+    row = LlmCallRow(
         id=uuid.uuid4().hex[:16],
         at=now,
         cycle=None,
@@ -197,6 +200,14 @@ def replay_row(
         verdict_note=None,
         verdict_at=None,
     )
+    if session is not None and settings is not None:
+        reasons.stamp(
+            session,
+            row,
+            final_action=reasons.parsed_action(row),
+            settings=settings,
+        )
+    return row
 
 
 def upgraded_marker(orig_brief: dict[str, Any], replay_brief: dict[str, Any]) -> str | None:

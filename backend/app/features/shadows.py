@@ -28,7 +28,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import repo
-from app.agent import budget
+from app.agent import budget, reasons
 from app.agent.brief import TF_KEYS
 from app.agent.broker.paper import HeldPosition, PaperBroker
 from app.agent.deciders.base import DecideContext, Draft, RiskView
@@ -612,6 +612,13 @@ class ShadowRunner:
             call_row = repo.get_llm_call(session, draft.llm_call_id)
             if call_row is not None:
                 call_row.decision_id = decision.id
+                reasons.stamp(
+                    session,
+                    call_row,
+                    final_action=decision.action,
+                    settings=shadow.settings,
+                    change_detail=decision.error,
+                )
         session.flush()
 
     # ------------------------------------------------------ limit orders ==
