@@ -4,6 +4,7 @@ import shutil
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from typing import cast
 from unittest.mock import patch
 
 import pytest
@@ -12,11 +13,20 @@ from sqlalchemy.orm import Session
 
 from app import repo
 from app.agent.broker.paper import HeldPosition, PaperBroker
-from app.agent.market.base import Candle
-from app.agent.outcomes import MAX_OUTCOME_ATTEMPTS, _label, compute_outcome, run_outcomes
+from app.agent.market.base import Candle, MarketClient, UpstreamError
+from app.agent.outcomes import (
+    MAX_OUTCOME_ATTEMPTS,
+    OutcomeCandleNeed,
+    _label,
+    _merged_outcome_windows,
+    backfill_outcome_candles,
+    compute_outcome,
+    run_outcomes,
+)
 from app.db import (
     DecisionRow,
     OutcomeFailureRow,
+    OutcomeRow,
     TradeRow,
     make_engine,
     make_session_factory,
@@ -24,6 +34,7 @@ from app.db import (
 from app.models import PaperSettings
 
 NOW = datetime(2026, 10, 11, 12, tzinfo=UTC)
+HOUR = timedelta(hours=1)
 
 
 def _decision() -> DecisionRow:
@@ -57,6 +68,66 @@ def _decision() -> DecisionRow:
         raw_response=None,
         prefilter=True,
     )
+
+
+def _hourly_candles(first_open: datetime, count: int) -> list[Candle]:
+    return [
+        Candle(
+            open_time=first_open + timedelta(hours=index),
+            open=Decimal("100"),
+            high=Decimal("101"),
+            low=Decimal("99"),
+            close=Decimal("100"),
+            volume=Decimal("10"),
+        )
+        for index in range(count)
+    ]
+
+
+class CannedOutcomeCandles:
+    def __init__(self, candles: list[Candle]) -> None:
+        self.stored = sorted(candles, key=lambda candle: candle.open_time)
+        self.calls: list[tuple[str, str, int, datetime | None]] = []
+
+    async def candles(
+        self,
+        market: str,
+        interval: str,
+        limit: int,
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+    ) -> list[Candle]:
+        self.calls.append((market, interval, limit, end))
+        rows = self.stored
+        if start is not None:
+            rows = [candle for candle in rows if candle.open_time >= start]
+        if end is not None:
+            rows = [candle for candle in rows if candle.open_time < end]
+        return rows[-limit:]
+
+
+class FailingOutcomeCandles:
+    async def candles(
+        self,
+        market: str,
+        interval: str,
+        limit: int,
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+    ) -> list[Candle]:
+        raise UpstreamError("bitvavo 400 for /DOGE-EUR/candles: market parameter is invalid.")
+
+
+def _hold_decision_with_history(session: Session) -> DecisionRow:
+    decision = _decision()
+    decision.action = "HOLD"
+    decision.status = "none"
+    session.add(decision)
+    repo.upsert_candles(session, "BTC-EUR", "1h", _hourly_candles(NOW - 60 * HOUR, 60))
+    session.commit()
+    return decision
 
 
 def _session(path: Path, template: Path) -> Session:
@@ -194,6 +265,118 @@ def test_sell_exit_labels(reference: Decimal, expected: str) -> None:
         _label("SELL", "executed", "neither", reference, Decimal("110"), Decimal("10"), 24)
         == expected
     )
+
+
+def test_outcome_fetch_windows_merge_only_overlapping() -> None:
+    needs = [
+        OutcomeCandleNeed(pair="BTC-EUR", anchor=NOW, end=NOW + 4 * HOUR),
+        OutcomeCandleNeed(pair="BTC-EUR", anchor=NOW + HOUR, end=NOW + 5 * HOUR),
+        OutcomeCandleNeed(pair="BTC-EUR", anchor=NOW + 100 * HOUR, end=NOW + 104 * HOUR),
+    ]
+
+    assert _merged_outcome_windows(needs) == [
+        (NOW, NOW + 5 * HOUR),
+        (NOW + 100 * HOUR, NOW + 104 * HOUR),
+    ]
+
+
+async def test_outcome_backfill_fetches_missing_candles_for_inactive_pair(
+    tmp_path: Path, migrated_db: Path
+) -> None:
+    session = _session(tmp_path / "agent.db", migrated_db)
+    decision = _hold_decision_with_history(session)
+    future = _hourly_candles(NOW, 80)
+    client = CannedOutcomeCandles(future)
+    now = NOW + 25 * HOUR
+
+    fetched = await backfill_outcome_candles(cast(MarketClient, client), session, now)
+
+    assert fetched == 24
+    assert client.calls == [("BTC-EUR", "1h", 28, NOW + 24 * HOUR)]
+    count = run_outcomes(session, now)
+    assert count == 2
+    outcomes = session.scalars(
+        select(OutcomeRow).where(OutcomeRow.decision_id == decision.id)
+    ).all()
+    assert {outcome.horizon for outcome in outcomes} == {4, 24}
+    assert all(outcome.label == "flat" for outcome in outcomes)
+    assert session.scalar(select(OutcomeFailureRow)) is None
+
+
+async def test_outcome_backfill_covers_the_72h_horizon(tmp_path: Path, migrated_db: Path) -> None:
+    session = _session(tmp_path / "agent.db", migrated_db)
+    decision = _hold_decision_with_history(session)
+    client = CannedOutcomeCandles(_hourly_candles(NOW, 80))
+    now = NOW + 73 * HOUR
+
+    fetched = await backfill_outcome_candles(cast(MarketClient, client), session, now)
+
+    assert fetched == 72
+    assert client.calls == [("BTC-EUR", "1h", 76, NOW + 72 * HOUR)]
+    assert run_outcomes(session, now) == 3
+    outcomes = session.scalars(
+        select(OutcomeRow).where(OutcomeRow.decision_id == decision.id)
+    ).all()
+    assert {outcome.horizon for outcome in outcomes} == {4, 24, 72}
+    assert session.scalar(select(OutcomeFailureRow)) is None
+
+
+async def test_outcome_backfill_fetch_failure_keeps_existing_retry_behaviour(
+    tmp_path: Path, migrated_db: Path
+) -> None:
+    session = _session(tmp_path / "agent.db", migrated_db)
+    decision = _hold_decision_with_history(session)
+    now = NOW + 5 * HOUR
+
+    fetched = await backfill_outcome_candles(
+        cast(MarketClient, FailingOutcomeCandles()), session, now
+    )
+
+    assert fetched == 0
+    assert run_outcomes(session, now) == 0
+    failure = session.get(OutcomeFailureRow, (decision.id, 4))
+    assert failure is not None
+    assert failure.attempts == 1
+    assert failure.last_error == "no closed candles in outcome horizon"
+    assert not failure.terminal
+
+
+async def test_terminal_missing_candle_outcome_recovers_after_startup_backfill(
+    tmp_path: Path, migrated_db: Path
+) -> None:
+    session = _session(tmp_path / "agent.db", migrated_db)
+    decision = _hold_decision_with_history(session)
+    session.add(
+        OutcomeFailureRow(
+            decision_id=decision.id,
+            horizon=4,
+            attempts=MAX_OUTCOME_ATTEMPTS,
+            last_error="no closed candles in outcome horizon",
+            last_at=NOW,
+            terminal=True,
+        )
+    )
+    session.commit()
+    client = CannedOutcomeCandles(_hourly_candles(NOW, 80))
+    now = NOW + 5 * HOUR
+
+    hourly = await backfill_outcome_candles(cast(MarketClient, client), session, now)
+    assert hourly == 0 and client.calls == []
+    startup = await backfill_outcome_candles(
+        cast(MarketClient, client), session, now, include_terminal=True
+    )
+
+    assert startup == 4
+    assert client.calls == [("BTC-EUR", "1h", 8, NOW + 4 * HOUR)]
+    assert session.get(OutcomeFailureRow, (decision.id, 4)) is None
+    assert run_outcomes(session, now) == 1
+    outcome = session.scalar(
+        select(OutcomeRow).where(
+            OutcomeRow.decision_id == decision.id,
+            OutcomeRow.horizon == 4,
+        )
+    )
+    assert outcome is not None and outcome.label == "flat"
 
 
 def test_permanently_unavailable_outcome_stops_retrying(tmp_path: Path, migrated_db: Path) -> None:
