@@ -28,7 +28,6 @@ from app import repo
 from app import tasks as tasks_mod
 from app.agent.engine import CYCLE_S, TF_LIMITS
 from app.agent.market.base import drop_forming
-from app.agent.market.sync import plain_error
 from app.agent.market.universe import (
     backfill_job,
     run_eligibility_check,
@@ -45,6 +44,7 @@ from app.db import (
     SyncRunRow,
     utcnow,
 )
+from app.errors import plain_error
 from app.models import MarketSettings, MoneyDecimal, Regime
 
 log = logging.getLogger(__name__)

@@ -126,7 +126,16 @@ async def test_500_raises_upstream() -> None:
 async def test_network_error_raises_market_data_error() -> None:
     respx.get(f"{BASE_URL}/ticker/price").mock(side_effect=httpx.ConnectError("no route"))
     client = BitvavoClient()
-    with pytest.raises(MarketDataError):
+    with pytest.raises(MarketDataError, match="no route"):
+        await client.ticker_price("BTC-EUR")
+    await client.aclose()
+
+
+@respx.mock
+async def test_empty_error_message_names_the_exception_class() -> None:
+    respx.get(f"{BASE_URL}/ticker/price").mock(side_effect=httpx.ReadTimeout(""))
+    client = BitvavoClient()
+    with pytest.raises(MarketDataError, match="ReadTimeout"):
         await client.ticker_price("BTC-EUR")
     await client.aclose()
 

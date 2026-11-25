@@ -65,3 +65,12 @@ class ConfigError(AgentError):
 
 class SafetyError(AgentError):
     """Safety at risk: kill switch, unpriced position, unwritable store."""
+
+
+def plain_error(exc: BaseException) -> str:
+    """An exception's text in plain words — the only form an error may
+    take into a stored row, log line or message (hard rule 8). An
+    exception with an empty message (some httpx timeouts) yields its
+    class name, so the text never ends in a bare colon."""
+    text = str(exc).strip() or exc.__class__.__name__
+    return text[:500]

@@ -15,6 +15,7 @@ import httpx
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import repo
+from app.errors import plain_error
 from app.models import Settings
 from app.sources import SourceRegistry
 
@@ -319,7 +320,7 @@ class ContextCollector:
             return await self._get(source, path, params)
         except Exception as exc:  # noqa: BLE001 - boundary: one collector source
             errors.append(exc)
-            log.debug("market context request failed %s %s: %s", source, path, exc)
+            log.debug("market context request failed %s %s: %s", source, path, plain_error(exc))
             return None
 
     async def collect(self, *, days: int | None = None) -> dict[str, int]:
@@ -417,7 +418,7 @@ class ContextCollector:
             log.warning(
                 "market context okx: %d request(s) failed; first error: %s",
                 len(errors),
-                error,
+                plain_error(error),
             )
         return points, error
 
@@ -508,6 +509,6 @@ class ContextCollector:
             log.warning(
                 "market context deribit: %d request(s) failed; first error: %s",
                 len(errors),
-                error,
+                plain_error(error),
             )
         return points, error

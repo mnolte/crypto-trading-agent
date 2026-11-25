@@ -21,6 +21,7 @@ from typing import Literal
 import httpx
 
 from app.config import get_secret
+from app.errors import plain_error
 
 KeyRequirement = Literal["none", "optional", "required"]
 
@@ -195,7 +196,7 @@ async def test_source_key(source_id: str) -> tuple[bool, str | None]:
         detail = _provider_error(response)
         return False, detail
     except httpx.HTTPError as exc:
-        return False, str(exc)
+        return False, plain_error(exc)
 
 
 def _provider_error(response: httpx.Response) -> str:
