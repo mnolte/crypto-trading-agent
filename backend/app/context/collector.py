@@ -7,12 +7,14 @@ import logging
 import random
 import time
 from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal
+from typing import Any, Literal, Protocol, cast
 
 import httpx
 from sqlalchemy.orm import Session, sessionmaker
+from websockets.asyncio.client import connect as websocket_connect
 
 from app import repo
 from app.errors import plain_error
@@ -23,6 +25,7 @@ log = logging.getLogger(__name__)
 
 OKX_BASE = "https://www.okx.com"
 DERIBIT_BASE = "https://www.deribit.com/api/v2"
+DERIBIT_WS = "wss://www.deribit.com/ws/api/v2"
 SYMBOLS: tuple[Literal["BTC", "ETH"], ...] = ("BTC", "ETH")
 RETRY_STATUSES = {429, 500, 502, 503, 504}
 # Total tries on a retryable status; network errors keep one retry.
@@ -30,6 +33,21 @@ STATUS_ATTEMPTS = 5
 RETRY_AFTER_CAP_S = 30.0
 BACKOFF_BASE_S = 1.0
 BACKOFF_CAP_S = 30.0
+WEBSOCKET_SNAPSHOT_TIMEOUT_S = 15.0
+WEBSOCKET_MAX_QUEUE = 512
+
+
+class TickerWebSocket(Protocol):
+    async def send(self, message: str) -> None: ...
+
+    async def recv(self) -> str | bytes: ...
+
+
+WebSocketConnector = Callable[..., AbstractAsyncContextManager[TickerWebSocket]]
+
+
+def _connect_websocket(uri: str, **kwargs: Any) -> AbstractAsyncContextManager[TickerWebSocket]:
+    return cast(AbstractAsyncContextManager[TickerWebSocket], websocket_connect(uri, **kwargs))
 
 
 @dataclass(frozen=True)
@@ -237,6 +255,8 @@ class ContextCollector:
         sleep: Callable[[float], Any] = asyncio.sleep,
         settings: Callable[[], Settings] | None = None,
         monotonic: Callable[[], float] = time.monotonic,
+        websocket: WebSocketConnector | None = None,
+        websocket_snapshot_timeout: float = WEBSOCKET_SNAPSHOT_TIMEOUT_S,
     ) -> None:
         self._sessions = session_factory
         self.sources = sources
@@ -247,6 +267,8 @@ class ContextCollector:
         default = Settings()
         self._settings = settings if settings is not None else lambda: default
         self._monotonic = monotonic
+        self._websocket = websocket or _connect_websocket
+        self._websocket_snapshot_timeout = websocket_snapshot_timeout
         self._pace_lock = asyncio.Lock()
         self._pace_next_at = 0.0
 
@@ -322,6 +344,64 @@ class ContextCollector:
             errors.append(exc)
             log.debug("market context request failed %s %s: %s", source, path, plain_error(exc))
             return None
+
+    async def _ticker_snapshots(self, names: list[str]) -> list[dict[str, Any]]:
+        """Collect the first full websocket ticker snapshot for every instrument."""
+        if not names:
+            return []
+        channels = [f"incremental_ticker.{name}" for name in names]
+        wanted = set(names)
+        tickers: dict[str, dict[str, Any]] = {}
+        try:
+            async with asyncio.timeout(self._websocket_snapshot_timeout):
+                async with self._websocket(
+                    DERIBIT_WS,
+                    max_queue=WEBSOCKET_MAX_QUEUE,
+                ) as websocket:
+                    await websocket.send(
+                        json.dumps(
+                            {
+                                "jsonrpc": "2.0",
+                                "id": 1,
+                                "method": "public/subscribe",
+                                "params": {"channels": channels},
+                            }
+                        )
+                    )
+                    while len(tickers) < len(wanted):
+                        payload = json.loads(await websocket.recv())
+                        if not isinstance(payload, dict):
+                            continue
+                        if payload.get("id") == 1:
+                            if "error" in payload:
+                                raise ProviderError(
+                                    f"Deribit websocket subscribe failed: {payload['error']!r}"
+                                )
+                            result = payload.get("result")
+                            subscribed = (
+                                set(map(str, result)) if isinstance(result, list) else set()
+                            )
+                            if subscribed != set(channels):
+                                raise ProviderError(
+                                    "Deribit websocket subscribe returned unexpected channels: "
+                                    f"{result!r}"
+                                )
+                            continue
+                        if payload.get("method") != "subscription":
+                            continue
+                        params = payload.get("params")
+                        data = params.get("data") if isinstance(params, dict) else None
+                        if not isinstance(data, dict) or data.get("type") != "snapshot":
+                            continue
+                        name = data.get("instrument_name")
+                        if isinstance(name, str) and name in wanted and name not in tickers:
+                            tickers[name] = data
+        except TimeoutError as exc:
+            raise ProviderError(
+                "Deribit websocket ticker snapshots incomplete: "
+                f"{len(tickers)} of {len(wanted)} received"
+            ) from exc
+        return [tickers[name] for name in names if name in tickers]
 
     async def collect(self, *, days: int | None = None) -> dict[str, int]:
         counts: dict[str, int] = {}
@@ -475,30 +555,13 @@ class ContextCollector:
             selected = [
                 item for item in instruments if int(item.get("expiration_timestamp", 0)) == expiry
             ]
-            semaphore = asyncio.Semaphore(4)
-
-            async def ticker(
-                name: str, limit: asyncio.Semaphore = semaphore
-            ) -> dict[str, Any] | None:
-                async with limit:
-                    payload = await self._try(
-                        "deribit",
-                        "/public/ticker",
-                        {"instrument_name": name},
-                        errors,
-                    )
-                    if payload is None:
-                        return None
-                    result = _deribit_result(payload)
-                    return result if isinstance(result, dict) else None
-
-            tickers = [
-                item
-                for item in await asyncio.gather(
-                    *(ticker(str(item["instrument_name"])) for item in selected)
-                )
-                if item is not None
-            ]
+            names = [str(item["instrument_name"]) for item in selected]
+            try:
+                tickers = await self._ticker_snapshots(names)
+            except Exception as exc:  # noqa: BLE001 - boundary: one collector source
+                errors.append(exc)
+                log.debug("market context websocket failed deribit: %s", plain_error(exc))
+                tickers = []
             skew = calculate_skew(tickers, symbol, expiry, now)
             if skew is None:
                 log.warning("no skew row for %s: missing deltas", symbol)
