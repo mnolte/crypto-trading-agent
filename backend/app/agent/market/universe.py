@@ -36,6 +36,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.agent.market.base import (
     Candle,
     MarketClient,
+    MarketDataError,
     MarketInfo,
     Ticker24h,
     drop_forming,
@@ -376,6 +377,7 @@ async def run_eligibility_check(
     *,
     trigger: str = "daily",
     on_progress: Callable[[int, int | None], None] | None = None,
+    on_market_failure: Callable[[str, str], None] | None = None,
 ) -> tuple[list[MarketRow], dict[str, str]]:
     """Run the daily check over every EUR market the exchange lists.
 
@@ -415,9 +417,24 @@ async def run_eligibility_check(
     eur_infos = [i for i in infos if i.quote == "EUR"]
     metrics: dict[str, MarketMetrics] = {}
     for index, info in enumerate(eur_infos):
-        metrics[info.market] = await check_market(
-            client, session, info, tickers.get(info.market), cfg, now
-        )
+        try:
+            metrics[info.market] = await check_market(
+                client, session, info, tickers.get(info.market), cfg, now
+            )
+        except MarketDataError as exc:
+            ticker = tickers.get(info.market)
+            metrics[info.market] = MarketMetrics(
+                market=info.market,
+                base=info.base,
+                quote=info.quote,
+                status=info.status,
+                is_stablecoin=info.base.upper() in {b.upper() for b in cfg.stablecoin_bases},
+                volume_30d_eur=None,
+                spread_pct=ticker.spread_pct if ticker and ticker.spread_pct is not None else None,
+                daily_candles=None,
+            )
+            if on_market_failure is not None:
+                on_market_failure(info.market, plain_error(exc))
         # The next market's candle fetches are network awaits — end the
         # transaction so the pooled connection goes back between markets.
         session.rollback()

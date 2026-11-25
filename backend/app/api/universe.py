@@ -842,6 +842,7 @@ async def _retry_daily_check(state: AppState) -> None:
             state.settings.market,
             trigger="retry",
             on_progress=run.progress,
+            on_market_failure=run.fail,
         )
         latest = session.scalar(select(MarketCheckRow).order_by(MarketCheckRow.id.desc()).limit(1))
         if latest is not None and latest.status == "failed":
