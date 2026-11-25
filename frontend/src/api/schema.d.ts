@@ -3306,6 +3306,8 @@ export interface components {
             count?: number | null;
             /** Count At Review */
             count_at_review?: number | null;
+            /** Count In Period */
+            count_in_period?: number | null;
             /** Event */
             event?: string | null;
             /** Example */
@@ -3329,6 +3331,8 @@ export interface components {
              * @default none
              */
             need: string;
+            /** Need Why */
+            need_why?: string | null;
             /** Note */
             note?: string | null;
             /**
@@ -4386,6 +4390,17 @@ export interface components {
         };
         /** ProblemsOut */
         ProblemsOut: {
+            /**
+             * Counts
+             * @default {
+             *       "act": 0,
+             *       "none": 0,
+             *       "watch": 0
+             *     }
+             */
+            counts: {
+                [key: string]: number;
+            };
             /** Problems */
             problems: components["schemas"]["LogProblemOut"][];
         };
@@ -7626,7 +7641,7 @@ export interface operations {
                 attention?: ("act" | "watch" | "none") | null;
                 cycle?: number | null;
                 cursor?: string | null;
-                sort?: "newest" | "oldest";
+                sort?: "newest" | "oldest" | "new" | "old";
                 limit?: number | null;
             };
             header?: never;
@@ -8021,6 +8036,7 @@ export interface operations {
         parameters: {
             query?: {
                 state?: string | null;
+                period?: string;
             };
             header?: never;
             path?: never;

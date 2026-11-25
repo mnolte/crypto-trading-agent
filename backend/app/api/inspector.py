@@ -368,7 +368,7 @@ def list_calls(
     attention: Literal["act", "watch", "none"] | None = None,
     cycle: int | None = None,
     cursor: str | None = None,
-    sort: Literal["newest", "oldest"] = "newest",
+    sort: Literal["newest", "oldest", "new", "old"] = "newest",
     limit: Annotated[int | None, Query(ge=1, le=200)] = None,
 ) -> LlmCallListOut:
     """Filtered call history with stable keyset pagination. Rows whose cycle
@@ -406,6 +406,7 @@ def list_calls(
                 conds.append(cursor_condition(cursor, sort))
             except ValueError:
                 raise HTTPException(status_code=400, detail="invalid cursor") from None
+        sort = "oldest" if sort == "old" else "newest" if sort == "new" else sort
         ordering = (
             (asc(LlmCallRow.at), asc(LlmCallRow.id))
             if sort == "oldest"

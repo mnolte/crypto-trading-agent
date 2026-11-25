@@ -4647,6 +4647,17 @@
             ],
             "title": "Count At Review"
           },
+          "count_in_period": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count In Period"
+          },
           "event": {
             "anyOf": [
               {
@@ -4743,6 +4754,17 @@
             "default": "none",
             "title": "Need",
             "type": "string"
+          },
+          "need_why": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Need Why"
           },
           "note": {
             "anyOf": [
@@ -7193,6 +7215,18 @@
       },
       "ProblemsOut": {
         "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "default": {
+              "act": 0,
+              "none": 0,
+              "watch": 0
+            },
+            "title": "Counts",
+            "type": "object"
+          },
           "problems": {
             "items": {
               "$ref": "#/components/schemas/LogProblemOut"
@@ -13800,7 +13834,9 @@
               "default": "newest",
               "enum": [
                 "newest",
-                "oldest"
+                "oldest",
+                "new",
+                "old"
               ],
               "title": "Sort",
               "type": "string"
@@ -14789,6 +14825,16 @@
                 }
               ],
               "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "default": "7d",
+              "title": "Period",
+              "type": "string"
             }
           }
         ],
