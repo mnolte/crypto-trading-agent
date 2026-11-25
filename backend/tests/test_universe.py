@@ -7,10 +7,11 @@ from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from app.agent.market.base import Candle, MarketInfo, OrderBook, Ticker24h, UpstreamError
@@ -294,7 +295,7 @@ async def test_market_candle_error_does_not_abort_check(session: Session) -> Non
                 )
             return await super().candles(market, interval, limit, start=start, end=end)
 
-    syncs = SyncRuns(make_session_factory(session.get_bind()))
+    syncs = SyncRuns(make_session_factory(cast(Engine, session.get_bind())))
     run = syncs.begin("daily_check")
     rows, _ = await run_eligibility_check(
         BrokenCandles(infos, tickers, daily),

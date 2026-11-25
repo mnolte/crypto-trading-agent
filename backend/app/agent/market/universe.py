@@ -422,9 +422,6 @@ async def run_eligibility_check(
                 client, session, info, tickers.get(info.market), cfg, now
             )
         except MarketDataError as exc:
-            # One broken market (for example an auction market whose candles
-            # endpoint 400s) must not abort the other markets' check. Its
-            # categorical status/type still apply; numeric metrics are missing.
             ticker = tickers.get(info.market)
             metrics[info.market] = MarketMetrics(
                 market=info.market,
