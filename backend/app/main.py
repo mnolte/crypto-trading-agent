@@ -22,7 +22,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select, text
+from sqlalchemy import DateTime, bindparam, select, text
 from sqlalchemy.engine import Engine as DbEngine
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -139,7 +139,7 @@ def _interrupt_running_runs(eng: DbEngine, *, reason: str = "restart") -> dict[s
                     text(
                         "UPDATE sync_runs SET status = 'failed', finished_at = :now, "
                         "updated_at = :now, failures = :failures WHERE id = :id"
-                    ),
+                    ).bindparams(bindparam("now", type_=DateTime())),
                     {
                         "now": now,
                         "failures": json.dumps(failures),
@@ -157,7 +157,7 @@ def _interrupt_running_runs(eng: DbEngine, *, reason: str = "restart") -> dict[s
                         "UPDATE market_checks SET status = 'failed', "
                         "error = COALESCE(error, :error), finished_at = :now "
                         "WHERE finished_at IS NULL"
-                    ),
+                    ).bindparams(bindparam("now", type_=DateTime())),
                     {
                         "error": f"market check interrupted by {reason}",
                         "now": utcnow().replace(tzinfo=None),

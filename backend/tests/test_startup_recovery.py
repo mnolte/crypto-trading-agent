@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -174,6 +175,19 @@ def test_unclean_start_closes_interrupted_work_idempotently(tmp_path: Path) -> N
         assert counts == {"whatif": 0, "sync_runs": 0, "market_checks": 0}
     finally:
         eng.dispose()
+
+
+def test_interrupt_running_runs_does_not_use_deprecated_datetime_adapter(tmp_path: Path) -> None:
+    db_path = tmp_path / "agent.db"
+    eng = make_engine(db_path)
+    run_migrations(db_path)
+    try:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", DeprecationWarning)
+            app_mod._interrupt_running_runs(eng)
+    finally:
+        eng.dispose()
+    assert not [w for w in caught if "default datetime adapter" in str(w.message)]
 
 
 def test_auxiliary_database_problems_are_reported_not_blocking(tmp_path: Path) -> None:
