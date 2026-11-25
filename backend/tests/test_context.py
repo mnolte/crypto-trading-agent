@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app import repo
 from app.context.collector import (
+    WEBSOCKET_MAX_QUEUE,
     ContextCollector,
     ContextPoint,
     ProviderError,
@@ -348,71 +349,184 @@ class _FakePacer:
 
 
 def _deribit_handler(
-    ticker: Callable[[httpx.Request, int], httpx.Response],
-    calls: list[float],
+    calls: list[tuple[str, float]],
     pacer: _FakePacer,
+    *,
+    instruments: Callable[[httpx.Request, int], httpx.Response] | None = None,
 ) -> Callable[[httpx.Request], Coroutine[Any, Any, httpx.Response]]:
+    instrument_calls = 0
+
     async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal instrument_calls
         path = request.url.path
+        calls.append((path, pacer.now))
         if path.endswith("/public/get_volatility_index_data"):
             return httpx.Response(
                 200,
                 json={"result": {"data": [[1000, 1, 2, 0, 1.25]], "continuation": None}},
             )
         if path.endswith("/public/get_instruments"):
+            instrument_calls += 1
+            if instruments is not None:
+                return instruments(request, instrument_calls)
             return httpx.Response(200, json={"result": SKEW_INSTRUMENTS})
         if path.endswith("/public/ticker"):
-            calls.append(pacer.now)
-            return ticker(request, len(calls))
+            return httpx.Response(500, json={"error": {"message": "unexpected ticker poll"}})
         return httpx.Response(404)
 
     return handler
 
 
-def _ok_ticker(request: httpx.Request, _call: int) -> httpx.Response:
-    name = request.url.params["instrument_name"]
-    delta, iv = SKEW_TICKERS[name]
-    return httpx.Response(
-        200,
-        json={
-            "result": {
-                "instrument_name": name,
-                "mark_iv": iv,
-                "greeks": {"delta": delta},
-                "underlying_price": 100000,
-            }
-        },
-    )
+class _FakeDeribitWebSocket:
+    def __init__(self, *, subscribe_error: bool = False, drop: set[str] | None = None) -> None:
+        self.subscribe_error = subscribe_error
+        self.drop = drop or set()
+        self.requests: list[dict[str, Any]] = []
+        self.messages: list[str] = []
+
+    async def __aenter__(self) -> _FakeDeribitWebSocket:
+        return self
+
+    async def __aexit__(self, *_args: object) -> None:
+        return None
+
+    async def send(self, message: str) -> None:
+        request = json.loads(message)
+        self.requests.append(request)
+        channels = request["params"]["channels"]
+        if self.subscribe_error:
+            self.messages.append(
+                json.dumps({"jsonrpc": "2.0", "id": 1, "error": {"message": "subscribe failed"}})
+            )
+            return
+        self.messages.append(json.dumps({"jsonrpc": "2.0", "id": 1, "result": channels}))
+        for channel in channels:
+            name = channel.removeprefix("incremental_ticker.")
+            if name in self.drop:
+                continue
+            delta, iv = SKEW_TICKERS[name]
+            self.messages.append(
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "subscription",
+                        "params": {
+                            "channel": channel,
+                            "data": {
+                                "type": "snapshot",
+                                "instrument_name": name,
+                                "mark_iv": iv,
+                                "greeks": {"delta": delta},
+                                "underlying_price": 100000,
+                            },
+                        },
+                    }
+                )
+            )
+
+    async def recv(self) -> str:
+        if not self.messages:
+            raise TimeoutError("no more fake websocket messages")
+        return self.messages.pop(0)
 
 
-async def test_deribit_429_then_200_recovers_skew(tmp_path: Path, migrated_db: Path) -> None:
-    pacer = _FakePacer()
-    calls: list[float] = []
-    ticker_calls = 0
+class _FakeDeribitWebSocketFactory:
+    def __init__(
+        self,
+        *,
+        connect_error: Exception | None = None,
+        subscribe_error: bool = False,
+        drop: set[str] | None = None,
+    ) -> None:
+        self.connect_error = connect_error
+        self.subscribe_error = subscribe_error
+        self.drop = drop
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+        self.sockets: list[_FakeDeribitWebSocket] = []
 
-    def ticker(request: httpx.Request, _call: int) -> httpx.Response:
-        nonlocal ticker_calls
-        ticker_calls += 1
-        if ticker_calls == 1:
-            return httpx.Response(429, headers={"Retry-After": "2"}, json={})
-        return _ok_ticker(request, _call)
+    def __call__(self, uri: str, **kwargs: Any) -> _FakeDeribitWebSocket:
+        self.calls.append((uri, kwargs))
+        if self.connect_error is not None:
+            raise self.connect_error
+        socket = _FakeDeribitWebSocket(subscribe_error=self.subscribe_error, drop=self.drop)
+        self.sockets.append(socket)
+        return socket
 
-    handler = _deribit_handler(ticker, calls, pacer)
-    engine, sessions = _sessions(tmp_path / "retry.db", migrated_db)
-    registry = SourceRegistry(["okx"])
-    collector = ContextCollector(
+
+def _websocket_collector(
+    sessions: sessionmaker[Session],
+    registry: SourceRegistry,
+    handler: Callable[[httpx.Request], Coroutine[Any, Any, httpx.Response]],
+    pacer: _FakePacer,
+    websocket: _FakeDeribitWebSocketFactory,
+) -> ContextCollector:
+    return ContextCollector(
         sessions,
         registry,
         client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
         clock=lambda: NOW,
         sleep=pacer.sleep,
         monotonic=pacer.monotonic,
+        websocket=websocket,
     )
+
+
+async def test_deribit_websocket_snapshots_produce_skew_without_ticker_rest(
+    tmp_path: Path, migrated_db: Path
+) -> None:
+    pacer = _FakePacer()
+    calls: list[tuple[str, float]] = []
+    handler = _deribit_handler(calls, pacer)
+    engine, sessions = _sessions(tmp_path / "ws-skew.db", migrated_db)
+    registry = SourceRegistry(["okx"])
+    websocket = _FakeDeribitWebSocketFactory()
+    collector = _websocket_collector(sessions, registry, handler, pacer, websocket)
+    session = sessions()
     try:
         counts = await collector.collect()
         assert counts["skew_25d"] == 2  # BTC and ETH
-        assert ticker_calls == 9  # 8 instruments + the one retried call
+        values = session.scalars(
+            select(MarketContextRow.value).where(MarketContextRow.metric == "skew_25d")
+        ).all()
+        assert len(values) == 2
+        assert all(value == pytest.approx(6.0) for value in values)
+        assert not any(path.endswith("/public/ticker") for path, _at in calls)
+        assert len(websocket.sockets) == 2  # one batched subscription per symbol
+        assert all(
+            len(socket.requests[0]["params"]["channels"]) == 4 for socket in websocket.sockets
+        )
+        assert all(
+            channel.startswith("incremental_ticker.")
+            for socket in websocket.sockets
+            for channel in socket.requests[0]["params"]["channels"]
+        )
+        assert websocket.calls[0][1]["max_queue"] == WEBSOCKET_MAX_QUEUE
+        assert registry.status("deribit").runtime.failures == 0
+    finally:
+        session.close()
+        await collector.client.aclose()
+        engine.dispose()
+
+
+async def test_deribit_rest_429_then_200_recovers_skew(tmp_path: Path, migrated_db: Path) -> None:
+    pacer = _FakePacer()
+    calls: list[tuple[str, float]] = []
+
+    def instruments(_request: httpx.Request, call: int) -> httpx.Response:
+        if call == 1:
+            return httpx.Response(429, headers={"Retry-After": "2"}, json={})
+        return httpx.Response(200, json={"result": SKEW_INSTRUMENTS})
+
+    handler = _deribit_handler(calls, pacer, instruments=instruments)
+    engine, sessions = _sessions(tmp_path / "retry.db", migrated_db)
+    registry = SourceRegistry(["okx"])
+    websocket = _FakeDeribitWebSocketFactory()
+    collector = _websocket_collector(sessions, registry, handler, pacer, websocket)
+    try:
+        counts = await collector.collect()
+        assert counts["skew_25d"] == 2
         assert 2.0 in pacer.sleeps  # Retry-After honoured
+        assert sum(path.endswith("/public/get_instruments") for path, _at in calls) == 3
         assert registry.status("deribit").runtime.failures == 0
     finally:
         await collector.client.aclose()
@@ -421,23 +535,26 @@ async def test_deribit_429_then_200_recovers_skew(tmp_path: Path, migrated_db: P
 
 async def test_deribit_requests_respect_min_interval(tmp_path: Path, migrated_db: Path) -> None:
     pacer = _FakePacer()
-    calls: list[float] = []
-    handler = _deribit_handler(_ok_ticker, calls, pacer)
+    calls: list[tuple[str, float]] = []
+    handler = _deribit_handler(calls, pacer)
     engine, sessions = _sessions(tmp_path / "pace.db", migrated_db)
-    collector = ContextCollector(
+    websocket = _FakeDeribitWebSocketFactory()
+    collector = _websocket_collector(
         sessions,
         SourceRegistry(["okx"]),
-        client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
-        clock=lambda: NOW,
-        sleep=pacer.sleep,
-        monotonic=pacer.monotonic,
+        handler,
+        pacer,
+        websocket,
     )
     try:
         counts = await collector.collect()
         assert counts["skew_25d"] == 2
-        assert len(calls) == 8  # 4 instruments x BTC and ETH
-        # Default 2 requests/second -> 0.5 s between request starts.
-        assert all(later - earlier >= 0.5 - 1e-6 for earlier, later in itertools.pairwise(calls))
+        assert len(calls) == 4  # DVOL and instruments x BTC and ETH; no ticker polling
+        # Default 2 requests/second -> 0.5 s between REST request starts.
+        assert all(
+            later - earlier >= 0.5 - 1e-6
+            for (_path, earlier), (_later_path, later) in itertools.pairwise(calls)
+        )
     finally:
         await collector.client.aclose()
         engine.dispose()
@@ -448,22 +565,16 @@ async def test_deribit_persistent_429_records_error_without_skew(
 ) -> None:
     caplog.set_level(logging.WARNING)
     pacer = _FakePacer()
-    calls: list[float] = []
+    calls: list[tuple[str, float]] = []
 
-    def ticker(_request: httpx.Request, _call: int) -> httpx.Response:
+    def instruments(_request: httpx.Request, _call: int) -> httpx.Response:
         return httpx.Response(429, json={"error": {"message": "too_many_requests"}})
 
-    handler = _deribit_handler(ticker, calls, pacer)
+    handler = _deribit_handler(calls, pacer, instruments=instruments)
     engine, sessions = _sessions(tmp_path / "limited.db", migrated_db)
     registry = SourceRegistry(["okx"])
-    collector = ContextCollector(
-        sessions,
-        registry,
-        client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
-        clock=lambda: NOW,
-        sleep=pacer.sleep,
-        monotonic=pacer.monotonic,
-    )
+    websocket = _FakeDeribitWebSocketFactory()
+    collector = _websocket_collector(sessions, registry, handler, pacer, websocket)
     try:
         counts = await collector.collect()
         assert "skew_25d" not in counts
@@ -474,7 +585,75 @@ async def test_deribit_persistent_429_records_error_without_skew(
         warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
         assert sum("market context deribit" in w for w in warnings) == 1
         assert not any("market context request failed" in w for w in warnings)
-        assert len(calls) == 8 * 5  # every instrument exhausts the 5-try budget
+        instrument_calls = sum(path.endswith("/public/get_instruments") for path, _at in calls)
+        assert instrument_calls == 2 * 5  # both symbols exhaust the 5-try budget
+        assert not websocket.calls
+    finally:
+        await collector.client.aclose()
+        engine.dispose()
+
+
+async def test_deribit_websocket_connect_failure_records_error_without_skew(
+    tmp_path: Path, migrated_db: Path
+) -> None:
+    pacer = _FakePacer()
+    calls: list[tuple[str, float]] = []
+    handler = _deribit_handler(calls, pacer)
+    engine, sessions = _sessions(tmp_path / "ws-connect-error.db", migrated_db)
+    registry = SourceRegistry(["okx"])
+    websocket = _FakeDeribitWebSocketFactory(connect_error=OSError("connect failed"))
+    collector = _websocket_collector(sessions, registry, handler, pacer, websocket)
+    try:
+        counts = await collector.collect()
+        assert "skew_25d" not in counts
+        runtime = registry.status("deribit").runtime
+        assert runtime.failures == 1
+        assert "connect failed" in (runtime.last_error or "")
+        assert len(websocket.calls) == 2
+    finally:
+        await collector.client.aclose()
+        engine.dispose()
+
+
+async def test_deribit_websocket_subscribe_failure_records_error_without_skew(
+    tmp_path: Path, migrated_db: Path
+) -> None:
+    pacer = _FakePacer()
+    calls: list[tuple[str, float]] = []
+    handler = _deribit_handler(calls, pacer)
+    engine, sessions = _sessions(tmp_path / "ws-subscribe-error.db", migrated_db)
+    registry = SourceRegistry(["okx"])
+    websocket = _FakeDeribitWebSocketFactory(subscribe_error=True)
+    collector = _websocket_collector(sessions, registry, handler, pacer, websocket)
+    try:
+        counts = await collector.collect()
+        assert "skew_25d" not in counts
+        runtime = registry.status("deribit").runtime
+        assert runtime.failures == 1
+        assert "subscribe failed" in (runtime.last_error or "")
+        assert len(websocket.sockets) == 2
+    finally:
+        await collector.client.aclose()
+        engine.dispose()
+
+
+async def test_deribit_websocket_missing_snapshot_records_error_without_skew(
+    tmp_path: Path, migrated_db: Path
+) -> None:
+    pacer = _FakePacer()
+    calls: list[tuple[str, float]] = []
+    handler = _deribit_handler(calls, pacer)
+    engine, sessions = _sessions(tmp_path / "ws-missing-snapshot.db", migrated_db)
+    registry = SourceRegistry(["okx"])
+    websocket = _FakeDeribitWebSocketFactory(drop={"BTC-13NOV26-90000-P"})
+    collector = _websocket_collector(sessions, registry, handler, pacer, websocket)
+    try:
+        counts = await collector.collect()
+        assert "skew_25d" not in counts
+        runtime = registry.status("deribit").runtime
+        assert runtime.failures == 1
+        assert "snapshots incomplete" in (runtime.last_error or "")
+        assert len(websocket.sockets) == 2
     finally:
         await collector.client.aclose()
         engine.dispose()

@@ -16,6 +16,7 @@ dependencies = [
     "numpy>=2,<3",
     "openai>=3,<4",
     "pyyaml>=6,<7",
+    "websockets>=17,<18",
 ]
 
 [dependency-groups]
