@@ -20,16 +20,16 @@ table{border-collapse:collapse}
 .ta-more{display:none}
 .ta-logline{display:grid;grid-template-columns:104px 84px minmax(0,1fr);gap:4px 14px;align-items:start}
 .ta-logline .ta-msg{grid-column:auto}
-.ta-prob{display:grid;grid-template-columns:84px minmax(0,1fr) 56px 128px 120px;gap:6px 14px;align-items:start}
+.ta-prob{display:grid;grid-template-columns:78px minmax(0,1fr) 156px 118px;gap:6px 14px;align-items:start}
 .ta-around{display:grid;grid-template-columns:96px 64px 128px minmax(0,1fr);gap:2px 12px}
 @media (max-width: 640px){
   .ta-adv{display:none !important}.ta-more{display:flex}
   .ta-logline{grid-template-columns:auto minmax(0,1fr)}
   .ta-logline .ta-msg{grid-column:1 / -1}
-  .ta-prob{grid-template-columns:auto minmax(0,1fr) auto}
+  .ta-prob{grid-template-columns:auto minmax(0,1fr)}
   .ta-prob .ta-prob-main{grid-column:1 / -1;order:5}
   .ta-prob .ta-prob-seen{display:none}
-  .ta-prob .ta-prob-rev{grid-column:1 / -1;order:6;justify-content:flex-start !important}
+  .ta-prob .ta-prob-rev{flex-direction:row !important;flex-wrap:wrap;align-items:center !important}
   .ta-around{grid-template-columns:auto minmax(0,1fr);padding:4px 6px !important}
   .ta-around .ta-around-logger{display:none}
   .ta-around .ta-around-msg{grid-column:1 / -1}
@@ -143,18 +143,19 @@ table{border-collapse:collapse}
   <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.5">The agent runs day and night, so every day has lines. Debug and info are not counted here. Mon 12: 3 slots skipped while the computer slept.</p>
 </section>
 <section aria-label="Recurring problems" style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; box-sizing: border-box; flex: 2 1 560px">
-  <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap"><h2 style="margin: 0; font-size: 13px; font-weight: 600; color: #C9CFD6; text-transform: uppercase; letter-spacing: 0.06em">Recurring problems</h2><span style="font-size: 12px; color: #98A2AF">warning and up · 7 days · 1 unreviewed</span></div>
-  <div class="ta-prob ta-hide-phone" style="font-size: 12px; color: #98A2AF; padding: 0 0 6px; border-bottom: 1px solid #232A35"><span>Level</span><span>Problem</span><span style="text-align: right">Count</span><span>First · last seen</span><span style="text-align: right">Review</span></div>
+  <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap"><h2 style="margin: 0; font-size: 13px; font-weight: 600; color: #C9CFD6; text-transform: uppercase; letter-spacing: 0.06em">Recurring problems</h2><span style="font-size: 12px; color: #98A2AF">warning and up · 7 days</span></div>
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: #98A2AF">Of 9 problems: <span style="display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:5px;font-size:11px;font-weight:500;white-space:nowrap;background:#3A1416;color:#FFB3B6;border:1px solid #7A2A2E">1 needs you</span><span style="display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:5px;font-size:11px;font-weight:500;white-space:nowrap;background:#3A2A0E;color:#FFD58A;border:1px solid #6B4E17">1 to watch</span><span style="display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:5px;font-size:11px;font-weight:500;white-space:nowrap;background:#123A27;color:#3DD68C;border:1px solid #1E5A3E">7 nothing to do</span></div>
+  <div class="ta-prob ta-hide-phone" style="font-size: 12px; color: #98A2AF; padding: 0 0 6px; border-bottom: 1px solid #232A35"><span>Level</span><span>Problem</span><span>Does it need you?</span><span>First · last seen</span></div>
   <div style="display: flex; flex-direction: column">
-    <sc-for list="{{problems}}" as="p" hint-placeholder-count="9"><div class="ta-prob ta-row" style="padding: 10px 6px; margin: 0 -6px; border-bottom: 1px solid #232A35; border-radius: 6px; cursor: pointer" title="Filter the log on this problem">
+    <sc-for list="{{problems}}" as="p" hint-placeholder-count="5"><div class="ta-prob ta-row" style="padding: 10px 6px; margin: 0 -6px; border-bottom: 1px solid #232A35; border-radius: 6px; cursor: pointer" title="Filter the log on this problem">
       <span style="{{p.chip}}">{{p.level}}</span>
-      <span class="ta-prob-main" style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="font-size: 13px; color: #E7EAEE; line-height: 1.45">{{p.text}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #98A2AF; overflow-wrap: anywhere">{{p.where}}</span></span>
-      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right; color: #E7EAEE">×{{p.count}}</span>
+      <span class="ta-prob-main" style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="font-size: 13px; color: #E7EAEE; line-height: 1.45">{{p.text}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #98A2AF; overflow-wrap: anywhere">{{p.where}}</span><sc-if value="{{p.hasTodo}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #C9CFD6; line-height: 1.45; padding-top: 2px"><span style="color: #98A2AF">What to do ·</span> {{p.todo}}</span></sc-if></span>
+      <span class="ta-prob-rev" style="display: flex; flex-direction: column; gap: 5px; align-items: flex-start"><span style="{{p.needStyle}}" title="{{p.needWhy}}">{{p.need}}</span><span style="font-size: 11px; color: #98A2AF; line-height: 1.4" title="{{p.revNote}}">{{p.sub}}</span><sc-if value="{{p.canReview}}" hint-placeholder-val="{{ false }}"><button type="button" style="height: 32px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 6px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer">Review</button></sc-if></span>
       <span class="ta-prob-seen" style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #98A2AF; line-height: 1.6">{{p.first}}<br>{{p.last}}</span>
-      <span class="ta-prob-rev" style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center"><span style="{{p.revStyle}}" title="{{p.revNote}}">{{p.rev}}</span><sc-if value="{{p.canReview}}" hint-placeholder-val="{{ false }}"><button type="button" style="height: 36px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 6px; border: 1px solid #2E3643; background: #171C24; color: #E7EAEE; font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap; cursor: pointer">Review</button></sc-if></span>
     </div></sc-for>
+    <button type="button" class="ta-row" aria-expanded="false" style="display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; min-height: 40px; align-items: center; padding: 0 6px; margin: 0 -6px; border: 0; border-radius: 6px; background: transparent; color: #98A2AF; font-size: 13px; text-align: left; cursor: pointer"><span>4 more with nothing to do: 2 warnings, 2 reviewed errors (1 expected, 1 fixed)</span><span style="color: #F2B94B">Show all 9</span></button>
   </div>
-  <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.5">Lines with the same component and event are grouped, with numbers, pairs and ids ignored. Click a row to filter the log on it. Errors need a review (expected or fixed) for Readiness; a fixed problem that comes back is unreviewed again.</p>
+  <p style="margin: 0; font-size: 12px; color: #98A2AF; line-height: 1.5">Sorted by what needs you, then by count. Lines with the same component and event are grouped, with numbers, pairs and ids ignored; click a row to filter the log on it. An error needs you until it is reviewed (expected or fixed, for Readiness); a fixed problem that comes back is unreviewed again. A warning is one to watch from 5 times in the period.</p>
 </section>
 </div>
 <section aria-label="Log lines" style="background: #12161D; border: 1px solid #232A35; border-radius: 10px; display: flex; flex-direction: column; min-width: 0">
@@ -292,9 +293,25 @@ class Component extends DCLogic {
       ['WARNING', 'Email not sent: SMTP host is not set; browser notification sent', 'notify · notify.email_skipped · —', 2, 'Mon 12 Oct 08:00', 'last 13 Oct 08:00', 'none', ''],
       ['WARNING', 'Python FutureWarning from pandas in indicators', 'python.warning · python.warning · —', 1, 'Mon 12 Oct 14:03', 'last 12 Oct 14:03', 'none', '']
     ];
-    var problems = PROBS.map(function (p) {
-      return { level: p[0].toLowerCase(), chip: chip(p[0]), text: p[1], where: p[2], count: p[3], first: p[4], last: p[5],
-        rev: p[6] === 'none' ? '' : p[6], revStyle: REV[p[6]], revNote: p[7] || (p[6] === 'unreviewed' ? 'Needs a review: expected or fixed, with a note' : 'Warnings need no review'),
+    var NEED = {
+      act: ['needs you', 'background:#3A1416;color:#FFB3B6;border:1px solid #7A2A2E'],
+      watch: ['watch', 'background:#3A2A0E;color:#FFD58A;border:1px solid #6B4E17'],
+      none: ['nothing to do', 'background:#123A27;color:#3DD68C;border:1px solid #1E5A3E']
+    };
+    // [index in PROBS, level, why (hover), line under the chip, what to do]; sorted by level, then count. The first 5 show.
+    var ORDER = [
+      [0, 'act', 'An error without a review', '2 times · not reviewed', 'Check status.openai.com and the timeouts in the LLM inspector, then review it: Expected or Fixed.'],
+      [3, 'watch', 'A warning seen 5 times or more in the period', '5 times in 7 days', 'Bitvavo was late with AVAX-EUR 3 times. If one pair keeps doing this, deactivate it on Universe.'],
+      [4, 'none', 'A warning seen fewer than 5 times', '4 times in 7 days', ''],
+      [5, 'none', 'A warning seen fewer than 5 times', '3 times in 7 days', ''],
+      [6, 'none', 'A warning seen fewer than 5 times', '2 times in 7 days', '']
+    ];
+    var problems = ORDER.map(function (o) {
+      var p = PROBS[o[0]];
+      return { level: p[0].toLowerCase(), chip: chip(p[0]), text: p[1], where: p[2], first: p[4], last: p[5],
+        need: NEED[o[1]][0], needWhy: o[2], sub: o[3], todo: o[4], hasTodo: !!o[4],
+        needStyle: 'display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:5px;font-size:11px;font-weight:500;white-space:nowrap;cursor:help;' + NEED[o[1]][1],
+        revNote: p[7] || (p[6] === 'unreviewed' ? 'Needs a review: expected or fixed, with a note' : 'Warnings need no review'),
         canReview: p[6] === 'unreviewed' };
     });
 

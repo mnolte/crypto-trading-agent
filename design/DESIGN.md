@@ -36,7 +36,7 @@ How Trading Agent looks and what it says. It uses the same visual language as St
 | `Settings.dc.html` | Settings, **one section at a time** (025, as in Stock Trading Agent): a grouped section list (a Section select on phones) picks it, its address is the fragment (`#risk`, `#notify` …; opened without one, the file shows Risk limits), Previous/next links end each section; Find a setting and Changed from default. One row per setting with its default, money next to % of equity, fixed values as text with a lock, an Advanced fold in Markets; Risk limits opens with "What these limits mean today"; a sticky unsaved-changes bar with tighter/looser tags, a reason and "Save as v8". `Settings-390.png` at phone width, `Settings-390-save.png` with the phone's save bar opened, `Settings-history.png` the History section | v0.3 → Settings screen; Settings, secrets and persistence |
 | `States.dc.html` | Banners, dialogs, approval queue, notification, card states (loading, empty, error, backend unreachable) and toasts | States |
 | `Indicators.dc.html` | Indicators | GUI screens → Indicators |
-| `Inspector.dc.html` | LLM inspector | GUI screens → LLM inspector; Outcome tracking |
+| `Inspector.dc.html` | LLM inspector (043): filters (period, status, source, more), the filtered-calls summary with bars and Top reasons, the scorecard folded to one line, the call list per day, and the details: result line, What happened, call data, verdict and outcome, input as sections, answer as rows with the checks. `Inspector-error.png` (`#err`) shows a timeout | v0.3 → LLM inspector, easier to read; GUI screens → LLM inspector; Outcome tracking |
 | `Insights.dc.html` | Insights, filters in a card under the header | User features → Insights |
 | `WhatIf.dc.html` | What-if | User features → What-if simulator |
 | `Ask.dc.html` | Ask the agent panel, 520 px over the dimmed screen | User features → Ask the agent |
@@ -120,8 +120,24 @@ The `-390.png` screenshots show each screen at 390 px. Cards stack, wide tables 
 - **Context chips:** cycle ids are blue and open the trace; error ids are red; pairs and other ids are neutral.
 - **An opened line** has a 3 px left border in its level's colour. "What this means" and "What to do" come first, because they answer the question before the traceback does.
 - **Trace view:** a blue banner states the cycle, its time span, duration, pairs and model calls, with "Back to warnings and errors". Every level is shown; the level filters show all on.
-- **Phone width:** time and level chip on one row, the message full width below, then the chips. Recurring problems stack the same way, and the review state and button sit under the problem. The traceback and stored line scroll sideways inside their box instead of wrapping.
+- **Recurring problems** (043): four columns: Level, Problem, Does it need you?, First · last seen. The need column holds the chip (needs you, watch, nothing to do), the count in words and Review; the counts stand above the table. A problem that needs you or is one to watch shows its "What to do" line; those with nothing to do fold after three.
+- **Phone width:** time and level chip on one row, the message full width below, then the chips. Recurring problems stack: level and need chip on one row, then the problem. The traceback and stored line scroll sideways inside their box instead of wrapping.
 - **Times** are Amsterdam with milliseconds; UTC on hover.
+
+## LLM inspector screen
+
+Item 043 rebuilds the screen after Stock Trading Agent's inspector (its items 018 and 074) and keeps what crypto has on top: Re-run, verdicts, the 72h outcome, the checks, replays, skipped cycles and the scorecard.
+
+- **Order, top to bottom:** filters, Filtered calls (the summary), the scorecard as one folded line, then the call list (left, 340–420 px, staying in view from 900 px) and the details (right).
+- **Status and outcome are different words.** Status is the call: success (green), warning (amber), error (red). Outcome is the decision's result after 72 hours. The status chip names the reason ("changed by code", "timeout"), never just "warning".
+- **Does it need me?** One chip next to every explained warning or error, decided by code: "Nothing to do" (green), "Keep an eye on it" (amber), "Needs you" (red); its reason on hover. The same three levels are on Logs → Recurring problems ("nothing to do", "watch", "needs you").
+- **Explain before showing JSON.** The details start with one sentence and the What happened panel (What it means, Why here, What to do), with a 3 px left border in the status colour. Raw JSON is one click away, never the first thing shown.
+- **Input as sections:** three columns: label, value (mono, right-aligned), and the brief's own read (bullish green, bearish red, others muted). The row a warning is about has the amber background and says why. Answer rows mark the same words.
+- **Checks:** warn and fail rows first, then pass, then information.
+- **List rows:** time, pair and action on one line ("BUY → SKIP" when code changed it), context and model muted under it; right: the status chip, and under it the verdict (✓ correct, ✗ wrong) or the outcome label. The selected row has the accent bar. A cycle without a call is a dashed row; folded repeats say "×3".
+- **Bars:** success `#9FB4CC`, warning amber, error red; one per hour for 24 hours, per day up to 30 days.
+- **Not recorded** is written out; "—" and 0 are never used for a value that is missing.
+- **Phone width:** More filters behind a button; the summary stacks; the details open under the list with Newer and Older; label and value rows stack; tiles two per row.
 
 ## Positions & orders screen
 
@@ -182,6 +198,7 @@ Follows the spec's build order. A PR builds only the screens listed for it.
 | 15 Error handling, logging and Logs screen | Logs (all of it, both widths, and the trace view); the Logs item in every sidebar under Control after Readiness; Errors: every page in `Errors.dc.html` (the static pages as files in `deploy/errors/`); card errors showing the error id; Needs you: the degraded item; Cycles card: an error slot links to the cycle's trace; Decision drawer: "Logs for this decision" |
 | 16 Positions & orders | Positions & orders (all of it, both widths, the shadow switch); the sidebar item in every sidebar under Monitor after Dashboard; Dashboard: the Open positions title links to the screen |
 | 025 Settings sections | Settings (all of it, both widths, the phone save bar); History |
+| 043 Logs and LLM inspector UX | LLM inspector (all of it, both widths, and the error view); Logs → Recurring problems; the Needs you item for model calls |
 | 026 Universe screen | Universe (all of it, both widths); the Universe item in every sidebar under Control after Readiness; Settings → Markets: Open Universe, the market table removed; Needs you: the failing-market item opens Universe |
 
 Blue **v0.2** tags in the screens and screenshots mark what v0.2 adds. They are for the
