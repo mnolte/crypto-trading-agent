@@ -753,7 +753,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 ),
                 "job-collector",
             ),
-            (outcome_loop(session_factory, asyncio.Event()), "job-outcomes"),
+            (outcome_loop(session_factory, asyncio.Event(), market_client), "job-outcomes"),
             (backup_loop(env.ta_db_path, env.ta_data_dir), "job-backup"),
             (
                 briefings_mod.briefing_loop(

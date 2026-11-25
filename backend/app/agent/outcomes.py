@@ -5,14 +5,18 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import repo
+from app.agent.market.base import MarketClient, MarketDataError, drop_forming
 from app.agent.signals import compute_tf_values
 from app.db import (
     DecisionRow,
@@ -23,6 +27,7 @@ from app.db import (
     TradeRow,
     utcnow,
 )
+from app.errors import plain_error
 from app.models import Plan
 
 log = logging.getLogger(__name__)
@@ -31,6 +36,14 @@ HORIZONS = (4, 24, 72)
 METHOD_VERSION = "outcome.v1"
 HOUR = timedelta(hours=1)
 MAX_OUTCOME_ATTEMPTS = 24
+NO_CANDLES_ERROR = "no closed candles in outcome horizon"
+
+
+@dataclass(frozen=True)
+class OutcomeCandleNeed:
+    pair: str
+    anchor: datetime
+    end: datetime
 
 
 def _trade_for_sell(session: Session, decision: DecisionRow) -> TradeRow | None:
@@ -197,7 +210,7 @@ def compute_outcome(
     candles = repo.load_candles(session, decision.pair, "1h", horizon + 4, end=end - HOUR)
     candles = [candle for candle in candles if anchor < candle.open_time + HOUR <= end]
     if not candles:
-        raise ValueError("no closed candles in outcome horizon")
+        raise ValueError(NO_CANDLES_ERROR)
     reference = candles[-1].close
     best = max(c.high for c in candles)
     worst = min(c.low for c in candles)
@@ -249,25 +262,152 @@ def compute_outcome(
     )
 
 
-def run_outcomes(session: Session, now: datetime) -> int:
-    count = 0
-    for horizon in HORIZONS:
-        existing = select(OutcomeRow.decision_id).where(
-            OutcomeRow.decision_id == DecisionRow.id,
-            OutcomeRow.horizon == horizon,
-        )
+def _missing_outcome_decisions(
+    session: Session, horizon: int, now: datetime, *, include_terminal: bool = False
+) -> list[DecisionRow]:
+    existing = select(OutcomeRow.decision_id).where(
+        OutcomeRow.decision_id == DecisionRow.id,
+        OutcomeRow.horizon == horizon,
+    )
+    conditions = [
+        DecisionRow.at <= (now - timedelta(hours=horizon)).replace(tzinfo=None),
+        ~existing.exists(),
+    ]
+    if not include_terminal:
         terminal = select(OutcomeFailureRow.decision_id).where(
             OutcomeFailureRow.decision_id == DecisionRow.id,
             OutcomeFailureRow.horizon == horizon,
             OutcomeFailureRow.terminal.is_(True),
         )
-        decisions = session.scalars(
-            select(DecisionRow).where(
-                DecisionRow.at <= (now - timedelta(hours=horizon)).replace(tzinfo=None),
-                ~existing.exists(),
-                ~terminal.exists(),
+        conditions.append(~terminal.exists())
+    return cast(list[DecisionRow], session.scalars(select(DecisionRow).where(*conditions)).all())
+
+
+def _outcome_window(
+    session: Session, decision: DecisionRow, horizon: int
+) -> tuple[datetime, datetime] | None:
+    try:
+        _entry, _stop, _target, _risk, _realised, anchor = _levels(session, decision)
+    except (ValueError, ArithmeticError):
+        return None
+    return anchor, anchor + timedelta(hours=horizon)
+
+
+def _has_closed_outcome_candle(
+    session: Session, pair: str, horizon: int, anchor: datetime, end: datetime
+) -> bool:
+    candles = repo.load_candles(session, pair, "1h", horizon + 4, end=end - HOUR)
+    return any(anchor < candle.open_time + HOUR <= end for candle in candles)
+
+
+def recover_terminal_outcomes(session: Session, now: datetime) -> int:
+    """Reopen terminal missing-candle failures whose candles have since landed.
+
+    Terminal means the worker stops fetching or counting retries; it must not
+    make a correct outcome impossible when the candles later become available
+    (for example after the pair is reactivated, or after the startup backfill).
+    """
+    recovered = 0
+    failures = session.scalars(
+        select(OutcomeFailureRow).where(
+            OutcomeFailureRow.terminal.is_(True),
+            OutcomeFailureRow.last_error == NO_CANDLES_ERROR,
+        )
+    ).all()
+    for failure in failures:
+        decision = session.get(DecisionRow, failure.decision_id)
+        if decision is None:
+            continue
+        window = _outcome_window(session, decision, failure.horizon)
+        if window is None:
+            continue
+        anchor, end = window
+        if end > now:
+            continue
+        if _has_closed_outcome_candle(session, decision.pair, failure.horizon, anchor, end):
+            session.delete(failure)
+            recovered += 1
+    if recovered:
+        session.commit()
+    return recovered
+
+
+def outcome_candle_needs(
+    session: Session, now: datetime, *, include_terminal: bool = False
+) -> list[OutcomeCandleNeed]:
+    """Missing outcome windows that do not have even one stored closed candle."""
+    needs: list[OutcomeCandleNeed] = []
+    for horizon in HORIZONS:
+        decisions = _missing_outcome_decisions(
+            session, horizon, now, include_terminal=include_terminal
+        )
+        for decision in decisions:
+            failure = session.get(OutcomeFailureRow, (decision.id, horizon))
+            if failure is not None and failure.terminal and failure.last_error != NO_CANDLES_ERROR:
+                continue
+            window = _outcome_window(session, decision, horizon)
+            if window is None:
+                continue
+            anchor, end = window
+            if end > now:
+                continue
+            if _has_closed_outcome_candle(session, decision.pair, horizon, anchor, end):
+                continue
+            needs.append(OutcomeCandleNeed(pair=decision.pair, anchor=anchor, end=end))
+    return needs
+
+
+async def backfill_outcome_candles(
+    client: MarketClient,
+    session: Session,
+    now: datetime,
+    *,
+    include_terminal: bool = False,
+) -> int:
+    """Fetch the closed 1h candles missing from incomplete outcome windows.
+
+    Candles are grouped by pair: the 4h, 24h and 72h windows are nested, so
+    one bounded historical request covers every missing horizon for the same
+    decision cluster. This never activates the pair or runs its decision
+    cycle; it only fills the candle table the outcome worker already reads.
+    """
+    recover_terminal_outcomes(session, now)
+    grouped: dict[str, list[OutcomeCandleNeed]] = {}
+    for need in outcome_candle_needs(session, now, include_terminal=include_terminal):
+        grouped.setdefault(need.pair, []).append(need)
+
+    fetched_count = 0
+    for pair, pair_needs in grouped.items():
+        start = min(need.anchor for need in pair_needs)
+        end = max(need.end for need in pair_needs)
+        limit = math.ceil((end - start).total_seconds() / 3600) + 4
+        session.rollback()
+        try:
+            fetched = await client.candles(pair, "1h", limit, end=end)
+        except MarketDataError as exc:
+            log.warning(
+                "outcome candle backfill failed for %s: %s",
+                pair,
+                plain_error(exc),
+                extra={
+                    "event": "candles.fetch_failed",
+                    "pair": pair,
+                    "data": {"job": "outcomes"},
+                },
             )
-        ).all()
+            continue
+        closed = drop_forming(fetched, "1h", now)
+        if closed:
+            repo.upsert_candles(session, pair, "1h", closed)
+            fetched_count += len(closed)
+    recover_terminal_outcomes(session, now)
+    return fetched_count
+
+
+def run_outcomes(session: Session, now: datetime) -> int:
+    count = 0
+    for horizon in HORIZONS:
+        decisions = _missing_outcome_decisions(session, horizon, now)
         for decision in decisions:
             try:
                 session.add(compute_outcome(session, decision, horizon, now))
@@ -310,14 +450,21 @@ def run_outcomes(session: Session, now: datetime) -> int:
 
 
 async def outcome_loop(
-    sessions: sessionmaker[Session], stop: asyncio.Event, clock: Callable[[], datetime] = utcnow
+    sessions: sessionmaker[Session],
+    stop: asyncio.Event,
+    client: MarketClient,
+    clock: Callable[[], datetime] = utcnow,
 ) -> None:
+    first_pass = True
     while not stop.is_set():
         session = sessions()
         try:
-            run_outcomes(session, clock())
+            now = clock()
+            await backfill_outcome_candles(client, session, now, include_terminal=first_pass)
+            run_outcomes(session, now)
         finally:
             session.close()
+        first_pass = False
         try:
             await asyncio.wait_for(stop.wait(), timeout=3600)
         except TimeoutError:
