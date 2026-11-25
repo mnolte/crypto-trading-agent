@@ -303,6 +303,24 @@ async def test_outcome_backfill_fetches_missing_candles_for_inactive_pair(
     assert session.scalar(select(OutcomeFailureRow)) is None
 
 
+async def test_outcome_backfill_covers_the_72h_horizon(tmp_path: Path, migrated_db: Path) -> None:
+    session = _session(tmp_path / "agent.db", migrated_db)
+    decision = _hold_decision_with_history(session)
+    client = CannedOutcomeCandles(_hourly_candles(NOW, 80))
+    now = NOW + 73 * HOUR
+
+    fetched = await backfill_outcome_candles(cast(MarketClient, client), session, now)
+
+    assert fetched == 72
+    assert client.calls == [("BTC-EUR", "1h", 76, NOW + 72 * HOUR)]
+    assert run_outcomes(session, now) == 3
+    outcomes = session.scalars(
+        select(OutcomeRow).where(OutcomeRow.decision_id == decision.id)
+    ).all()
+    assert {outcome.horizon for outcome in outcomes} == {4, 24, 72}
+    assert session.scalar(select(OutcomeFailureRow)) is None
+
+
 async def test_outcome_backfill_fetch_failure_keeps_existing_retry_behaviour(
     tmp_path: Path, migrated_db: Path
 ) -> None:
