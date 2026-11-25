@@ -69,7 +69,7 @@ export function Header({
         <HeaderStat
           label="Today"
           value={snapshot ? formatSignedEur(snapshot.today_pnl) : "—"}
-          sub={snapshot ? formatSignedPct(snapshot.today_pnl, snapshot.equity) : undefined}
+          sub={snapshot ? formatSignedPct(snapshot.today_pnl_pct) : undefined}
           tone={snapshot && Number(snapshot.today_pnl) < 0 ? "down" : "up"}
         />
         <div className="shell-header__stat">
@@ -182,11 +182,10 @@ function HeaderStat({
   );
 }
 
-function formatSignedPct(pnl: string, equity: string): string {
-  const e = Number(equity);
-  if (!e) return "";
-  const p = Number(pnl);
-  return `${p >= 0 ? "+" : "−"}${formatPct(Math.abs((p / (e - p)) * 100), 2)}`;
+function formatSignedPct(pct: string): string {
+  const negative = pct.startsWith("-");
+  const magnitude = negative ? pct.slice(1) : pct;
+  return `${negative ? "−" : "+"}${formatPct(magnitude, 2)}`;
 }
 
 /** The sticky phone top bar (<820 px): app mark, screen title, Needs you

@@ -23,7 +23,7 @@ from app.agent.market.universe import (
     run_eligibility_check,
 )
 from app.api.deps import AppState
-from app.api.universe import MarketStatusOut, _prices, market_status
+from app.api.universe import MarketStatusOut, _check_run_out, _prices, market_status
 from app.db import (
     Base,
     DecisionRow,
@@ -519,6 +519,28 @@ def test_decimal_columns_roundtrip(session: Session) -> None:
     assert got.volume_30d_eur == Decimal("1234567.89")
     assert got.spread_pct == Decimal("0.12345")
     assert got.last_price == Decimal("65432.10")
+
+
+def test_check_run_immediate_volume_threshold_is_backend_decimal_math() -> None:
+    row = MarketCheckRow(
+        id=1,
+        started_at=NOW.replace(tzinfo=None),
+        finished_at=NOW.replace(tzinfo=None),
+        trigger="daily",
+        status="ok",
+        error=None,
+        thresholds=json.dumps(
+            {
+                "min_avg_daily_volume_eur": "1000000",
+                "eligibility_beyond_pct": "20",
+            }
+        ),
+        funnel="[]",
+        kept="[]",
+        held_back="[]",
+    )
+    out = _check_run_out(row)
+    assert out.volume_immediate_fail_eur == Decimal("800000")
 
 
 # ------------------------------------------------------------ price cache --

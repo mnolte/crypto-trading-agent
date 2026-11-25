@@ -11,6 +11,8 @@ const snapshot = {
   needs: { items: [], health: [] },
   latest: {},
   today_pnl: "0",
+  today_pnl_pct: "0",
+  positions_unrealised: "0",
   equity: "10000",
 } as unknown as Snapshot;
 
@@ -109,6 +111,21 @@ describe("Header", () => {
       </MemoryRouter>,
     );
     expect(document.querySelector(".needs-chip")).toBeNull();
+  });
+
+  it("uses the backend-computed today percent", () => {
+    const snap = {
+      ...needsSnapshot(0),
+      today_pnl: "100",
+      equity: "10000",
+      today_pnl_pct: "2.5",
+    } as unknown as Snapshot;
+    render(
+      <MemoryRouter>
+        <Header {...base} snapshot={snap} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("+2.50%")).toBeTruthy();
   });
 
   it("shows the Needs you chip with the count", () => {

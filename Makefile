@@ -6,13 +6,13 @@ FE := cd frontend && corepack pnpm
 
 dev: ## backend (uvicorn --reload) + Vite dev server, Ctrl-C stops both
 	@trap 'trap - INT TERM EXIT; kill 0' INT TERM EXIT; \
-	  $(UV) run uvicorn --app-dir backend app.main:app --reload --host 127.0.0.1 --port 8000 --timeout-graceful-shutdown 45 & \
+	  $(UV) run python -m app.serve --reload & \
 	  $(FE) dev & \
 	  wait
 
-run: ## build the UI, serve everything on 127.0.0.1:8000
+run: ## build the UI, serve everything on TA_HOST:TA_PORT
 	$(FE) build
-	$(UV) run uvicorn --app-dir backend app.main:app --host 127.0.0.1 --port 8000 --timeout-graceful-shutdown 45
+	$(UV) run python -m app.serve
 
 test: test-backend test-frontend test-e2e openapi-check ## pytest + Vitest (+ Playwright where present)
 

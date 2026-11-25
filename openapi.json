@@ -940,6 +940,17 @@
           "trigger": {
             "title": "Trigger",
             "type": "string"
+          },
+          "volume_immediate_fail_eur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume Immediate Fail Eur"
           }
         },
         "required": [
@@ -4369,6 +4380,30 @@
         "title": "LogsListOut",
         "type": "object"
       },
+      "MaintenancePruneOut": {
+        "properties": {
+          "cutoff": {
+            "format": "date-time",
+            "title": "Cutoff",
+            "type": "string"
+          },
+          "decisions_pruned": {
+            "title": "Decisions Pruned",
+            "type": "integer"
+          },
+          "llm_calls_pruned": {
+            "title": "Llm Calls Pruned",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cutoff",
+          "decisions_pruned",
+          "llm_calls_pruned"
+        ],
+        "title": "MaintenancePruneOut",
+        "type": "object"
+      },
       "MarketActionIn": {
         "description": "POST /api/markets/{market}/activate|deactivate body (item 025).",
         "properties": {
@@ -5633,6 +5668,32 @@
             ],
             "title": "Leg",
             "type": "string"
+          },
+          "limit_gap_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit Gap Pct"
+          },
+          "limit_gap_side": {
+            "anyOf": [
+              {
+                "enum": [
+                  "above",
+                  "below"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit Gap Side"
           },
           "limit_price": {
             "title": "Limit Price",
@@ -9099,6 +9160,10 @@
             "title": "Positions",
             "type": "array"
           },
+          "positions_unrealised": {
+            "title": "Positions Unrealised",
+            "type": "string"
+          },
           "prices": {
             "additionalProperties": {
               "$ref": "#/components/schemas/PriceInfo"
@@ -9144,6 +9209,10 @@
             "title": "Today Pnl",
             "type": "string"
           },
+          "today_pnl_pct": {
+            "title": "Today Pnl Pct",
+            "type": "string"
+          },
           "today_trades": {
             "default": 0,
             "title": "Today Trades",
@@ -9169,6 +9238,8 @@
           "cash",
           "start_equity",
           "today_pnl",
+          "today_pnl_pct",
+          "positions_unrealised",
           "exposure_pct",
           "drawdown_pct",
           "prices",
@@ -13826,6 +13897,53 @@
         "tags": [
           "logs"
         ]
+      }
+    },
+    "/api/maintenance/prune": {
+      "post": {
+        "description": "Clear raw LLM payloads older than 90 days; parsed records stay.",
+        "operationId": "maintenance_prune_api_maintenance_prune_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-local-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Local-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenancePruneOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Maintenance Prune"
       }
     },
     "/api/markets": {

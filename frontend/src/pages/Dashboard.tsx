@@ -573,8 +573,7 @@ function PositionsCard({
 }) {
   const now = useNow(30_000);
   const positions = snapshot?.positions ?? [];
-  // Display-only total; money is never computed for decisions on the frontend.
-  const unrealised = positions.reduce((s, p) => s + Number(p.unrealised), 0);
+  const unrealised = snapshot?.positions_unrealised ?? "0";
   const passing = (markets ?? []).filter((m) => m.rules_state === "passed").length;
   const nearAtr = settings?.ui?.stop_near_atr ?? 1.5;
   return (
@@ -591,7 +590,7 @@ function PositionsCard({
           {positions.length > 0 && (
             <>
               unrealised{" "}
-              <span className="num" style={{ color: unrealised >= 0 ? "var(--ta-positive)" : "var(--ta-negative-text)" }}>
+              <span className="num" style={{ color: Number(unrealised) >= 0 ? "var(--ta-positive)" : "var(--ta-negative-text)" }}>
                 {formatSignedEur(unrealised)}
               </span>{" "}
               ·{" "}

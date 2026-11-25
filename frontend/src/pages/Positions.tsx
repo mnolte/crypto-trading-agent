@@ -7,6 +7,7 @@ import { CardFetch } from "../lib/cardState";
 import {
   formatDayShort,
   formatEur,
+  formatPct,
   formatPrice,
   formatQty,
   formatSigned,
@@ -757,11 +758,9 @@ function Fact({ label, value, sub, tone }: { label: string; value: string; sub?:
 }
 
 function OrderRow({ o }: { o: PaperOrderOut }) {
-  const last = o.last_price != null ? Number(o.last_price) : null;
-  const limit = Number(o.limit_price);
   const gap =
-    last != null && Number.isFinite(last) && limit > 0
-      ? `${Math.abs(((last - limit) / limit) * 100).toFixed(2)}% ${last >= limit ? "above" : "below"} the limit`
+    o.limit_gap_pct != null && o.limit_gap_side != null
+      ? `${formatPct(o.limit_gap_pct, 2)} ${o.limit_gap_side} the limit`
       : null;
   const placed = new Date(o.placed_at).toLocaleString("en-GB", {
     weekday: "short",

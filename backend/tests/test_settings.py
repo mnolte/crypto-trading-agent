@@ -86,6 +86,8 @@ def test_snapshot_shape(client: TestClient) -> None:
     assert snap["equity"] == "10000"  # money travels as strings
     assert snap["cash"] == "10000"
     assert snap["today_pnl"] == "0"
+    assert snap["today_pnl_pct"] == "0"
+    assert snap["positions_unrealised"] == "0"
     assert snap["positions"] == []
     assert snap["pending"] == []
     assert snap["kill"] is None

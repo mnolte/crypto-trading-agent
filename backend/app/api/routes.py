@@ -52,6 +52,12 @@ class SessionOut(BaseModel):
     token: str
 
 
+class MaintenancePruneOut(BaseModel):
+    cutoff: datetime
+    decisions_pruned: int
+    llm_calls_pruned: int
+
+
 class HealthOut(BaseModel):
     status: str
     cycle: int
@@ -156,6 +162,23 @@ def resolve_error(
             affected_decision_or_fill=row.affected_decision_or_fill,
             resolved_at=repo.aware_utc(row.resolved_at),
             resolution_note=row.resolution_note,
+        )
+    finally:
+        session.close()
+
+
+@router.post("/maintenance/prune", dependencies=[Depends(require_token)])
+def maintenance_prune(state: Annotated[AppState, Depends(get_state)]) -> MaintenancePruneOut:
+    """Clear raw LLM payloads older than 90 days; parsed records stay."""
+    cutoff = utcnow() - timedelta(days=90)
+    session = state.session_factory()
+    try:
+        decisions, calls = repo.prune_raw_llm_payloads(session, cutoff)
+        session.commit()
+        return MaintenancePruneOut(
+            cutoff=cutoff,
+            decisions_pruned=decisions,
+            llm_calls_pruned=calls,
         )
     finally:
         session.close()
