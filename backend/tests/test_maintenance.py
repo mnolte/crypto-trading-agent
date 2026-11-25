@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
@@ -14,7 +16,7 @@ NOW = datetime(2026, 10, 14, 12, 0, tzinfo=UTC)
 
 
 def _token(client: TestClient) -> str:
-    return client.get("/api/session").json()["token"]
+    return cast(str, client.get("/api/session").json()["token"])
 
 
 def _decision(decision_id: str, at: datetime) -> DecisionRow:
@@ -86,7 +88,7 @@ def test_prune_clears_raw_payloads_older_than_90_days_only(sim_client: TestClien
     now = datetime.now(UTC)
     old = now - timedelta(days=91)
     recent = now - timedelta(days=89)
-    state = client.app.state.app_state
+    state = cast(FastAPI, client.app).state.app_state
     session = state.session_factory()
     try:
         session.add(_decision("old-decision", old))
