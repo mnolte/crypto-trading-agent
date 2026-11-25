@@ -217,6 +217,13 @@ class PaperBroker:
         self._roll_day(now)
         return self.equity() - self.day_start_equity
 
+    def today_pnl_pct(self, now: datetime) -> Decimal:
+        """Signed today's P&L as a percent of the Amsterdam day-start equity."""
+        self._roll_day(now)
+        if self.day_start_equity <= 0:
+            return Decimal("0")
+        return (self.equity() - self.day_start_equity) / self.day_start_equity * HUNDRED
+
     def _roll_day(self, now: datetime) -> None:
         today = self._ams_date(now)
         if today != self._day_start_date:

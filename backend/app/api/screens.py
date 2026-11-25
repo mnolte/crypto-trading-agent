@@ -144,6 +144,12 @@ def _paper_order_out(row: PaperOrderRow | None, state: AppState) -> PaperOrderOu
         info = engine.prices.get(row.pair)
         if info is not None:
             last = info.last
+    limit = Decimal(row.limit_price)
+    limit_gap_pct: Decimal | None = None
+    limit_gap_side: Literal["above", "below"] | None = None
+    if last is not None and limit > 0:
+        limit_gap_pct = abs(last - limit) / limit * 100
+        limit_gap_side = "above" if last >= limit else "below"
     return PaperOrderOut(
         id=row.id,
         decision_id=row.decision_id,
@@ -161,6 +167,8 @@ def _paper_order_out(row: PaperOrderRow | None, state: AppState) -> PaperOrderOu
         cancel_reason=row.cancel_reason,
         min_price=Decimal(row.min_price) if row.min_price else None,
         last_price=last,
+        limit_gap_pct=limit_gap_pct,
+        limit_gap_side=limit_gap_side,
     )
 
 

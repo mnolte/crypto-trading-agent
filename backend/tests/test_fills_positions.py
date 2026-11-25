@@ -23,6 +23,7 @@ from app.config import get_env
 from app.db import (
     AccountRow,
     FillRow,
+    PaperOrderRow,
     PositionRow,
     ShadowRow,
     TradeRow,
@@ -30,7 +31,7 @@ from app.db import (
     make_session_factory,
 )
 from app.features import fills as fills_mod
-from app.models import PaperSettings
+from app.models import PaperSettings, PriceInfo
 
 NOW = datetime(2026, 10, 14, 12, 0, tzinfo=UTC)
 HOUR = timedelta(hours=1)
@@ -375,6 +376,38 @@ def test_positions_live_shape(sim_client: TestClient) -> None:
     assert body["today"]["items"] == []
     assert body["paper_account"]["id"] == _state(client).account_id
     assert isinstance(body["shadows"], list)
+
+
+def test_positions_order_gap_comes_from_the_backend(sim_client: TestClient) -> None:
+    client = sim_client
+    state = _state(client)
+    session = _db(client)
+    try:
+        session.add(
+            PaperOrderRow(
+                decision_id="d-order",
+                account_id=state.account_id,
+                pair="BTC-EUR",
+                side="buy",
+                leg="entry",
+                limit_price="100",
+                qty="1",
+                placed_at=NOW.replace(tzinfo=None),
+                expires_at=None,
+                status="open",
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+    engine = state.agent_engine
+    assert engine is not None
+    engine.prices["BTC-EUR"] = PriceInfo(last="101", chg_24h_pct="0", stale=False)
+
+    body = client.get("/api/positions?account=live").json()
+    order = next(o for o in body["orders"] if o["decision_id"] == "d-order")
+    assert Decimal(order["limit_gap_pct"]) == Decimal("1")
+    assert order["limit_gap_side"] == "above"
 
 
 def test_positions_unknown_shadow_is_404(sim_client: TestClient) -> None:

@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import cast
 
-from sqlalchemy import Numeric, Table, delete, func, select
+from sqlalchemy import Numeric, Table, delete, func, or_, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
@@ -1820,3 +1820,30 @@ def latest_briefing(session: Session, type: str) -> BriefingRow | None:
     return session.scalar(
         select(BriefingRow).where(BriefingRow.type == type).order_by(BriefingRow.at.desc()).limit(1)
     )
+
+
+def prune_raw_llm_payloads(session: Session, cutoff: datetime) -> tuple[int, int]:
+    """Clear exact raw brief/request and response payloads older than ``cutoff``.
+
+    Parsed decisions, checks, costs, verdicts and outcomes stay intact; only the
+    bulky byte-exact payloads are removed. Returns (decision rows, LLM-call rows)
+    that still had a raw payload to clear.
+    """
+    at = _utc_naive(cutoff)
+    decisions = session.execute(
+        update(DecisionRow)
+        .where(
+            DecisionRow.at < at,
+            or_(DecisionRow.raw_brief.is_not(None), DecisionRow.raw_response.is_not(None)),
+        )
+        .values(raw_brief=None, raw_response=None)
+    ).rowcount
+    calls = session.execute(
+        update(LlmCallRow)
+        .where(
+            LlmCallRow.at < at,
+            or_(LlmCallRow.request_json.is_not(None), LlmCallRow.response_raw.is_not(None)),
+        )
+        .values(request_json=None, response_raw=None)
+    ).rowcount
+    return decisions, calls

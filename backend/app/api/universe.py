@@ -93,6 +93,7 @@ class CheckRunOut(BaseModel):
     status: str
     error: str | None
     thresholds: dict[str, Any]
+    volume_immediate_fail_eur: MoneyDecimal | None = None
     funnel: list[FunnelStepOut]
     kept: list[str]
     held_back: list[str]
@@ -455,6 +456,14 @@ def _check_run_out(row: MarketCheckRow) -> CheckRunOut:
         for step in funnel_raw
         if isinstance(step, dict)
     ]
+    thresholds = loads(row.thresholds, {})
+    volume_immediate_fail: Decimal | None = None
+    try:
+        min_volume = Decimal(str(thresholds["min_avg_daily_volume_eur"]))
+        beyond_pct = Decimal(str(thresholds["eligibility_beyond_pct"]))
+        volume_immediate_fail = min_volume * (Decimal("1") - beyond_pct / Decimal("100"))
+    except (KeyError, ArithmeticError, TypeError, ValueError):
+        volume_immediate_fail = None
     return CheckRunOut(
         id=row.id,
         started_at=repo.aware_utc(row.started_at),
@@ -462,7 +471,8 @@ def _check_run_out(row: MarketCheckRow) -> CheckRunOut:
         trigger=row.trigger,
         status=row.status,
         error=row.error,
-        thresholds=loads(row.thresholds, {}),
+        thresholds=thresholds,
+        volume_immediate_fail_eur=volume_immediate_fail,
         funnel=funnel,
         kept=[str(m) for m in loads(row.kept, [])],
         held_back=[str(m) for m in loads(row.held_back, [])],

@@ -40,6 +40,7 @@ import {
   foldGroups,
   foldLabel,
   formatRunSeconds,
+  eurMillions,
   funnelLabel,
   jobResultText,
   parseFilter,
@@ -537,7 +538,13 @@ function keptText(
   return parts.length ? parts.join(" · ") : null;
 }
 
-function HowCheckWorks({ thresholds }: { thresholds: Record<string, unknown> }) {
+function HowCheckWorks({
+  thresholds,
+  volumeImmediateFailEur,
+}: {
+  thresholds: Record<string, unknown>;
+  volumeImmediateFailEur: string | null;
+}) {
   const num = (key: string, fallback: number) => {
     const v = thresholds[key];
     return typeof v === "number" ? v : fallback;
@@ -550,13 +557,7 @@ function HowCheckWorks({ thresholds }: { thresholds: Record<string, unknown> }) 
   const failDays = num("eligibility_fail_days", 3);
   const beyond = text("eligibility_beyond_pct", "20");
   const recoverDays = num("eligibility_recover_days", 3);
-  const volumeEur = (() => {
-    const v = thresholds.min_avg_daily_volume_eur;
-    const n = typeof v === "string" || typeof v === "number" ? Number(v) : NaN;
-    if (!Number.isFinite(n)) return "1";
-    const under = (n * (1 - Number(beyond) / 100)) / 1_000_000;
-    return under >= 10 ? under.toFixed(0) : under.toFixed(1).replace(/\.0$/, "");
-  })();
+  const volumeEur = eurMillions(volumeImmediateFailEur);
   const dayWord = (n: number) => (n === 1 ? "day" : "days");
   return (
     <details className="un-how">
@@ -570,7 +571,7 @@ function HowCheckWorks({ thresholds }: { thresholds: Record<string, unknown> }) 
         <li>
           An eligible market loses its place after {failDays} failing{" "}
           {dayWord(failDays)} in a row, or at once when it is {beyond}% past a
-          line (under €{volumeEur}M volume) or no longer trading. It then needs{" "}
+          line (under {volumeEur} volume) or no longer trading. It then needs{" "}
           {recoverDays} passing {dayWord(recoverDays)} in a row to return.
         </li>
         <li>
@@ -662,7 +663,10 @@ function CheckCard({
         {last ? ` · ${last.left}` : ""}
         {kept && <div className="card__meta">{kept}</div>}
       </div>
-      <HowCheckWorks thresholds={run.thresholds} />
+      <HowCheckWorks
+        thresholds={run.thresholds}
+        volumeImmediateFailEur={run.volume_immediate_fail_eur ?? null}
+      />
     </Card>
   );
 }

@@ -896,6 +896,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/maintenance/prune": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Maintenance Prune
+         * @description Clear raw LLM payloads older than 90 days; parsed records stay.
+         */
+        post: operations["maintenance_prune_api_maintenance_prune_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/markets": {
         parameters: {
             query?: never;
@@ -1945,6 +1965,8 @@ export interface components {
             };
             /** Trigger */
             trigger: string;
+            /** Volume Immediate Fail Eur */
+            volume_immediate_fail_eur?: string | null;
         };
         /** ClientReport */
         ClientReport: {
@@ -3074,6 +3096,18 @@ export interface components {
             /** Next */
             next?: string | null;
         };
+        /** MaintenancePruneOut */
+        MaintenancePruneOut: {
+            /**
+             * Cutoff
+             * Format: date-time
+             */
+            cutoff: string;
+            /** Decisions Pruned */
+            decisions_pruned: number;
+            /** Llm Calls Pruned */
+            llm_calls_pruned: number;
+        };
         /**
          * MarketActionIn
          * @description POST /api/markets/{market}/activate|deactivate body (item 025).
@@ -3694,6 +3728,10 @@ export interface components {
              * @enum {string}
              */
             leg: "entry" | "target";
+            /** Limit Gap Pct */
+            limit_gap_pct?: string | null;
+            /** Limit Gap Side */
+            limit_gap_side?: ("above" | "below") | null;
             /** Limit Price */
             limit_price: string;
             /** Min Price */
@@ -5514,6 +5552,8 @@ export interface components {
             pending: components["schemas"]["Decision"][];
             /** Positions */
             positions: components["schemas"]["Position"][];
+            /** Positions Unrealised */
+            positions_unrealised: string;
             /** Prices */
             prices: {
                 [key: string]: components["schemas"]["PriceInfo"];
@@ -5540,6 +5580,8 @@ export interface components {
             status: "running" | "paused" | "killed" | "error";
             /** Today Pnl */
             today_pnl: string;
+            /** Today Pnl Pct */
+            today_pnl_pct: string;
             /**
              * Today Trades
              * @default 0
@@ -7662,6 +7704,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AroundOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    maintenance_prune_api_maintenance_prune_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-local-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenancePruneOut"];
                 };
             };
             /** @description Validation Error */

@@ -140,6 +140,14 @@ def test_day_start_rolls_at_amsterdam_midnight(session: Session) -> None:
     assert broker.today_pnl(after - timedelta(hours=2)) == Decimal("0")
 
 
+def test_today_pnl_pct_is_backend_decimal_math(session: Session) -> None:
+    broker = PaperBroker(_account(day_start="10000"), PaperSettings())
+    broker.cash = Decimal("10250")
+    assert broker.today_pnl_pct(NOW) == Decimal("2.5")
+    broker.cash = Decimal("9750")
+    assert broker.today_pnl_pct(NOW) == Decimal("-2.5")
+
+
 def test_day_start_rolls_once_across_dst_fallback() -> None:
     """DST fallback on 2026-10-25 (CEST→CET): the day is 25 hours long and
     day-start must roll exactly once at 00:00 Europe/Amsterdam — not at UTC

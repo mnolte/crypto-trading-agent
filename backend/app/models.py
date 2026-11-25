@@ -224,6 +224,8 @@ class Snapshot(BaseModel):
     cash: MoneyDecimal
     start_equity: MoneyDecimal
     today_pnl: MoneyDecimal
+    today_pnl_pct: MoneyDecimal
+    positions_unrealised: MoneyDecimal
     exposure_pct: float
     drawdown_pct: float
     prices: dict[str, PriceInfo]
@@ -769,6 +771,8 @@ class PaperOrderOut(BaseModel):
     cancel_reason: str | None = None
     min_price: MoneyDecimal | None = None  # lowest trade price while open
     last_price: MoneyDecimal | None = None  # current market price (display only)
+    limit_gap_pct: MoneyDecimal | None = None  # absolute distance from last price, %
+    limit_gap_side: Literal["above", "below"] | None = None  # where last sits vs the limit
 
 
 class DecisionDetail(BaseModel):
