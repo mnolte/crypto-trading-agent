@@ -5,7 +5,7 @@ title: Logs and LLM inspector UX
 status: ready
 issue: 96
 kickoff: 043-feat-logs-inspector-ux.md
-spec_prs: []
+spec_prs: [97]
 build_prs: []
 ---
 
