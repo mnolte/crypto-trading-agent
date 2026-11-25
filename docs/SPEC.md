@@ -481,7 +481,7 @@ From item 025 these settings are laid out and saved as in v0.3 → Settings scre
 
 **LLM inspector**
 
-The inspector exists to debug the model: see exactly what it was fed, and judge whether its answer was correct for that input. It is a permanent screen in the main navigation, in development and in production, so every live decision stays auditable. In production, Re-run asks for confirmation because it spends a model call.
+The inspector exists to debug the model: see exactly what it was fed, and judge whether its answer was correct for that input. It is a permanent screen in the main navigation, in development and in production, so every live decision stays auditable. In production, Re-run asks for confirmation because it spends a model call. From item 043 the screen's layout, filters, summary and call details follow v0.3 → LLM inspector, easier to read; what this section says about stored records, checks, replays and verdicts stays.
 
 *Call list* (newest first, new calls appear live over the WebSocket)
 
@@ -742,7 +742,7 @@ Outcome tracking adds an `outcomes` table, described in its own section.
 | `GET /api/decisions/{id}` | Full decision incl. raw brief, response and outcome |
 | `GET /api/decisions?pair=&outcome=&before=` | Paged history for the drawer and activity log |
 | `GET /api/outcomes/stats?group=decider,model,prompt_version,shadow&from=&to=` | Scorecard: decisions, BUY win rate, average R, missed vs avoided for HOLD and SKIP |
-| `GET /api/llm-calls?pair=&status=&issues=&verdict=&outcome=&before=&skipped=` | Paged LLM call list for the inspector |
+| `GET /api/llm-calls?pair=&status=&issues=&verdict=&outcome=&before=&skipped=` | Paged LLM call list for the inspector. From item 043 also the filters, cursor and total of v0.3 → LLM inspector, easier to read, with `GET /api/llm-calls/summary` and `GET /api/llm-calls/export.csv` |
 | `GET /api/llm-calls/{id}` | One call: request as sent, raw response, parsed decision, input and output checks, attempts, verdict, outcome |
 | `GET /api/llm-calls/{id}/download` | The same record as a downloadable JSON file |
 | `POST /api/llm-calls/{id}/replay` | Re-sends the stored brief with an optional model id and prompt version; returns the replay record, never trades |
@@ -998,6 +998,7 @@ Screen controls (filters, periods, export, save) sit at the top of the page, not
 | An API key or data source failing (3 failures in a row) | Fix in Settings |
 | Email alerts not set up, or failing | Set up or fix in Settings |
 | An active market failing the eligibility check | Review in Universe |
+| From item 043: model calls that need you (a wrong or expired key, repeated timeouts, rate limits or unusable answers; v0.3 → LLM inspector, easier to read → Does it need me?) | Open in the LLM inspector |
 | Monthly cost cap at 80% or more | Raise the cap |
 
 The header chip shows the count and is hidden at 0; the Dashboard card is first on the page and, at 0, shrinks to its health line: Bitvavo candles (time of the last closed candle), price stream, clock offset, OpenAI key and the v0.2 collector. Items leave the list when their cause is gone. `GET /api/needs` returns the list; the snapshot carries it as `needs`.
@@ -1213,6 +1214,9 @@ A second Ctrl+C logs a WARNING and skips the wait; steps 4 and 5 always run. The
 - **Trace:** filtering on a cycle, an error id or a request id turns every level on and shows a banner: "Every line of cycle c-0728 · 12:30:00–12:30:41 · 41 s · 9 pairs · 3 model calls", with "Back to warnings and errors".
 - **Warnings and errors per day** as stacked bars; clicking a day filters on it.
 - **Recurring problems:** level, problem, component and pairs, count, first and last seen. ERROR and CRITICAL ones show unreviewed, expected or fixed, and Review (a dialog: Expected or Fixed, and a required note). Clicking a row filters the log on it.
+  - **Does it need you?** (item 043, as Stock Trading Agent's item 100). Every problem carries one of three levels, decided by code: **needs you** for a CRITICAL problem and for an ERROR problem without a review (the rule Needs you and Readiness use; a fixed problem that comes back is unreviewed again); **watch** for a WARNING problem counted `ui.log_watch_min_count` (5) times or more in the chosen period; **nothing to do** for the rest. The list is sorted by that level, then by count, and the three counts stand above it ("1 needs you · 1 to watch · 7 nothing to do"). The chip, the count in words ("5 times in 7 days", "2 times · not reviewed", "reviewed · expected") and Review share one column.
+  - A problem that needs you or is one to watch shows its "What to do" line from the event registry under it. Problems with nothing to do fold after the first three ("4 more with nothing to do: 2 warnings, 2 reviewed errors · Show all 9"); with none that need you or are to watch, the line above says "Nothing needs you".
+  - At phone width each problem stacks: level and the need chip on one row, then the problem.
 - **The log:** grouped per day under sticky headers, newest first. Each line shows its time (Amsterdam, UTC on hover), level chip, message, component and context chips; the chips link to the cycle trace, the decision drawer or the trade.
 - **An opened line** shows what the event means and what to do (from the registry), the exception with its traceback, the context, the stored JSON, and the surrounding lines (same process, all levels, "Show 50 more"); Copy line, Copy error id, and a link to what it concerns.
 - **Follow new lines:** on by default, paused while scrolled away from the top.
@@ -1275,6 +1279,87 @@ Top to bottom: the check line, the tiles, Data sync and Today's check, the marke
 **Storage.** `market_checks`: one row per check run: started and finished at, trigger (startup, daily, retry), status (ok, failed), error in plain words, the thresholds used, and the funnel (per step: the count left and the markets dropped), plus the kept and held-back markets; 90 days kept. `sync_runs`, as in Stock Trading Agent: job, started and finished at, status (running, ok, partial, failed), done and total, failures (market or source, error in plain words, next retry); a job updates its row at most once a second; 30 days kept. The `markets` row gains `name`, `last_price` and `price_at`, `vs_btc_30d_pct`, `corr_btc_30d`, `eligible_since` and `failing_since`; `volume_30d_eur` and `spread_pct` become Decimals stored as text (hard rule 2), in a new migration.
 
 **API.** `GET /api/universe` (the check line, the tiles, the calls a day per market and the budget, and every market with its status and the fields of its line), `GET /api/universe/check` (the latest check run, and the one in use when the latest failed), `GET /api/universe/sync` (the latest run per job, and while a backfill runs, candles loaded of needed and the time left), `POST /api/universe/sync/{job}/retry` (reruns a failed job for its failed markets; 409 during a cycle or when the job didn't fail; 404 for an unknown job). `GET /api/markets` stays for the Dashboard; `PUT /api/markets/{market}` takes `{active, confirm_looser}` and answers 409 `looser_needs_confirm` for an activation without the confirm (Settings screen → API); the pause endpoints stay.
+
+### LLM inspector, easier to read
+
+Decided 25 Nov (item 043), after Stock Trading Agent's inspector (its `docs/SPEC.md` → LLM call history, items 018 and 074). The v0.1 inspector (GUI screens → LLM inspector) answers "what was the model fed, and was its answer right?" for one call. This section adds the questions before that one: which calls need a look, what went wrong and whether Marc has to do anything. Nothing the inspector can do is removed: Re-run, verdicts, the labelled export, Open in Indicators, Download JSON, the input and output checks, attempts, replays, skipped cycles and the scorecard all stay. What stored records hold doesn't change, apart from three new columns.
+
+Two words are kept apart on this screen. A call's **status** is success, warning or error (below). A decision's **outcome** stays what Outcome tracking defines: its result after 4, 24 and 72 hours.
+
+**Status.** Set once by code when the call is stored and never recomputed. An error outranks warnings; a call can have several warning reasons.
+
+| Status | When | Reasons |
+| --- | --- | --- |
+| Success | A valid answer, used as the model chose; for briefings, reviews and Ask, the number check passed | — |
+| Warning | A valid answer, but something needs a look | `changed_by_code` (the final action differs from the model's: a post-check or a risk gate, stored with its name as the code has it, for example "Min reward/risk", "Levels sane" or "Entry pause"), `claim_mismatch` (the Signal claims check warned), `check_warning` (another output check warned and the action was kept; stored with the check's name), `input_warning` (an input check warned, for example Market context: a field missing or stale and sent as null), `retried` (the answer came from the retry), `slow` (latency above `inspector.slow_call_seconds`, 15, on the attempt that answered), `number_check_failed` (briefing, review or Ask text failed the number check) |
+| Error | No usable answer | `timeout` (every attempt timed out; Rules answered), `api_error` (HTTP error or connection failure after the retry; status and the provider's error code stored), `invalid_output` (unparseable or fails the schema after the retry; HOLD), `input_blocked` (an input check failed, so nothing was sent; HOLD) |
+
+The Rules baseline disagreeing with the model is information, not a warning. A size reduced by a gate is not a warning; the model's action was kept.
+
+**Reasons explained.** Every reason has one fixed explanation in code (`backend/app/agent/reasons.py`): what it means, the likely cause and what to do, filled in with the call's own details (the check and its numbers, the gate, the HTTP status, the missing field). The API serves it with the call; the GUI never writes its own.
+
+| Reason | What it means | Likely cause | What to do |
+| --- | --- | --- | --- |
+| `changed_by_code` | The model's answer was valid, but code changed the action, usually BUY → SKIP | A risk gate or post-check did its job: costs, reward to risk, levels, the regime rule, a pause | Usually nothing. Open the decision for the gate's numbers. If one gate keeps blocking good setups, check Insights and test another threshold in a shadow before changing it |
+| `claim_mismatch` | The answer names a signal the brief doesn't support. The decision stands: code checks the levels and the gates itself, not the model's words | The model described something it couldn't see in its input | Once: nothing. If you judge the call, mark it Wrong with a note, so it lands in the labelled export. Often under one prompt: test a prompt change in a shadow first |
+| `check_warning` | An output check other than Signal claims warned, and the action was kept | The answer is inside the rules but near an edge the check watches (the check's own text says which) | Read the check's line in the answer. Once: nothing. Often for one check: look at that rule on Insights before changing a threshold |
+| `input_warning` | The model answered with part of its input missing: a market-context field was missing or stale and sent as null | A collector source failed or answered late at that cycle | Once: nothing. Repeating for one source: that source is failing; Settings → API keys and data shows it and Logs has the error |
+| `retried` | The first attempt failed and the one retry answered | A short failure at the provider or on the network | Nothing. Many in a day: look at the timeouts and errors of the same period |
+| `slow` | The answer took longer than 15 s but arrived | The provider was busy, or the answer was long | Calls near the 30 s timeout risk failing. If they repeat, pick a faster model |
+| `number_check_failed` | A briefing, review or Ask answer contained a number that isn't in its facts. The plain template (or "no answer") was shown instead | The model rounded differently, computed a new number or invented one | Once: nothing. Often: try another model for that text. The facts and the text are both in this call |
+| `timeout` | No answer within `timeouts.openai_s` (30 s), and the retry timed out too. The Rules engine decided the pair for this cycle; nothing was traded on a guess | The provider was overloaded or the network failed | Once: nothing. Several cycles in a row: check the provider's status page; Logs shows whether the network or the provider fails |
+| `api_error` | The provider answered with an HTTP error, or the connection failed, also on the retry | 401 or 403: the key is wrong, expired or lacks access. 404: the model name is unknown. 429: rate limit or spending limit. 500–599: the provider's own failure. No status: network or DNS | 401/403: replace the key in Settings → API keys and data. 404: pick a listed model. 429: raise the account's limits. 5xx: wait; check the status page. No status: check the computer's network |
+| `invalid_output` | The answer couldn't be used: not JSON or not the schema, also on the retry. Counted as HOLD | The model ignored the format, or its answer was cut off | Once: nothing. Often for one model: it doesn't follow the schema; pick another |
+| `input_blocked` | An input check failed, so the brief was not sent and the cycle held this pair. The request that would have been sent is stored | Missing or out-of-range fields, stale candles, too little history, or another pair's prices in the brief | Open the failed input check. Stale or missing candles: Universe → Data sync shows what loaded. A cross-pair leak is a bug: report it with the call link |
+
+**Does it need me?** Every warning and error carries one of three levels, set by code when the call is stored (looking back only, so it never changes afterwards) and stored as `attention`. The thresholds are settings under `inspector.attention` (hard rule 3); the numbers here are the defaults.
+
+- **Needs you** (`act`): `api_error` 401, 403 or 404; three or more 429s in 24 hours; a timeout or 5xx in 3 cycles in a row; `input_blocked` for the same pair, or `input_warning` for the same field, in 3 cycles in a row; `invalid_output` on 3 or more of a model's last 20 calls; `number_check_failed` on 3 of the last 5 texts of one kind.
+- **Keep an eye on it** (`watch`): a second timeout or provider error within 2 cycles; 3 or more `slow` calls in 24 hours; `claim_mismatch` or one `check_warning` check on 20% or more of the last 20 decision calls.
+- **Nothing to do** (`none`): everything else, which includes every `changed_by_code` and `retried`.
+
+The level shows as a chip in What happened (its reason on hover) and on each Top reasons row; the summary counts them; `attention=` is a filter. Each `act` group (one per reason and model, pair or field) is an item in the Needs you list, linking to the filtered inspector, and leaves the list once a later call of that group succeeds.
+
+**Filters.** Every filter is in the URL (`?period=&from=&to=&status=&source=&pair=&action=&reason=&model=&prompt=&verdict=&outcome=&attention=&cycle=&skipped=&call=`), so links land on the right calls: the Dashboard's model-calls tile opens the last 24 hours of live decisions; the Decision drawer's "Open model call" and Copy link open `?call=`; a Logs line of a model call opens `?call=`.
+
+| Filter | Options | Default |
+| --- | --- | --- |
+| Period | 24 hours, 7 days, 30 days, All, Custom (from and to, Amsterdam dates) | 24 hours |
+| Status | All, Success, Warning, Error (one) | All |
+| Source | Live decisions, Shadows, Replays, Briefings and reviews, Ask (one or more) | Live decisions, Briefings and reviews, Ask; shadows and replays are off because they multiply the volume |
+| More | Pair, action (the final action), reason (`changed_by_code` also by its gate or check), model, prompt version, your verdict, outcome after 72h, shadow (with Shadows on), cycle (only from links) | none |
+| Show cycles without a call | on or off: a row per cycle where the Rules pre-filter sent nothing (v0.1 "Show skipped") | on |
+
+Every option shows its count under the other filters. Clear filters returns to the defaults. At phone width the More filters sit behind a "More filters" button that says how many are set. The old "Has issues only" switch is replaced by Status and Reason.
+
+**Summary** of the filtered set, under the filters:
+- Calls (and how many cycles had none), success, warning and error with their share.
+- Cost in euros, split by source. Latency median and p95 over the calls that answered.
+- A stacked bar per hour for 24 hours, per day up to 30 days, per week beyond. Clicking a bar sets the period to it.
+- **Top reasons:** the reasons in the set with their counts, most frequent first, each with one line from the calls themselves ("2 × timeout · BTC-EUR and ETH-EUR at 09:30 and 09:15 · Rules answered both cycles"), its level chip, and a click that filters on it. Above it: "Of 8 warnings and errors: 0 need you · 2 to watch · 6 nothing to do". With none: "No warnings or errors in this period."
+
+**Outcome scorecard.** Unchanged in content and with its own period (24 hours, 7 days, 30 days), but folded to one line under the summary that states the live decider's BUYs, win rate and average R; "Show the table" opens it. The choice is remembered per browser.
+
+**List.** Newest first, with a switch to oldest first, grouped per Amsterdam day under a sticky header (calls, warnings, errors). New calls arrive live on top while the period includes now. A row shows the cycle time, the pair (or Briefing, Review, Ask), the model's action and the final one when they differ ("BUY → SKIP"), the context and model in one muted line, a status chip that names the reason, and under it Marc's verdict or the outcome label when there is one. Rows of one day with the same pair or kind, action, status and reasons that follow each other fold into one ("LINK-EUR ×3 · HOLD") that opens in place; warnings with different details and errors never fold. A cycle without a call is a dashed row. Pages of `inspector.page_size` (50) use a keyset cursor on (sent at, id), with "n of total loaded" and "Load more". At 900 px and wider the list stays in view while the details scroll.
+
+**Details,** top to bottom:
+- **Header:** pair, day, cycle time and cycle id; the context (entry candidate or held), the price and the call id. "↑ Newer" and "↓ Older" (keys K and J) follow the list's order and filters; Open decision. Under it: Copy link, Re-run…, Open in Indicators, Download JSON, Logs for this call.
+- **Result line:** the status chip and one sentence: "Valid answer, used as the model chose", "Valid answer · code changed BUY → SKIP", or "No answer · timed out twice · Rules answered: HOLD".
+- **What happened:** one panel per reason with What it means, Why here (the call's own numbers) and What to do, the level chip, and links (calls with this reason, the decision, Logs for this call, the setting or source it names). A success has no panel.
+- **Call data** as tiles: source, model, prompt and brief version, tokens in and out, cost (€ and $), latency with the number of attempts, sent at with the provider's request id. A value that wasn't recorded says "not recorded", never "—" or 0.
+- **Your verdict and the outcome,** side by side: Correct, Wrong and the note; the 4h, 24h and 72h result or "pending until" with the time. A call without an answer has no verdict and says why.
+- **Input · as sent:** the input checks as chips; the system prompt folded, with a line that the stored text matches the prompt file's hash (or that it doesn't, and then the stored text is what was sent); the brief as labelled sections with label, value and the brief's own read (Call, Regime, 1h, 4h, Daily, Structure, Market context, Liquidity, Position, Previous decision, Limits, Data age), built from the stored request by one function and never changing a value; "Raw JSON" shows the bytes as sent; model parameters and the schema folded. A value a warning is about is marked in its row ("← the answer calls this bullish").
+- **Answer · as returned:** "The model answered BUY → code kept it" or "→ code made it SKIP (cost gate)"; the answer as label and value rows (action, confidence, entry, stop, target, reasoning, signals, invalidation; empty fields left out) with Raw JSON and Copy; the output checks with warn and fail rows first; replays. An answer that isn't JSON shows raw.
+- **Error** instead of Answer when there is none: type, HTTP status, the provider's message, request id, the error id (a link to its log line), every attempt with its time, result and duration, and what Rules answered.
+- **Older than 90 days:** raw payloads are cleared by maintenance; the sections then say "Raw request cleared after 90 days · the parsed answer and the checks are kept".
+
+At phone width the details open under the list; Newer and Older replace going back to the list. Label and value rows stack.
+
+**Exports.** "Export CSV": one row per filtered call (time, source, pair, action, final action, status, reasons, attention, model, prompt, tokens, cost, latency, verdict, outcome); no prompts or responses. "Export labelled calls" stays the JSONL of calls with a verdict.
+
+**Storage.** `llm_calls` gains `outcome_status` (success, warning, error), `reasons` (JSON list of {code, detail}) and `attention` (none, watch, act), written with the call. A new migration backfills them for existing rows from the stored status, checks, attempts and the decision's final action; backfilled rows get attention `none`. Indexes on (account, at, id), (outcome_status, at) and (feature, at).
+
+**API.** `GET /api/llm-calls` takes the filters above with `cursor` and `limit` (up to 100) and returns the page, the next cursor and the total; its old parameters keep working. `GET /api/llm-calls/summary` (same filters) returns the totals, the buckets, the option counts and Top reasons. `GET /api/llm-calls/{id}` adds the status, the explained reasons, the brief as sections, the final-action sentence, and the ids of the newer and older call under the given filters. `GET /api/llm-calls/export.csv`. List and summary answer within 300 ms on a 100,000-call fixture.
 
 ### Strategies screen
 
@@ -1431,6 +1516,7 @@ v0.3 starts after PR 13 and the fix PR are merged; PR 10 and 11 stay paused. Non
 - **PR 15, Error handling, logging and the Logs screen:** the audit report first; then the log store in `data/logs/logs.db` with its writer, retention and scrubbing; the event registry; tracing; the exception classes, isolation boundaries, `spawn()`, global hooks, timeouts and retries; every row of the failure catalogue; the API error shape, the error pages (in the app and the static pages in `deploy/errors/`) and frontend error reporting; graceful shutdown; the logs endpoints and the Logs screen; the Readiness error criterion; the `errors` table imported.
 - **PR 16, Positions & orders:** the screen, the fills endpoints and export.
 - **PR 17, Markets screen:** replaced by item 026, the Universe screen (21 Nov).
+- **Item 043, Logs and LLM inspector UX:** the call status, reasons and attention with their migration, the explained reasons, the inspector's filters, summary, list and details, the CSV export; on Logs, "Does it need you?" (kickoff `docs/kickoffs/043-feat-logs-inspector-ux.md`).
 - **PR 18, Strategies screen:** the comparison with both BTC benchmarks, equity curves, disagreements; Settings → Shadow strategies replaced by a link.
 - **PR 19, Backtest:** the engine on an injected clock, the child process, the candle store, the model cache and cutoff check, the estimate and cap, results with training and test, the screen.
 - **PR 20, Sign-in and access:** `TA_AUTH`, the account, sessions, limits, confirm-it-is-you, Settings → Access, the sign-in page, and the 401 and 403 handling. Required before the VPS.
