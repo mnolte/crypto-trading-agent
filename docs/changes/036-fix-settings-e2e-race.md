@@ -2,11 +2,11 @@
 item: 036
 type: fix
 title: Settings e2e save race
-status: building
+status: merged
 issue: 82
 kickoff: —
 spec_prs: []
-build_prs: []
+build_prs: [83]
 ---
 
 # 036 · fix · Settings e2e save race
@@ -22,3 +22,11 @@ The spec now runs once in its own `settings` Playwright project, and the
 three viewport projects depend on it, so no other spec's settings write can
 interleave. The spec itself is unchanged: it still proves a sectioned save
 persists as a numbered version.
+
+## 2026-11-25 · build PR #83
+
+`frontend/playwright.config.ts` gains a `settings` project matching only
+`settings-save.spec.ts`; `w1440`, `w1100` and `w390` depend on it and the
+two wide projects `testIgnore` the spec, so it runs once, alone, before the
+parallel specs. Test infrastructure only: no app behaviour, config or
+prompt change.
