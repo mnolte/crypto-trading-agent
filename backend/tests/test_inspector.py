@@ -430,6 +430,7 @@ def test_list_keyset_cursor_and_total(client: TestClient) -> None:
     assert first["total"] == 3
     assert len(first["items"]) == 2
     second = client.get(f"/api/llm-calls?period=all&limit=2&cursor={first['next_cursor']}").json()
+    assert second["total"] == 3
     assert [i["id"] for i in second["items"]] == ["c2"]
     assert second["next_cursor"] is None
 

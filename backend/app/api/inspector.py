@@ -397,7 +397,8 @@ def list_calls(
             issues=issues,
             skipped=skipped,
         )
-        conds = conditions(filters)
+        base_conds = conditions(filters)
+        conds = list(base_conds)
         if before is not None:
             conds.append(LlmCallRow.at < before.replace(tzinfo=None))
         if cursor:
@@ -448,10 +449,15 @@ def list_calls(
             if has_more and items
             else None
         )
-        total = session.scalar(select(func.count()).select_from(LlmCallRow).where(*conds)) or 0
-        if skip_conds is not None:
+        total = session.scalar(select(func.count()).select_from(LlmCallRow).where(*base_conds)) or 0
+        total_skip_conds = skips_conditions(filters)
+        if total_skip_conds is not None:
+            if before is not None:
+                total_skip_conds.append(DecisionRow.at < before.replace(tzinfo=None))
             total += (
-                session.scalar(select(func.count()).select_from(DecisionRow).where(*skip_conds))
+                session.scalar(
+                    select(func.count()).select_from(DecisionRow).where(*total_skip_conds)
+                )
                 or 0
             )
         return LlmCallListOut(items=items, next_cursor=next_cursor, total=total)

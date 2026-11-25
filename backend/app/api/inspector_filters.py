@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import json
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
 from typing import Any
 
 from sqlalchemy import and_, or_, select
@@ -40,7 +40,7 @@ class InspectorFilters:
 def _local_day(value: datetime, end: bool = False) -> datetime:
     local = value.astimezone(AMSTERDAM)
     boundary = datetime.combine(local.date(), time.max if end else time.min, tzinfo=AMSTERDAM)
-    return boundary.astimezone(AMSTERDAM).astimezone(tz=None).replace(tzinfo=None)
+    return boundary.astimezone(UTC).replace(tzinfo=None)
 
 
 def parse_period(
