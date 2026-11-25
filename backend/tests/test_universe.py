@@ -10,9 +10,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.agent.market.base import Candle, MarketInfo, OrderBook, Ticker24h
+from app.agent.market.base import Candle, MarketInfo, OrderBook, Ticker24h, UpstreamError
+from app.agent.market.sync import SyncRuns
 from app.agent.market.universe import (
     IneligibleMarketError,
     MarketMetrics,
@@ -26,7 +28,7 @@ from app.agent.market.universe import (
     warming_up,
 )
 from app.config import get_env
-from app.db import MarketRow, make_engine, make_session_factory
+from app.db import MarketCheckRow, MarketRow, make_engine, make_session_factory
 from app.models import MarketSettings
 from app.repo import candle_counts, get_market_row, upsert_candles
 
@@ -267,6 +269,52 @@ async def test_run_eligibility_check_over_eur_markets(session: Session) -> None:
     assert transitions == {}
     # Rows persisted.
     assert get_market_row(session, "GOOD-EUR") is not None
+
+
+async def test_market_candle_error_does_not_abort_check(session: Session) -> None:
+    """A market listed in `/markets` whose candles endpoint errors (CLEAR-EUR
+    in auction, 25 Nov) is one failed market, not a failed universe check."""
+    infos = [_info("GOOD-EUR", "GOOD"), _info("CLEAR-EUR", "CLEAR", status="auction")]
+    tickers = {i.market: _ticker(i.market) for i in infos}
+    daily = {"GOOD-EUR": _candles(320, price=100.0, volume=15_000.0)}
+
+    class BrokenCandles(FakeMarket):
+        async def candles(
+            self,
+            market: str,
+            interval: str,
+            limit: int,
+            *,
+            start: datetime | None = None,
+            end: datetime | None = None,
+        ) -> list[Candle]:
+            if market == "CLEAR-EUR":
+                raise UpstreamError(
+                    "bitvavo 400 for /CLEAR-EUR/candles: market parameter is invalid."
+                )
+            return await super().candles(market, interval, limit, start=start, end=end)
+
+    syncs = SyncRuns(make_session_factory(session.get_bind()))
+    run = syncs.begin("daily_check")
+    rows, _ = await run_eligibility_check(
+        BrokenCandles(infos, tickers, daily),
+        session,
+        MarketSettings(),
+        NOW,
+        on_progress=run.progress,
+        on_market_failure=run.fail,
+    )
+    run.finish()
+
+    by_market = {r.market: r for r in rows}
+    assert by_market["GOOD-EUR"].eligible
+    assert not by_market["CLEAR-EUR"].eligible
+    check = session.scalar(select(MarketCheckRow).order_by(MarketCheckRow.id.desc()))
+    assert check is not None and check.status == "ok"
+    latest = syncs.latest("daily_check")
+    assert latest is not None and latest.status == "partial"
+    assert latest.done == 2 and latest.total == 2
+    assert latest.failures is not None and "CLEAR-EUR" in latest.failures
 
 
 async def test_check_never_holds_transaction_across_fetches(session: Session) -> None:

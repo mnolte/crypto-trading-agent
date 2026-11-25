@@ -497,6 +497,7 @@ async def refresh_market_data(
                 state.settings.market,
                 trigger=trigger,
                 on_progress=check_run.progress if check_run else None,
+                on_market_failure=check_run.fail if check_run else None,
             )
             if check_run is not None:
                 latest = session.scalar(
