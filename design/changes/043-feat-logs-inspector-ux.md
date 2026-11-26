@@ -8,3 +8,9 @@
 - `design/screens/Logs.dc.html` → Recurring problems: a "Does it need you?" column (needs you, watch, nothing to do) with the count in words and Review, the three counts above the table, sorted by what needs Marc, a "What to do" line for the two that matter, and the rest folded ("4 more with nothing to do"). The Count and Review columns merged into it.
 - Screenshots: `Inspector.png`, `Inspector-390.png`, `Logs.png`, `Logs-390.png` re-rendered; `Inspector-error.png` new. `Logs-trace.png` is unchanged.
 - `design/DESIGN.md`: the Inspector row, a new "LLM inspector screen" section, the Logs screen rules, and a row in "Which PR builds which screens".
+
+## 2026-11-25 · second spec PR (Marc's two answers)
+
+- **The inspector follows Logs.** The timeout is now "Needs you" in Top reasons (listed first; the counts read 2 need you · 0 to watch · 6 nothing to do) and in the error call's What happened panel, which gains a "Review…" button and a new What to do text.
+- **The scorecard moved to Insights:** removed from `Inspector.dc.html`; `Insights.dc.html` has it as a full-width card at the bottom. The inspector's outcome block links to it.
+- Screenshots re-rendered: `Inspector.png`, `Inspector-390.png`, `Inspector-error.png`, `Insights.png`, `Insights-390.png`. `design/DESIGN.md` updated.

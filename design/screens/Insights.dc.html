@@ -192,6 +192,66 @@ table{border-collapse:collapse}
           <div style="padding: 10px 12px; background: #0F131A; border: 1px solid #232A35; border-radius: 8px; font-size: 13px; color: #C9CFD6; line-height: 1.5">Calibration gap: <span style="font-family: 'IBM Plex Mono', monospace; color: #FF8A8F">24 pts</span> above 0.7. Readiness requires 10 or less.</div>
         </section>
       </div>
+      <section aria-label="Outcome scorecard" style="flex: 1 1 100%; min-width: 0; background: #12161D; border: 1px solid #232A35; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 16px"><h2 style="margin: 0; font-size: 14px; font-weight: 600; color: #98A2AF; text-transform: uppercase; letter-spacing: 0.06em">Outcome scorecard</h2><span style="font-size: 12px; color: #98A2AF">every decider, model and prompt side by side · the period above · decisions at least 72 hours old</span></div>
+        <p style="margin: 0; font-size: 13px; color: #C9CFD6; line-height: 1.5">How each decider's decisions turned out: BUYs by win rate and average R, HOLDs and SKIPs by what they missed or avoided. The row of the decider chosen above is marked; click a row to slice this page by it.</p>
+        <div style="overflow-x: auto">
+        <div style="overflow-x: auto; max-width: 100%; min-width: 0"><table style="width: 100%; min-width: 760px; border-collapse: collapse; font-size: 13px">
+          <thead>
+            <tr style="color: #98A2AF; text-align: left">
+              <th style="padding: 8px 8px 8px 0; font-weight: 500">Decider · model · prompt</th>
+              <th style="padding: 8px; font-weight: 500; text-align: right">Decisions</th>
+              <th style="padding: 8px; font-weight: 500; text-align: right">BUYs</th>
+              <th style="padding: 8px; font-weight: 500; text-align: right">BUY win rate</th>
+              <th style="padding: 8px; font-weight: 500; text-align: right">Avg R per BUY</th>
+              <th style="padding: 8px; font-weight: 500; text-align: right">HOLD / SKIP avoided</th>
+              <th style="padding: 8px 0 8px 8px; font-weight: 500; text-align: right">HOLD / SKIP missed</th>
+            </tr>
+          </thead>
+          <tbody style="font-family: 'IBM Plex Mono', monospace">
+            <tr style="border-top: 1px solid #232A35">
+              <td style="padding: 10px 8px 10px 0; font-family: 'IBM Plex Sans', sans-serif; font-weight: 500">OpenAI · gpt-4o-mini · v2</td>
+              <td style="padding: 10px 8px; text-align: right">212</td>
+              <td style="padding: 10px 8px; text-align: right">14</td>
+              <td style="padding: 10px 8px; text-align: right">57%</td>
+              <td style="padding: 10px 8px; text-align: right; color: #3DD68C">+0.42R</td>
+              <td style="padding: 10px 8px; text-align: right">18%</td>
+              <td style="padding: 10px 0 10px 8px; text-align: right; color: #F2B94B">11%</td>
+            </tr>
+            <tr style="border-top: 1px solid #232A35">
+              <td style="padding: 10px 8px 10px 0; font-family: 'IBM Plex Sans', sans-serif; font-weight: 500">Rules pre-filter holds</td>
+              <td style="padding: 10px 8px; text-align: right">460</td>
+              <td style="padding: 10px 8px; text-align: right">—</td>
+              <td style="padding: 10px 8px; text-align: right">—</td>
+              <td style="padding: 10px 8px; text-align: right">—</td>
+              <td style="padding: 10px 8px; text-align: right">22%</td>
+              <td style="padding: 10px 0 10px 8px; text-align: right">6%</td>
+            </tr>
+            <tr style="border-top: 1px solid #232A35">
+              <td style="padding: 10px 8px 10px 0; font-family: 'IBM Plex Sans', sans-serif; font-weight: 500">Replays · gpt-4o-mini · v3-draft <span style="font-size: 11px; color: #98A2AF">hypothetical</span></td>
+              <td style="padding: 10px 8px; text-align: right">38</td>
+              <td style="padding: 10px 8px; text-align: right">4</td>
+              <td style="padding: 10px 8px; text-align: right">50%</td>
+              <td style="padding: 10px 8px; text-align: right; color: #3DD68C">+0.25R</td>
+              <td style="padding: 10px 8px; text-align: right">21%</td>
+              <td style="padding: 10px 0 10px 8px; text-align: right; color: #F2B94B">8%</td>
+            </tr>
+            <tr style="border-top: 1px solid #232A35">
+              <td style="padding: 10px 8px 10px 0; font-family: 'IBM Plex Sans', sans-serif; font-weight: 500">Shadow A · gpt-4o-mini · v3-draft <span style="font-size: 11px; color: #98A2AF">never trades</span></td>
+              <td style="padding: 10px 8px; text-align: right">96</td>
+              <td style="padding: 10px 8px; text-align: right">9</td>
+              <td style="padding: 10px 8px; text-align: right">56%</td>
+              <td style="padding: 10px 8px; text-align: right; color: #3DD68C">+0.47R</td>
+              <td style="padding: 10px 8px; text-align: right">19%</td>
+              <td style="padding: 10px 0 10px 8px; text-align: right; color: #F2B94B">9%</td>
+            </tr>
+          </tbody>
+        </table></div>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #98A2AF">Avoided: the hypothetical stop was hit first. Missed: the target was hit first. Small samples swing a lot; treat fewer than 30 BUYs as anecdotal.</p>
+    
+        <a href="Inspector.dc.html" style="align-self: flex-start; font-size: 13px; color: #F2B94B">Open these decisions' model calls in the LLM inspector</a>
+      </section>
     </main>
   </div>
 </div>

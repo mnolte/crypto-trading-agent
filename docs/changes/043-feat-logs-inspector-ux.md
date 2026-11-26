@@ -5,7 +5,7 @@ title: Logs and LLM inspector UX
 status: ready
 issue: 96
 kickoff: 043-feat-logs-inspector-ux.md
-spec_prs: [97]
+spec_prs: [97, 99]
 build_prs: []
 ---
 
@@ -21,3 +21,11 @@ Marc, 25 Nov: "Improve the UX and UI of the logs and LLM inspector pages. Get yo
 - **Storage and API:** `llm_calls` gains `outcome_status`, `reasons` and `attention` with a backfill; `GET /api/llm-calls` gets the filters, a keyset cursor and the total; new `/summary` and `/export.csv`; the detail adds the explanations and the brief as sections.
 - **Logs → Recurring problems:** "Does it need you?" per problem (an unreviewed error or a critical: needs you; a warning from `ui.log_watch_min_count`, 5, times: watch), sorted by it, with the counts above, a What to do line, and the rest folded.
 - Kept: Re-run, verdicts, the labelled export, Open in Indicators, Download JSON, the checks, attempts, replays, skipped cycles, the scorecard. "Has issues only" is replaced by Status and Reason.
+
+## 2026-11-25 · second spec PR (Marc's two answers)
+
+Marc answered the kickoff's two open questions with yes, after the first spec PR (#97) was merged and the backend build PR (#98) was opened.
+
+- **The inspector follows Logs.** A call whose failure is an ERROR line on Logs (`timeout`, `api_error`) needs Marc from the first time, until its recurring problem is reviewed; reviewing clears it on both screens. The count-based rules for timeouts, 5xx, 401/403/404 and 429 are dropped, with their settings; the other rules stay. `llm_calls` also gets `problem_key`. These calls are covered by the Needs you item "Errors not reviewed" and get no second item.
+- **The scorecard moves to Insights,** unchanged in content, following that screen's period filter.
+- The merged kickoff is not edited; Devin gets these two changes as a prompt from Marc.
